@@ -27,8 +27,9 @@ const Sidebar = ({ children }) => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Items', icon: <InventoryIcon />, path: '/items' },
-    { text: 'Stock', icon: <StoreIcon />, path: '/stock' },
+    { text: 'View Products', icon: <StoreIcon />, path: '/products' },
+    { text: 'Items Catalog', icon: <InventoryIcon />, path: '/items' },
+    { text: 'Manage Stock', icon: <StoreIcon />, path: '/stock' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'Sales', icon: <PointOfSaleIcon />, path: '/sales' },
     { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },

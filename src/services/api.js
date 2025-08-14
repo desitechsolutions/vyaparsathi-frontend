@@ -33,10 +33,10 @@ API.interceptors.response.use(
   }
 );
 
-// Existing API functions
+//API functions
 export const fetchItems = () => API.get(endpoints.items);
 export const createItem = (data) => API.post(endpoints.items, data);
-export const fetchStock = () => API.get(endpoints.stock);
+export const fetchStock = () => API.get(endpoints.fetchStock);
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
@@ -44,30 +44,9 @@ export const createSale = (data) => API.post(endpoints.sales, data);
 export const fetchDailyReport = (date) => API.get(endpoints.reports.daily(date));
 export const createExpense = (data) => API.post(endpoints.expenses, data);
 export const exportBackup = () => API.post(endpoints.backup.export, {}, { responseType: 'blob' });
-
-// New API functions for reports
-/**
- * Fetches the sales summary for a given date range.
- * @param {string} from - The start date in 'YYYY-MM-DD' format.
- * @param {string} to - The end date in 'YYYY-MM-DD' format.
- * @returns {Promise<any>}
- */
 export const fetchSalesSummary = (from, to) => API.get(endpoints.reports.salesSummary(from, to));
-
-/**
- * Fetches the GST summary for a given date range.
- * @param {string} from - The start date in 'YYYY-MM-DD' format.
- * @param {string} to - The end date in 'YYYY-MM-DD' format.
- * @returns {Promise<any>}
- */
 export const fetchGstSummary = (from, to) => API.get(endpoints.reports.gstSummary(from, to));
-
-/**
- * Fetches the GST breakdown by rate for a given date range.
- * @param {string} from - The start date in 'YYYY-MM-DD' format.
- * @param {string} to - The end date in 'YYYY-MM-DD' format.
- * @returns {Promise<any>}
- */
 export const fetchGstBreakdown = (from, to) => API.get(endpoints.reports.gstBreakdown(from, to));
+export const fetchProducts = () => API.get(endpoints.products);
 
 export default API;

@@ -10,6 +10,7 @@ import Reports from '../pages/Reports';
 import Expenses from '../pages/Expenses';
 import Backup from '../pages/Backup';
 import Login from '../pages/Login';
+import ProductOverview from '../pages/ProductOverview';
 
 function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ function AppRoutes() {
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
       <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
+      <Route path="/products" element={<PrivateRoute><ProductOverview /></PrivateRoute>} />
     </Routes>
   );
 }

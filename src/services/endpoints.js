@@ -5,9 +5,11 @@ const endpoints = {
     login: `${API_BASE}/auth/login`,
   },
   items: `${API_BASE}/items`,
+  fetchStock: `${API_BASE}/stock`,
   stock: `${API_BASE}/stock/add`,
   customers: `${API_BASE}/customers`,
   sales: `${API_BASE}/sales`,
+  products: `${API_BASE}/products`,
   reports: {
     // Daily report requires a single date
     daily: (date) => `${API_BASE}/reports/daily?date=${date}`,
