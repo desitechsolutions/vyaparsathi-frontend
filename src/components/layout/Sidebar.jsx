@@ -19,7 +19,6 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import BackupIcon from '@mui/icons-material/Backup';
 import { useNavigate } from 'react-router-dom';
-import Header from './Header';
 
 const drawerWidth = 240;
 
@@ -46,8 +45,8 @@ const Sidebar = ({ children }) => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#f5f5f5', // Light gray background
-            color: '#333', // Dark text color
+            backgroundColor: '#f5f5f5',
+            color: '#333',
           },
         }}
         variant="permanent"
@@ -67,7 +66,7 @@ const Sidebar = ({ children }) => {
               onClick={() => navigate(item.path)}
               sx={{
                 '&:hover': {
-                  backgroundColor: '#e0e0e0', // Highlight on hover
+                  backgroundColor: '#e0e0e0',
                 },
                 borderRadius: '8px',
                 margin: '4px 8px',
