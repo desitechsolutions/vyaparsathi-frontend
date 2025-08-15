@@ -19,17 +19,19 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import BackupIcon from '@mui/icons-material/Backup';
 import { useNavigate } from 'react-router-dom';
+import ViewListIcon from '@mui/icons-material/ViewList'; // A new icon for the product overview
 
 const drawerWidth = 240;
 
 const Sidebar = ({ children }) => {
   const navigate = useNavigate();
 
+  // The updated menu items with slightly clearer names and distinct icons
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'View Products', icon: <StoreIcon />, path: '/products' },
-    { text: 'Items Catalog', icon: <InventoryIcon />, path: '/items' },
-    { text: 'Manage Stock', icon: <StoreIcon />, path: '/stock' },
+    { text: 'Products Overview', icon: <ViewListIcon />, path: '/products' },
+    { text: 'Item Catalog', icon: <InventoryIcon />, path: '/items' },
+    { text: 'Inventory', icon: <StoreIcon />, path: '/inventory' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'Sales', icon: <PointOfSaleIcon />, path: '/sales' },
     { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },

@@ -4,7 +4,8 @@ const endpoints = {
   auth: {
     login: `${API_BASE}/auth/login`,
   },
-  items: `${API_BASE}/items`,
+  items: `${API_BASE}/catalog`,
+  fetchItemVariants: `${API_BASE}/item-variants/filter`,
   fetchStock: `${API_BASE}/stock`,
   stock: `${API_BASE}/stock/add`,
   customers: `${API_BASE}/customers`,

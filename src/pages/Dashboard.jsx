@@ -14,8 +14,6 @@ import {
   Cell,
 } from 'recharts';
 
-// NOTE: You will need to install recharts: npm install recharts
-
 // Since the original `../services/api` and `../services/endpoints`
 // are not available, we will simulate the API calls here for a complete, runnable example.
 // In a real application, you would replace this with your actual API service.
