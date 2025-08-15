@@ -48,7 +48,7 @@ const TabPanel = (props) => {
     </div>
   );
 };
-/* margin: '1rem 0', fontSize: { xs: '0.75rem', md: '0.85rem' } }), */
+
 const customStyles = {
   control: (provided) => ({
     ...provided,
@@ -57,11 +57,11 @@ const customStyles = {
   }),
   menu: (provided) => ({
     ...provided,
-    zIndex: 9999, // Keeps dropdown above everything
+    zIndex: 9999,
   }),
   menuList: (provided) => ({
     ...provided,
-    maxHeight: 200, // Makes dropdown scrollable if too many options
+    maxHeight: 200,
     overflowY: 'auto',
   }),
   option: (provided, state) => ({
@@ -83,7 +83,6 @@ const customStyles = {
     color: state.data.value === '' ? '#6b7280' : '#111827',
   }),
 };
-
 
 const Sales = () => {
   const [formData, setFormData] = useState({
@@ -161,28 +160,27 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-  const params = Object.fromEntries(
+    const params = Object.fromEntries(
       Object.entries(searchParams).filter(([key, value]) => value)
     );
     fetchItemVariants(params, 'http://localhost:8080/api/item-variants')
       .then((res) => {
         console.log('Variants API Response:', res.data);
         if (res.data && Array.isArray(res.data)) {
-          setVariants(
-            res.data.map((v) => ({
-              value: v.itemVariantId,
-              label: `${v.itemName} (${v.color}, ${v.size}, ${v.design}) - SKU: ${v.sku}`,
-              itemVariantId: v.itemVariantId,
-              sku: v.sku,
-              unitPrice: v.pricePerUnit,
-              availableQuantity: v.availableQuantity || 0,
-              itemName: v.itemName,
-              description: v.description || '',
-              color: v.color || '',
-              size: v.size || '',
-              design: v.design || '',
-            }))
-          );
+          const variantOptions = res.data.map((v) => ({
+            value: v.itemVariantId,
+            label: `${v.itemName} (${v.color}, ${v.size}, ${v.design}) - SKU: ${v.sku}`,
+            itemVariantId: v.itemVariantId,
+            sku: v.sku,
+            unitPrice: v.pricePerUnit,
+            availableQuantity: v.availableQuantity || 0,
+            itemName: v.itemName,
+            description: v.description || '',
+            color: v.color || '',
+            size: v.size || '',
+            design: v.design || '',
+          }));
+          setVariants(variantOptions);
 
           const names = [...new Set(res.data.map(v => v.itemName).filter(Boolean))];
           const skus = [...new Set(res.data.map(v => v.sku).filter(Boolean))];
@@ -191,20 +189,31 @@ const Sales = () => {
           const designs = [...new Set(res.data.map(v => v.design).filter(Boolean))];
           const categories = [...new Set(res.data.map(v => v.category).filter(Boolean))];
 
-          setUniqueNames(names.map(n => ({ value: n, label: n })));
-          setUniqueSkus(skus.map(s => ({ value: s, label: s })));
-          setUniqueColors(colors.map(c => ({ value: c, label: c })));
-          setUniqueSizes(sizes.map(s => ({ value: s, label: s })));
-          setUniqueDesigns(designs.map(d => ({ value: d, label: d })));
-          setUniqueCategory(categories.map(d => ({ value: d, label: d })));
+          setUniqueNames([{ value: '', label: 'All Names' }, ...names.map(n => ({ value: n, label: n }))]);
+          setUniqueSkus([{ value: '', label: 'All SKUs' }, ...skus.map(s => ({ value: s, label: s }))]);
+          setUniqueColors([{ value: '', label: 'All Colors' }, ...colors.map(c => ({ value: c, label: c }))]);
+          setUniqueSizes([{ value: '', label: 'All Sizes' }, ...sizes.map(s => ({ value: s, label: s }))]);
+          setUniqueDesigns([{ value: '', label: 'All Designs' }, ...designs.map(d => ({ value: d, label: d }))]);
+          setUniqueCategory([{ value: '', label: 'All Categories' }, ...categories.map(c => ({ value: c, label: c }))]);
         } else {
-          console.error('Invalid API response format:', res.data);
           setVariants([]);
+          setUniqueNames([{ value: '', label: 'All Names' }]);
+          setUniqueSkus([{ value: '', label: 'All SKUs' }]);
+          setUniqueColors([{ value: '', label: 'All Colors' }]);
+          setUniqueSizes([{ value: '', label: 'All Sizes' }]);
+          setUniqueDesigns([{ value: '', label: 'All Designs' }]);
+          setUniqueCategory([{ value: '', label: 'All Categories' }]);
         }
       })
       .catch((err) => {
         console.error('Error fetching variants:', err);
         setVariants([]);
+        setUniqueNames([{ value: '', label: 'All Names' }]);
+        setUniqueSkus([{ value: '', label: 'All SKUs' }]);
+        setUniqueColors([{ value: '', label: 'All Colors' }]);
+        setUniqueSizes([{ value: '', label: 'All Sizes' }]);
+        setUniqueDesigns([{ value: '', label: 'All Designs' }]);
+        setUniqueCategory([{ value: '', label: 'All Categories' }]);
       });
   }, [searchParams]);
 
@@ -281,57 +290,39 @@ const Sales = () => {
     }
   };
 
+
   const handleCustomerSelect = (selectedOption) => {
-    if (selectedOption) {
-      setSelectedCustomer(selectedOption);
-      setFormData((prevData) => ({
-        ...prevData,
-        customerId: selectedOption.value,
-      }));
-      setNewCustomerData((prev) => ({
-        ...prev,
-        addressLine1: selectedOption.addressLine1 || '',
-        phone: selectedOption.phone || '',
-        gstNumber: selectedOption.gstNumber || '',
-      }));
-    } else {
-      setSelectedCustomer(null);
-      setFormData((prevData) => ({
-        ...prevData,
-        customerId: '',
-      }));
-      setNewCustomerData((prev) => ({
-        ...prev,
-        addressLine1: '',
-        phone: '',
-        gstNumber: '',
-      }));
-    }
+    setSelectedCustomer(selectedOption);
+    setFormData((prevData) => ({
+      ...prevData,
+      customerId: selectedOption?.value || '',
+    }));
+    setNewCustomerData((prev) => ({
+      ...prev,
+      addressLine1: selectedOption?.addressLine1 || '',
+      phone: selectedOption?.phone || '',
+      gstNumber: selectedOption?.gstNumber || '',
+    }));
   };
 
-  const handleSearchParamChange = (field, value) => {
-    setSearchParams((prev) => ({ ...prev, [field]: value }));
+  const handleSearchParamChange = (field, selectedOption) => {
+    setSearchParams((prev) => ({
+      ...prev,
+      [field]: selectedOption?.value || '',
+    }));
   };
 
   const handleNewCustomer = async () => {
     const res = await createCustomer(newCustomerData);
-    setCustomers([
-      ...customers,
-      {
-        value: res.data.id,
-        label: `${res.data.name} (Address: ${res.data.addressLine1 || 'N/A'}, Phone: ${res.data.phone || 'N/A'}, GST: ${res.data.gstNumber || 'N/A'})`,
-        addressLine1: res.data.addressLine1,
-        phone: res.data.phone,
-        gstNumber: res.data.gstNumber,
-      },
-    ]);
-    setSelectedCustomer({
+    const newCustomer = {
       value: res.data.id,
       label: `${res.data.name} (Address: ${res.data.addressLine1 || 'N/A'}, Phone: ${res.data.phone || 'N/A'}, GST: ${res.data.gstNumber || 'N/A'})`,
       addressLine1: res.data.addressLine1,
       phone: res.data.phone,
       gstNumber: res.data.gstNumber,
-    });
+    };
+    setCustomers([...customers, newCustomer]);
+    setSelectedCustomer(newCustomer);
     setFormData((prevData) => ({ ...prevData, customerId: res.data.id }));
     setOpenCustomerModal(false);
     setNewCustomerData({
@@ -371,6 +362,20 @@ const Sales = () => {
         items: [],
         totalAmount: 0,
         isGstRequired: 'no',
+      });
+      setSelectedCustomer(null);
+      setSelectedVariant(null);
+      setItem({
+        itemVariantId: '',
+        sku: '',
+        qty: 1,
+        unitPrice: 0,
+        itemName: '',
+        description: '',
+        color: '',
+        size: '',
+        design: '',
+        availableQuantity: 0,
       });
       setInvoicePdf(response.data);
       setOpenInvoiceModal(true);
@@ -473,89 +478,105 @@ const Sales = () => {
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Category</Typography>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        Category
+                      </Typography>
                       <Select
-                        options={uniqueCategory.length > 0
-                                 ? [{ value: '', label: 'Choose Option' }, ...uniqueCategory]
-                                 : []}   // no options if array empty
-                        value={
-                          uniqueCategory.find(option => option.value === searchParams.category) ||
-                          { value: '', label: 'Choose Option' }
-                        }
-                        onChange={(option) => handleSearchParamChange('category', option.value)}
+                        options={uniqueCategory}
+                        value={uniqueCategory.find((option) => option.value === searchParams.category) || null}
+                        onChange={(option) => handleSearchParamChange('category', option)}
                         isSearchable
-                        placeholder={uniqueCategory.length > 0 ? "Choose Option" : "No category available"}
+                        placeholder="All Categories"
                         styles={customStyles}
                         menuPortalTarget={document.body}
                         menuPosition="fixed"
-                        noOptionsMessage={() => "No category found"}
-                        isClearable={uniqueCategory.length > 0}
-                      />
-
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block' , fontSize: { xs: '0.75rem', md: '0.85rem' }}}>Name</Typography>
-                      <Select
-                        options={[{ value: '', label: 'Choose Option' }, ...uniqueNames]}
-                        value={uniqueNames.find(option => option.value === searchParams.name) || { value: '', label: 'Choose Option' }}
-                        onChange={(option) => handleSearchParamChange('name', option.value)}
-                        isSearchable
-                        placeholder="Choose Option"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
+                        noOptionsMessage={() => "No categories found"}
+                        isClearable
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block' , fontSize: { xs: '0.75rem', md: '0.85rem' }}}>SKU</Typography>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        Name
+                      </Typography>
                       <Select
-                        options={[{ value: '', label: 'Choose Option' }, ...uniqueSkus]}
-                        value={uniqueSkus.find(option => option.value === searchParams.sku) || { value: '', label: 'Choose Option' }}
-                        onChange={(option) => handleSearchParamChange('sku', option.value)}
+                        options={uniqueNames}
+                        value={uniqueNames.find((option) => option.value === searchParams.name) || null}
+                        onChange={(option) => handleSearchParamChange('name', option)}
                         isSearchable
-                        placeholder="Choose Option"
+                        placeholder="All Names"
                         styles={customStyles}
                         menuPortalTarget={document.body}
                         menuPosition="fixed"
+                        noOptionsMessage={() => "No names found"}
+                        isClearable
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Color</Typography>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        SKU
+                      </Typography>
                       <Select
-                        options={[{ value: '', label: 'Choose Option' }, ...uniqueColors]}
-                        value={uniqueColors.find(option => option.value === searchParams.color) || { value: '', label: 'Choose Option' }}
-                        onChange={(option) => handleSearchParamChange('color', option.value)}
+                        options={uniqueSkus}
+                        value={uniqueSkus.find((option) => option.value === searchParams.sku) || null}
+                        onChange={(option) => handleSearchParamChange('sku', option)}
                         isSearchable
-                        placeholder="Choose Option"
+                        placeholder="All SKUs"
                         styles={customStyles}
                         menuPortalTarget={document.body}
                         menuPosition="fixed"
+                        noOptionsMessage={() => "No SKUs found"}
+                        isClearable
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Size</Typography>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        Color
+                      </Typography>
                       <Select
-                        options={[{ value: '', label: 'Choose Option' }, ...uniqueSizes]}
-                        value={uniqueSizes.find(option => option.value === searchParams.size) || { value: '', label: 'Choose Option' }}
-                        onChange={(option) => handleSearchParamChange('size', option.value)}
+                        options={uniqueColors}
+                        value={uniqueColors.find((option) => option.value === searchParams.color) || null}
+                        onChange={(option) => handleSearchParamChange('color', option)}
                         isSearchable
-                        placeholder="Choose Option"
+                        placeholder="All Colors"
                         styles={customStyles}
                         menuPortalTarget={document.body}
                         menuPosition="fixed"
+                        noOptionsMessage={() => "No colors found"}
+                        isClearable
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Design</Typography>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        Size
+                      </Typography>
                       <Select
-                        options={[{ value: '', label: 'Choose Option' }, ...uniqueDesigns]}
-                        value={uniqueDesigns.find(option => option.value === searchParams.design) || { value: '', label: 'Choose Option' }}
-                        onChange={(option) => handleSearchParamChange('design', option.value)}
+                        options={uniqueSizes}
+                        value={uniqueSizes.find((option) => option.value === searchParams.size) || null}
+                        onChange={(option) => handleSearchParamChange('size', option)}
                         isSearchable
-                        placeholder="Choose Option"
+                        placeholder="All Sizes"
                         styles={customStyles}
                         menuPortalTarget={document.body}
                         menuPosition="fixed"
+                        noOptionsMessage={() => "No sizes found"}
+                        isClearable
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                        Design
+                      </Typography>
+                      <Select
+                        options={uniqueDesigns}
+                        value={uniqueDesigns.find((option) => option.value === searchParams.design) || null}
+                        onChange={(option) => handleSearchParamChange('design', option)}
+                        isSearchable
+                        placeholder="All Designs"
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        noOptionsMessage={() => "No designs found"}
+                        isClearable
                       />
                     </Grid>
                   </Grid>
@@ -659,7 +680,7 @@ const Sales = () => {
                       variant="outlined"
                       type="number"
                       value={item.qty}
-                      onChange={(e) => setItem({ ...item, qty: e.target.value })}
+                      onChange={(e) => setItem({ ...item, qty: parseInt(e.target.value) || 1 })}
                       sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
                     />
                   </Grid>
@@ -739,7 +760,31 @@ const Sales = () => {
               {error && <Alert severity="error" sx={{ mr: 2 }}>{error}</Alert>}
               <Button
                 variant="outlined"
-                onClick={() => setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no' })}
+                onClick={() => {
+                  setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no' });
+                  setSelectedCustomer(null);
+                  setSelectedVariant(null);
+                  setItem({
+                    itemVariantId: '',
+                    sku: '',
+                    qty: 1,
+                    unitPrice: 0,
+                    itemName: '',
+                    description: '',
+                    color: '',
+                    size: '',
+                    design: '',
+                    availableQuantity: 0,
+                  });
+                  setSearchParams({
+                    name: '',
+                    sku: '',
+                    color: '',
+                    size: '',
+                    design: '',
+                    category: '',
+                  });
+                }}
                 sx={{ mr: 2, textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
               >
                 Clear Form
