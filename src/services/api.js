@@ -48,6 +48,8 @@ export const fetchSalesSummary = (from, to) => API.get(endpoints.reports.salesSu
 export const fetchGstSummary = (from, to) => API.get(endpoints.reports.gstSummary(from, to));
 export const fetchGstBreakdown = (from, to) => API.get(endpoints.reports.gstBreakdown(from, to));
 export const fetchProducts = () => API.get(endpoints.products);
-export const fetchItemVariants = () => API.get(endpoints.products);
+export const fetchItemVariants = (params = {}) => {
+  return API.get(endpoints.fetchItemVariants, { params });
+};
 
 export default API;

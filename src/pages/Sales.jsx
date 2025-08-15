@@ -48,13 +48,49 @@ const TabPanel = (props) => {
     </div>
   );
 };
+/* margin: '1rem 0', fontSize: { xs: '0.75rem', md: '0.85rem' } }), */
+const customStyles = {
+  control: (provided) => ({
+    ...provided,
+    fontSize: { xs: '0.75rem', md: '0.85rem' },
+    marginBottom: '1rem',
+  }),
+  menu: (provided) => ({
+    ...provided,
+    zIndex: 9999, // Keeps dropdown above everything
+  }),
+  menuList: (provided) => ({
+    ...provided,
+    maxHeight: 200, // Makes dropdown scrollable if too many options
+    overflowY: 'auto',
+  }),
+  option: (provided, state) => ({
+    ...provided,
+    fontSize: { xs: '0.75rem', md: '0.85rem' },
+    color: state.isSelected
+      ? '#fff'
+      : state.data.value === ''
+      ? '#6b7280'
+      : '#111827',
+    backgroundColor: state.isSelected
+      ? '#3b82f6'
+      : state.isFocused
+      ? '#e5e7eb'
+      : 'white',
+  }),
+  singleValue: (provided, state) => ({
+    ...provided,
+    color: state.data.value === '' ? '#6b7280' : '#111827',
+  }),
+};
+
 
 const Sales = () => {
   const [formData, setFormData] = useState({
     customerId: '',
     items: [],
     totalAmount: 0,
-    isGstRequired: 'no', // Changed to string for radio button control ('yes' or 'no')
+    isGstRequired: 'no',
   });
   const [item, setItem] = useState({
     itemVariantId: '',
@@ -101,12 +137,14 @@ const Sales = () => {
     color: '',
     size: '',
     design: '',
+    category: '',
   });
   const [uniqueNames, setUniqueNames] = useState([]);
   const [uniqueSkus, setUniqueSkus] = useState([]);
   const [uniqueColors, setUniqueColors] = useState([]);
   const [uniqueSizes, setUniqueSizes] = useState([]);
   const [uniqueDesigns, setUniqueDesigns] = useState([]);
+  const [uniqueCategory, setUniqueCategory] = useState([]);
 
   useEffect(() => {
     fetchCustomers().then((res) =>
@@ -123,7 +161,10 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-    fetchItemVariants(searchParams, 'http://localhost:8080/api/item-variants') // Corrected endpoint
+  const params = Object.fromEntries(
+      Object.entries(searchParams).filter(([key, value]) => value)
+    );
+    fetchItemVariants(params, 'http://localhost:8080/api/item-variants')
       .then((res) => {
         console.log('Variants API Response:', res.data);
         if (res.data && Array.isArray(res.data)) {
@@ -143,18 +184,19 @@ const Sales = () => {
             }))
           );
 
-          // Derive unique values for dropdowns
           const names = [...new Set(res.data.map(v => v.itemName).filter(Boolean))];
           const skus = [...new Set(res.data.map(v => v.sku).filter(Boolean))];
           const colors = [...new Set(res.data.map(v => v.color).filter(Boolean))];
           const sizes = [...new Set(res.data.map(v => v.size).filter(Boolean))];
           const designs = [...new Set(res.data.map(v => v.design).filter(Boolean))];
+          const categories = [...new Set(res.data.map(v => v.category).filter(Boolean))];
 
           setUniqueNames(names.map(n => ({ value: n, label: n })));
           setUniqueSkus(skus.map(s => ({ value: s, label: s })));
           setUniqueColors(colors.map(c => ({ value: c, label: c })));
           setUniqueSizes(sizes.map(s => ({ value: s, label: s })));
           setUniqueDesigns(designs.map(d => ({ value: d, label: d })));
+          setUniqueCategory(categories.map(d => ({ value: d, label: d })));
         } else {
           console.error('Invalid API response format:', res.data);
           setVariants([]);
@@ -198,7 +240,7 @@ const Sales = () => {
       design: '',
       availableQuantity: 0,
     });
-    setSelectedVariant(null); // Clear selected variant
+    setSelectedVariant(null);
     setError('');
   };
 
@@ -431,68 +473,89 @@ const Sales = () => {
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Category</Typography>
+                      <Select
+                        options={uniqueCategory.length > 0
+                                 ? [{ value: '', label: 'Choose Option' }, ...uniqueCategory]
+                                 : []}   // no options if array empty
+                        value={
+                          uniqueCategory.find(option => option.value === searchParams.category) ||
+                          { value: '', label: 'Choose Option' }
+                        }
+                        onChange={(option) => handleSearchParamChange('category', option.value)}
+                        isSearchable
+                        placeholder={uniqueCategory.length > 0 ? "Choose Option" : "No category available"}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        noOptionsMessage={() => "No category found"}
+                        isClearable={uniqueCategory.length > 0}
+                      />
+
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block' , fontSize: { xs: '0.75rem', md: '0.85rem' }}}>Name</Typography>
                       <Select
                         options={[{ value: '', label: 'Choose Option' }, ...uniqueNames]}
                         value={uniqueNames.find(option => option.value === searchParams.name) || { value: '', label: 'Choose Option' }}
                         onChange={(option) => handleSearchParamChange('name', option.value)}
                         isSearchable
                         placeholder="Choose Option"
-                        styles={{
-                          container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                          menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                        }}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block' , fontSize: { xs: '0.75rem', md: '0.85rem' }}}>SKU</Typography>
                       <Select
                         options={[{ value: '', label: 'Choose Option' }, ...uniqueSkus]}
                         value={uniqueSkus.find(option => option.value === searchParams.sku) || { value: '', label: 'Choose Option' }}
                         onChange={(option) => handleSearchParamChange('sku', option.value)}
                         isSearchable
                         placeholder="Choose Option"
-                        styles={{
-                          container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                          menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                        }}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Color</Typography>
                       <Select
                         options={[{ value: '', label: 'Choose Option' }, ...uniqueColors]}
                         value={uniqueColors.find(option => option.value === searchParams.color) || { value: '', label: 'Choose Option' }}
                         onChange={(option) => handleSearchParamChange('color', option.value)}
                         isSearchable
                         placeholder="Choose Option"
-                        styles={{
-                          container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                          menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                        }}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Size</Typography>
                       <Select
                         options={[{ value: '', label: 'Choose Option' }, ...uniqueSizes]}
                         value={uniqueSizes.find(option => option.value === searchParams.size) || { value: '', label: 'Choose Option' }}
                         onChange={(option) => handleSearchParamChange('size', option.value)}
                         isSearchable
                         placeholder="Choose Option"
-                        styles={{
-                          container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                          menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                        }}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
+                      <Typography variant="caption" sx={{ mb: 1, display: 'block',fontSize: { xs: '0.75rem', md: '0.85rem' } }}>Design</Typography>
                       <Select
                         options={[{ value: '', label: 'Choose Option' }, ...uniqueDesigns]}
                         value={uniqueDesigns.find(option => option.value === searchParams.design) || { value: '', label: 'Choose Option' }}
                         onChange={(option) => handleSearchParamChange('design', option.value)}
                         isSearchable
                         placeholder="Choose Option"
-                        styles={{
-                          container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                          menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                        }}
+                        styles={customStyles}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
                     </Grid>
                   </Grid>
