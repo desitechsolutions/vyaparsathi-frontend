@@ -33,14 +33,21 @@ API.interceptors.response.use(
   }
 );
 
-//API functions
+// API functions
 export const fetchItems = () => API.get(endpoints.items);
 export const createItem = (data) => API.post(endpoints.items, data);
 export const fetchStock = () => API.get(endpoints.fetchStock);
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
-export const createSale = (data) => API.post(endpoints.sales, data);
+export const createSale = (data) => {
+  return API.post(endpoints.sales, data, {
+    responseType: 'arraybuffer', // Handle binary PDF response
+  }).then((response) => {
+    console.log('Raw Response Data:', response.data); // Debug log
+    return { data: new Uint8Array(response.data) }; // Convert ArrayBuffer to Uint8Array
+  });
+};
 export const fetchDailyReport = (date) => API.get(endpoints.reports.daily(date));
 export const createExpense = (data) => API.post(endpoints.expenses, data);
 export const exportBackup = () => API.post(endpoints.backup.export, {}, { responseType: 'blob' });

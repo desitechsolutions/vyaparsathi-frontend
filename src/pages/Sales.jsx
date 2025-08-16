@@ -1,88 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Button,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Alert,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Box,
-  CircularProgress,
-  Divider,
-  IconButton,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { Document, Page } from 'react-pdf';
-import Select from 'react-select';
-import { createSale, fetchCustomers, createCustomer, fetchItemVariants } from '../services/api';
+import { Box } from '@mui/material';
+import SalesTabs from '../components/Sales/SalesTabs';
+import CustomerSection from '../components/Sales/CustomerSection';
+import ItemSection from '../components/Sales/ItemSection';
+import SalesSummary from '../components/Sales/SalesSummary';
+import InvoiceModal from '../components/Sales/InvoiceModal';
+import SalesHistory from '../components/Sales/SalesHistory';
+import { fetchCustomers, createSale, createCustomer, fetchItemVariants } from '../services/api';
+import { pdfjs } from 'react-pdf';
 
-// TabPanel definition
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-};
-
-const customStyles = {
-  control: (provided) => ({
-    ...provided,
-    fontSize: { xs: '0.75rem', md: '0.85rem' },
-    marginBottom: '1rem',
-  }),
-  menu: (provided) => ({
-    ...provided,
-    zIndex: 9999,
-  }),
-  menuList: (provided) => ({
-    ...provided,
-    maxHeight: 200,
-    overflowY: 'auto',
-  }),
-  option: (provided, state) => ({
-    ...provided,
-    fontSize: { xs: '0.75rem', md: '0.85rem' },
-    color: state.isSelected
-      ? '#fff'
-      : state.data.value === ''
-      ? '#6b7280'
-      : '#111827',
-    backgroundColor: state.isSelected
-      ? '#3b82f6'
-      : state.isFocused
-      ? '#e5e7eb'
-      : 'white',
-  }),
-  singleValue: (provided, state) => ({
-    ...provided,
-    color: state.data.value === '' ? '#6b7280' : '#111827',
-  }),
-};
+// Use local worker file
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'; // Ensure this file is in public/
 
 const Sales = () => {
   const [formData, setFormData] = useState({
@@ -92,7 +20,7 @@ const Sales = () => {
     isGstRequired: 'no',
   });
   const [item, setItem] = useState({
-    itemVariantId: '',
+    id: '',
     sku: '',
     qty: 1,
     unitPrice: 0,
@@ -101,7 +29,7 @@ const Sales = () => {
     color: '',
     size: '',
     design: '',
-    availableQuantity: 0,
+    currentStock: 0,
   });
   const [salesHistory, setSalesHistory] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -146,17 +74,19 @@ const Sales = () => {
   const [uniqueCategory, setUniqueCategory] = useState([]);
 
   useEffect(() => {
-    fetchCustomers().then((res) =>
-      setCustomers(
-        res.data.map((cust) => ({
+    fetchCustomers()
+      .then((res) => {
+        const formattedCustomers = res.data.map((cust) => ({
           value: cust.id,
           label: `${cust.name} (Address: ${cust.addressLine1 || 'N/A'}, Phone: ${cust.phone || 'N/A'}, GST: ${cust.gstNumber || 'N/A'})`,
           addressLine1: cust.addressLine1,
           phone: cust.phone,
           gstNumber: cust.gstNumber,
-        }))
-      )
-    );
+        }));
+        setCustomers(formattedCustomers);
+        console.log('Fetched Customers in Sales.jsx:', formattedCustomers); // Debug log
+      })
+      .catch((err) => console.error('Fetch Customers Error:', err));
   }, []);
 
   useEffect(() => {
@@ -168,12 +98,12 @@ const Sales = () => {
         console.log('Variants API Response:', res.data);
         if (res.data && Array.isArray(res.data)) {
           const variantOptions = res.data.map((v) => ({
-            value: v.itemVariantId,
+            value: v.id,
             label: `${v.itemName} (${v.color}, ${v.size}, ${v.design}) - SKU: ${v.sku}`,
-            itemVariantId: v.itemVariantId,
+            id: v.id,
             sku: v.sku,
             unitPrice: v.pricePerUnit,
-            availableQuantity: v.availableQuantity || 0,
+            currentStock: v.currentStock || 0,
             itemName: v.itemName,
             description: v.description || '',
             color: v.color || '',
@@ -229,7 +159,8 @@ const Sales = () => {
   }, [formData.items]);
 
   const handleAddItem = () => {
-    if (!item.itemVariantId || !item.qty || !item.unitPrice || item.qty > item.availableQuantity) {
+    if (!item.id || !item.qty || !item.unitPrice || item.qty > item.currentStock) {
+      console.log(item.id, item.qty, item.unitPrice, item.currentStock);
       setError('Please select an item, specify quantity, and ensure stock is available.');
       return;
     }
@@ -238,7 +169,7 @@ const Sales = () => {
       items: [...formData.items, item],
     });
     setItem({
-      itemVariantId: '',
+      id: '',
       sku: '',
       qty: 1,
       unitPrice: 0,
@@ -247,7 +178,7 @@ const Sales = () => {
       color: '',
       size: '',
       design: '',
-      availableQuantity: 0,
+      currentStock: 0,
     });
     setSelectedVariant(null);
     setError('');
@@ -262,7 +193,7 @@ const Sales = () => {
     if (selectedOption) {
       setSelectedVariant(selectedOption);
       setItem({
-        itemVariantId: selectedOption.itemVariantId,
+        id: selectedOption.id,
         sku: selectedOption.sku,
         qty: 1,
         unitPrice: selectedOption.unitPrice,
@@ -271,12 +202,12 @@ const Sales = () => {
         color: selectedOption.color,
         size: selectedOption.size,
         design: selectedOption.design,
-        availableQuantity: selectedOption.availableQuantity,
+        currentStock: selectedOption.currentStock,
       });
     } else {
       setSelectedVariant(null);
       setItem({
-        itemVariantId: '',
+        id: '',
         sku: '',
         qty: 1,
         unitPrice: 0,
@@ -285,13 +216,13 @@ const Sales = () => {
         color: '',
         size: '',
         design: '',
-        availableQuantity: 0,
+        currentStock: 0,
       });
     }
   };
 
-
   const handleCustomerSelect = (selectedOption) => {
+    console.log('Selected Option in handleCustomerSelect:', selectedOption); // Debug log
     setSelectedCustomer(selectedOption);
     setFormData((prevData) => ({
       ...prevData,
@@ -356,6 +287,7 @@ const Sales = () => {
         isGstRequired: formData.isGstRequired === 'yes',
       };
       const response = await createSale(saleData);
+      console.log('Create Sale Response:', response.data); // Debug log
       setSalesHistory([...salesHistory, formData]);
       setFormData({
         customerId: '',
@@ -366,7 +298,7 @@ const Sales = () => {
       setSelectedCustomer(null);
       setSelectedVariant(null);
       setItem({
-        itemVariantId: '',
+        id: '',
         sku: '',
         qty: 1,
         unitPrice: 0,
@@ -375,11 +307,19 @@ const Sales = () => {
         color: '',
         size: '',
         design: '',
-        availableQuantity: 0,
+        currentStock: 0,
       });
-      setInvoicePdf(response.data);
+      // Validate and set invoicePdf
+      if (response.data && response.data instanceof Uint8Array) {
+        setInvoicePdf(response.data);
+        console.log('Invoice PDF set as Uint8Array, length:', response.data.length);
+      } else {
+        console.error('Invalid invoicePdf format:', response.data);
+        setInvoicePdf(null); // Fallback if invalid
+      }
       setOpenInvoiceModal(true);
     } catch (err) {
+      console.error('Create Sale Error:', err);
       setError('Failed to create sale.');
     } finally {
       setLoading(false);
@@ -387,603 +327,72 @@ const Sales = () => {
   };
 
   const onDocumentLoadSuccess = ({ numPages }) => {
+    console.log('PDF Loaded Successfully, Num Pages:', numPages); // Debug log
     setNumPages(numPages);
   };
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f5f5f8', minHeight: '100vh' }}>
-      <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} centered>
-        <Tab label="Create Sale" />
-        <Tab label="Sales History" />
-      </Tabs>
-
-      <TabPanel value={tabValue} index={0}>
-        <Typography
-          variant="h4"
-          gutterBottom
-          align="center"
-          sx={{ fontWeight: 'bold', mb: 4, color: '#1976d2', fontSize: { xs: '1.5rem', md: '2rem' } }}
-        >
-          Create New Sale
-        </Typography>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card raised sx={{ p: 2, boxShadow: 3 }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-                >
-                  Customer Details
-                </Typography>
-                <Select
-                  options={customers}
-                  onChange={handleCustomerSelect}
-                  placeholder="Select Customer"
-                  isSearchable
-                  isClearable
-                  value={selectedCustomer}
-                  styles={{
-                    container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                    menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                  }}
-                />
-                <Button
-                  variant="outlined"
-                  onClick={() => setOpenCustomerModal(true)}
-                  sx={{ mb: 2, fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                >
-                  Add New Customer
-                </Button>
-                <RadioGroup
-                  row
-                  value={formData.isGstRequired}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, isGstRequired: e.target.value }))}
-                  sx={{ mb: 2 }}
-                >
-                  <FormControlLabel value="no" control={<Radio />} label="No GST" />
-                  <FormControlLabel value="yes" control={<Radio />} label="Require GST Invoice" />
-                </RadioGroup>
-                <TextField
-                  label="Total Amount"
-                  fullWidth
-                  variant="outlined"
-                  value={formData.totalAmount}
-                  disabled
-                  sx={{ mb: 2, fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Card raised sx={{ p: 2, boxShadow: 3 }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-                >
-                  Add Items to Sale
-                </Typography>
-                <Card sx={{ p: 2, mb: 2, bgcolor: '#fff' }}>
-                  <Typography
-                    variant="subtitle1"
-                    gutterBottom
-                    sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}
-                  >
-                    Search Filters
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Category
-                      </Typography>
-                      <Select
-                        options={uniqueCategory}
-                        value={uniqueCategory.find((option) => option.value === searchParams.category) || null}
-                        onChange={(option) => handleSearchParamChange('category', option)}
-                        isSearchable
-                        placeholder="All Categories"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No categories found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Name
-                      </Typography>
-                      <Select
-                        options={uniqueNames}
-                        value={uniqueNames.find((option) => option.value === searchParams.name) || null}
-                        onChange={(option) => handleSearchParamChange('name', option)}
-                        isSearchable
-                        placeholder="All Names"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No names found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        SKU
-                      </Typography>
-                      <Select
-                        options={uniqueSkus}
-                        value={uniqueSkus.find((option) => option.value === searchParams.sku) || null}
-                        onChange={(option) => handleSearchParamChange('sku', option)}
-                        isSearchable
-                        placeholder="All SKUs"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No SKUs found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Color
-                      </Typography>
-                      <Select
-                        options={uniqueColors}
-                        value={uniqueColors.find((option) => option.value === searchParams.color) || null}
-                        onChange={(option) => handleSearchParamChange('color', option)}
-                        isSearchable
-                        placeholder="All Colors"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No colors found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Size
-                      </Typography>
-                      <Select
-                        options={uniqueSizes}
-                        value={uniqueSizes.find((option) => option.value === searchParams.size) || null}
-                        onChange={(option) => handleSearchParamChange('size', option)}
-                        isSearchable
-                        placeholder="All Sizes"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No sizes found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Design
-                      </Typography>
-                      <Select
-                        options={uniqueDesigns}
-                        value={uniqueDesigns.find((option) => option.value === searchParams.design) || null}
-                        onChange={(option) => handleSearchParamChange('design', option)}
-                        isSearchable
-                        placeholder="All Designs"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No designs found"}
-                        isClearable
-                      />
-                    </Grid>
-                  </Grid>
-                </Card>
-                <Select
-                  options={variants}
-                  onChange={handleVariantSelect}
-                  placeholder="Select Variant"
-                  isClearable
-                  value={selectedVariant}
-                  styles={{
-                    container: (provided) => ({ ...provided, margin: '1rem 0', fontSize: { xs: '0.75rem', md: '0.85rem' } }),
-                    menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                  }}
-                />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="SKU"
-                      fullWidth
-                      variant="outlined"
-                      value={item.sku}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Item Name"
-                      fullWidth
-                      variant="outlined"
-                      value={item.itemName}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Description"
-                      fullWidth
-                      variant="outlined"
-                      value={item.description}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Color"
-                      fullWidth
-                      variant="outlined"
-                      value={item.color}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Size"
-                      fullWidth
-                      variant="outlined"
-                      value={item.size}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Design"
-                      fullWidth
-                      variant="outlined"
-                      value={item.design}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Unit Price"
-                      fullWidth
-                      variant="outlined"
-                      value={item.unitPrice}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Available Quantity"
-                      fullWidth
-                      variant="outlined"
-                      value={item.availableQuantity}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Quantity"
-                      fullWidth
-                      variant="outlined"
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) => setItem({ ...item, qty: parseInt(e.target.value) || 1 })}
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleAddItem}
-                    sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                  >
-                    Add Item
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Box sx={{ mt: 4 }}>
-          <Card raised sx={{ boxShadow: 3 }}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                gutterBottom
-                sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-              >
-                Items in Sale ({formData.items.length})
-              </Typography>
-              {formData.items.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No items added yet.
-                </Typography>
-              ) : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Item Name</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Qty</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Unit Price
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Total
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Actions
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {formData.items.map((saleItem, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{saleItem.itemName}</TableCell>
-                        <TableCell>{saleItem.qty}</TableCell>
-                        <TableCell align="right">₹{saleItem.unitPrice}</TableCell>
-                        <TableCell align="right">
-                          ₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            color="error"
-                            size="small"
-                            onClick={() => handleRemoveItem(index)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-            <Divider />
-            <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-              {error && <Alert severity="error" sx={{ mr: 2 }}>{error}</Alert>}
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no' });
-                  setSelectedCustomer(null);
-                  setSelectedVariant(null);
-                  setItem({
-                    itemVariantId: '',
-                    sku: '',
-                    qty: 1,
-                    unitPrice: 0,
-                    itemName: '',
-                    description: '',
-                    color: '',
-                    size: '',
-                    design: '',
-                    availableQuantity: 0,
-                  });
-                  setSearchParams({
-                    name: '',
-                    sku: '',
-                    color: '',
-                    size: '',
-                    design: '',
-                    category: '',
-                  });
-                }}
-                sx={{ mr: 2, textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-              >
-                Clear Form
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmit}
-                disabled={loading || formData.items.length === 0}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
-                sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-              >
-                {loading ? 'Submitting...' : 'Submit Sale'}
-              </Button>
-            </CardActions>
-          </Card>
-        </Box>
-
-        {/* New Customer Modal */}
-        <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)}>
-          <DialogTitle>Add New Customer</DialogTitle>
-          <DialogContent>
-            <TextField
-              label="Name"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.name}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Phone"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.phone}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Address Line 1"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.addressLine1}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Address Line 2"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.addressLine2}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine2: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="City"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.city}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="State"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.state}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, state: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Postal Code"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.postalCode}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, postalCode: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Country"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.country}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, country: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="GST Number"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.gstNumber}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="PAN Number"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.panNumber}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, panNumber: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Notes"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.notes}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Credit Balance"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.creditBalance}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, creditBalance: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenCustomerModal(false)} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Cancel
-            </Button>
-            <Button onClick={handleNewCustomer} color="primary" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Save
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Invoice Preview Modal */}
-        <Dialog open={openInvoiceModal} onClose={() => setOpenInvoiceModal(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Invoice Preview</DialogTitle>
-          <DialogContent>
-            <Document
-              file={`data:application/pdf;base64,${btoa(String.fromCharCode(...new Uint8Array(invoicePdf)))}`}
-              onLoadSuccess={onDocumentLoadSuccess}
-            >
-              <Page pageNumber={pageNumber} />
-            </Document>
-            <Typography>Page {pageNumber} of {numPages}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPageNumber(Math.max(1, pageNumber - 1))} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Previous
-            </Button>
-            <Button onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Next
-            </Button>
-            <Button onClick={() => setOpenInvoiceModal(false)} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Close
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => window.open(`data:application/pdf;base64,${btoa(String.fromCharCode(...new Uint8Array(invoicePdf)))}`)}
-              sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-            >
-              Download
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <Typography
-          variant="h5"
-          gutterBottom
-          align="center"
-          sx={{ fontWeight: 'bold', mb: 4, color: '#1976d2', fontSize: { xs: '1.3rem', md: '1.5rem' } }}
-        >
-          Sales History
-        </Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Customer ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Total Amount</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {salesHistory.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center">
-                  No sales recorded yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              salesHistory.map((sale, index) => (
-                <TableRow key={index}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{sale.customerId}</TableCell>
-                  <TableCell>₹{sale.totalAmount}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TabPanel>
+      <SalesTabs value={tabValue} onChange={setTabValue} />
+      <SalesTabs.Panel value={tabValue} index={0}>
+        <CustomerSection
+          customers={customers}
+          selectedCustomer={selectedCustomer}
+          formData={formData}
+          setFormData={setFormData}
+          newCustomerData={newCustomerData}
+          setNewCustomerData={setNewCustomerData}
+          handleCustomerSelect={handleCustomerSelect}
+          handleNewCustomer={handleNewCustomer}
+          openCustomerModal={openCustomerModal}
+          setOpenCustomerModal={setOpenCustomerModal}
+        />
+        <ItemSection
+          variants={variants}
+          selectedVariant={selectedVariant}
+          item={item}
+          setItem={setItem}
+          uniqueNames={uniqueNames}
+          uniqueSkus={uniqueSkus}
+          uniqueColors={uniqueColors}
+          uniqueSizes={uniqueSizes}
+          uniqueDesigns={uniqueDesigns}
+          uniqueCategory={uniqueCategory}
+          searchParams={searchParams}
+          handleVariantSelect={handleVariantSelect}
+          handleSearchParamChange={handleSearchParamChange}
+          handleAddItem={handleAddItem}
+          error={error}
+          setError={setError}
+        />
+        <SalesSummary
+          formData={formData}
+          handleRemoveItem={handleRemoveItem}
+          handleSubmit={handleSubmit}
+          loading={loading}
+          error={error}
+          setFormData={setFormData}
+          selectedCustomer={selectedCustomer}
+          selectedVariant={selectedVariant}
+          setSelectedCustomer={setSelectedCustomer}
+          setSelectedVariant={setSelectedVariant}
+          setItem={setItem}
+          setSearchParams={setSearchParams}
+          item={item}
+        />
+        <InvoiceModal
+          open={openInvoiceModal}
+          setOpen={setOpenInvoiceModal}
+          invoicePdf={invoicePdf}
+          pageNumber={pageNumber}
+          setPageNumber={setPageNumber}
+          numPages={numPages}
+          onDocumentLoadSuccess={onDocumentLoadSuccess}
+        />
+      </SalesTabs.Panel>
+      <SalesTabs.Panel value={tabValue} index={1}>
+        <SalesHistory salesHistory={salesHistory} />
+      </SalesTabs.Panel>
     </Box>
   );
 };
