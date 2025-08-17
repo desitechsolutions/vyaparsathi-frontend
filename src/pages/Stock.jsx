@@ -16,11 +16,14 @@ import {
   Typography,
   Container,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-// This code assumes you have the following files and functions.
-import { fetchStock, addStock } from '../services/api';
+import { fetchStock, addStock, fetchItemVariants } from '../services/api';
 
 // Reusable toolbar with a quick search box and a title
 const CustomToolbar = ({ onAddClick }) => {
@@ -51,8 +54,7 @@ const CustomToolbar = ({ onAddClick }) => {
   );
 };
 
-// A simple initial state for the form, helping to reset it easily
-const initialFormState = { itemId: '', quantity: '', batch: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '' };
 
 const Stock = () => {
   const [stock, setStock] = useState([]);
@@ -61,8 +63,9 @@ const Stock = () => {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState(initialFormState);
   const [error, setError] = useState(null);
+  const [itemVariants, setItemVariants] = useState([]);
 
-  // Function to load stock data from the API
+  // Load current stock
   const loadStock = async () => {
     setLoading(true);
     setError(null);
@@ -74,49 +77,70 @@ const Stock = () => {
         throw new Error('API response is not an array.');
       }
     } catch (err) {
-      console.error('Stock fetch error:', err);
-      setError('Failed to load stock items. Please check your API service.');
+      console.error(err);
+      setError('Failed to load stock items.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Effect to load data on component mount
+  // Load item variants for dropdown
+  const loadItemVariants = async () => {
+    try {
+      const res = await fetchItemVariants(); // Should return id, itemName, sku, color, size, unit
+      setItemVariants(res.data);
+    } catch (err) {
+      console.error('Failed to load item variants', err);
+    }
+  };
+
   useEffect(() => {
     loadStock();
+    loadItemVariants();
   }, []);
 
-  // Handle form submission for adding new stock
+  // Submit add stock
   const handleSubmit = async () => {
+    if (!formData.itemVariantId || !formData.quantity) {
+      setError('Please select item and enter quantity.');
+      return;
+    }
     setIsSubmitting(true);
-    setError(null);
     try {
-      await addStock(formData);
+      await addStock({
+        itemVariantId: formData.itemVariantId,
+        quantity: parseFloat(formData.quantity),
+        batch: formData.batch || null,
+      });
       setOpen(false);
       setFormData(initialFormState);
-      // Reload stock after successful submission
       loadStock();
+      setError(null);
     } catch (err) {
-      console.error('Error adding stock:', err);
-      setError('Failed to add stock. Please check your API service and try again.');
+      console.error(err);
+      setError('Failed to add stock.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const columns = [
-    { field: 'id', headerName: 'Item ID', width: 150 },
-    { field: 'totalQuantity', headerName: 'Total Quantity', width: 150 },
-    { field: 'batch', headerName: 'Batch', flex: 1, minWidth: 150 },
+    { field: 'itemName', headerName: 'Item Name', width: 180 },
+    { field: 'sku', headerName: 'SKU', width: 120 },
+    { field: 'unit', headerName: 'Unit', width: 80 },
+    { field: 'color', headerName: 'Color', width: 100 },
+    { field: 'size', headerName: 'Size', width: 100 },
+    { field: 'design', headerName: 'Design', width: 120 },
+    { field: 'totalQuantity', headerName: 'Total Qty', width: 100 },
+    { field: 'batch', headerName: 'Batch', width: 120 },
+    { field: 'pricePerUnit', headerName: 'Price/Unit', width: 120 },
   ];
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Stock Management
-        </Typography>
-      </Box>
+      <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
+        Stock Management
+      </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -125,71 +149,56 @@ const Stock = () => {
       )}
 
       {loading ? (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: 'calc(100vh - 200px)'
-          }}
-        >
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <Box sx={{ height: '75vh', width: '100%', '& .MuiDataGrid-cell--textCenter': { textAlign: 'center' } }}>
+        <Box sx={{ height: '70vh', width: '100%' }}>
           <DataGrid
             rows={stock}
             columns={columns}
             pageSize={10}
             rowsPerPageOptions={[10, 25, 50]}
             disableSelectionOnClick
-            slots={{
-              toolbar: CustomToolbar,
-            }}
-            slotProps={{
-              toolbar: { onAddClick: () => setOpen(true) },
-            }}
-            sx={{
-              boxShadow: 2,
-              border: 1,
-              borderColor: 'divider',
-              '& .MuiDataGrid-cell:hover': {
-                color: 'primary.main',
-              },
-            }}
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{ toolbar: { onAddClick: () => setOpen(true) } }}
           />
         </Box>
       )}
 
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Add Stock</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'grid', gap: 2 }}>
-            <TextField
-              label="Item ID"
-              value={formData.itemId}
-              onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
-              required
-              fullWidth
-            />
+            <FormControl fullWidth>
+              <InputLabel>Item Variant</InputLabel>
+              <Select
+                value={formData.itemVariantId}
+                onChange={(e) =>
+                  setFormData({ ...formData, itemVariantId: e.target.value })
+                }
+                required
+              >
+                {itemVariants.map((variant) => (
+                  <MenuItem key={variant.id} value={variant.id}>
+                    {variant.itemName} | {variant.sku} | {variant.color} | {variant.size} | {variant.unit}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <TextField
               label="Quantity"
               type="number"
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
               required
-              fullWidth
             />
+
             <TextField
               label="Batch"
               value={formData.batch}
               onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-              fullWidth
             />
           </Box>
         </DialogContent>

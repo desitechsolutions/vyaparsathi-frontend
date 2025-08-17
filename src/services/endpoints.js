@@ -11,6 +11,9 @@ const endpoints = {
   customers: `${API_BASE}/customers`,
   sales: `${API_BASE}/sales`,
   payments: `${API_BASE}/payments`,
+  salesWithDue: `${API_BASE}/sales/with-due`,
+  saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
+  recordDuePayment: `${API_BASE}/payments/record`,
   products: `${API_BASE}/products`,
   reports: {
     // Daily report requires a single date

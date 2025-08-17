@@ -40,6 +40,8 @@ export const fetchStock = () => API.get(endpoints.fetchStock);
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
+export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
+export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const createSale = (data) => {
   return API.post(endpoints.sales, data, {
     responseType: 'arraybuffer', // Handle binary PDF response
@@ -50,12 +52,17 @@ export const createSale = (data) => {
 };
 export const fetchDailyReport = (date) => API.get(endpoints.reports.daily(date));
 export const createExpense = (data) => API.post(endpoints.expenses, data);
+export const fetchExpenses = () => API.get(endpoints.expenses);
+export const updateExpense = (id, data) => API.put(`${endpoints.expenses}/${id}`, data); // New function
+export const deleteExpense = (id) => API.delete(`${endpoints.expenses}/${id}`);
 export const exportBackup = () => API.post(endpoints.backup.export, {}, { responseType: 'blob' });
 export const fetchSalesSummary = (from, to) => API.get(endpoints.reports.salesSummary(from, to));
 export const fetchGstSummary = (from, to) => API.get(endpoints.reports.gstSummary(from, to));
 export const fetchGstBreakdown = (from, to) => API.get(endpoints.reports.gstBreakdown(from, to));
 export const fetchProducts = () => API.get(endpoints.products);
-export const recordPayments = () => API.get(endpoints.payments);
+export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
+export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
+export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
 };
