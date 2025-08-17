@@ -6,11 +6,11 @@ import ItemSection from '../components/Sales/ItemSection';
 import SalesSummary from '../components/Sales/SalesSummary';
 import InvoiceModal from '../components/Sales/InvoiceModal';
 import SalesHistory from '../components/Sales/SalesHistory';
-import { fetchCustomers, createSale, createCustomer, fetchItemVariants } from '../services/api';
+import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
+import { fetchCustomers, createSale, fetchItemVariants, createCustomer } from '../services/api';
 import { pdfjs } from 'react-pdf';
 
-// Use local worker file
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'; // Ensure this file is in public/
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const Sales = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +18,10 @@ const Sales = () => {
     items: [],
     totalAmount: 0,
     isGstRequired: 'no',
+    discount: 0,
+    paymentMethods: [{ method: 'Cash', amount: 0 }],
+    remaining: 0,
+    paymentStatus: 'Pending',
   });
   const [item, setItem] = useState({
     id: '',
@@ -72,21 +76,20 @@ const Sales = () => {
   const [uniqueSizes, setUniqueSizes] = useState([]);
   const [uniqueDesigns, setUniqueDesigns] = useState([]);
   const [uniqueCategory, setUniqueCategory] = useState([]);
+  const [showReviewPage, setShowReviewPage] = useState(false);
 
   useEffect(() => {
-    fetchCustomers()
-      .then((res) => {
-        const formattedCustomers = res.data.map((cust) => ({
+    fetchCustomers().then((res) =>
+      setCustomers(
+        res.data.map((cust) => ({
           value: cust.id,
           label: `${cust.name} (Address: ${cust.addressLine1 || 'N/A'}, Phone: ${cust.phone || 'N/A'}, GST: ${cust.gstNumber || 'N/A'})`,
           addressLine1: cust.addressLine1,
           phone: cust.phone,
           gstNumber: cust.gstNumber,
-        }));
-        setCustomers(formattedCustomers);
-        console.log('Fetched Customers in Sales.jsx:', formattedCustomers); // Debug log
-      })
-      .catch((err) => console.error('Fetch Customers Error:', err));
+        }))
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -222,7 +225,7 @@ const Sales = () => {
   };
 
   const handleCustomerSelect = (selectedOption) => {
-    console.log('Selected Option in handleCustomerSelect:', selectedOption); // Debug log
+    console.log('Selected Option in handleCustomerSelect:', selectedOption);
     setSelectedCustomer(selectedOption);
     setFormData((prevData) => ({
       ...prevData,
@@ -272,28 +275,56 @@ const Sales = () => {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleProceedToReview = () => {
     if (!formData.customerId || formData.items.length === 0) {
       setError('Please provide a customer and add at least one item.');
       return;
     }
+    setShowReviewPage(true);
+  };
+
+  const handleSubmitSale = async (payload, discount, sendInvoice) => {
     setLoading(true);
     setError('');
     try {
+      console.log('Received payload in handleSubmitSale:', payload); // Debug log
+      const { sale, paymentDetails = [] } = payload; // Default to empty array if undefined
+      if (!paymentDetails) {
+        console.warn('paymentDetails is undefined, defaulting to empty array');
+        paymentDetails = [];
+      }
       const saleData = {
-        customerId: formData.customerId,
-        items: formData.items,
-        paymentMethod: 'Cash',
-        isGstRequired: formData.isGstRequired === 'yes',
+        customerId: sale.customerId,
+        items: sale.items,
+        totalAmount: parseFloat(sale.totalAmount), // Ensure numeric
+        roundOff: 0, // Default, backend will adjust
+        date: new Date().toISOString(), // Current date, adjust format if needed
+        isGstRequired: sale.isGstRequired,
+        discount: discount,
+        paymentDetails: paymentDetails.map(pm => ({
+          method: pm.method,
+          amountPaid: pm.amountPaid,
+        })),
       };
-      const response = await createSale(saleData);
-      console.log('Create Sale Response:', response.data); // Debug log
-      setSalesHistory([...salesHistory, formData]);
+
+      const saleResponse = await createSale(saleData);
+      console.log('Create Sale Response:', saleResponse.data);
+
+      // Update sales history with computed values from backend response
+      const totalPaid = paymentDetails.reduce((sum, pm) => sum + pm.amountPaid, 0);
+      const remaining = parseFloat(sale.totalAmount) - totalPaid;
+      const paymentStatus = remaining > 0 ? 'PARTIALLY_PAID' : 'PAID';
+      setSalesHistory([...salesHistory, { ...saleData, paymentDetails, remaining: remaining.toFixed(2), paymentStatus }]);
+
       setFormData({
         customerId: '',
         items: [],
         totalAmount: 0,
         isGstRequired: 'no',
+        discount: 0,
+        paymentMethods: [{ method: 'Cash', amount: 0 }],
+        remaining: 0,
+        paymentStatus: 'Pending',
       });
       setSelectedCustomer(null);
       setSelectedVariant(null);
@@ -309,14 +340,17 @@ const Sales = () => {
         design: '',
         currentStock: 0,
       });
-      // Validate and set invoicePdf
-      if (response.data && response.data instanceof Uint8Array) {
-        setInvoicePdf(response.data);
-        console.log('Invoice PDF set as Uint8Array, length:', response.data.length);
+      if (saleResponse.data && saleResponse.data instanceof Uint8Array) {
+        setInvoicePdf(saleResponse.data);
+        console.log('Invoice PDF set as Uint8Array, length:', saleResponse.data.length);
+        if (sendInvoice) {
+          console.log('Sending invoice to customer:', selectedCustomer?.phone || selectedCustomer?.addressLine1);
+        }
       } else {
-        console.error('Invalid invoicePdf format:', response.data);
-        setInvoicePdf(null); // Fallback if invalid
+        console.error('Invalid invoicePdf format:', saleResponse.data);
+        setInvoicePdf(null);
       }
+      setShowReviewPage(false);
       setOpenInvoiceModal(true);
     } catch (err) {
       console.error('Create Sale Error:', err);
@@ -326,8 +360,37 @@ const Sales = () => {
     }
   };
 
+  const handleSaveDraft = () => {
+    setSalesHistory([...salesHistory, { ...formData, status: 'Draft' }]);
+    setShowReviewPage(false);
+    setFormData({
+      customerId: '',
+      items: [],
+      totalAmount: 0,
+      isGstRequired: 'no',
+      discount: 0,
+      paymentMethods: [{ method: 'Cash', amount: 0 }],
+      remaining: 0,
+      paymentStatus: 'Pending',
+    });
+    setSelectedCustomer(null);
+    setSelectedVariant(null);
+    setItem({
+      id: '',
+      sku: '',
+      qty: 1,
+      unitPrice: 0,
+      itemName: '',
+      description: '',
+      color: '',
+      size: '',
+      design: '',
+      currentStock: 0,
+    });
+  };
+
   const onDocumentLoadSuccess = ({ numPages }) => {
-    console.log('PDF Loaded Successfully, Num Pages:', numPages); // Debug log
+    console.log('PDF Loaded Successfully, Num Pages:', numPages);
     setNumPages(numPages);
   };
 
@@ -335,51 +398,65 @@ const Sales = () => {
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f5f5f8', minHeight: '100vh' }}>
       <SalesTabs value={tabValue} onChange={setTabValue} />
       <SalesTabs.Panel value={tabValue} index={0}>
-        <CustomerSection
-          customers={customers}
-          selectedCustomer={selectedCustomer}
-          formData={formData}
-          setFormData={setFormData}
-          newCustomerData={newCustomerData}
-          setNewCustomerData={setNewCustomerData}
-          handleCustomerSelect={handleCustomerSelect}
-          handleNewCustomer={handleNewCustomer}
-          openCustomerModal={openCustomerModal}
-          setOpenCustomerModal={setOpenCustomerModal}
-        />
-        <ItemSection
-          variants={variants}
-          selectedVariant={selectedVariant}
-          item={item}
-          setItem={setItem}
-          uniqueNames={uniqueNames}
-          uniqueSkus={uniqueSkus}
-          uniqueColors={uniqueColors}
-          uniqueSizes={uniqueSizes}
-          uniqueDesigns={uniqueDesigns}
-          uniqueCategory={uniqueCategory}
-          searchParams={searchParams}
-          handleVariantSelect={handleVariantSelect}
-          handleSearchParamChange={handleSearchParamChange}
-          handleAddItem={handleAddItem}
-          error={error}
-          setError={setError}
-        />
-        <SalesSummary
-          formData={formData}
-          handleRemoveItem={handleRemoveItem}
-          handleSubmit={handleSubmit}
-          loading={loading}
-          error={error}
-          setFormData={setFormData}
-          selectedCustomer={selectedCustomer}
-          selectedVariant={selectedVariant}
-          setSelectedCustomer={setSelectedCustomer}
-          setSelectedVariant={setSelectedVariant}
-          setItem={setItem}
-          setSearchParams={setSearchParams}
-          item={item}
-        />
+        {!showReviewPage ? (
+          <>
+            <CustomerSection
+              customers={customers}
+              selectedCustomer={selectedCustomer}
+              formData={formData}
+              setFormData={setFormData}
+              newCustomerData={newCustomerData}
+              setNewCustomerData={setNewCustomerData}
+              handleCustomerSelect={handleCustomerSelect}
+              handleNewCustomer={handleNewCustomer}
+              openCustomerModal={openCustomerModal}
+              setOpenCustomerModal={setOpenCustomerModal}
+            />
+            <ItemSection
+              variants={variants}
+              selectedVariant={selectedVariant}
+              item={item}
+              setItem={setItem}
+              uniqueNames={uniqueNames}
+              uniqueSkus={uniqueSkus}
+              uniqueColors={uniqueColors}
+              uniqueSizes={uniqueSizes}
+              uniqueDesigns={uniqueDesigns}
+              uniqueCategory={uniqueCategory}
+              searchParams={searchParams}
+              handleVariantSelect={handleVariantSelect}
+              handleSearchParamChange={handleSearchParamChange}
+              handleAddItem={handleAddItem}
+              error={error}
+              setError={setError}
+            />
+            <SalesSummary
+              formData={formData}
+              handleRemoveItem={handleRemoveItem}
+              handleProceedToReview={handleProceedToReview}
+              loading={loading}
+              error={error}
+              setFormData={setFormData}
+              selectedCustomer={selectedCustomer}
+              selectedVariant={selectedVariant}
+              setSelectedCustomer={setSelectedCustomer}
+              setSelectedVariant={setSelectedVariant}
+              setItem={setItem}
+              setSearchParams={setSearchParams}
+              item={item}
+            />
+          </>
+        ) : (
+          <ReviewPaymentPage
+            formData={formData}
+            selectedCustomer={selectedCustomer}
+            onConfirm={handleSubmitSale}
+            onSaveDraft={handleSaveDraft}
+            onCancel={() => setShowReviewPage(false)}
+            setError={setError}
+            loading={loading}
+          />
+        )}
         <InvoiceModal
           open={openInvoiceModal}
           setOpen={setOpenInvoiceModal}

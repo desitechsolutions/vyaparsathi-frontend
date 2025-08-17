@@ -11,6 +11,7 @@ import Expenses from '../pages/Expenses';
 import Backup from '../pages/Backup';
 import Login from '../pages/Login';
 import ProductOverview from '../pages/ProductOverview';
+import CustomerPaymentPage from '../pages/CustomerPaymentPage';
 
 function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ function AppRoutes() {
       <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
       <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
       <Route path="/products" element={<PrivateRoute><ProductOverview /></PrivateRoute>} />
+      <Route path="/customer-payments" element={<PrivateRoute><CustomerPaymentPage /></PrivateRoute>} />
     </Routes>
   );
 }

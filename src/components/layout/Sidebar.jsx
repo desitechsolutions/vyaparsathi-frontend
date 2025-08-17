@@ -20,6 +20,7 @@ import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import BackupIcon from '@mui/icons-material/Backup';
 import { useNavigate } from 'react-router-dom';
 import ViewListIcon from '@mui/icons-material/ViewList'; // A new icon for the product overview
+import PaymentIcon from '@mui/icons-material/Payment';
 
 const drawerWidth = 240;
 
@@ -34,6 +35,7 @@ const Sidebar = ({ children }) => {
     { text: 'Inventory', icon: <StoreIcon />, path: '/inventory' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'Sales', icon: <PointOfSaleIcon />, path: '/sales' },
+    { text: 'Customer Payments', icon: <PaymentIcon />, path: '/customer-payments' },
     { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'Expenses', icon: <MoneyOffIcon />, path: '/expenses' },
     { text: 'Backup', icon: <BackupIcon />, path: '/backup' },
