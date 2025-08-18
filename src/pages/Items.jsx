@@ -16,24 +16,31 @@ import {
   Typography,
   Container,
   Alert,
-  IconButton
+  IconButton,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-// This code assumes you have the following files and functions.
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { styled } from '@mui/system';
+import CloseIcon from '@mui/icons-material/Close';
 import { fetchItems, createItem } from '../services/api';
 
-// A simple initial state for the form, helping to reset it easily
+// A simple initial state for the form, helping to reset it easily.
 const initialFormState = {
   sku: '',
   name: '',
+  category: '',
+  size: '',
+  color: '',
+  design: '',
   unit: '',
   pricePerUnit: '',
   hsn: '',
   gstRate: '',
-  photoPath: ''
+  photoFile: null,
+  photoPreviewUrl: null
 };
 
-// Reusable toolbar with a quick search box and a title
+// Reusable toolbar with a quick search box and an 'add' button.
 const CustomToolbar = ({ onAddClick }) => {
   return (
     <GridToolbarContainer sx={{ justifyContent: 'space-between', p: 1 }}>
@@ -61,6 +68,20 @@ const CustomToolbar = ({ onAddClick }) => {
     </GridToolbarContainer>
   );
 };
+
+// A custom styled component for the hidden file input.
+// This is the standard and secure way to handle file uploads in HTML/React.
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+});
 
 const Items = () => {
   const [items, setItems] = useState([]);
@@ -103,14 +124,39 @@ const Items = () => {
     loadItems();
   }, []);
 
+  // Generic handler for all text input changes
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handler for file input change
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      setFormData(prev => ({ ...prev, photoFile: file, photoPreviewUrl: previewUrl }));
+    }
+  };
+
   // Handle form submission for adding a new item
   const handleSubmit = async () => {
+    // Basic validation to prevent submitting an empty form
+    if (!formData.name || !formData.sku) {
+      setError('SKU and Name are required fields.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       await createItem(formData);
       setOpen(false);
       setFormData(initialFormState);
+      // Revoke the object URL to free up memory
+      if (formData.photoPreviewUrl) {
+        URL.revokeObjectURL(formData.photoPreviewUrl);
+      }
       // Reload items after successful submission
       loadItems();
     } catch (err) {
@@ -121,11 +167,15 @@ const Items = () => {
     }
   };
 
-  // Define columns for the DataGrid
+  // Define columns for the DataGrid. Added new fields here.
   const columns = [
     { field: 'id', headerName: 'ID', width: 90 },
     { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 150 },
     { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 200 },
+    { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
+    { field: 'size', headerName: 'Size', width: 100 },
+    { field: 'color', headerName: 'Color', width: 100 },
+    { field: 'design', headerName: 'Design', flex: 1, minWidth: 120 },
     { field: 'unit', headerName: 'Unit', width: 100 },
     { field: 'pricePerUnit', headerName: 'Price', type: 'number', width: 120 },
     { field: 'hsn', headerName: 'HSN', width: 100 },
@@ -194,75 +244,122 @@ const Items = () => {
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
             <TextField
               label="SKU"
+              name="sku"
               value={formData.sku}
-              onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+              onChange={handleFormChange}
               required
               fullWidth
             />
             <TextField
               label="Name"
+              name="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={handleFormChange}
               required
               fullWidth
             />
             <TextField
               label="Category"
+              name="category"
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              fullWidth
-            />
-            <TextField
-              label="Unit"
-              value={formData.unit}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="Size"
+              name="size"
               value={formData.size}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="Color"
+              name="color"
               value={formData.color}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="Design"
+              name="design"
               value={formData.design}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              onChange={handleFormChange}
+              fullWidth
+            />
+            <TextField
+              label="Unit"
+              name="unit"
+              value={formData.unit}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="Price per Unit"
+              name="pricePerUnit"
               type="number"
               value={formData.pricePerUnit}
-              onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="HSN"
+              name="hsn"
               value={formData.hsn}
-              onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="GST Rate"
+              name="gstRate"
               value={formData.gstRate}
-              onChange={(e) => setFormData({ ...formData, gstRate: e.target.value })}
+              onChange={handleFormChange}
               fullWidth
             />
-            <TextField
-              label="Photo Path"
-              value={formData.photoPath}
-              onChange={(e) => setFormData({ ...formData, photoPath: e.target.value })}
-              fullWidth
-              sx={{ gridColumn: '1 / -1' }}
-            />
+
+            {/* File Upload Section */}
+            <Box sx={{ gridColumn: '1 / -1', mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Button
+                component="label"
+                role={undefined}
+                variant="contained"
+                tabIndex={-1}
+                startIcon={<CloudUploadIcon />}
+                fullWidth
+              >
+                Upload Photo
+                <VisuallyHiddenInput type="file" onChange={handleFileChange} />
+              </Button>
+              {/* Display the selected file name */}
+              <TextField
+                label="Selected Photo"
+                value={formData.photoFile ? formData.photoFile.name : ''}
+                InputProps={{
+                  readOnly: true,
+                }}
+                fullWidth
+              />
+              {/* Image Preview */}
+              {formData.photoPreviewUrl && (
+                <Box
+                  sx={{
+                    mt: 2,
+                    border: '1px solid #ccc',
+                    borderRadius: '8px',
+                    p: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <img
+                    src={formData.photoPreviewUrl}
+                    alt="Photo Preview"
+                    style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }}
+                  />
+                </Box>
+              )}
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
