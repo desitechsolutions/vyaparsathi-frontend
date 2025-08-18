@@ -78,7 +78,15 @@ const Items = () => {
       const res = await fetchItems();
       // Ensure res.data is an array before mapping
       if (Array.isArray(res.data)) {
-        setItems(res.data.map(item => ({ ...item, id: item.itemId })));
+        const rows = res.data.flatMap(item =>
+            (item.variants || []).map(variant => ({
+            id: variant.id,
+            name: item.name,
+            description: item.description,
+            ...variant,
+            }))
+        );
+        setItems(rows);
       } else {
         throw new Error('API response is not an array.');
       }
@@ -199,8 +207,33 @@ const Items = () => {
               fullWidth
             />
             <TextField
+              label="Category"
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              fullWidth
+            />
+            <TextField
               label="Unit"
               value={formData.unit}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              fullWidth
+            />
+            <TextField
+              label="Size"
+              value={formData.size}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              fullWidth
+            />
+            <TextField
+              label="Color"
+              value={formData.color}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              fullWidth
+            />
+            <TextField
+              label="Design"
+              value={formData.design}
               onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
               fullWidth
             />
