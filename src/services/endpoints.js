@@ -5,7 +5,14 @@ const endpoints = {
     login: `${API_BASE}/auth/login`,
   },
   items: `${API_BASE}/catalog`,
+  getItemById: (id) => `${API_BASE}/catalog/${id}`,
+  updateItem: (id) => `${API_BASE}/catalog/${id}`,
+
   fetchItemVariants: `${API_BASE}/item-variants/filter`,
+  createItemVariant: `${API_BASE}/item-variants`,
+  deleteItemVariant: (id) => `${API_BASE}/catalog/${id}`,
+
+
   fetchStock: `${API_BASE}/stock`,
   stock: `${API_BASE}/stock/add`,
   customers: `${API_BASE}/customers`,

@@ -36,6 +36,14 @@ API.interceptors.response.use(
 // API functions
 export const fetchItems = () => API.get(endpoints.items);
 export const createItem = (data) => API.post(endpoints.items, data);
+export const getItemById = (id) => API.get(endpoints.getItemById(id));
+export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
+
+export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
+export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
+
+
+
 export const fetchStock = () => API.get(endpoints.fetchStock);
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchCustomers = () => API.get(endpoints.customers);
