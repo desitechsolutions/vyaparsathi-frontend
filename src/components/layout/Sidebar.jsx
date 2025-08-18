@@ -19,15 +19,67 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import BackupIcon from '@mui/icons-material/Backup';
 import { useNavigate } from 'react-router-dom';
-import ViewListIcon from '@mui/icons-material/ViewList'; // A new icon for the product overview
+import ViewListIcon from '@mui/icons-material/ViewList';
 import PaymentIcon from '@mui/icons-material/Payment';
+import InfoIcon from '@mui/icons-material/Info'; // Icon for About Us
+import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import { useTranslation } from 'react-i18next';
+
+const AppBranding = () => {
+const { t } = useTranslation();
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+      }}
+    >
+      <TrendingUpOutlinedIcon
+        sx={{
+          fontSize: { xs: 30, sm: 40 },
+          color: 'white',
+          '&:hover': { color: '#fff' },
+        }}
+      />
+      <Box>
+        <Typography
+          variant="h6"
+          component="div"
+          noWrap
+          sx={{
+            fontWeight: '900',
+            fontSize: { xs: '1.2rem', sm: '1.75rem' },
+            color: 'white',
+          }}
+        >
+          VyaparSathi
+        </Typography>
+        <Typography
+          variant="caption"
+          component="div"
+          noWrap
+          sx={{
+            fontSize: { xs: '0.65rem', sm: '0.8rem' },
+            color: 'rgba(255, 255, 255, 0.8)',
+            letterSpacing: 0.5,
+            mt: -0.5,
+            fontStyle: 'italic',
+          }}
+        >
+          Safal Vyapar, Aasan Hisab
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
 
 const drawerWidth = 240;
 
 const Sidebar = ({ children }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  // The updated menu items with slightly clearer names and distinct icons
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Products Overview', icon: <ViewListIcon />, path: '/products' },
@@ -40,6 +92,8 @@ const Sidebar = ({ children }) => {
     { text: 'Expenses', icon: <MoneyOffIcon />, path: '/expenses' },
     { text: 'Backup', icon: <BackupIcon />, path: '/backup' },
   ];
+
+  const aboutItem = { text: 'About Us', icon: <InfoIcon />, path: '/about-us' };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -58,9 +112,7 @@ const Sidebar = ({ children }) => {
         anchor="left"
       >
         <Toolbar sx={{ backgroundColor: '#1976d2', color: '#fff' }}>
-          <Typography variant="h6" component="div" noWrap sx={{ fontWeight: 'bold' }}>
-            VyaparSathi
-          </Typography>
+          <AppBranding />
         </Toolbar>
         <Divider />
         <List>
@@ -83,6 +135,25 @@ const Sidebar = ({ children }) => {
               <ListItemText primary={item.text} />
             </ListItem>
           ))}
+        </List>
+        <Divider />
+        <List sx={{ marginTop: 'auto' }}>
+          <ListItem
+            button
+            onClick={() => navigate(aboutItem.path)}
+            sx={{
+              '&:hover': {
+                backgroundColor: '#e0e0e0',
+              },
+              borderRadius: '8px',
+              margin: '4px 8px',
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
+              {aboutItem.icon}
+            </ListItemIcon>
+            <ListItemText primary={aboutItem.text} />
+          </ListItem>
         </List>
       </Drawer>
       <Box

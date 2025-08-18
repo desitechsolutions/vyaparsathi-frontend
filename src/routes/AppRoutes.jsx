@@ -13,6 +13,7 @@ import Login from '../pages/Login';
 import ProductOverview from '../pages/ProductOverview';
 import CustomerPaymentPage from '../pages/CustomerPaymentPage';
 import CustomerDetails from '../pages/CustomerDetails';
+import AboutUs from '../pages/AboutUs';
 
 function AppRoutes() {
   return (
@@ -29,6 +30,8 @@ function AppRoutes() {
       <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
       <Route path="/products" element={<PrivateRoute><ProductOverview /></PrivateRoute>} />
       <Route path="/customer-payments" element={<PrivateRoute><CustomerPaymentPage /></PrivateRoute>} />
+      <Route path="/about-us" element={<PrivateRoute><AboutUs /></PrivateRoute>} />
+
     </Routes>
   );
 }
