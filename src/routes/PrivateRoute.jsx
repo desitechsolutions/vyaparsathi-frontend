@@ -3,8 +3,10 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { isAuthenticated } from '../utils/auth';
 import Sidebar from '../components/layout/Sidebar';
 import useShopConfig from '../hooks/useShopConfig';
+import { useAuthContext } from '../context/AuthContext';
 
 function PrivateRoute({ children }) {
+   const { user } = useAuthContext();
   const auth = isAuthenticated();
   const { shop, loading } = useShopConfig();
   const location = useLocation();

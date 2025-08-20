@@ -12,6 +12,9 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from './config/i18n';
 import { refreshToken as refreshTokenApi } from './services/api';
 
+// 1. Import AuthProvider
+import { AuthProvider } from './context/AuthContext';
+
 const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes
 
 function App() {
@@ -106,13 +109,16 @@ function App() {
     <I18nextProvider i18n={i18n}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
-          <Header />
-          <Suspense fallback={<div>Loading...</div>}>
-            <AppRoutes />
-          </Suspense>
-        </Router>
-        <ToastContainer />
+        {/* 2. Wrap everything in AuthProvider */}
+        <AuthProvider>
+          <Router>
+            <Header />
+            <Suspense fallback={<div>Loading...</div>}>
+              <AppRoutes />
+            </Suspense>
+          </Router>
+          <ToastContainer />
+        </AuthProvider>
       </ThemeProvider>
     </I18nextProvider>
   );
