@@ -14,11 +14,13 @@ import ProductOverview from '../pages/ProductOverview';
 import CustomerPaymentPage from '../pages/CustomerPaymentPage';
 import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
+import SetupShop from '../pages/SetupShop';
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/setup-shop" element={<SetupShop />} />
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/items" element={<PrivateRoute><Items /></PrivateRoute>} />
       <Route path="/stock" element={<PrivateRoute><Stock /></PrivateRoute>} />
