@@ -3,8 +3,6 @@ import {
   DataGrid,
   GridToolbarContainer,
   GridToolbarQuickFilter,
-  GridRenderCellParams,
-  GridRowParams,
 } from '@mui/x-data-grid';
 import {
   Button,
@@ -49,6 +47,7 @@ const Customers = () => {
   const [formData, setFormData] = useState(initialFormState());
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [dues, setDues] = useState({});
+  const [expandedRows, setExpandedRows] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   function initialFormState() {
@@ -140,6 +139,14 @@ const Customers = () => {
     }
   };
 
+  // Listen for expanded rows and load dues for them
+  useEffect(() => {
+    expandedRows.forEach((rowId) => {
+      loadDuesForCustomer(rowId);
+    });
+    // eslint-disable-next-line
+  }, [expandedRows]);
+
   const columns = [
     { field: 'id', headerName: 'ID', width: 70, sortable: false },
     { field: 'name', headerName: 'Name', flex: 1, minWidth: 150, sortable: true },
@@ -189,37 +196,38 @@ const Customers = () => {
     },
   ];
 
-  const getDetailPanelContent = ({ row }) => {
-    useEffect(() => {
-      loadDuesForCustomer(row.id);
-    }, [row.id]);
-
-    return (
-      <Box sx={{ p: 2 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Outstanding Invoices
-        </Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Invoice No</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Due Amount</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {dues[row.id]?.map((due) => (
+  // No hooks here!
+  const getDetailPanelContent = ({ row }) => (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="subtitle1" gutterBottom>
+        Outstanding Invoices
+      </Typography>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Invoice No</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Due Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {dues[row.id]?.length > 0 ? (
+            dues[row.id].map((due) => (
               <TableRow key={due.saleId}>
                 <TableCell>{due.invoiceNo}</TableCell>
                 <TableCell>{new Date(due.date).toLocaleDateString()}</TableCell>
                 <TableCell>₹{due.dueAmount.toFixed(2)}</TableCell>
               </TableRow>
-            )) || <TableRow><TableCell colSpan={3}>Loading...</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </Box>
-    );
-  };
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={3}>Loading...</TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Box>
+  );
 
   return (
     <Box sx={{ height: 600, width: '100%', p: 2 }}>
@@ -257,6 +265,7 @@ const Customers = () => {
             Toolbar: CustomToolbar,
           }}
           autoHeight
+          onDetailPanelExpandedRowIdsChange={(ids) => setExpandedRows(ids)}
         />
       )}
 
@@ -444,6 +453,16 @@ const Customers = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

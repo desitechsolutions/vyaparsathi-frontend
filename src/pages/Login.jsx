@@ -10,6 +10,7 @@ import {
   Paper,
   Link,
   IconButton,
+  MenuItem,
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
@@ -20,14 +21,20 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import API from '../services/api';
 import { setToken } from '../utils/auth';
 import endpoints from '../services/endpoints';
+const ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'OWNER', label: 'Owner' },
+  { value: 'STAFF', label: 'Staff' },
+];
 
 const Login = () => {
   // State to manage which form view is active: 'login', 'register', or 'forgotPin'
   const [view, setView] = useState('login');
+  const [role, setRole] = useState('STAFF');
 
   // Common state for form handling
   const [username, setUsername] = useState(localStorage.getItem('lastUsername') || '');
-  const [pin, setPin] = useState(localStorage.getItem('lastPin') || '');
+  const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +54,6 @@ const Login = () => {
         }
         if (pinRef.current && pinRef.current.value !== pin) {
           setPin(pinRef.current.value);
-          localStorage.setItem('lastPin', pinRef.current.value);
         }
       }
     };
@@ -65,7 +71,6 @@ const Login = () => {
       }
       if (pinRef.current && pinRef.current.value !== pin) {
         setPin(pinRef.current.value);
-        localStorage.setItem('lastPin', pinRef.current.value);
       }
     };
     checkAutofill();
@@ -78,39 +83,53 @@ const Login = () => {
   }, [username, pin]);
 
   // Handle API calls for different views
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    setSuccessMessage('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setError('');
+  setSuccessMessage('');
 
-    try {
-      let response;
-      if (view === 'login') {
-        response = await API.post(endpoints.auth.login, { username, pin });
-        setToken(response.data.token);
-        // Navigate to the dashboard or home page on successful login
-        window.location.href = '/';
-      } else if (view === 'register') {
-        if (pin !== confirmPin) {
-          throw new Error('Pins do not match.');
-        }
-        response = await API.post(endpoints.auth.register, { username, pin });
-        setSuccessMessage('Registration successful! You can now log in.');
-        setTimeout(() => setView('login'), 2000);
-      } else if (view === 'forgotPin') {
-        response = await API.post(endpoints.auth.forgetPin, { username });
-        setSuccessMessage(response.data.message || 'PIN reset link sent.');
-        setTimeout(() => setView('login'), 2000);
+  try {
+    if (view === 'login') {
+      if (!username.trim() || !pin.trim()) {
+        setError('Username and PIN are required.');
+        setIsSubmitting(false);
+        return;
       }
-    } catch (err) {
-      setError(err.message || 'An unexpected error occurred. Please try again.');
-      console.error('API call error:', err);
-    } finally {
-      setIsSubmitting(false);
+      const response = await API.post(endpoints.auth.login, { username, pin });
+      setToken(response.data.token, response.data.refreshToken);
+      window.location.href = '/';
+    } else if (view === 'register') {
+      if (!username.trim() || !pin.trim() || !confirmPin.trim() || !role) {
+        setError('All fields are required.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (pin !== confirmPin) {
+        setError('Pins do not match.');
+        setIsSubmitting(false);
+        return;
+      }
+      const response = await API.post(endpoints.auth.register, { username, pin, role });
+      setSuccessMessage('Registration successful! You can now log in.');
+      setTimeout(() => setView('login'), 2000);
+    } else if (view === 'forgotPin') {
+      if (!username.trim()) {
+        setError('Username is required.');
+        setIsSubmitting(false);
+        return;
+      }
+      const response = await API.post(endpoints.auth.forgetPin, { username });
+      setSuccessMessage(response.data.message || 'PIN reset link sent.');
+      setTimeout(() => setView('login'), 2000);
     }
-  };
-
+  } catch (err) {
+    setError(err.response?.data?.message || err.message || 'An unexpected error occurred. Please try again.');
+    console.error('API call error:', err);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   // Conditionally render the correct form based on the 'view' state
   const renderForm = () => {
     switch (view) {
@@ -144,7 +163,6 @@ const Login = () => {
                 value={pin}
                 onChange={(e) => {
                   setPin(e.target.value);
-                  localStorage.setItem('lastPin', e.target.value);
                 }}
                 disabled={isSubmitting}
                 required
@@ -233,6 +251,23 @@ const Login = () => {
                 helperText={pin !== confirmPin && confirmPin.length > 0 ? "Pins do not match." : ""}
                 InputLabelProps={{ shrink: !!confirmPin }}
               />
+              <TextField
+                select
+                label="Role"
+                fullWidth
+                margin="normal"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                disabled={isSubmitting}
+                required
+                InputLabelProps={{ shrink: true }}
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Button
                 variant="contained"
                 color="secondary"

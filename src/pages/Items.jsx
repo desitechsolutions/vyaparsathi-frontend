@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-// @mui/x-data-grid અને અન્ય જરૂરી લાઇબ્રેરીઓને યોગ્ય રીતે ચલાવવા માટે CDN linksનો ઉપયોગ કરવામાં આવ્યો છે.
 import {
   DataGrid,
   GridToolbarContainer,
   GridToolbarQuickFilter
-} from 'https://cdn.jsdelivr.net/npm/@mui/x-data-grid@7.10.2/build/index.js';
+} from '@mui/x-data-grid';
 import {
   Button,
   TextField,
@@ -35,92 +34,21 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { styled } from '@mui/system';
 
-// આ એન્વાયર્નમેન્ટમાં તમારી api.js અને constants.js ફાઇલો ઉપલબ્ધ ન હોવાથી,
-// અહીં ડેમોન્સ્ટ્રેશન માટે મોક ડેટા અને ફંક્શન્સનો ઉપયોગ કરવામાં આવ્યો છે.
-// જ્યારે તમે તમારા પ્રોજેક્ટમાં આ કોડનો ઉપયોગ કરો, ત્યારે આ મોક કોડને તમારી
-// વાસ્તવિક ફાઇલોના imports સાથે બદલી શકો છો.
+import {
+  fetchItems,
+  createItem,
+  updateItem,
+  deleteItemVariant,
+} from '../services/api';
 
-// Mock API calls for demonstration purposes.
-const fetchItems = async () => {
-  console.log('Fetching items from API...');
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return {
-    data: [
-      {
-        id: 'item1',
-        name: 'Classic T-Shirt',
-        description: 'A comfortable cotton T-shirt.',
-        category: 'Men - Tops - T-Shirts',
-        brandName: 'BrandA',
-        variants: [
-          { id: 1, sku: 'TSHIRT-S-BLK', unit: 'piece', pricePerUnit: 15.00, gstRate: '12%', color: 'Black', size: 'S', design: 'Solid', photoUrl: 'https://placehold.co/100x100/A0A0A0/ffffff?text=TS' },
-          { id: 2, sku: 'TSHIRT-M-BLK', unit: 'piece', pricePerUnit: 15.00, gstRate: '12%', color: 'Black', size: 'M', design: 'Solid', photoUrl: 'https://placehold.co/100x100/A0A0A0/ffffff?text=TS' },
-        ]
-      },
-      {
-        id: 'item2',
-        name: 'Leather Wallet',
-        description: 'A premium leather wallet.',
-        category: 'Accessories - Wallets',
-        brandName: 'BrandB',
-        variants: [
-          { id: 3, sku: 'WALLET-BRN', unit: 'piece', pricePerUnit: 50.00, gstRate: '18%', color: 'Brown', size: 'One Size', design: 'Textured', photoUrl: 'https://placehold.co/100x100/8B4513/ffffff?text=Wallet' }
-        ]
-      }
-    ]
-  };
-};
+import {
+  clothingCategories,
+  clothingSizes,
+  clothingColors,
+  clothingDesigns,
+  clothingUnits,
+} from '../ui/constants';
 
-const createItem = async (formData) => {
-  console.log('Creating item with data:', Object.fromEntries(formData.entries()));
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  return { success: true };
-};
-
-const updateItem = async (itemId, formData) => {
-  console.log(`Updating item ${itemId} with data:`, Object.fromEntries(formData.entries()));
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  return { success: true };
-};
-
-const deleteItemVariant = async (variantId) => {
-  console.log(`Deleting variant ${variantId}`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true };
-};
-
-const getItemById = async (itemId) => {
-  console.log(`Fetching item ${itemId}`);
-  await new Promise(resolve => setTimeout(resolve, 750));
-  // This is a simplified mock. In a real app, this would get a single item.
-  const allItems = (await fetchItems()).data;
-  const item = allItems.find(item => item.id === itemId);
-  return item;
-};
-
-// Mock constants for the Autocomplete options.
-const clothingCategories = {
-  Men: {
-    Tops: ['T-Shirts', 'Shirts', 'Hoodies'],
-    Bottoms: ['Jeans', 'Trousers'],
-  },
-  Women: {
-    Tops: ['Blouses', 'Sweaters'],
-    Bottoms: ['Skirts', 'Leggings'],
-  },
-};
-const clothingSizes = {
-  Tops: ['S', 'M', 'L', 'XL'],
-  Bottoms: ['28', '30', '32', '34'],
-};
-const clothingColors = ['Black', 'White', 'Blue', 'Red', 'Green'];
-const clothingDesigns = {
-  Tops: ['Solid', 'Striped', 'Graphic Print'],
-  Bottoms: ['Distressed', 'Plain', 'Textured'],
-};
-const clothingUnits = ['piece', 'dozen', 'meter', 'kg'];
-
-// Styled component for a hidden file input
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
   clipPath: 'inset(50%)',
@@ -133,7 +61,6 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-// Utility function to flatten nested constant objects for Autocomplete options
 const flattenOptions = (options) => {
   const flattened = [];
   if (Array.isArray(options)) {
@@ -151,7 +78,6 @@ const flattenOptions = (options) => {
   return [...new Set(flattened)];
 };
 
-// Reusable toolbar with a quick search box and an 'add' button.
 const CustomToolbar = ({ onAddItemClick }) => (
   <GridToolbarContainer sx={{ justifyContent: 'space-between', p: 1 }}>
     <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
@@ -228,21 +154,18 @@ const Items = () => {
     loadItems();
   }, []);
 
-  // Generic handler for all text input changes
   const handleItemFormChange = (e) => {
     const { name, value } = e.target;
     setItemFormData(prev => ({ ...prev, [name]: value }));
     setDialogError(null);
   };
 
-  // Generic handler for all variant input changes
   const handleCurrentVariantChange = (e) => {
     const { name, value } = e.target;
     setCurrentVariant(prev => ({ ...prev, [name]: value }));
     setDialogError(null);
   };
 
-  // Handle file upload for current variant
   const handleCurrentVariantFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -252,7 +175,6 @@ const Items = () => {
     setDialogError(null);
   };
 
-  // Add current variant to the list
   const addVariantToList = () => {
     if (!currentVariant.unit || !currentVariant.pricePerUnit || !currentVariant.sku) {
       setDialogError('SKU, Unit and Price per Unit are required for each variant.');
@@ -263,7 +185,6 @@ const Items = () => {
     setDialogError(null);
   };
 
-  // Handle multi-step form submission (Add)
   const handleMultiStepSubmit = async () => {
     if (!itemFormData.name || !itemFormData.category || variantList.length === 0) {
       setDialogError('Item name, category, and at least one variant are required.');
@@ -275,7 +196,6 @@ const Items = () => {
       const formData = new FormData();
       formData.append('itemDto', new Blob([JSON.stringify(itemFormData)], { type: 'application/json' }));
       variantList.forEach((variant, index) => {
-        // Exclude photoFile and photoPreviewUrl from the DTO
         const { photoFile, photoPreviewUrl, ...variantDto } = variant;
         formData.append('variantDtoList', new Blob([JSON.stringify(variantDto)], { type: 'application/json' }));
         if (photoFile) formData.append('photos', photoFile, `variant_${index}_${photoFile.name}`);
@@ -291,7 +211,6 @@ const Items = () => {
     }
   };
 
-  // Handle multi-step form update (Edit)
   const handleMultiStepUpdate = async () => {
     if (!itemFormData.name || !itemFormData.category || variantList.length === 0) {
       setDialogError('Item name, category, and at least one variant are required.');
@@ -318,39 +237,50 @@ const Items = () => {
     }
   };
 
-  // Handle edit item
-  const handleEditItem = async (itemId) => {
-    try {
-      const item = await getItemById(itemId);
-      if (item) {
-        setItemFormData({
-          name: item.name || '',
-          description: item.description || '',
-          category: item.category || '',
-          brandName: item.brandName || '',
-        });
-        setVariantList(item.variants || []);
-        setCurrentVariant({ sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
-        setSelectedItemId(itemId);
-        setOpenEditDialog(true);
-        setStep(0);
-        setDialogError(null);
-      } else {
-        throw new Error('Item not found.');
-      }
-    } catch (err) {
-      console.error('Edit item error:', err);
-      setError('Failed to load item for editing.');
+  // Edit handler using local state (no API call)
+  const handleEditItem = (itemId, variantId) => {
+    // Find the item and all its variants from items state
+    const itemRows = items.filter(i => i.itemId === itemId);
+    if (itemRows.length > 0) {
+      const item = itemRows[0];
+      setItemFormData({
+        name: item.name || '',
+        description: item.description || '',
+        category: item.category || '',
+        brandName: item.brandName || '',
+      });
+      const allVariants = itemRows.map(i => ({
+        id: i.id,
+        sku: i.sku,
+        unit: i.unit,
+        pricePerUnit: i.pricePerUnit,
+        size: i.size,
+        color: i.color,
+        design: i.design,
+        gstRate: i.gstRate,
+        photoUrl: i.photoUrl,
+      }));
+      setVariantList(allVariants);
+      const variant = allVariants.find(v => v.id === variantId);
+      setCurrentVariant(
+        variant
+          ? { ...variant, photoFile: null, photoPreviewUrl: variant.photoUrl || null }
+          : { sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null }
+      );
+      setSelectedItemId(itemId);
+      setOpenEditDialog(true);
+      setStep(0);
+      setDialogError(null);
+    } else {
+      setError('Item not found.');
     }
   };
 
-  // Handle deletion of a variant
   const handleDeleteVariant = (variantId) => {
     setSelectedVariantId(variantId);
     setOpenDeleteConfirm(true);
   };
 
-  // Final delete action from confirmation dialog
   const confirmDeleteVariant = async () => {
     setOpenDeleteConfirm(false);
     setError(null);
@@ -362,42 +292,74 @@ const Items = () => {
       setError('Failed to delete variant.');
     }
   };
+const columns = [
+  {
+    field: 'name',
+    headerName: 'Name',
+    flex: 1.5,
+    minWidth: 180,
+    renderCell: (params) => (
+      <Tooltip
+        title={
+          <>
+            {params.row.description && (
+              <div>
+                <strong>Description:</strong> {params.row.description}
+              </div>
+            )}
+            {params.row.design && (
+              <div>
+                <strong>Design:</strong> {params.row.design}
+              </div>
+            )}
+          </>
+        }
+        arrow
+        placement="top"
+      >
+        <span>{params.value}</span>
+      </Tooltip>
+    ),
+  },
+  { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
+  { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 120 },
+  { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 120 },
+  { field: 'size', headerName: 'Size', width: 90 },
+  { field: 'color', headerName: 'Color', width: 90 },
+  {
+    field: 'pricePerUnit',
+    headerName: 'Price',
+    type: 'number',
+    width: 110,
+    valueFormatter: ({ value }) => `₹${value}`,
+  },
+  {
+    field: 'gstRate',
+    headerName: 'GST (%)',
+    width: 100,
+    valueFormatter: ({ value }) => value ? `${value}%` : '',
+  },
+  {
+    field: 'actions',
+    headerName: 'Actions',
+    width: 160,
+    renderCell: (params) => (
+      <>
+        <Tooltip title="Edit Item">
+          <IconButton color="primary" onClick={() => handleEditItem(params.row.itemId, params.row.id)}>
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete Variant">
+          <IconButton color="error" onClick={() => handleDeleteVariant(params.row.id)}>
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </>
+    ),
+  },
+];
 
-  // Define columns for DataGrid
-  const columns = [
-    { field: 'id', headerName: 'ID', width: 90 },
-    { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 200 },
-    { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
-    { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 120 },
-    { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 150 },
-    { field: 'size', headerName: 'Size', width: 100 },
-    { field: 'color', headerName: 'Color', width: 100 },
-    { field: 'design', headerName: 'Design', flex: 1, minWidth: 120 },
-    { field: 'unit', headerName: 'Unit', width: 100 },
-    { field: 'pricePerUnit', headerName: 'Price', type: 'number', width: 120 },
-    { field: 'gstRate', headerName: 'GST Rate', width: 100 },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 200,
-      renderCell: (params) => (
-        <>
-          <Tooltip title="Edit Item">
-            <IconButton color="primary" onClick={() => handleEditItem(params.row.itemId)}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete Variant">
-            <IconButton color="error" onClick={() => handleDeleteVariant(params.row.id)}>
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </>
-      ),
-    },
-  ];
-
-  // Helper function to reset all dialog states
   const handleDialogClose = () => {
     setOpenAddDialog(false);
     setOpenEditDialog(false);
@@ -408,7 +370,6 @@ const Items = () => {
     setDialogError(null);
   };
 
-  // Steps for the multi-step dialog
   const steps = ['Item Details', 'Add Variants', 'Review & Save'];
 
   const getStepContent = (step) => {

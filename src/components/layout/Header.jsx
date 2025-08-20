@@ -24,13 +24,12 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
-import SupportIcon from '@mui/icons-material/Support'; // Import Support icon
+import SupportIcon from '@mui/icons-material/Support';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
 
-// Reusable AppBranding component with consistent design
 const AppBranding = () => {
-const { t } = useTranslation();
+  const { t } = useTranslation();
   return (
     <Box
       sx={{
@@ -79,27 +78,34 @@ const { t } = useTranslation();
 };
 
 const Header = () => {
-
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const token = localStorage.getItem('token');
-  let username = 'Guest';
   const { t, i18n } = useTranslation();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
+  let username = '';
+  let isLoggedIn = false;
+
   if (token) {
     try {
       const decoded = decodeToken(token);
-      username = decoded.sub || 'User';
+      username = decoded.sub || decoded.username || 'User';
+      isLoggedIn = true;
     } catch (error) {
       console.error('Failed to decode token:', error);
       localStorage.removeItem('token');
-      username = 'Guest';
+      username = '';
+      isLoggedIn = false;
     }
   }
+
+  // Debug log
+  // Remove this after confirming
+  console.log('Header token:', token, 'username:', username, 'isLoggedIn:', isLoggedIn);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -117,13 +123,11 @@ const Header = () => {
 
   const handleProfile = () => {
     handleClose();
-    console.log('Navigate to profile page');
     // Example: navigate('/profile');
   };
 
   const handleSettings = () => {
     handleClose();
-    console.log('Navigate to settings page');
     // Example: navigate('/settings');
   };
 
@@ -131,14 +135,13 @@ const Header = () => {
     setOpenSupportDialog(true);
   };
 
-  // Function to close the support dialog
   const handleCloseSupport = () => {
     setOpenSupportDialog(false);
   };
 
-const changeLanguage = (lng) => {
+  const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
-    localStorage.setItem('language', lng); // Persist language choice
+    localStorage.setItem('language', lng);
   };
 
   return (
@@ -147,7 +150,7 @@ const changeLanguage = (lng) => {
         <AppBranding />
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {!token && (
+          {!isLoggedIn ? (
             <Button
               color="inherit"
               onClick={() => navigate('/login')}
@@ -155,8 +158,7 @@ const changeLanguage = (lng) => {
             >
               Login
             </Button>
-          )}
-          {token && (
+          ) : (
             <>
               {!isMobile && (
                 <Typography
@@ -167,26 +169,26 @@ const changeLanguage = (lng) => {
                 </Typography>
               )}
               <Tooltip title="Get Support" placement="bottom">
-              <IconButton
-                size="medium"
-                color="inherit"
-                onClick={handleOpenSupport}
-                sx={{ marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
-              >
-                <SupportIcon sx={{ fontSize: 20, color: 'white' }} />
-              </IconButton>
-              </Tooltip>
-              <IconButton
-                  size="small"
+                <IconButton
+                  size="medium"
                   color="inherit"
-                  onClick={() => changeLanguage(i18n.language === 'en' ? 'hi' : 'en')}
+                  onClick={handleOpenSupport}
                   sx={{ marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
                 >
-                  <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
-                  <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
-                    {i18n.language === 'en' ? 'हिंदी' : 'English'}
-                  </Typography>
+                  <SupportIcon sx={{ fontSize: 20, color: 'white' }} />
                 </IconButton>
+              </Tooltip>
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={() => changeLanguage(i18n.language === 'en' ? 'hi' : 'en')}
+                sx={{ marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
+              >
+                <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
+                <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
+                  {i18n.language === 'en' ? 'हिंदी' : 'English'}
+                </Typography>
+              </IconButton>
               <IconButton
                 size="large"
                 aria-label="account of current user"
@@ -233,35 +235,35 @@ const changeLanguage = (lng) => {
                 </MenuItem>
               </Menu>
               <Dialog
-                      open={openSupportDialog} // Controlled by the state variable
-                      onClose={handleCloseSupport} // Closes when user clicks outside or on the close button
-                    >
-                      <Box sx={{ p: 2 }}>
-                        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
-                          How can we help you?
-                        </DialogTitle>
-                        <DialogContent>
-                          <DialogContentText sx={{ textAlign: 'center', mb: 2 }}>
-                            Our support team is ready to assist you.
-                            You can reach us through the following channels:
-                          </DialogContentText>
-                          <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}>
-                            <strong>Email:</strong> support@vyaparsathi.com
-                          </Typography>
-                          <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}>
-                            <strong>Phone:</strong> +91-950-815-6282
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                            We will get back to you as soon as possible.
-                          </Typography>
-                        </DialogContent>
-                        <DialogActions sx={{ justifyContent: 'center', mt: 2 }}>
-                          <Button onClick={handleCloseSupport} variant="contained" color="primary">
-                            Close
-                          </Button>
-                        </DialogActions>
-                      </Box>
-                    </Dialog>
+                open={openSupportDialog}
+                onClose={handleCloseSupport}
+              >
+                <Box sx={{ p: 2 }}>
+                  <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+                    How can we help you?
+                  </DialogTitle>
+                  <DialogContent>
+                    <DialogContentText sx={{ textAlign: 'center', mb: 2 }}>
+                      Our support team is ready to assist you.
+                      You can reach us through the following channels:
+                    </DialogContentText>
+                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}>
+                      <strong>Email:</strong> support@vyaparsathi.com
+                    </Typography>
+                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}>
+                      <strong>Phone:</strong> +91-950-815-6282
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                      We will get back to you as soon as possible.
+                    </Typography>
+                  </DialogContent>
+                  <DialogActions sx={{ justifyContent: 'center', mt: 2 }}>
+                    <Button onClick={handleCloseSupport} variant="contained" color="primary">
+                      Close
+                    </Button>
+                  </DialogActions>
+                </Box>
+              </Dialog>
             </>
           )}
         </Box>
