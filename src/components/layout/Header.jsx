@@ -27,6 +27,7 @@ import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import SupportIcon from '@mui/icons-material/Support';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
+import UserProfile from '../../pages/UserProfile'; // Import your UserProfile modal
 
 const AppBranding = () => {
   const { t } = useTranslation();
@@ -79,6 +80,7 @@ const AppBranding = () => {
 
 const Header = () => {
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
+  const [openProfileModal, setOpenProfileModal] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -93,7 +95,7 @@ const Header = () => {
   if (token) {
     try {
       const decoded = decodeToken(token);
-      username = decoded.sub || decoded.username || 'User';
+      username = decoded.name || decoded.sub || decoded.username || 'User';
       isLoggedIn = true;
     } catch (error) {
       console.error('Failed to decode token:', error);
@@ -102,10 +104,6 @@ const Header = () => {
       isLoggedIn = false;
     }
   }
-
-  // Debug log
-  // Remove this after confirming
-  console.log('Header token:', token, 'username:', username, 'isLoggedIn:', isLoggedIn);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -122,13 +120,13 @@ const Header = () => {
   };
 
   const handleProfile = () => {
+    setOpenProfileModal(true);
     handleClose();
-    // Example: navigate('/profile');
   };
 
   const handleSettings = () => {
     handleClose();
-    // Example: navigate('/settings');
+    // Optionally navigate('/settings');
   };
 
   const handleOpenSupport = () => {
@@ -137,6 +135,10 @@ const Header = () => {
 
   const handleCloseSupport = () => {
     setOpenSupportDialog(false);
+  };
+
+  const handleCloseProfileModal = () => {
+    setOpenProfileModal(false);
   };
 
   const changeLanguage = (lng) => {
@@ -163,7 +165,8 @@ const Header = () => {
               {!isMobile && (
                 <Typography
                   variant="body1"
-                  sx={{ color: 'inherit', marginRight: 2, fontWeight: 500 }}
+                  sx={{ color: 'inherit', marginRight: 2, fontWeight: 500, cursor: 'pointer' }}
+                  onClick={handleProfile}
                 >
                   {username}
                 </Typography>
@@ -264,6 +267,8 @@ const Header = () => {
                   </DialogActions>
                 </Box>
               </Dialog>
+              {/* UserProfile modal */}
+              <UserProfile open={openProfileModal} onClose={handleCloseProfileModal} />
             </>
           )}
         </Box>

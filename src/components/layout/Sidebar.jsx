@@ -3,6 +3,7 @@ import {
   Drawer, List, ListItem, ListItemIcon, ListItemText, Divider,
   Toolbar, Typography, Box, Collapse
 } from '@mui/material';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import StoreIcon from '@mui/icons-material/Store';
@@ -32,8 +33,6 @@ const AppBranding = () => {
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
-        px: 2,
-        py: 2,
         backgroundColor: '#1976d2',
         color: 'white',
         position: 'sticky',
@@ -83,11 +82,12 @@ const Sidebar = ({ children }) => {
   // Nested/collapsible menu state
   const [openReports, setOpenReports] = useState(false);
   const [openAdmin, setOpenAdmin] = useState(false);
+  const [openPayments, setOpenPayments] = useState(false);
 
   // Menu for all users (excluding About Us)
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Products Overview', icon: <ViewListIcon />, path: '/products' },
+    { text: 'Products', icon: <ViewListIcon />, path: '/products' },
     { text: 'Inventory', icon: <StoreIcon />, path: '/stock' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'Sales', icon: <PointOfSaleIcon />, path: '/sales' },
@@ -97,7 +97,19 @@ const Sidebar = ({ children }) => {
   // For ADMIN and OWNER only (with some nested groups)
   const adminOwnerMenuItems = [
     { text: 'Item Catalog', icon: <InventoryIcon />, path: '/items' },
-    { text: 'Customer Payments', icon: <PaymentIcon />, path: '/customer-payments' },
+    { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers' },
+    { text: 'Purchase Orders', icon: <ReceiptIcon />, path: '/purchase-orders' },
+    { text: 'Payments', icon: <PaymentIcon />,
+      nested: true,
+      open: openPayments,
+      onClick: () => setOpenPayments((prev) => !prev),
+      children: [
+        { text: 'Customer Payments', path: '/customer-payments' },
+        { text: 'Supplier Payments', path: '/supplier-payments' },
+      ],
+    },
+    { text: 'Analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
+    { text: 'Low Stock Alerts', icon: <InventoryIcon />, path: '/stock-alerts' },
     // Reports as nested/collapsible
     {
       text: 'Reports',
@@ -118,9 +130,6 @@ const Sidebar = ({ children }) => {
       ],
     },
     { text: 'Backup', icon: <BackupIcon />, path: '/backup' },
-    { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers' },
-    { text: 'Low Stock Alerts', icon: <InventoryIcon />, path: '/stock-alerts' },
-    { text: 'Analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
     // Admin group nested
     {
       text: 'Admin',
@@ -147,9 +156,9 @@ const Sidebar = ({ children }) => {
       item.nested ? (
         <React.Fragment key={item.text}>
           <ListItem
-            button
             onClick={item.onClick}
             sx={{
+              cursor: 'pointer',
               '&:hover': { backgroundColor: '#e0e0e0' },
               borderRadius: '8px',
               margin: '4px 8px',
@@ -165,11 +174,11 @@ const Sidebar = ({ children }) => {
             <List component="div" disablePadding>
               {item.children.map((child) => (
                 <ListItem
-                  button
                   key={child.text}
                   onClick={() => navigate(child.path)}
                   sx={{
                     pl: 6,
+                    cursor: 'pointer',
                     '&:hover': { backgroundColor: '#e0e0e0' },
                     borderRadius: '8px',
                     margin: '2px 8px',
@@ -183,10 +192,10 @@ const Sidebar = ({ children }) => {
         </React.Fragment>
       ) : (
         <ListItem
-          button
           key={item.text}
           onClick={() => navigate(item.path)}
           sx={{
+            cursor: 'pointer',
             '&:hover': { backgroundColor: '#e0e0e0' },
             borderRadius: '8px',
             margin: '4px 8px',
