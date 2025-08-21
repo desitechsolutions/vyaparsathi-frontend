@@ -32,6 +32,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
 import { styled } from '@mui/system';
 
 import {
@@ -111,14 +112,17 @@ const Items = () => {
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+  const [openEditVariantDialog, setOpenEditVariantDialog] = useState(false);
   const [step, setStep] = useState(0);
   const [itemFormData, setItemFormData] = useState({ name: '', description: '', category: '', brandName: '' });
   const [variantList, setVariantList] = useState([]);
-  const [currentVariant, setCurrentVariant] = useState({ sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+  const [currentVariant, setCurrentVariant] = useState({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [editingVariantIndex, setEditingVariantIndex] = useState(null); // for local edit
   const [error, setError] = useState(null);
   const [dialogError, setDialogError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // Load items from API
   const loadItems = async () => {
@@ -175,14 +179,36 @@ const Items = () => {
     setDialogError(null);
   };
 
-  const addVariantToList = () => {
-    if (!currentVariant.unit || !currentVariant.pricePerUnit || !currentVariant.sku) {
-      setDialogError('SKU, Unit and Price per Unit are required for each variant.');
+  // Add or update a variant in variantList
+  const addOrUpdateVariantToList = () => {
+    if (!currentVariant.unit || !currentVariant.pricePerUnit ) {
+      setDialogError('Unit and Price per Unit are required for each variant.');
       return;
     }
-    setVariantList(prev => [...prev, { ...currentVariant, id: prev.length + 1 }]);
-    setCurrentVariant({ sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+    if (editingVariantIndex !== null) {
+      // Edit existing variant
+      setVariantList(prev => prev.map((v, idx) => idx === editingVariantIndex ? { ...currentVariant } : v));
+      setEditingVariantIndex(null);
+    } else {
+      // Add new variant
+      setVariantList(prev => [...prev, { ...currentVariant, id: prev.length + 1 + Math.random() }]);
+    }
+    setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
     setDialogError(null);
+    setOpenEditVariantDialog(false);
+  };
+
+  // Start editing a variant in the local variantList
+  const handleEditVariantInList = (index) => {
+    setCurrentVariant({ ...variantList[index] });
+    setEditingVariantIndex(index);
+    setOpenEditVariantDialog(true);
+    setDialogError(null);
+  };
+
+  // Delete a variant from variantList locally (before saving)
+  const handleDeleteVariantInList = (index) => {
+    setVariantList(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleMultiStepSubmit = async () => {
@@ -193,14 +219,23 @@ const Items = () => {
     setIsSubmitting(true);
     setDialogError(null);
     try {
+      // Bundle variants into itemDto
+      const itemDto = {
+        ...itemFormData,
+        variants: variantList.map(({ photoFile, photoPreviewUrl, ...rest }) => rest)
+      };
       const formData = new FormData();
-      formData.append('itemDto', new Blob([JSON.stringify(itemFormData)], { type: 'application/json' }));
+      formData.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
+
+      // Only append photos if present
       variantList.forEach((variant, index) => {
-        const { photoFile, photoPreviewUrl, ...variantDto } = variant;
-        formData.append('variantDtoList', new Blob([JSON.stringify(variantDto)], { type: 'application/json' }));
-        if (photoFile) formData.append('photos', photoFile, `variant_${index}_${photoFile.name}`);
+        if (variant.photoFile) {
+          formData.append('photos', variant.photoFile, `variant_${index}_${variant.photoFile.name}`);
+        }
       });
+
       await createItem(formData);
+      setSuccessMessage("Item saved successfully!");
       handleDialogClose();
       loadItems();
     } catch (err) {
@@ -219,14 +254,21 @@ const Items = () => {
     setIsSubmitting(true);
     setDialogError(null);
     try {
+      const itemDto = {
+        ...itemFormData,
+        variants: variantList.map(({ photoFile, photoPreviewUrl, ...rest }) => rest)
+      };
       const formData = new FormData();
-      formData.append('itemDto', new Blob([JSON.stringify(itemFormData)], { type: 'application/json' }));
+      formData.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
+
       variantList.forEach((variant, index) => {
-        const { photoFile, photoPreviewUrl, ...variantDto } = variant;
-        formData.append('variantDtoList', new Blob([JSON.stringify(variantDto)], { type: 'application/json' }));
-        if (photoFile) formData.append('photos', photoFile, `variant_${index}_${photoFile.name}`);
+        if (variant.photoFile) {
+          formData.append('photos', variant.photoFile, `variant_${index}_${variant.photoFile.name}`);
+        }
       });
+
       await updateItem(selectedItemId, formData);
+      setSuccessMessage("Item updated successfully!");
       handleDialogClose();
       loadItems();
     } catch (err) {
@@ -251,7 +293,6 @@ const Items = () => {
       });
       const allVariants = itemRows.map(i => ({
         id: i.id,
-        sku: i.sku,
         unit: i.unit,
         pricePerUnit: i.pricePerUnit,
         size: i.size,
@@ -261,12 +302,8 @@ const Items = () => {
         photoUrl: i.photoUrl,
       }));
       setVariantList(allVariants);
-      const variant = allVariants.find(v => v.id === variantId);
-      setCurrentVariant(
-        variant
-          ? { ...variant, photoFile: null, photoPreviewUrl: variant.photoUrl || null }
-          : { sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null }
-      );
+      setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+      setEditingVariantIndex(null);
       setSelectedItemId(itemId);
       setOpenEditDialog(true);
       setStep(0);
@@ -286,91 +323,169 @@ const Items = () => {
     setError(null);
     try {
       await deleteItemVariant(selectedVariantId);
+      setSuccessMessage("Variant deleted successfully!");
       loadItems();
     } catch (err) {
       console.error('Delete variant error:', err);
       setError('Failed to delete variant.');
     }
   };
-const columns = [
-  {
-    field: 'name',
-    headerName: 'Name',
-    flex: 1.5,
-    minWidth: 180,
-    renderCell: (params) => (
-      <Tooltip
-        title={
-          <>
-            {params.row.description && (
-              <div>
-                <strong>Description:</strong> {params.row.description}
-              </div>
-            )}
-            {params.row.design && (
-              <div>
-                <strong>Design:</strong> {params.row.design}
-              </div>
-            )}
-          </>
-        }
-        arrow
-        placement="top"
-      >
-        <span>{params.value}</span>
-      </Tooltip>
-    ),
-  },
-  { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
-  { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 120 },
-  { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 120 },
-  { field: 'size', headerName: 'Size', width: 90 },
-  { field: 'color', headerName: 'Color', width: 90 },
-  {
-    field: 'pricePerUnit',
-    headerName: 'Price',
-    type: 'number',
-    width: 110,
-    valueFormatter: ({ value }) => `₹${value}`,
-  },
-  {
-    field: 'gstRate',
-    headerName: 'GST (%)',
-    width: 100,
-    valueFormatter: ({ value }) => value ? `${value}%` : '',
-  },
-  {
-    field: 'actions',
-    headerName: 'Actions',
-    width: 160,
-    renderCell: (params) => (
-      <>
-        <Tooltip title="Edit Item">
-          <IconButton color="primary" onClick={() => handleEditItem(params.row.itemId, params.row.id)}>
-            <EditIcon />
-          </IconButton>
+
+  const columns = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1.5,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Tooltip
+          title={
+            <>
+              {params.row.description && (
+                <div>
+                  <strong>Description:</strong> {params.row.description}
+                </div>
+              )}
+              {params.row.design && (
+                <div>
+                  <strong>Design:</strong> {params.row.design}
+                </div>
+              )}
+            </>
+          }
+          arrow
+          placement="top"
+        >
+          <span>{params.value}</span>
         </Tooltip>
-        <Tooltip title="Delete Variant">
-          <IconButton color="error" onClick={() => handleDeleteVariant(params.row.id)}>
-            <DeleteIcon />
-          </IconButton>
-        </Tooltip>
-      </>
-    ),
-  },
-];
+      ),
+    },
+    { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
+    { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 120 },
+    { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 120 },
+    { field: 'size', headerName: 'Size', width: 90 },
+    { field: 'color', headerName: 'Color', width: 90 },
+    {
+      field: 'pricePerUnit',
+      headerName: 'Price',
+      type: 'number',
+      width: 110,
+      valueFormatter: ({ value }) => `₹${value}`,
+    },
+    {
+      field: 'gstRate',
+      headerName: 'GST (%)',
+      width: 100,
+      valueFormatter: ({ value }) => value ? `${value}%` : '',
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 160,
+      renderCell: (params) => (
+        <>
+          <Tooltip title="Edit Item">
+            <IconButton color="primary" onClick={() => handleEditItem(params.row.itemId, params.row.id)}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Variant">
+            <IconButton color="error" onClick={() => handleDeleteVariant(params.row.id)}>
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </>
+      ),
+    },
+  ];
 
   const handleDialogClose = () => {
     setOpenAddDialog(false);
     setOpenEditDialog(false);
+    setOpenEditVariantDialog(false);
     setStep(0);
     setItemFormData({ name: '', description: '', category: '', brandName: '' });
     setVariantList([]);
-    setCurrentVariant({ sku: '', unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+    setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
     setDialogError(null);
+    setEditingVariantIndex(null);
   };
 
   const steps = ['Item Details', 'Add Variants', 'Review & Save'];
+
+  // Variant add/edit form for dialog and popover
+  const getVariantFormFields = () => (
+    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+      
+      <Autocomplete
+        freeSolo
+        options={flattenOptions(clothingSizes)}
+        value={currentVariant.size || ''}
+        onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, size: newValue || '' })}
+        renderInput={(params) => <TextField {...params} label="Size" />}
+      />
+      <Autocomplete
+        freeSolo
+        options={clothingColors}
+        value={currentVariant.color || ''}
+        onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, color: newValue || '' })}
+        renderInput={(params) => <TextField {...params} label="Color" />}
+      />
+      <Autocomplete
+        freeSolo
+        options={flattenOptions(clothingDesigns)}
+        value={currentVariant.design || ''}
+        onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, design: newValue || '' })}
+        renderInput={(params) => <TextField {...params} label="Design" />}
+      />
+      <Autocomplete
+        freeSolo
+        options={clothingUnits}
+        value={currentVariant.unit || ''}
+        onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, unit: newValue || '' })}
+        renderInput={(params) => <TextField {...params} label="Unit" required />}
+      />
+      <TextField
+        label="Price per Unit"
+        name="pricePerUnit"
+        type="number"
+        value={currentVariant.pricePerUnit || ''}
+        onChange={handleCurrentVariantChange}
+        required
+        fullWidth
+      />
+      <TextField
+        label="GST Rate"
+        name="gstRate"
+        type="number"
+        value={currentVariant.gstRate || ''}
+        onChange={handleCurrentVariantChange}
+        fullWidth
+      />
+      <Box sx={{ gridColumn: '1 / -1', mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Button
+          component="label"
+          role={undefined}
+          variant="contained"
+          tabIndex={-1}
+          startIcon={<CloudUploadIcon />}
+          fullWidth
+        >
+          Upload Photo (optional)
+          <VisuallyHiddenInput type="file" onChange={handleCurrentVariantFileChange} />
+        </Button>
+        {currentVariant.photoPreviewUrl && (
+          <Box sx={{ mt: 2, border: '1px solid #ccc', borderRadius: '8px', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img
+              src={currentVariant.photoPreviewUrl}
+              alt="Photo Preview"
+              style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }}
+            />
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
 
   const getStepContent = (step) => {
     return (
@@ -414,100 +529,61 @@ const columns = [
           </Box>
         )}
         {step === 1 && (
-          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-            <TextField
-              label="SKU"
-              name="sku"
-              value={currentVariant.sku}
-              onChange={handleCurrentVariantChange}
-              required
-              fullWidth
-            />
-            <Autocomplete
-              freeSolo
-              options={flattenOptions(clothingSizes)}
-              value={currentVariant.size || ''}
-              onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, size: newValue || '' })}
-              renderInput={(params) => <TextField {...params} label="Size" />}
-            />
-            <Autocomplete
-              freeSolo
-              options={clothingColors}
-              value={currentVariant.color || ''}
-              onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, color: newValue || '' })}
-              renderInput={(params) => <TextField {...params} label="Color" />}
-            />
-            <Autocomplete
-              freeSolo
-              options={flattenOptions(clothingDesigns)}
-              value={currentVariant.design || ''}
-              onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, design: newValue || '' })}
-              renderInput={(params) => <TextField {...params} label="Design" />}
-            />
-            <Autocomplete
-              freeSolo
-              options={clothingUnits}
-              value={currentVariant.unit || ''}
-              onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, unit: newValue || '' })}
-              renderInput={(params) => <TextField {...params} label="Unit" required />}
-            />
-            <TextField
-              label="Price per Unit"
-              name="pricePerUnit"
-              type="number"
-              value={currentVariant.pricePerUnit || ''}
-              onChange={handleCurrentVariantChange}
-              required
-              fullWidth
-            />
-            <TextField
-              label="GST Rate"
-              name="gstRate"
-              type="number"
-              value={currentVariant.gstRate || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth
-            />
-            <Box sx={{ gridColumn: '1 / -1', mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Button
-                component="label"
-                role={undefined}
-                variant="contained"
-                tabIndex={-1}
-                startIcon={<CloudUploadIcon />}
-                fullWidth
-              >
-                Upload Photo
-                <VisuallyHiddenInput type="file" onChange={handleCurrentVariantFileChange} />
-              </Button>
-              {currentVariant.photoPreviewUrl && (
-                <Box sx={{ mt: 2, border: '1px solid #ccc', borderRadius: '8px', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img
-                    src={currentVariant.photoPreviewUrl}
-                    alt="Photo Preview"
-                    style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }}
-                  />
-                </Box>
-              )}
-            </Box>
-            <Button variant="contained" onClick={addVariantToList} sx={{ gridColumn: '1 / -1' }}>
-              Add Variant to List
+          <Box>
+            {getVariantFormFields()}
+            <Button
+              variant="contained"
+              startIcon={editingVariantIndex !== null ? <SaveIcon /> : <AddIcon />}
+              onClick={addOrUpdateVariantToList}
+              sx={{ mt: 2 }}
+              color={editingVariantIndex !== null ? "success" : "primary"}
+            >
+              {editingVariantIndex !== null ? "Update Variant" : "Add Variant to List"}
             </Button>
             {variantList.length > 0 && (
               <Paper elevation={2} sx={{ mt: 2, p: 2 }}>
                 <Typography variant="h6" gutterBottom>Added Variants</Typography>
                 <List dense>
                   {variantList.map((variant, index) => (
-                    <ListItem key={variant.id || index} disablePadding>
+                    <ListItem
+                      key={variant.id || index}
+                      secondaryAction={
+                        <>
+                          <Tooltip title="Edit">
+                            <IconButton edge="end" color="primary" onClick={() => handleEditVariantInList(index)}>
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton edge="end" color="error" onClick={() => handleDeleteVariantInList(index)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      }
+                    >
                       <ListItemText
-                        primary={`Variant ${index + 1}: SKU - ${variant.sku}, Price - ₹${variant.pricePerUnit}`}
-                        secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}`}
+                        primary={`Variant ${index + 1}: Price - ₹${variant.pricePerUnit}`}
+                        secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}`}
                       />
                     </ListItem>
                   ))}
                 </List>
               </Paper>
             )}
+            {/* Edit Variant Dialog for local variant list (for better UX on mobile, open as dialog) */}
+            <Dialog open={openEditVariantDialog} onClose={() => setOpenEditVariantDialog(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Edit Variant</DialogTitle>
+              <DialogContent>
+                {getVariantFormFields()}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setOpenEditVariantDialog(false)}>Cancel</Button>
+                <Button variant="contained" onClick={addOrUpdateVariantToList} color="success">
+                  Save
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
         {step === 2 && (
@@ -521,7 +597,7 @@ const columns = [
               {variantList.map((variant, index) => (
                 <ListItem key={variant.id || index}>
                   <ListItemText
-                    primary={`Variant ${index + 1}: SKU - ${variant.sku}, Unit - ${variant.unit}, Price - ₹${variant.pricePerUnit}, GST - ${variant.gstRate}`}
+                    primary={`Variant ${index + 1}: Unit - ${variant.unit}, Price - ₹${variant.pricePerUnit}, GST - ${variant.gstRate}`}
                     secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}`}
                   />
                 </ListItem>
@@ -559,6 +635,11 @@ const columns = [
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+          {successMessage}
         </Alert>
       )}
 
@@ -663,4 +744,5 @@ const columns = [
     </Container>
   );
 };
+
 export default Items;

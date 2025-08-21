@@ -18,67 +18,15 @@ import {
   TableRow,
   Divider,
 } from '@mui/material';
-
-// --- Mock API Functions to Simulate Backend Endpoints ---
-const mockFetch = (data, delay = 500) => {
-  return new Promise(resolve => setTimeout(() => resolve(data), delay));
-};
-
-const mockFetchItemDemand = () => {
-  const data = [
-    { itemId: 1, itemName: "Widget A", predictedDemandNextMonth: 150, trend: "increasing" },
-    { itemId: 2, itemName: "Gadget B", predictedDemandNextMonth: 80, trend: "decreasing" },
-    { itemId: 3, itemName: "Thing C", predictedDemandNextMonth: 210, trend: "increasing" },
-    { itemId: 4, itemName: "Gizmo D", predictedDemandNextMonth: 55, trend: "stable" },
-    { itemId: 5, itemName: "Apparatus E", predictedDemandNextMonth: 180, trend: "stable" },
-  ];
-  return mockFetch(data);
-};
-
-const mockFetchCustomerTrends = () => {
-  const data = [
-    { customerId: 101, customerName: "Alice", buyingPattern: "weekly", frequentlyBoughtItems: ["Widget A", "Gizmo D"] },
-    { customerId: 102, customerName: "Bob", buyingPattern: "monthly", frequentlyBoughtItems: ["Gadget B", "Apparatus E"] },
-    { customerId: 103, customerName: "Charlie", buyingPattern: "seasonal", frequentlyBoughtItems: ["Thing C"] },
-  ];
-  return mockFetch(data);
-};
-
-const mockFetchTopItems = () => {
-  const data = [
-    { itemId: 3, itemName: "Thing C", changePercent: 12.5, rising: true },
-    { itemId: 1, itemName: "Widget A", changePercent: 8.2, rising: true },
-    { itemId: 2, itemName: "Gadget B", changePercent: -5.1, rising: false },
-    { itemId: 5, itemName: "Apparatus E", changePercent: 2.1, rising: true },
-  ];
-  return mockFetch(data);
-};
-
-const mockFetchSeasonalTrends = () => {
-  const data = [
-    { season: "Summer", trendDescription: "Spike in demand for outdoor products." },
-    { season: "Winter", trendDescription: "Increase in sales of heating appliances." },
-    { season: "Spring", trendDescription: "Consistent demand for gardening supplies." },
-  ];
-  return mockFetch(data);
-};
-
-const mockFetchChurnPrediction = () => {
-  const data = [
-    { customerId: 201, customerName: "David", churnProbability: 0.75 },
-    { customerId: 202, customerName: "Eve", churnProbability: 0.12 },
-    { customerId: 203, customerName: "Frank", churnProbability: 0.48 },
-  ];
-  return mockFetch(data);
-};
-
-const mockFetchPurchaseOrders = () => {
-  const data = [
-    { itemId: 1, itemName: "Widget A", suggestedQuantity: 180.0 },
-    { itemId: 3, itemName: "Thing C", suggestedQuantity: 250.0 },
-  ];
-  return mockFetch(data);
-};
+import {
+  fetchItemDemand,
+  exportItemDemand,
+  fetchCustomerTrends,
+  fetchFuturePurchaseOrders,
+  fetchTopItems,
+  fetchSeasonalTrends,
+  fetchChurnPrediction,
+} from '../services/api';
 
 const CHART_COLORS = ['#3B82F6', '#6366F1', '#A78BFA', '#E879F9', '#EC4899', '#F472B6'];
 
@@ -96,21 +44,26 @@ const AnalyticsDashboard = () => {
       setIsLoading(true);
       try {
         const [
-          demandData, trendsData, topItemsData, seasonalData, churnData, purchaseData
+          demandRes,
+          trendsRes,
+          topItemsRes,
+          seasonalRes,
+          churnRes,
+          purchaseRes,
         ] = await Promise.all([
-          mockFetchItemDemand(),
-          mockFetchCustomerTrends(),
-          mockFetchTopItems(),
-          mockFetchSeasonalTrends(),
-          mockFetchChurnPrediction(),
-          mockFetchPurchaseOrders(),
+          fetchItemDemand(),
+          fetchCustomerTrends(),
+          fetchTopItems(),
+          fetchSeasonalTrends(),
+          fetchChurnPrediction(),
+          fetchFuturePurchaseOrders(),
         ]);
-        setItemDemand(demandData);
-        setCustomerTrends(trendsData);
-        setTopItems(topItemsData);
-        setSeasonalTrends(seasonalData);
-        setChurnPrediction(churnData);
-        setPurchaseOrders(purchaseData);
+        setItemDemand(demandRes.data || []);
+        setCustomerTrends(trendsRes.data || []);
+        setTopItems(topItemsRes.data || []);
+        setSeasonalTrends(seasonalRes.data || []);
+        setChurnPrediction(churnRes.data || []);
+        setPurchaseOrders(purchaseRes.data || []);
       } catch (error) {
         console.error("Failed to fetch analytics data:", error);
       } finally {
@@ -120,8 +73,21 @@ const AnalyticsDashboard = () => {
     fetchData();
   }, []);
 
-  const handleExport = () => {
-    alert("Exporting item demand analytics... (Functionality not implemented)");
+  const handleExport = async () => {
+    try {
+      const res = await exportItemDemand();
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'item-demand-analytics.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to export item demand analytics.');
+    }
   };
 
   return (

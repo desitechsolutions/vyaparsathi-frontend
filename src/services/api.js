@@ -164,4 +164,14 @@ export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, d
 
 export const fetchProducts = () => API.get(endpoints.products);
 
+// Analytics APIs
+export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);
+export const exportItemDemand = () => API.get(endpoints.analytics.exportItemDemand, { responseType: 'blob' });
+export const fetchCustomerTrends = () => API.get(endpoints.analytics.customerTrends);
+export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futurePurchaseOrders);
+export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
+export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
+export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
+
+
 export default API;

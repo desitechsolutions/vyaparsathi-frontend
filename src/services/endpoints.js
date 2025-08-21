@@ -50,6 +50,17 @@ const endpoints = {
   backup: {
     export: `${API_BASE}/backup/export`,
   },
+
+  //Analytics endpoint
+  analytics: {
+    itemDemand: `${API_BASE}/analytics/item-demand`,
+    exportItemDemand: `${API_BASE}/analytics/export/item-demand`,
+    customerTrends: `${API_BASE}/analytics/customer-trends`,
+    futurePurchaseOrders: `${API_BASE}/analytics/future-purchase-orders`,
+    topItems: `${API_BASE}/analytics/top-items`,
+    seasonalTrends: `${API_BASE}/analytics/seasonal-trends`,
+    churnPrediction: `${API_BASE}/analytics/churn-prediction`,
+  },
 };
 
 export default endpoints;
