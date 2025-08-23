@@ -105,6 +105,11 @@ const CustomToolbar = ({ onAddItemClick }) => (
   </GridToolbarContainer>
 );
 
+const initialVariantState = {
+  unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '',
+  photoFile: null, photoPreviewUrl: null, lowStockThreshold: ''
+};
+
 const Items = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,10 +121,10 @@ const Items = () => {
   const [step, setStep] = useState(0);
   const [itemFormData, setItemFormData] = useState({ name: '', description: '', category: '', brandName: '' });
   const [variantList, setVariantList] = useState([]);
-  const [currentVariant, setCurrentVariant] = useState({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+  const [currentVariant, setCurrentVariant] = useState({ ...initialVariantState });
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
-  const [editingVariantIndex, setEditingVariantIndex] = useState(null); // for local edit
+  const [editingVariantIndex, setEditingVariantIndex] = useState(null);
   const [error, setError] = useState(null);
   const [dialogError, setDialogError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -186,14 +191,12 @@ const Items = () => {
       return;
     }
     if (editingVariantIndex !== null) {
-      // Edit existing variant
       setVariantList(prev => prev.map((v, idx) => idx === editingVariantIndex ? { ...currentVariant } : v));
       setEditingVariantIndex(null);
     } else {
-      // Add new variant
       setVariantList(prev => [...prev, { ...currentVariant, id: prev.length + 1 + Math.random() }]);
     }
-    setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+    setCurrentVariant({ ...initialVariantState });
     setDialogError(null);
     setOpenEditVariantDialog(false);
   };
@@ -300,9 +303,10 @@ const Items = () => {
         design: i.design,
         gstRate: i.gstRate,
         photoUrl: i.photoUrl,
+        lowStockThreshold: i.lowStockThreshold || ''
       }));
       setVariantList(allVariants);
-      setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+      setCurrentVariant({ ...initialVariantState });
       setEditingVariantIndex(null);
       setSelectedItemId(itemId);
       setOpenEditDialog(true);
@@ -379,6 +383,12 @@ const Items = () => {
       valueFormatter: ({ value }) => value ? `${value}%` : '',
     },
     {
+      field: 'lowStockThreshold',
+      headerName: 'Low Stock Threshold',
+      width: 160,
+      valueFormatter: ({ value }) => value !== undefined && value !== null && value !== '' ? value : '-',
+    },
+    {
       field: 'actions',
       headerName: 'Actions',
       width: 160,
@@ -406,7 +416,7 @@ const Items = () => {
     setStep(0);
     setItemFormData({ name: '', description: '', category: '', brandName: '' });
     setVariantList([]);
-    setCurrentVariant({ unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '', photoFile: null, photoPreviewUrl: null });
+    setCurrentVariant({ ...initialVariantState });
     setDialogError(null);
     setEditingVariantIndex(null);
   };
@@ -416,7 +426,6 @@ const Items = () => {
   // Variant add/edit form for dialog and popover
   const getVariantFormFields = () => (
     <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-      
       <Autocomplete
         freeSolo
         options={flattenOptions(clothingSizes)}
@@ -462,6 +471,28 @@ const Items = () => {
         onChange={handleCurrentVariantChange}
         fullWidth
       />
+      <Tooltip
+        title={
+          <span>
+            Set the minimum stock level for this variant.<br />
+            When stock falls below this value, you’ll get a low stock alert.<br />
+            <b>Tip:</b> Use a higher value for fast-selling or critical items.
+          </span>
+        }
+        placement="top"
+        arrow
+      >
+        <TextField
+          label="Low Stock Threshold"
+          name="lowStockThreshold"
+          type="number"
+          value={currentVariant.lowStockThreshold || ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth
+          InputProps={{ inputProps: { min: 0 } }}
+          helperText="You'll be alerted when stock drops below this value."
+        />
+      </Tooltip>
       <Box sx={{ gridColumn: '1 / -1', mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Button
           component="label"
@@ -564,7 +595,7 @@ const Items = () => {
                     >
                       <ListItemText
                         primary={`Variant ${index + 1}: Price - ₹${variant.pricePerUnit}`}
-                        secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}`}
+                        secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}, Low Stock Threshold: ${variant.lowStockThreshold || '-'}`}
                       />
                     </ListItem>
                   ))}
@@ -597,7 +628,7 @@ const Items = () => {
               {variantList.map((variant, index) => (
                 <ListItem key={variant.id || index}>
                   <ListItemText
-                    primary={`Variant ${index + 1}: Unit - ${variant.unit}, Price - ₹${variant.pricePerUnit}, GST - ${variant.gstRate}`}
+                    primary={`Variant ${index + 1}: Unit - ${variant.unit}, Price - ₹${variant.pricePerUnit}, GST - ${variant.gstRate}, Low Stock Threshold: ${variant.lowStockThreshold || '-'}`}
                     secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}`}
                   />
                 </ListItem>

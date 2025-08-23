@@ -10,6 +10,14 @@ const endpoints = {
   },
   shop: `${API_BASE}/shop`,
 
+  // Supplier endpoints
+  suppliers: `${API_BASE}/suppliers`,
+  supplierById: (id) => `${API_BASE}/suppliers/${id}`,
+
+  purchaseOrders: `${API_BASE}/purchase-orders`,
+  purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
+  receivePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/receive`,
+
   items: `${API_BASE}/catalog`,
   getItemById: (id) => `${API_BASE}/catalog/${id}`,
   updateItem: (id) => `${API_BASE}/catalog/${id}`,

@@ -28,6 +28,7 @@ export const setToken = (token, refreshToken) => {
   if (decoded.exp) {
     localStorage.setItem('tokenExpiry', decoded.exp * 1000); // ms
   }
+  window.dispatchEvent(new Event('tokenUpdated'));
 };
 
 // Check if user is authenticated (token exists and not expired)

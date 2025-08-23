@@ -16,6 +16,8 @@ import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard'; // Assuming you have an Analytics page
+import PurchaseOrders from '../pages/PurchaseOrders'; // Assuming you have a Purchase Orders page
+import Suppliers from '../pages/Suppliers'; // Assuming you have a Suppliers page
 
 function AppRoutes() {
   return (
@@ -36,7 +38,9 @@ function AppRoutes() {
       <Route path="/customer-payments" element={<PrivateRoute><CustomerPaymentPage /></PrivateRoute>} />
       <Route path="/about-us" element={<PrivateRoute><AboutUs /></PrivateRoute>} />
       <Route path="/analytics" element={<PrivateRoute><AnalyticsDashboard /></PrivateRoute>} />
-      
+      <Route path="/purchase-orders" element={<PrivateRoute><PurchaseOrders /></PrivateRoute>} />
+      <Route path="/suppliers" element={<PrivateRoute><Suppliers /></PrivateRoute>} />
+
       {/* Catch-all route for 404 */}
       <Route path="*" element={<PrivateRoute><div>Page Not Found</div></PrivateRoute>} />
 

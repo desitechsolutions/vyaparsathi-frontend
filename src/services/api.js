@@ -100,6 +100,42 @@ export const refreshToken = (refreshToken) =>
 // GET SHOP
 export const fetchShop = () => API.get(endpoints.shop);
 
+// --- Purchase Orders ---
+export const getPurchaseOrders = () =>
+  API.get(endpoints.purchaseOrders).then((r) => r.data);
+
+export const getPurchaseOrderById = (id) =>
+  API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
+
+export const createPurchaseOrder = (po) =>
+  API.post(endpoints.purchaseOrders, po).then((r) => r.data);
+
+export const updatePurchaseOrder = (id, po) =>
+  API.put(endpoints.purchaseOrderById(id), po).then((r) => r.data);
+
+export const deletePurchaseOrder = (id) =>
+  API.delete(endpoints.purchaseOrderById(id)).then((r) => r.data);
+
+export const receivePurchaseOrder = (id) =>
+  API.post(endpoints.receivePurchaseOrder(id)).then((r) => r.data);
+
+// Supplier APIs
+export const getSuppliers = () =>
+  API.get(endpoints.suppliers).then((r) => r.data);
+
+export const createSupplier = (data) =>
+  API.post(endpoints.suppliers, data).then((r) => r.data);
+
+export const updateSupplier = (id, data) =>
+  API.put(endpoints.supplierById(id), data).then((r) => r.data);
+
+export const deleteSupplier = (id) =>
+  API.delete(endpoints.supplierById(id)).then((r) => r.data);
+
+export const getSupplierById = (id) =>
+  API.get(endpoints.supplierById(id)).then((r) => r.data);
+
+
 // Item related APIs
 export const createItem = (data) => API.post(endpoints.items, data);
 export const fetchItems = () => API.get(endpoints.items);
@@ -166,7 +202,8 @@ export const fetchProducts = () => API.get(endpoints.products);
 
 // Analytics APIs
 export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);
-export const exportItemDemand = () => API.get(endpoints.analytics.exportItemDemand, { responseType: 'blob' });
+export const exportItemDemand = (format = 'xlsx') =>
+  API.get(`${endpoints.analytics.exportItemDemand}?format=${format}`, { responseType: 'blob' });
 export const fetchCustomerTrends = () => API.get(endpoints.analytics.customerTrends);
 export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futurePurchaseOrders);
 export const fetchTopItems = () => API.get(endpoints.analytics.topItems);

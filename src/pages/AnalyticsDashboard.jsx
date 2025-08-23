@@ -17,6 +17,10 @@ import {
   TableHead,
   TableRow,
   Divider,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   fetchItemDemand,
@@ -38,6 +42,7 @@ const AnalyticsDashboard = () => {
   const [churnPrediction, setChurnPrediction] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [exportFormat, setExportFormat] = useState('xlsx');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,12 +80,16 @@ const AnalyticsDashboard = () => {
 
   const handleExport = async () => {
     try {
-      const res = await exportItemDemand();
+      const res = await exportItemDemand(exportFormat);
+      let filename = `item-demand-analytics.${exportFormat}`;
+      if (exportFormat === 'excel' || exportFormat === 'xlsx') filename = 'item-demand-analytics.xlsx';
+      if (exportFormat === 'pdf') filename = 'item-demand-analytics.pdf';
+      if (exportFormat === 'csv') filename = 'item-demand-analytics.csv';
       const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'item-demand-analytics.xlsx');
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -98,14 +107,30 @@ const AnalyticsDashboard = () => {
           <Typography variant="h4" fontWeight="bold" color="primary">
             Business Analytics Dashboard
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleExport}
-            sx={{ borderRadius: 8, px: 4, fontWeight: 'bold' }}
-          >
-            Export Item Demand
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <FormControl size="small">
+              <InputLabel id="export-format-label">Format</InputLabel>
+              <Select
+                labelId="export-format-label"
+                value={exportFormat}
+                label="Format"
+                onChange={e => setExportFormat(e.target.value)}
+                sx={{ minWidth: 100 }}
+              >
+                <MenuItem value="xlsx">Excel (.xlsx)</MenuItem>
+                <MenuItem value="csv">CSV (.csv)</MenuItem>
+                <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleExport}
+              sx={{ borderRadius: 8, px: 4, fontWeight: 'bold' }}
+            >
+              Export Item Demand
+            </Button>
+          </Box>
         </Box>
 
         {isLoading ? (
