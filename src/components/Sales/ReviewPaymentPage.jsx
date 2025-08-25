@@ -20,11 +20,21 @@ import {
   Alert,
 } from '@mui/material';
 
+// Updated to include all methods supported by backend
 const paymentMethodOptions = [
-  { value: 'Cash', label: 'Cash' },
-  { value: 'Card', label: 'Card' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'CARD', label: 'Card' },
   { value: 'UPI', label: 'UPI' },
+  { value: 'NET_BANKING', label: 'Net Banking' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'OTHER', label: 'Other' },
 ];
+
+const needsTransactionId = (method) =>
+  ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE', 'OTHER'].includes(method);
+
+const transactionIdMandatory = (method) =>
+  ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
 
 const ReviewPaymentPage = ({
   formData,
@@ -35,7 +45,10 @@ const ReviewPaymentPage = ({
   setError,
   loading,
 }) => {
-  const [paymentMethods, setPaymentMethods] = useState([{ method: 'Cash', amount: 0 }]);
+  // Use correct field names: paymentMethod, amount, reference, notes, transactionId
+  const [paymentMethods, setPaymentMethods] = useState([
+    { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
+  ]);
   const [discount, setDiscount] = useState(formData.discount || 0);
   const [sendInvoice, setSendInvoice] = useState(false);
 
@@ -43,18 +56,33 @@ const ReviewPaymentPage = ({
   const previousDues = selectedCustomer?.creditBalance || 0;
 
   const handleAddPaymentMethod = () => {
-    setPaymentMethods([...paymentMethods, { method: 'Cash', amount: 0 }]);
+    setPaymentMethods([
+      ...paymentMethods,
+      { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
+    ]);
   };
 
   const handlePaymentChange = (index, field, value) => {
     const newPaymentMethods = [...paymentMethods];
-    newPaymentMethods[index][field] = field === 'amount' ? parseFloat(value) || 0 : value;
+    if (field === 'amount') {
+      newPaymentMethods[index][field] = parseFloat(value) || 0;
+    } else if (field === 'paymentMethod') {
+      newPaymentMethods[index][field] = value;
+      // Clear transactionId if switching to CASH
+      if (value === 'CASH') newPaymentMethods[index].transactionId = '';
+    } else {
+      newPaymentMethods[index][field] = value;
+    }
     setPaymentMethods(newPaymentMethods);
   };
 
   const handleRemovePaymentMethod = (index) => {
     const newPaymentMethods = paymentMethods.filter((_, i) => i !== index);
-    setPaymentMethods(newPaymentMethods.length ? newPaymentMethods : [{ method: 'Cash', amount: 0 }]);
+    setPaymentMethods(
+      newPaymentMethods.length
+        ? newPaymentMethods
+        : [{ paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }]
+    );
   };
 
   const subtotal = parseFloat(formData.totalAmount) || 0;
@@ -82,6 +110,17 @@ const ReviewPaymentPage = ({
       setError('No customer selected.');
       return;
     }
+    // Transaction ID validation
+    for (let pm of paymentMethods) {
+      if (
+        needsTransactionId(pm.paymentMethod) &&
+        transactionIdMandatory(pm.paymentMethod) &&
+        (!pm.transactionId || pm.transactionId.trim() === '')
+      ) {
+        setError('Transaction ID is required for non-cash payment methods (except "Other").');
+        return;
+      }
+    }
 
     const payload = {
       sale: {
@@ -94,8 +133,14 @@ const ReviewPaymentPage = ({
       paymentDetails: paymentMethods
         .filter(pm => pm.amount > 0)
         .map(pm => ({
-          method: pm.method,
-          amountPaid: parseFloat(pm.amount) || 0,
+          amount: parseFloat(pm.amount) || 0,
+          paymentMethod: pm.paymentMethod,
+          paymentDate: new Date().toISOString(),
+          reference: pm.reference || "",
+          notes: pm.notes || "",
+          transactionId: needsTransactionId(pm.paymentMethod)
+            ? (pm.transactionId || "")
+            : undefined,
         })) || [],
     };
 
@@ -253,8 +298,8 @@ const ReviewPaymentPage = ({
         {paymentMethods.map((pm, index) => (
           <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
             <Select
-              value={pm.method}
-              onChange={(e) => handlePaymentChange(index, 'method', e.target.value)}
+              value={pm.paymentMethod}
+              onChange={(e) => handlePaymentChange(index, 'paymentMethod', e.target.value)}
               sx={{ minWidth: 120 }}
             >
               {paymentMethodOptions.map((opt) => (
@@ -277,6 +322,43 @@ const ReviewPaymentPage = ({
               InputProps={{ inputProps: { min: 0 } }}
               size="small"
               sx={{ width: 120 }}
+            />
+            {needsTransactionId(pm.paymentMethod) && (
+              <TextField
+                label="Transaction ID"
+                value={pm.transactionId || ''}
+                onChange={(e) =>
+                  handlePaymentChange(index, 'transactionId', e.target.value)
+                }
+                required={transactionIdMandatory(pm.paymentMethod)}
+                size="small"
+                sx={{ width: 140 }}
+                placeholder={
+                  pm.paymentMethod === 'CHEQUE'
+                    ? 'Cheque No.'
+                    : pm.paymentMethod === 'UPI'
+                    ? 'UPI Ref/UTR'
+                    : pm.paymentMethod === 'NET_BANKING'
+                    ? 'IMPS/NEFT Ref'
+                    : pm.paymentMethod === 'CARD'
+                    ? 'POS Slip Ref'
+                    : 'Transaction Ref'
+                }
+              />
+            )}
+            <TextField
+              label="Reference"
+              value={pm.reference || ''}
+              onChange={(e) => handlePaymentChange(index, 'reference', e.target.value)}
+              size="small"
+              sx={{ width: 120 }}
+            />
+            <TextField
+              label="Notes"
+              value={pm.notes || ''}
+              onChange={(e) => handlePaymentChange(index, 'notes', e.target.value)}
+              size="small"
+              sx={{ width: 140 }}
             />
             {index > 0 && (
               <Button

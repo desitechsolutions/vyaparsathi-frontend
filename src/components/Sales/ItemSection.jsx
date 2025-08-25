@@ -54,7 +54,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No categories found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -71,7 +71,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No names found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -88,7 +88,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No SKUs found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -105,7 +105,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No colors found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -122,7 +122,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No sizes found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -139,7 +139,7 @@ const ItemSection = ({
                 menuPortalTarget={document.body}
                 menuPosition="fixed"
                 noOptionsMessage={() => "No designs found"}
-                isClearable
+                isClearable={false}
               />
             </Grid>
           </Grid>
@@ -258,6 +258,11 @@ const ItemSection = ({
             Add Item
           </Button>
         </Box>
+        {error && (
+          <Box sx={{ mt: 2 }}>
+            <Typography color="error">{error}</Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   </Grid>

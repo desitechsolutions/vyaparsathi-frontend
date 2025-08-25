@@ -40,7 +40,9 @@ const endpoints = {
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
   recordDuePayment: `${API_BASE}/payments/record`,
   products: `${API_BASE}/products`,
-  
+generateInvoice: ({ saleId, invoiceNo }) =>
+  `${API_BASE}/invoices/download?${saleId ? `saleId=${saleId}` : `invoiceNo=${invoiceNo}`}`,
+
   reports: {
     // Daily report requires a single date
     daily: (date) => `${API_BASE}/reports/daily?date=${date}`,

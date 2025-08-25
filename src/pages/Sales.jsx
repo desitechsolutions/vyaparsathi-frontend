@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -24,12 +24,13 @@ function debounce(fn, delay) {
 const initialItem = {
   id: '',
   sku: '',
-  qty: 1,
+  qty: '', // allow string for better input UX
   unitPrice: 0,
   itemName: '',
   description: '',
   color: '',
   size: '',
+  brand: '',
   design: '',
   currentStock: 0,
 };
@@ -88,9 +89,30 @@ const Sales = () => {
   });
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [editIndex, setEditIndex] = useState(null);
 
-  // Fetch all customers and variants on mount
+  // PATCH: Extract fetch logic to a function (useCallback for stable reference)
+  const loadVariants = useCallback(() => {
+    setLoading(true);
+    fetchItemVariants({}, 'http://localhost:8080/api/item-variants')
+      .then((res) => {
+        if (res.data && Array.isArray(res.data)) {
+          setVariants(res.data.map((v) => ({
+            value: v.id,
+            label: `${v.itemName} (${v.color}, ${v.size}, ${v.brand ? v.brand + ', ' : ''}${v.design}) - SKU: ${v.sku}`,
+            ...v,
+          })));
+        } else {
+          setVariants([]);
+        }
+      })
+      .catch(() => setSnackbar({ open: true, message: 'Failed to load items.', severity: 'error' }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // PATCH: use loadVariants on mount
   useEffect(() => {
+    loadVariants();
     setLoadingCustomers(true);
     fetchCustomers()
       .then((res) => {
@@ -104,24 +126,15 @@ const Sales = () => {
       })
       .catch(() => setSnackbar({ open: true, message: 'Failed to load customers.', severity: 'error' }))
       .finally(() => setLoadingCustomers(false));
-    setLoading(true);
-    fetchItemVariants({}, 'http://localhost:8080/api/item-variants')
-      .then((res) => {
-        if (res.data && Array.isArray(res.data)) {
-          setVariants(res.data.map((v) => ({
-            value: v.id,
-            label: `${v.itemName} (${v.color}, ${v.size}, ${v.design}) - SKU: ${v.sku}`,
-            ...v,
-          })));
-        } else {
-          setVariants([]);
-        }
-      })
-      .catch(() => setSnackbar({ open: true, message: 'Failed to load items.', severity: 'error' }))
-      .finally(() => setLoading(false));
-  }, []);
+  }, [loadVariants]);
 
-  // Unique filter options (memoized for performance)
+  // PATCH: Handler to close invoice modal and refresh variants from server
+  const handleCloseInvoiceModal = () => {
+    setOpenInvoiceModal(false);
+    loadVariants(); // <-- refresh variants after sale completes
+  };
+
+  // Unique filter options (memoized)
   const uniqueNames = useMemo(() => [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))], [variants]);
   const uniqueSkus = useMemo(() => [{ value: '', label: 'All SKUs' }, ...[...new Set(variants.map(v => v.sku).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueColors = useMemo(() => [{ value: '', label: 'All Colors' }, ...[...new Set(variants.map(v => v.color).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
@@ -150,7 +163,7 @@ const Sales = () => {
   // Update totalAmount when items change
   useEffect(() => {
     const newTotal = formData.items.reduce(
-      (sum, currentItem) => sum + currentItem.qty * currentItem.unitPrice,
+      (sum, currentItem) => sum + Number(currentItem.qty) * currentItem.unitPrice,
       0
     );
     setFormData((prevData) => ({
@@ -161,38 +174,111 @@ const Sales = () => {
 
   // Handlers
   const handleAddItem = () => {
-    if (!item.id || !item.qty || !item.unitPrice || item.qty > item.currentStock) {
-      setSnackbar({ open: true, message: 'Please select an item, specify quantity, and ensure stock is available.', severity: 'error' });
+    const quantity = Number(item.qty);
+    if (!item.id || !quantity || !item.unitPrice) {
+      setSnackbar({ open: true, message: 'Please select an item and specify quantity.', severity: 'error' });
       return;
     }
-    setFormData({
-      ...formData,
-      items: [...formData.items, item],
-    });
+
+    const uniqueKey = (it) => [it.id, it.size, it.color, it.brand, it.design].join('_');
+    const key = uniqueKey(item);
+
+    // Calculate total intended qty in this sale (sum of all matching items except the one being edited)
+    let existingQty = 0;
+    if (editIndex === null) {
+      existingQty = formData.items
+        .filter(it => uniqueKey(it) === key)
+        .reduce((sum, it) => sum + Number(it.qty), 0);
+    } else {
+      existingQty = formData.items
+        .filter((it, idx) => uniqueKey(it) === key && idx !== editIndex)
+        .reduce((sum, it) => sum + Number(it.qty), 0);
+    }
+    const intendedQty = existingQty + quantity;
+
+    // Find item's available stock (use item.currentStock, or from variants if needed)
+    let availableStock = item.currentStock;
+    if (!availableStock || isNaN(availableStock)) {
+      const foundVariant = variants.find(v => v.id === item.id);
+      availableStock = foundVariant ? foundVariant.currentStock : 0;
+    }
+
+    if (intendedQty > availableStock) {
+      setSnackbar({
+        open: true,
+        message: `Cannot add more than available stock (${availableStock}). You already have ${existingQty} in this sale.`,
+        severity: 'error',
+      });
+      return;
+    }
+
+    let newItems;
+    if (editIndex !== null) {
+      // Replace the item at editIndex
+      newItems = [...formData.items];
+      newItems[editIndex] = { ...item, qty: quantity };
+    } else {
+      const existingIndex = formData.items.findIndex(
+        (it) => uniqueKey(it) === key
+      );
+      if (existingIndex !== -1) {
+        newItems = [...formData.items];
+        newItems[existingIndex] = {
+          ...newItems[existingIndex],
+          qty: Number(newItems[existingIndex].qty) + quantity
+        };
+      } else {
+        newItems = [...formData.items, { ...item, qty: quantity }];
+      }
+    }
+    setFormData({ ...formData, items: newItems });
     setItem(initialItem);
     setSelectedVariant(null);
+    setEditIndex(null);
+  };
+
+  const handleEditItem = (index) => {
+    const editItem = formData.items[index];
+    setItem({ ...editItem, qty: String(editItem.qty) });
+    setSelectedVariant(
+      variants.find(
+        v =>
+          v.id === editItem.id &&
+          v.size === editItem.size &&
+          v.color === editItem.color &&
+          v.brand === editItem.brand &&
+          v.design === editItem.design
+      ) || null
+    );
+    setEditIndex(index);
   };
 
   const handleRemoveItem = (index) => {
     const updatedItems = formData.items.filter((_, i) => i !== index);
     setFormData({ ...formData, items: updatedItems });
+    if (editIndex === index) {
+      setItem(initialItem);
+      setSelectedVariant(null);
+      setEditIndex(null);
+    }
   };
 
   const handleVariantSelect = (selectedOption) => {
     if (selectedOption) {
       setSelectedVariant(selectedOption);
-      setItem({
+      setItem((prevItem) => ({
         id: selectedOption.id,
         sku: selectedOption.sku,
-        qty: 1,
+        qty: (editIndex !== null && prevItem.id === selectedOption.id) ? prevItem.qty : '',
         unitPrice: selectedOption.pricePerUnit,
         itemName: selectedOption.itemName,
         description: selectedOption.description,
         color: selectedOption.color,
         size: selectedOption.size,
+        brand: selectedOption.brand || '',
         design: selectedOption.design,
         currentStock: selectedOption.currentStock,
-      });
+      }));
     } else {
       setSelectedVariant(null);
       setItem(initialItem);
@@ -244,6 +330,7 @@ const Sales = () => {
     setShowReviewPage(true);
   };
 
+  // FIX: Send correct paymentDetails fields to match PaymentDto in backend
   const handleSubmitSale = async (payload, discount, sendInvoice) => {
     setLoading(true);
     try {
@@ -257,12 +344,17 @@ const Sales = () => {
         isGstRequired: sale.isGstRequired,
         discount: discount,
         paymentDetails: paymentDetails.map(pm => ({
-          method: pm.method,
-          amountPaid: pm.amountPaid,
+          amount: pm.amount, // <-- CORRECT field for backend PaymentDto
+          paymentMethod: pm.paymentMethod, // <-- CORRECT field for backend PaymentDto
+          paymentDate: pm.paymentDate || new Date().toISOString(),
+          reference: pm.reference || "",
+          notes: pm.notes || "",
+          transactionId: pm.transactionId || "",
+          // DO NOT send sourceType/sourceId
         })),
       };
       const saleResponse = await createSale(saleData);
-      const totalPaid = paymentDetails.reduce((sum, pm) => sum + pm.amountPaid, 0);
+      const totalPaid = paymentDetails.reduce((sum, pm) => sum + (pm.amount || 0), 0);
       const remaining = parseFloat(sale.totalAmount) - totalPaid;
       const paymentStatus = remaining > 0 ? 'PARTIALLY_PAID' : 'PAID';
       setSalesHistory([...salesHistory, { ...saleData, paymentDetails, remaining: remaining.toFixed(2), paymentStatus }]);
@@ -270,6 +362,7 @@ const Sales = () => {
       setSelectedCustomer(null);
       setSelectedVariant(null);
       setItem(initialItem);
+      setEditIndex(null);
       if (saleResponse.data && saleResponse.data instanceof Uint8Array) {
         setInvoicePdf(saleResponse.data);
         if (sendInvoice) {
@@ -295,6 +388,7 @@ const Sales = () => {
     setSelectedCustomer(null);
     setSelectedVariant(null);
     setItem(initialItem);
+    setEditIndex(null);
     setSnackbar({ open: true, message: 'Draft saved.', severity: 'info' });
   };
 
@@ -341,10 +435,12 @@ const Sales = () => {
               handleAddItem={handleAddItem}
               error={snackbar.open && snackbar.severity === 'error' ? snackbar.message : ''}
               setError={msg => setSnackbar({ open: true, message: msg, severity: 'error' })}
+              editIndex={editIndex}
             />
             <SalesSummary
               formData={formData}
               handleRemoveItem={handleRemoveItem}
+              handleEditItem={handleEditItem}
               handleProceedToReview={handleProceedToReview}
               loading={loading}
               error={snackbar.open && snackbar.severity === 'error' ? snackbar.message : ''}
@@ -356,6 +452,7 @@ const Sales = () => {
               setItem={setItem}
               setSearchParams={setSearchParams}
               item={item}
+              editIndex={editIndex}
             />
           </>
         ) : (
@@ -377,6 +474,7 @@ const Sales = () => {
           setPageNumber={setPageNumber}
           numPages={numPages}
           onDocumentLoadSuccess={onDocumentLoadSuccess}
+          onClose={handleCloseInvoiceModal} // PATCH: use this handler!
         />
       </SalesTabs.Panel>
       <SalesTabs.Panel value={tabValue} index={1}>

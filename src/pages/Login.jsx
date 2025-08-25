@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TextField,
   Button,
@@ -16,11 +16,12 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
-
-import API from '../services/api';
-import { setToken } from '../utils/auth';
+import { useAuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { login as loginApi } from '../services/api'; // Use the login function from api.js
 import endpoints from '../services/endpoints';
+import API from '../services/api';
+
 const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Admin' },
   { value: 'OWNER', label: 'Owner' },
@@ -28,23 +29,30 @@ const ROLE_OPTIONS = [
 ];
 
 const Login = () => {
-  // State to manage which form view is active: 'login', 'register', or 'forgotPin'
+  const { login, user } = useAuthContext();
+  const navigate = useNavigate();
   const [view, setView] = useState('login');
   const [role, setRole] = useState('STAFF');
-
-  // Common state for form handling
   const [username, setUsername] = useState(localStorage.getItem('lastUsername') || '');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Refs for autofill detection
   const usernameRef = useRef(null);
   const pinRef = useRef(null);
 
-  // Detect autofill using animation start event
+  // Effect to handle navigation after login
+  const handleNavigation = useCallback(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    handleNavigation();
+  }, [handleNavigation]);
+
   useEffect(() => {
     const handleAnimationStart = (e) => {
       if (e.animationName === 'mui-auto-fill' || e.animationName === 'mui-auto-fill-cancel') {
@@ -63,7 +71,6 @@ const Login = () => {
       input?.addEventListener('animationstart', handleAnimationStart);
     });
 
-    // Fallback check for initial autofill
     const checkAutofill = () => {
       if (usernameRef.current && usernameRef.current.value !== username) {
         setUsername(usernameRef.current.value);
@@ -82,55 +89,56 @@ const Login = () => {
     };
   }, [username, pin]);
 
-  // Handle API calls for different views
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setError('');
-  setSuccessMessage('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    setSuccessMessage('');
 
-  try {
-    if (view === 'login') {
-      if (!username.trim() || !pin.trim()) {
-        setError('Username and PIN are required.');
-        setIsSubmitting(false);
-        return;
+    try {
+      if (view === 'login') {
+        if (!username.trim() || !pin.trim()) {
+          setError('Username and PIN are required.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Use the loginApi function which skips refresh logic on 401
+        const response = await loginApi({ username, pin });
+        login(response.data.token, response.data.refreshToken);
+        // Navigation will be handled by the useEffect when user state updates
+      } else if (view === 'register') {
+        if (!username.trim() || !pin.trim() || !confirmPin.trim() || !role) {
+          setError('All fields are required.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (pin !== confirmPin) {
+          setError('Pins do not match.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Registration does not need skipAuthRefresh
+        const response = await API.post(endpoints.auth.register, { username, pin, role });
+        setSuccessMessage('Registration successful! You can now log in.');
+        setTimeout(() => setView('login'), 2000);
+      } else if (view === 'forgotPin') {
+        if (!username.trim()) {
+          setError('Username is required.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Forgot PIN does not need skipAuthRefresh
+        const response = await API.post(endpoints.auth.forgetPin, { username });
+        setSuccessMessage(response.data.message || 'PIN reset link sent.');
+        setTimeout(() => setView('login'), 2000);
       }
-      const response = await API.post(endpoints.auth.login, { username, pin });
-      setToken(response.data.token, response.data.refreshToken);
-      window.location.href = '/';
-    } else if (view === 'register') {
-      if (!username.trim() || !pin.trim() || !confirmPin.trim() || !role) {
-        setError('All fields are required.');
-        setIsSubmitting(false);
-        return;
-      }
-      if (pin !== confirmPin) {
-        setError('Pins do not match.');
-        setIsSubmitting(false);
-        return;
-      }
-      const response = await API.post(endpoints.auth.register, { username, pin, role });
-      setSuccessMessage('Registration successful! You can now log in.');
-      setTimeout(() => setView('login'), 2000);
-    } else if (view === 'forgotPin') {
-      if (!username.trim()) {
-        setError('Username is required.');
-        setIsSubmitting(false);
-        return;
-      }
-      const response = await API.post(endpoints.auth.forgetPin, { username });
-      setSuccessMessage(response.data.message || 'PIN reset link sent.');
-      setTimeout(() => setView('login'), 2000);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (err) {
-    setError(err.response?.data?.message || err.message || 'An unexpected error occurred. Please try again.');
-    console.error('API call error:', err);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-  // Conditionally render the correct form based on the 'view' state
+  };
+
   const renderForm = () => {
     switch (view) {
       case 'login':
@@ -161,9 +169,7 @@ const handleSubmit = async (e) => {
                 fullWidth
                 margin="normal"
                 value={pin}
-                onChange={(e) => {
-                  setPin(e.target.value);
-                }}
+                onChange={(e) => setPin(e.target.value)}
                 disabled={isSubmitting}
                 required
                 InputLabelProps={{ shrink: !!pin }}
@@ -248,7 +254,7 @@ const handleSubmit = async (e) => {
                 disabled={isSubmitting}
                 required
                 error={pin !== confirmPin && confirmPin.length > 0}
-                helperText={pin !== confirmPin && confirmPin.length > 0 ? "Pins do not match." : ""}
+                helperText={pin !== confirmPin && confirmPin.length > 0 ? 'Pins do not match.' : ''}
                 InputLabelProps={{ shrink: !!confirmPin }}
               />
               <TextField
@@ -337,7 +343,7 @@ const handleSubmit = async (e) => {
         minHeight: '100vh',
         px: 2,
         backgroundColor: '#f0f2f5',
-        fontFamily: 'Inter, sans-serif'
+        fontFamily: 'Inter, sans-serif',
       }}
     >
       <Paper
@@ -354,7 +360,7 @@ const handleSubmit = async (e) => {
           '&:hover': {
             transform: 'translateY(-5px)',
             boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-          }
+          },
         }}
       >
         {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}

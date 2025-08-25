@@ -18,6 +18,8 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip'; 
+import EditIcon from '@mui/icons-material/Edit';
 
 const SalesSummary = ({
   formData,
@@ -32,12 +34,14 @@ const SalesSummary = ({
   setSelectedVariant,
   setItem,
   setSearchParams,
+  handleEditItem,
   item,
 }) => {
-  const [discount, setDiscount] = useState(0); // Local state for discount
+  // Use the discount from formData if available, or 0
+  const [discount, setDiscount] = useState(formData.discount || 0);
 
   const handleClearForm = () => {
-    setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no' });
+    setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no', discount: 0 });
     setSelectedCustomer(null);
     setSelectedVariant(null);
     setItem({
@@ -60,7 +64,7 @@ const SalesSummary = ({
       design: '',
       category: '',
     });
-    setDiscount(0); // Reset discount
+    setDiscount(0);
   };
 
   // Calculate subtotal based on items (original total without discount)
@@ -70,6 +74,14 @@ const SalesSummary = ({
   ).toFixed(2);
 
   const netTotal = (parseFloat(subtotal) - discount).toFixed(2);
+
+  // Keep formData in sync with discount (optional, to persist on review)
+  React.useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      discount: discount,
+    }));
+  }, [discount, setFormData]);
 
   return (
     <Box sx={{ mt: 4 }}>
@@ -106,13 +118,38 @@ const SalesSummary = ({
               <TableBody>
                 {formData.items.map((saleItem, index) => (
                   <TableRow key={index}>
-                    <TableCell>{saleItem.itemName}</TableCell>
+                    <TableCell>
+                      <Tooltip
+                        title={
+                          <>
+                            <div>Description: {saleItem.description}</div>
+                            <div>Item: {saleItem.itemName}</div>                        
+                            <div>Size: {saleItem.size}</div>
+                            <div>Color: {saleItem.color}</div>
+                            <div>Brand: {saleItem.brand || '-'}</div>
+                            <div>Design: {saleItem.design}</div>
+                          </>
+                        }
+                        arrow
+                        placement="bottom"
+                      >
+                        <span>
+                          {saleItem.itemName}
+                          {['size', 'color'].map(
+                            (field) => saleItem[field] ? ` - ${saleItem[field]}` : ''
+                          ).join('')}
+                        </span>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell>{saleItem.qty}</TableCell>
                     <TableCell align="right">₹{saleItem.unitPrice}</TableCell>
                     <TableCell align="right">
                       ₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}
                     </TableCell>
                     <TableCell align="right">
+                      <IconButton color="primary" size="small" onClick={() => handleEditItem(index)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
                       <IconButton
                         color="error"
                         size="small"
@@ -134,7 +171,7 @@ const SalesSummary = ({
                     <TextField
                       type="number"
                       value={discount}
-                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => setDiscount(Math.max(0, Math.min(parseFloat(e.target.value) || 0, parseFloat(subtotal))))}
                       InputProps={{ inputProps: { min: 0, max: parseFloat(subtotal) } }}
                       size="small"
                       sx={{ width: 100 }}
@@ -169,7 +206,7 @@ const SalesSummary = ({
           <Button
             variant="contained"
             color="primary"
-            onClick={() => handleProceedToReview(discount)} // Pass discount to review page
+            onClick={() => handleProceedToReview(discount)} // Pass discount to review page if needed
             disabled={loading || formData.items.length === 0 || !selectedCustomer}
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
             sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}

@@ -8,8 +8,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import DownloadIcon from '@mui/icons-material/Download';
+import InvoiceModal from './InvoiceModal';
 import dayjs from 'dayjs';
-import { fetchSalesWithDue, fetchShop } from '../../services/api';
+import PrintIcon from '@mui/icons-material/Print';
+import { fetchSalesWithDue, fetchShop, generateInvoice } from '../../services/api';
 
 const statusColors = {
   PAID: 'success',
@@ -28,6 +30,13 @@ function getStatus(dueAmount) {
 }
 
 const SalesHistory = () => {
+  // For printing invoices
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printPdf, setPrintPdf] = useState(null);
+  const [printPageNumber, setPrintPageNumber] = useState(1);
+  const [printNumPages, setPrintNumPages] = useState(null);
+  const [printLoading, setPrintLoading] = useState(false);
+
   const [salesHistory, setSalesHistory] = useState([]);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +46,25 @@ const SalesHistory = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedRow, setExpandedRow] = useState(null);
+
+  const handlePrintInvoice = async (sale) => {
+    setPrintLoading(true);
+    try {
+      const res = await generateInvoice({
+        invoiceNo: sale.invoiceNo,
+        saleId: sale.saleId
+      });
+      setPrintPdf(res.data);
+      setPrintModalOpen(true);
+      setPrintPageNumber(1);
+      setPrintNumPages(null);
+    } catch (e) {
+      alert('Failed to fetch invoice PDF');
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     setLoading(true);
@@ -263,6 +291,17 @@ const SalesHistory = () => {
                                   </Typography>
                                 </Box>
                               </Box>
+                              <Box sx={{ mt: 2 }}>
+                                <Button
+                                  variant="contained"
+                                  color="primary"
+                                  startIcon={<PrintIcon />}
+                                  onClick={() => handlePrintInvoice(sale)}
+                                  disabled={printLoading}
+                                >
+                                  {printLoading ? "Loading..." : "Print Invoice"}
+                                </Button>
+                              </Box>
                             </Box>
                           </Collapse>
                         </TableCell>
@@ -287,6 +326,15 @@ const SalesHistory = () => {
           rowsPerPageOptions={[5, 10, 25, 50]}
         />
       </Paper>
+      <InvoiceModal
+        open={printModalOpen}
+        setOpen={setPrintModalOpen}
+        invoicePdf={printPdf}
+        pageNumber={printPageNumber}
+        setPageNumber={setPrintPageNumber}
+        numPages={printNumPages}
+        onDocumentLoadSuccess={({ numPages }) => setPrintNumPages(numPages)}
+      />
     </Box>
   );
 };

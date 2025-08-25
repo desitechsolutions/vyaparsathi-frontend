@@ -77,7 +77,7 @@ const Sidebar = ({ children }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuthContext();
-  const userRole = user?.role;
+  const userRole = user?.role; // Safely access role
 
   // Nested/collapsible menu state
   const [openReports, setOpenReports] = useState(false);
@@ -87,6 +87,7 @@ const Sidebar = ({ children }) => {
   // Menu for all users (excluding About Us)
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Item Catalog', icon: <InventoryIcon />, path: '/items' , protected: true},
     { text: 'Products', icon: <ViewListIcon />, path: '/products' },
     { text: 'Inventory', icon: <StoreIcon />, path: '/stock' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
@@ -96,7 +97,6 @@ const Sidebar = ({ children }) => {
 
   // For ADMIN and OWNER only (with some nested groups)
   const adminOwnerMenuItems = [
-    { text: 'Item Catalog', icon: <InventoryIcon />, path: '/items' },
     { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers' },
     { text: 'Purchase Orders', icon: <ReceiptIcon />, path: '/purchase-orders' },
     { text: 'Payments', icon: <PaymentIcon />,
@@ -110,7 +110,6 @@ const Sidebar = ({ children }) => {
     },
     { text: 'Analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
     { text: 'Low Stock Alerts', icon: <InventoryIcon />, path: '/stock-alerts' },
-    // Reports as nested/collapsible
     {
       text: 'Reports',
       icon: <AssessmentIcon />,
@@ -130,7 +129,6 @@ const Sidebar = ({ children }) => {
       ],
     },
     { text: 'Backup', icon: <BackupIcon />, path: '/backup' },
-    // Admin group nested
     {
       text: 'Admin',
       icon: <PeopleIcon />,

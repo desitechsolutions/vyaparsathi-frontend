@@ -1,6 +1,5 @@
 import axios from 'axios';
 import endpoints from './endpoints';
-import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { setToken } from '../utils/auth';
 
@@ -22,7 +21,6 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Interceptor to add the authorization token to every request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -31,46 +29,35 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor to handle unauthorized requests and refresh token if possible
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      !originalRequest._retry
-    ) {
+    // Skip refresh logic for login or any request that explicitly opts out
+    if (originalRequest && originalRequest.skipAuthRefresh) {
+      return Promise.reject(error);
+    }
+
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // Queue the request until refresh is done
-        return new Promise(function (resolve, reject) {
+        return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers['Authorization'] = 'Bearer ' + token;
-            return API(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
+        }).then((token) => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          return API(originalRequest);
+        }).catch((err) => Promise.reject(err));
       }
 
       originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        // Call your refresh endpoint (adjust if needed)
         const refreshToken = localStorage.getItem('refreshToken');
-        const res = await axios.post(
-          endpoints.auth.refresh,
-          { refreshToken },
-          { baseURL: API.defaults.baseURL, withCredentials: true }
-        );
+        const res = await axios.post(endpoints.auth.refresh, { refreshToken }, { baseURL: API.defaults.baseURL });
         const newToken = res.data.token;
         const newRefreshToken = res.data.refreshToken;
-        setToken(newToken, newRefreshToken); // <-- always update token, refreshToken, and tokenExpiry
-        API.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        setToken(newToken, newRefreshToken);
         processQueue(null, newToken);
         isRefreshing = false;
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
@@ -78,14 +65,7 @@ API.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
-        localStorage.removeItem('token');
-        localStorage.removeItem('tokenExpiry');
-        localStorage.removeItem('refreshToken');
-        toast.error('Your session has expired. Please log in again.', {
-          position: 'top-right',
-          autoClose: 5000,
-        });
-        window.location.href = '/login';
+        // Let AuthContext handle logout
         return Promise.reject(refreshError);
       }
     }
@@ -186,6 +166,9 @@ export const fetchGstBreakdown = (from, to) => API.get(endpoints.reports.gstBrea
 export const fetchItemsSold = () => API.get(endpoints.fetchItemsSold);
 export const fetchCategorySales = () => API.get(endpoints.fetchCategorySales);
 
+// Generate Invoice for each sale by saleId or invoiceId
+export const generateInvoice = ({ saleId, invoiceNo }) =>
+  API.get(endpoints.generateInvoice({ saleId, invoiceNo }), { responseType: 'arraybuffer' });
 // Expenses related APIs
 export const createExpense = (data) => API.post(endpoints.expenses, data);
 export const fetchExpenses = () => API.get(endpoints.expenses);
@@ -210,5 +193,10 @@ export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
 
+
+// --- Auth related API ---
+// Use skipAuthRefresh on login to prevent refresh logic on login failure
+export const login = (payload) =>
+  API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
 
 export default API;
