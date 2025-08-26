@@ -9,6 +9,7 @@ import SalesHistory from '../components/Sales/SalesHistory';
 import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { fetchCustomers, createSale, fetchItemVariants, createCustomer } from '../services/api';
 import { pdfjs } from 'react-pdf';
+import { useSearchParams } from 'react-router-dom';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
@@ -109,6 +110,17 @@ const Sales = () => {
       .catch(() => setSnackbar({ open: true, message: 'Failed to load items.', severity: 'error' }))
       .finally(() => setLoading(false));
   }, []);
+
+  const [urlParams] = useSearchParams();
+
+  useEffect(() => {
+    const tab = urlParams.get('tab');
+    if (tab === 'history') {
+      setTabValue(1);
+    } else {
+      setTabValue(0);
+    }
+  }, [urlParams]);
 
   // PATCH: use loadVariants on mount
   useEffect(() => {
@@ -350,7 +362,6 @@ const Sales = () => {
           reference: pm.reference || "",
           notes: pm.notes || "",
           transactionId: pm.transactionId || "",
-          // DO NOT send sourceType/sourceId
         })),
       };
       const saleResponse = await createSale(saleData);
@@ -474,7 +485,7 @@ const Sales = () => {
           setPageNumber={setPageNumber}
           numPages={numPages}
           onDocumentLoadSuccess={onDocumentLoadSuccess}
-          onClose={handleCloseInvoiceModal} // PATCH: use this handler!
+          onClose={handleCloseInvoiceModal}
         />
       </SalesTabs.Panel>
       <SalesTabs.Panel value={tabValue} index={1}>

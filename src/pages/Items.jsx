@@ -14,7 +14,6 @@ import {
   CircularProgress,
   Box,
   Typography,
-  Container,
   Alert,
   Autocomplete,
   IconButton,
@@ -662,7 +661,7 @@ const Items = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <>
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
@@ -772,7 +771,7 @@ const Items = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </>
   );
 };
 

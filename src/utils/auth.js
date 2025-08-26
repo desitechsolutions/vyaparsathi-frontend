@@ -42,8 +42,9 @@ export const isAuthenticated = () => {
 // Remove token and expiry, redirect to login
 export const logout = () => {
   localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('tokenExpiry');
-  window.location.href = '/login';
+  // Navigation is handled by the calling component (e.g., in AuthContext or Header)
 };
 
 let inactivityTimeout;

@@ -17,10 +17,12 @@ import {
 } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A020F0', '#FF6666'];
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [shop, setShop] = useState(null);
   const [todayStats, setTodayStats] = useState({ sales: 0, numberOfSales: 0, netRevenue: 0 });
   const [summaryStats, setSummaryStats] = useState({
@@ -86,10 +88,10 @@ const Dashboard = () => {
         setDues(totalDue);
       }
       setIsLoading(false);
-      if (hasCriticalError) setError('Failed to load dashboard data.');
+      if (hasCriticalError) setError(t('dashboardPage.errorLoad'));
     }).catch(() => {
       if (!isMounted) return;
-      setError('Failed to load dashboard data.');
+      setError(t('dashboardPage.errorLoad'));
       setIsLoading(false);
     });
     return () => { isMounted = false; };
@@ -187,7 +189,7 @@ const Dashboard = () => {
             {shop.name}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {shop.address}, {shop.state} {shop.gstin ? `| GSTIN: ${shop.gstin}` : ''}
+            {shop.address}, {shop.state} {shop.gstin ? `| ${t('dashboardPage.gstin')}: ${shop.gstin}` : ''}
           </Typography>
         </Paper>
       )}
@@ -198,7 +200,7 @@ const Dashboard = () => {
         alignItems: { md: 'center' }, justifyContent: 'space-between', mb: 3, gap: 2
       }}>
         <TextField
-          label="Select Date"
+          label={t('dashboardPage.selectDate')}
           type="date"
           size="small"
           value={date}
@@ -223,10 +225,10 @@ const Dashboard = () => {
         /> */}
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button variant="contained" color="primary" onClick={() => navigate('/sales')}>
-            Add Sale
+            {t('dashboardPage.addSale')}
           </Button>
           <Button variant="outlined" color="primary" onClick={() => navigate('/sales?tab=history')}>
-            View Sales History
+            {t('dashboardPage.viewSalesHistory')}
           </Button>
         </Box>
       </Box>
@@ -243,7 +245,7 @@ const Dashboard = () => {
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6} md={3}>
             <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">Today's Sales</Typography>
+              <Typography variant="h6" color="text.secondary">{t('dashboardPage.todaysSales')}</Typography>
               <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
                 {formatCurrency(todayStats.sales)}
               </Typography>
@@ -251,7 +253,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">Total Customers</Typography>
+              <Typography variant="h6" color="text.secondary">{t('dashboardPage.totalCustomers')}</Typography>
               <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
                 {totalCustomers}
               </Typography>
@@ -259,7 +261,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">Total Items Sold</Typography>
+              <Typography variant="h6" color="text.secondary">{t('dashboardPage.totalItemsSold')}</Typography>
               <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
                 {totalItemsSold}
               </Typography>
@@ -267,7 +269,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">Outstanding Dues</Typography>
+              <Typography variant="h6" color="text.secondary">{t('dashboardPage.outstandingDues')}</Typography>
               <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#b71c1c' }}>
                 {formatCurrency(dues)}
               </Typography>
@@ -277,7 +279,7 @@ const Dashboard = () => {
           {/* Weekly Sales Chart */}
           <Grid item xs={12} md={8}>
             <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" gutterBottom>Sales Summary</Typography>
+              <Typography variant="h6" gutterBottom>{t('dashboardPage.salesSummary')}</Typography>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={weeklySalesData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -285,10 +287,10 @@ const Dashboard = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="sales" stroke="#1976d2" strokeWidth={2} activeDot={{ r: 8 }} />
-                  <Line type="monotone" dataKey="count" stroke="#00C49F" strokeWidth={2} />
-                  <Line type="monotone" dataKey="netRevenue" stroke="#A020F0" strokeWidth={2} />
-                  <Line type="monotone" dataKey="outstandingReceivable" stroke="#b71c1c" strokeWidth={2} />
+                  <Line type="monotone" dataKey="sales" name={t('dashboardPage.chartSales')} stroke="#1976d2" strokeWidth={2} activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="count" name={t('dashboardPage.chartCount')} stroke="#00C49F" strokeWidth={2} />
+                  <Line type="monotone" dataKey="netRevenue" name={t('dashboardPage.chartNetRevenue')} stroke="#A020F0" strokeWidth={2} />
+                  <Line type="monotone" dataKey="outstandingReceivable" name={t('dashboardPage.chartOutstandingReceivable')} stroke="#b71c1c" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </Paper>
@@ -297,7 +299,7 @@ const Dashboard = () => {
           {/* Sales by Category Chart */}
           <Grid item xs={12} md={4}>
             <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" gutterBottom>Sales by Category</Typography>
+              <Typography variant="h6" gutterBottom>{t('dashboardPage.salesByCategory')}</Typography>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -318,7 +320,7 @@ const Dashboard = () => {
               </ResponsiveContainer>
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  Top Category: <b>{topCategory}</b>
+                  {t('dashboardPage.topCategory')}: <b>{topCategory}</b>
                 </Typography>
               </Box>
             </Paper>

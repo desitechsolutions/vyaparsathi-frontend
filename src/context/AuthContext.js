@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { decodeToken, logout as utilsLogout, startInactivityTimer } from '../utils/auth';
 import { refreshToken as refreshTokenApi } from '../services/api';
+import i18n from '../config/i18n';
 
 const AuthContext = createContext();
 
@@ -15,7 +16,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const onInactivityLogout = () => {
       if (user) {
-        logout('Logged out due to inactivity.');
+        logout(i18n.t('auth.inactivityLogout'));
       }
     };
     inactivityTimerRef.current = startInactivityTimer(onInactivityLogout);
@@ -25,45 +26,43 @@ export const AuthProvider = ({ children }) => {
     };
   }, [user]);
 
+  const refreshToken = async () => {
+    const currentRefreshToken = localStorage.getItem('refreshToken');
+    if (!currentRefreshToken) {
+      return logout(i18n.t('auth.sessionExpired'));
+    }
+    try {
+      const res = await refreshTokenApi(currentRefreshToken);
+      if (res.data && res.data.token) {
+        setToken(res.data.token, res.data.refreshToken);
+        // Reset inactivity timer on successful refresh
+        if (inactivityTimerRef.current) inactivityTimerRef.current();
+      } else {
+        logout(i18n.t('auth.refreshFailed'));
+      }
+    } catch (err) {
+      logout(i18n.t('auth.refreshFailedLogin'));
+    }
+  };
+
   // Token refresh logic
   useEffect(() => {
-     if (!user) return;
-    let refreshInterval;
-    const checkTokenExpiry = async () => {
-      if (!user) return;
-      const token = localStorage.getItem('token');
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!token || !refreshToken) {
-        logout('Session expired due to missing tokens.');
-        return;
-      }
+    if (!user || !user.token) return;
 
-      const decoded = decodeToken(token);
-      const expiry = decoded.exp * 1000;
-      const timeLeft = expiry - new Date().getTime();
+    const decoded = decodeToken(user.token);
+    if (!decoded) {
+      return logout(i18n.t('auth.invalidToken'));
+    }
 
-      if (timeLeft <= 0) {
-        try {
-          const res = await refreshTokenApi(refreshToken);
-          if (res.data && res.data.token) {
-            setToken(res.data.token, res.data.refreshToken);
-            // Reset inactivity timer on successful refresh
-            if (inactivityTimerRef.current) inactivityTimerRef.current();
-          } else {
-            logout('Failed to refresh session.');
-          }
-        } catch (err) {
-          logout('Session refresh failed. Please log in again.');
-        }
-      } else if (timeLeft < 300000) { // 5 minutes warning
-        // Optionally show a toast warning here
-      }
-    };
+    const expiresIn = decoded.exp * 1000 - Date.now() - 60 * 1000; // 1 minute buffer
 
-    refreshInterval = setInterval(checkTokenExpiry, 60000); // Check every minute
-    if(user) checkTokenExpiry();
+    if (expiresIn <= 0) {
+      refreshToken();
+      return;
+    }
 
-    return () => clearInterval(refreshInterval);
+    const timeoutId = setTimeout(refreshToken, expiresIn);
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   // Sync with localStorage and events
@@ -99,13 +98,12 @@ export const AuthProvider = ({ children }) => {
     utilsLogout();
     setUser(null);
     if (message) {
-      // Assuming toast is available, adjust as per your setup
-      // toast.info(message, { position: 'top-right', autoClose: 5000 });
+      console.log(message); // Replace with a toast notification if you have one
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, setToken }}>
       {children}
     </AuthContext.Provider>
   );

@@ -36,10 +36,10 @@ const AppBranding = () => {
       <TrendingUpOutlinedIcon sx={{ fontSize: { xs: 30, sm: 40 }, color: 'white', '&:hover': { color: '#fff' } }} />
       <Box>
         <Typography variant="h6" component="div" noWrap sx={{ fontWeight: '900', fontSize: { xs: '1.2rem', sm: '1.75rem' }, color: 'white' }}>
-          VyaparSathi
+          {t('appName')}
         </Typography>
         <Typography variant="caption" component="div" noWrap sx={{ fontSize: { xs: '0.65rem', sm: '0.8rem' }, color: 'rgba(255, 255, 255, 0.8)', letterSpacing: 0.5, mt: -0.5, fontStyle: 'italic' }}>
-          Safal Vyapar, Aasan Hisab
+          {t('tagline')}
         </Typography>
       </Box>
     </Box>
@@ -65,6 +65,7 @@ const Header = () => {
   const handleLogout = () => {
     handleClose();
     logout();
+    navigate('/login');
   };
   const handleProfile = () => {
     setOpenProfileModal(true);
@@ -83,13 +84,17 @@ const Header = () => {
   };
 
   return (
-    <AppBar position="static" color="primary">
+    <AppBar
+      position="fixed"
+      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+      color="primary"
+    >
       <Toolbar sx={{ justifyContent: 'space-between' }}>
         <AppBranding />
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {!isLoggedIn ? (
             <Button color="inherit" onClick={() => navigate('/login')} sx={{ textTransform: 'none', fontWeight: 500 }}>
-              Login
+              {t('header.login')}
             </Button>
           ) : (
             <>
@@ -102,7 +107,7 @@ const Header = () => {
                   {username}
                 </Typography>
               )}
-              <Tooltip title="Get Support" placement="bottom">
+              <Tooltip title={t('header.getSupport')} placement="bottom">
                 <IconButton
                   size="medium"
                   color="inherit"
@@ -146,30 +151,30 @@ const Header = () => {
                 PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)', minWidth: 200 } }}
               >
                 <MenuItem onClick={handleProfile} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <AccountCircleIcon sx={{ marginRight: 1 }} /> Profile
+                  <AccountCircleIcon sx={{ marginRight: 1 }} /> {t('header.profile')}
                 </MenuItem>
                 <MenuItem onClick={handleSettings} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <SettingsIcon sx={{ marginRight: 1 }} /> Settings
+                  <SettingsIcon sx={{ marginRight: 1 }} /> {t('header.settings')}
                 </MenuItem>
                 <MenuItem onClick={handleLogout} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <ExitToAppIcon sx={{ marginRight: 1 }} /> Logout
+                  <ExitToAppIcon sx={{ marginRight: 1 }} /> {t('header.logout')}
                 </MenuItem>
               </Menu>
               <Dialog open={openSupportDialog} onClose={handleCloseSupport}>
                 <Box sx={{ p: 2 }}>
-                  <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>How can we help you?</DialogTitle>
+                  <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>{t('header.supportTitle')}</DialogTitle>
                   <DialogContent>
                     <DialogContentText sx={{ textAlign: 'center', mb: 2 }}>
-                      Our support team is ready to assist you. You can reach us through the following channels:
+                      {t('header.supportText')}
                     </DialogContentText>
-                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>Email:</strong> support@vyaparsathi.com</Typography>
-                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>Phone:</strong> +91-950-815-6282</Typography>
+                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportEmail')}</strong> support@vyaparsathi.com</Typography>
+                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportPhone')}</strong> +91-950-815-6282</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                      We will get back to you as soon as possible.
+                      {t('header.supportClosing')}
                     </Typography>
                   </DialogContent>
                   <DialogActions sx={{ justifyContent: 'center', mt: 2 }}>
-                    <Button onClick={handleCloseSupport} variant="contained" color="primary">Close</Button>
+                    <Button onClick={handleCloseSupport} variant="contained" color="primary">{t('header.close')}</Button>
                   </DialogActions>
                 </Box>
               </Dialog>

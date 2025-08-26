@@ -65,6 +65,9 @@ API.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
+        // Clear tokens on refresh failure
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         // Let AuthContext handle logout
         return Promise.reject(refreshError);
       }
@@ -87,11 +90,11 @@ export const getPurchaseOrders = () =>
 export const getPurchaseOrderById = (id) =>
   API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
 
-export const createPurchaseOrder = (po) =>
-  API.post(endpoints.purchaseOrders, po).then((r) => r.data);
+export const createPurchaseOrder = (data) =>
+  API.post(endpoints.purchaseOrders, data).then((r) => r.data);
 
-export const updatePurchaseOrder = (id, po) =>
-  API.put(endpoints.purchaseOrderById(id), po).then((r) => r.data);
+export const updatePurchaseOrder = (id, data) =>
+  API.put(endpoints.purchaseOrderById(id), data).then((r) => r.data);
 
 export const deletePurchaseOrder = (id) =>
   API.delete(endpoints.purchaseOrderById(id)).then((r) => r.data);
@@ -193,7 +196,12 @@ export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
 
-
+// Receiving related APIs
+export const fetchReceiving = () => API.get(endpoints.receiving).then(r => r.data);
+export const createReceiving = (data) => API.post(endpoints.receiving, data).then(r => r.data);
+export const updateReceiving = (id, data) => API.put(endpoints.receivingById(id), data).then(r => r.data);
+export const fetchReceivingTickets = () => API.get(endpoints.receivingTickets).then(r => r.data);
+export const createReceivingTicket = (data) => API.post(endpoints.receivingTickets, data).then(r => r.data);
 // --- Auth related API ---
 // Use skipAuthRefresh on login to prevent refresh logic on login failure
 export const login = (payload) =>

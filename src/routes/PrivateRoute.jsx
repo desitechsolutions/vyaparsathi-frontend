@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import Sidebar from '../components/layout/Sidebar';
+import { Navigate, useLocation } from 'react-router-dom';
 import useShopConfig from '../hooks/useShopConfig';
 import { useAuthContext } from '../context/AuthContext';
 
@@ -8,35 +7,28 @@ function PrivateRoute({ children }) {
   const { user } = useAuthContext();
   const { shop, loading } = useShopConfig();
   const location = useLocation();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user && location.pathname !== '/setup-shop' && location.pathname !== '/login') {
-      navigate('/login', { replace: true });
-    }
-  }, [user, location.pathname, navigate]);
-
-  // Don't block login or setup-shop route
-  if (location.pathname === '/setup-shop') {
-    return children;
-  }
-
-  // If not authenticated
+  // If not authenticated, redirect to login
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Wait for shop config to load
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Loading...</div>; // Or a spinner component
   }
 
-  // If shop not found or not configured, redirect to setup-shop
-  if (!shop /* || !shop.configured or your own check for completeness */) {
+  // If shop is not configured, redirect to setup page
+  if (!shop && location.pathname !== '/setup-shop') {
     return <Navigate to="/setup-shop" replace />;
   }
 
-  return <Sidebar>{children}</Sidebar>;
+  // If shop is configured, but user is on setup page, redirect to dashboard
+  if (shop && location.pathname === '/setup-shop') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 export default PrivateRoute;

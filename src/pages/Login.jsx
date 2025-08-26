@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { login as loginApi } from '../services/api'; // Use the login function from api.js
 import endpoints from '../services/endpoints';
 import API from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Admin' },
@@ -31,6 +32,7 @@ const ROLE_OPTIONS = [
 const Login = () => {
   const { login, user } = useAuthContext();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [view, setView] = useState('login');
   const [role, setRole] = useState('STAFF');
   const [username, setUsername] = useState(localStorage.getItem('lastUsername') || '');
@@ -43,15 +45,11 @@ const Login = () => {
   const pinRef = useRef(null);
 
   // Effect to handle navigation after login
-  const handleNavigation = useCallback(() => {
+  useEffect(() => {
     if (user) {
       navigate('/', { replace: true });
     }
   }, [user, navigate]);
-
-  useEffect(() => {
-    handleNavigation();
-  }, [handleNavigation]);
 
   useEffect(() => {
     const handleAnimationStart = (e) => {
@@ -98,42 +96,42 @@ const Login = () => {
     try {
       if (view === 'login') {
         if (!username.trim() || !pin.trim()) {
-          setError('Username and PIN are required.');
+          setError(t('login.errorAllFieldsRequired'));
           setIsSubmitting(false);
           return;
         }
         // Use the loginApi function which skips refresh logic on 401
         const response = await loginApi({ username, pin });
         login(response.data.token, response.data.refreshToken);
-        // Navigation will be handled by the useEffect when user state updates
+        navigate('/', { replace: true });
       } else if (view === 'register') {
         if (!username.trim() || !pin.trim() || !confirmPin.trim() || !role) {
-          setError('All fields are required.');
+          setError(t('login.errorAllFieldsRequired'));
           setIsSubmitting(false);
           return;
         }
         if (pin !== confirmPin) {
-          setError('Pins do not match.');
+          setError(t('login.errorPinsDontMatch'));
           setIsSubmitting(false);
           return;
         }
         // Registration does not need skipAuthRefresh
         const response = await API.post(endpoints.auth.register, { username, pin, role });
-        setSuccessMessage('Registration successful! You can now log in.');
+        setSuccessMessage(t('login.successRegister'));
         setTimeout(() => setView('login'), 2000);
       } else if (view === 'forgotPin') {
         if (!username.trim()) {
-          setError('Username is required.');
+          setError(t('login.errorRequired', { field: t('login.username') }));
           setIsSubmitting(false);
           return;
         }
         // Forgot PIN does not need skipAuthRefresh
         const response = await API.post(endpoints.auth.forgetPin, { username });
-        setSuccessMessage(response.data.message || 'PIN reset link sent.');
+        setSuccessMessage(response.data.message || t('login.successPinReset'));
         setTimeout(() => setView('login'), 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'An unexpected error occurred. Please try again.');
+      setError(err.response?.data?.message || err.message || t('login.errorUnexpected'));
     } finally {
       setIsSubmitting(false);
     }
@@ -146,11 +144,11 @@ const Login = () => {
           <>
             <PersonOutlineIcon sx={{ fontSize: 60, color: 'primary.main' }} />
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
-              Sign In
+              {t('login.signIn')}
             </Typography>
             <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
               <TextField
-                label="Username"
+                label={t('login.username')}
                 fullWidth
                 margin="normal"
                 value={username}
@@ -164,7 +162,7 @@ const Login = () => {
                 inputRef={usernameRef}
               />
               <TextField
-                label="PIN"
+                label={t('login.pin')}
                 type="password"
                 fullWidth
                 margin="normal"
@@ -183,7 +181,7 @@ const Login = () => {
                 disabled={isSubmitting}
                 sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')}
               </Button>
             </Box>
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -193,17 +191,17 @@ const Login = () => {
                 onClick={() => { setView('forgotPin'); setError(''); setSuccessMessage(''); }}
                 sx={{ textDecoration: 'none', color: 'primary.main' }}
               >
-                Forgot PIN?
+                {t('login.forgotPin')}
               </Link>
               <Typography variant="body2">
-                Don't have an account?{' '}
+                {t('login.noAccount')}{' '}
                 <Link
                   component="button"
                   variant="body2"
                   onClick={() => { setView('register'); setError(''); setSuccessMessage(''); }}
                   sx={{ textDecoration: 'none', fontWeight: 'bold' }}
                 >
-                  Sign Up
+                  {t('login.signUp')}
                 </Link>
               </Typography>
             </Box>
@@ -214,17 +212,17 @@ const Login = () => {
         return (
           <>
             <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <IconButton onClick={() => setView('login')} aria-label="back to login">
+              <IconButton onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
                 <ArrowBackIcon />
               </IconButton>
             </Box>
             <PersonAddAltOutlinedIcon sx={{ fontSize: 60, color: 'secondary.main' }} />
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
-              Sign Up
+              {t('login.signUp')}
             </Typography>
             <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
               <TextField
-                label="Username"
+                label={t('login.username')}
                 fullWidth
                 margin="normal"
                 value={username}
@@ -234,7 +232,7 @@ const Login = () => {
                 InputLabelProps={{ shrink: !!username }}
               />
               <TextField
-                label="Create PIN"
+                label={t('login.createPin')}
                 type="password"
                 fullWidth
                 margin="normal"
@@ -245,7 +243,7 @@ const Login = () => {
                 InputLabelProps={{ shrink: !!pin }}
               />
               <TextField
-                label="Confirm PIN"
+                label={t('login.confirmPin')}
                 type="password"
                 fullWidth
                 margin="normal"
@@ -254,12 +252,12 @@ const Login = () => {
                 disabled={isSubmitting}
                 required
                 error={pin !== confirmPin && confirmPin.length > 0}
-                helperText={pin !== confirmPin && confirmPin.length > 0 ? 'Pins do not match.' : ''}
+                helperText={pin !== confirmPin && confirmPin.length > 0 ? t('login.errorPinsDontMatch') : ''}
                 InputLabelProps={{ shrink: !!confirmPin }}
               />
               <TextField
                 select
-                label="Role"
+                label={t('login.role')}
                 fullWidth
                 margin="normal"
                 value={role}
@@ -282,7 +280,7 @@ const Login = () => {
                 disabled={isSubmitting || pin !== confirmPin}
                 sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Register'}
+                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.register')}
               </Button>
             </Box>
           </>
@@ -292,20 +290,20 @@ const Login = () => {
         return (
           <>
             <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <IconButton onClick={() => setView('login')} aria-label="back to login">
+              <IconButton onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
                 <ArrowBackIcon />
               </IconButton>
             </Box>
             <VpnKeyOutlinedIcon sx={{ fontSize: 60, color: 'error.main' }} />
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
-              Forgot PIN?
+              {t('login.forgotPinTitle')}
             </Typography>
             <Typography variant="body2" align="center" sx={{ mb: 2, color: 'text.secondary' }}>
-              Enter your username and we'll send you a link to reset your PIN.
+              {t('login.forgotPinPrompt')}
             </Typography>
             <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
               <TextField
-                label="Username"
+                label={t('login.username')}
                 fullWidth
                 margin="normal"
                 value={username}
@@ -322,7 +320,7 @@ const Login = () => {
                 disabled={isSubmitting}
                 sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Send Reset Link'}
+                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.sendResetLink')}
               </Button>
             </Box>
           </>

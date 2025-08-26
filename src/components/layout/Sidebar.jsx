@@ -1,79 +1,30 @@
 import React, { useState } from 'react';
 import {
-  Drawer, List, ListItem, ListItemIcon, ListItemText, Divider,
-  Toolbar, Typography, Box, Collapse
+  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
+  Divider, Box, Collapse, Typography
 } from '@mui/material';
-import ReceiptIcon from '@mui/icons-material/Receipt';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuthContext } from '../../context/AuthContext';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import CategoryIcon from '@mui/icons-material/Category';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import StoreIcon from '@mui/icons-material/Store';
 import PeopleIcon from '@mui/icons-material/People';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import MoneyOffIcon from '@mui/icons-material/MoneyOff';
-import BackupIcon from '@mui/icons-material/Backup';
-import ViewListIcon from '@mui/icons-material/ViewList';
 import PaymentIcon from '@mui/icons-material/Payment';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import BackupIcon from '@mui/icons-material/Backup';
 import InfoIcon from '@mui/icons-material/Info';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useAuthContext } from '../../context/AuthContext';
 
 const drawerWidth = 240;
 
-const AppBranding = () => {
-  const { t } = useTranslation();
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        backgroundColor: '#1976d2',
-        color: 'white',
-        position: 'sticky',
-        top: 0,
-        zIndex: 2
-      }}
-    >
-      <TrendingUpOutlinedIcon sx={{ fontSize: { xs: 30, sm: 40 } }} />
-      <Box>
-        <Typography
-          variant="h6"
-          component="div"
-          noWrap
-          sx={{
-            fontWeight: '900',
-            fontSize: { xs: '1.2rem', sm: '1.75rem' },
-            color: 'white',
-          }}
-        >
-          VyaparSathi
-        </Typography>
-        <Typography
-          variant="caption"
-          component="div"
-          noWrap
-          sx={{
-            fontSize: { xs: '0.65rem', sm: '0.8rem' },
-            color: 'rgba(255,255,255,0.8)',
-            letterSpacing: 0.5,
-            mt: -0.5,
-            fontStyle: 'italic',
-          }}
-        >
-          Safal Vyapar, Aasan Hisab
-        </Typography>
-      </Box>
-    </Box>
-  );
-};
-
-const Sidebar = ({ children }) => {
+const Sidebar = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuthContext();
@@ -86,59 +37,63 @@ const Sidebar = ({ children }) => {
 
   // Menu for all users (excluding About Us)
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Item Catalog', icon: <InventoryIcon />, path: '/items' , protected: true},
-    { text: 'Products', icon: <ViewListIcon />, path: '/products' },
-    { text: 'Inventory', icon: <StoreIcon />, path: '/stock' },
-    { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
-    { text: 'Sales', icon: <PointOfSaleIcon />, path: '/sales' },
-    { text: 'Expenses', icon: <MoneyOffIcon />, path: '/expenses' },
+    { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' , protected: true},
+    { text: 'productsOverview', icon: <ShoppingCartIcon />, path: '/products' },
+    { text: 'inventory', icon: <InventoryIcon />, path: '/stock' },
+    { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
+    { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
+    { text: 'customerPayments', icon: <PaymentIcon />, path: '/payments' },
+    { text: 'reports', icon: <AssessmentIcon />, path: '/reports' },
+    { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
+    { text: 'backup', icon: <BackupIcon />, path: '/backup' },
   ];
 
   // For ADMIN and OWNER only (with some nested groups)
   const adminOwnerMenuItems = [
-    { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers' },
-    { text: 'Purchase Orders', icon: <ReceiptIcon />, path: '/purchase-orders' },
-    { text: 'Payments', icon: <PaymentIcon />,
+    { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers' },
+    { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders' },
+    { text: 'receiving', icon: <InventoryIcon />, path: '/receiving' },
+    { text: 'payments', icon: <PaymentIcon />,
       nested: true,
       open: openPayments,
       onClick: () => setOpenPayments((prev) => !prev),
       children: [
-        { text: 'Customer Payments', path: '/customer-payments' },
-        { text: 'Supplier Payments', path: '/supplier-payments' },
+        { text: 'customerPayments', path: '/customer-payments' },
+        { text: 'supplierPayments', path: '/supplier-payments' },
       ],
     },
-    { text: 'Analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
-    { text: 'Low Stock Alerts', icon: <InventoryIcon />, path: '/stock-alerts' },
+    { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
+    { text: 'lowStockAlerts', icon: <InventoryIcon />, path: '/stock-alerts' },
     {
-      text: 'Reports',
+      text: 'reports',
       icon: <AssessmentIcon />,
       nested: true,
       open: openReports,
       onClick: () => setOpenReports((prev) => !prev),
       children: [
-        { text: 'Overview', path: '/reports' },
-        { text: 'Sales Report', path: '/reports/sales' },
-        { text: 'GST Summary', path: '/reports/gst-summary' },
-        { text: 'GST Breakdown', path: '/reports/gst-breakdown' },
-        { text: 'Items Sold', path: '/reports/items-sold' },
-        { text: 'Category Sales', path: '/reports/category-sales' },
-        { text: 'Customer Sales', path: '/reports/customer-sales' },
-        { text: 'Expenses Summary', path: '/reports/expenses-summary' },
-        { text: 'Payments Summary', path: '/reports/payments-summary' },
+        { text: 'overview', path: '/reports' },
+        { text: 'salesReport', path: '/reports/sales' },
+        { text: 'gstSummary', path: '/reports/gst-summary' },
+        { text: 'gstBreakdown', path: '/reports/gst-breakdown' },
+        { text: 'itemsSold', path: '/reports/items-sold' },
+        { text: 'categorySales', path: '/reports/category-sales' },
+        { text: 'customerSales', path: '/reports/customer-sales' },
+        { text: 'expensesSummary', path: '/reports/expenses-summary' },
+        { text: 'paymentsSummary', path: '/reports/payments-summary' },
       ],
     },
-    { text: 'Backup', icon: <BackupIcon />, path: '/backup' },
+    { text: 'backup', icon: <BackupIcon />, path: '/backup' },
     {
-      text: 'Admin',
+      text: 'admin',
       icon: <PeopleIcon />,
       nested: true,
       open: openAdmin,
       onClick: () => setOpenAdmin((prev) => !prev),
       children: [
-        { text: 'Users', path: '/admin/users' },
-        { text: 'Audit Logs', path: '/audit' },
-        { text: 'Notifications', path: '/notifications' },
+        { text: 'users', path: '/admin/users' },
+        { text: 'auditLogs', path: '/audit' },
+        { text: 'notifications', path: '/notifications' },
       ],
     },
   ];
@@ -146,18 +101,24 @@ const Sidebar = ({ children }) => {
   const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
 
   // About Us menu (always at bottom)
-  const aboutUsItem = { text: 'About Us', icon: <InfoIcon />, path: '/about-us' };
+  const aboutUsItem = { text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' };
+
+  const activeStyle = {
+    backgroundColor: 'primary.main',
+    color: 'primary.contrastText',
+    '& .MuiListItemIcon-root': {
+      color: 'primary.contrastText',
+    },
+  };
 
   // Helper to render menu items (with optional nesting)
   const renderMenu = (items) =>
     items.map((item) =>
       item.nested ? (
         <React.Fragment key={item.text}>
-          <ListItem
+          <ListItemButton
             onClick={item.onClick}
             sx={{
-              cursor: 'pointer',
-              '&:hover': { backgroundColor: '#e0e0e0' },
               borderRadius: '8px',
               margin: '4px 8px',
             }}
@@ -167,100 +128,95 @@ const Sidebar = ({ children }) => {
             </ListItemIcon>
             <ListItemText primary={t(item.text)} />
             {item.open ? <ExpandLess /> : <ExpandMore />}
-          </ListItem>
+          </ListItemButton>
           <Collapse in={item.open} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               {item.children.map((child) => (
-                <ListItem
-                  key={child.text}
-                  onClick={() => navigate(child.path)}
-                  sx={{
-                    pl: 6,
-                    cursor: 'pointer',
-                    '&:hover': { backgroundColor: '#e0e0e0' },
-                    borderRadius: '8px',
-                    margin: '2px 8px',
-                  }}
-                >
-                  <ListItemText primary={t(child.text)} />
+                <ListItem key={child.text} disablePadding>
+                  <ListItemButton
+                    component={NavLink}
+                    to={child.path}
+                    sx={{
+                      pl: 6,
+                      borderRadius: '8px',
+                      margin: '2px 8px',
+                      '&.active': activeStyle,
+                    }}
+                  >
+                    <ListItemText primary={t(child.text)} />
+                  </ListItemButton>
                 </ListItem>
               ))}
             </List>
           </Collapse>
         </React.Fragment>
       ) : (
-        <ListItem
-          key={item.text}
-          onClick={() => navigate(item.path)}
-          sx={{
-            cursor: 'pointer',
-            '&:hover': { backgroundColor: '#e0e0e0' },
-            borderRadius: '8px',
-            margin: '4px 8px',
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
-            {item.icon}
-          </ListItemIcon>
-          <ListItemText primary={t(item.text)} />
+        <ListItem key={item.text} disablePadding>
+          <ListItemButton
+            component={NavLink}
+            to={item.path}
+            end={item.path === '/'} // Ensure only exact match for dashboard
+            sx={{
+              borderRadius: '8px',
+              margin: '4px 8px',
+              '&.active': activeStyle,
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText primary={t(item.text)} />
+          </ListItemButton>
         </ListItem>
       )
     );
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <Drawer
-        sx={{
+    <Drawer
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
           width: drawerWidth,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            backgroundColor: '#f5f5f5',
-            color: '#333',
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-          },
-        }}
-        variant="permanent"
-        anchor="left"
-      >
-        {/* Sticky App branding */}
-        <AppBranding />
-        <Divider />
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          <List>
-            {renderMenu(menuItems)}
-            {isAdminOrOwner && renderMenu(adminOwnerMenuItems)}
-          </List>
-        </Box>
-        <Divider />
-        <List sx={{ mt: 1 }}>
-          <ListItem
-            button
-            onClick={() => navigate(aboutUsItem.path)}
+          boxSizing: 'border-box',
+          backgroundColor: '#f5f5f5',
+          color: '#333',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+        },
+      }}
+      variant="permanent"
+      anchor="left"
+    >
+      <Toolbar />
+      <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        <List>
+          {renderMenu(menuItems)}
+          {isAdminOrOwner && <Divider sx={{ my: 1 }} />}
+          {isAdminOrOwner && renderMenu(adminOwnerMenuItems)}
+        </List>
+      </Box>
+      <Divider />
+      <List sx={{ mt: 'auto', p: 0 }}>
+        <ListItem disablePadding>
+          <ListItemButton
+            component={NavLink}
+            to={aboutUsItem.path}
             sx={{
-              '&:hover': { backgroundColor: '#e0e0e0' },
               borderRadius: '8px',
               margin: '4px 8px',
+              '&.active': activeStyle,
             }}
           >
             <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
               {aboutUsItem.icon}
             </ListItemIcon>
             <ListItemText primary={t(aboutUsItem.text)} />
-          </ListItem>
-        </List>
-      </Drawer>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: `calc(100% - ${drawerWidth}px)` }}
-      >
-        <Toolbar />
-        {children}
-      </Box>
-    </Box>
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </Drawer>
   );
 };
 

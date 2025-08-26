@@ -1,8 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
+import Layout from '../components/layout/Layout'; // Import Layout
 import Dashboard from '../pages/Dashboard';
 import Items from '../pages/Items';
+// ... other page imports
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
 import Sales from '../pages/Sales';
@@ -15,36 +17,52 @@ import CustomerPaymentPage from '../pages/CustomerPaymentPage';
 import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
-import AnalyticsDashboard from '../pages/AnalyticsDashboard'; // Assuming you have an Analytics page
-import PurchaseOrders from '../pages/PurchaseOrders'; // Assuming you have a Purchase Orders page
-import Suppliers from '../pages/Suppliers'; // Assuming you have a Suppliers page
+import AnalyticsDashboard from '../pages/AnalyticsDashboard';
+import PurchaseOrders from '../pages/PurchaseOrders';
+import Suppliers from '../pages/Suppliers';
+import PublicLayout from '../components/layout/PublicLayout'; 
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/setup-shop" element={<SetupShop />} />
-      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/items" element={<PrivateRoute><Items /></PrivateRoute>} />
-      <Route path="/stock" element={<PrivateRoute><Stock /></PrivateRoute>} />
-      <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
-      <Route path="/customer-details/:id/dues" element={<PrivateRoute><CustomerDetails /></PrivateRoute>} />
-      <Route path="/sales" element={<PrivateRoute><Sales /></PrivateRoute>} />
-      <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-      <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
-      <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
-      <Route path="/products" element={<PrivateRoute><ProductOverview /></PrivateRoute>} />
-      <Route path="/customer-payments" element={<PrivateRoute><CustomerPaymentPage /></PrivateRoute>} />
-      <Route path="/about-us" element={<PrivateRoute><AboutUs /></PrivateRoute>} />
-      <Route path="/analytics" element={<PrivateRoute><AnalyticsDashboard /></PrivateRoute>} />
-      <Route path="/purchase-orders" element={<PrivateRoute><PurchaseOrders /></PrivateRoute>} />
-      <Route path="/suppliers" element={<PrivateRoute><Suppliers /></PrivateRoute>} />
+      {/* Public routes wrapped by PublicLayout */}
+      <Route element={<PublicLayout />}>
+        <Route path="/login" element={<Login />} />
+        {/* You can add other public routes like /forgot-password here */}
+      </Route>
 
-      {/* Catch-all route for 404 */}
-      <Route path="*" element={<PrivateRoute><div>Page Not Found</div></PrivateRoute>} />
+      {/* Protected routes wrapped by Layout */}
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Layout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="items" element={<Items />} />
+        <Route path="stock" element={<Stock />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
+        <Route path="sales" element={<Sales />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="expenses" element={<Expenses />} />
+        <Route path="backup" element={<Backup />} />
+        <Route path="products" element={<ProductOverview />} />
+        <Route path="customer-payments" element={<CustomerPaymentPage />} />
+        <Route path="about-us" element={<AboutUs />} />
+        <Route path="analytics" element={<AnalyticsDashboard />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        
+        {/* SetupShop should be inside PrivateRoute but not Layout */}
+        <Route path="setup-shop" element={<SetupShop />} />
 
-
+        {/* Catch-all route for 404 */}
+        <Route path="*" element={<div>Page Not Found</div>} />
+      </Route>
     </Routes>
   );
 }

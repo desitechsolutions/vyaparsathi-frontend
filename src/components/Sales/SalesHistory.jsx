@@ -12,6 +12,7 @@ import InvoiceModal from './InvoiceModal';
 import dayjs from 'dayjs';
 import PrintIcon from '@mui/icons-material/Print';
 import { fetchSalesWithDue, fetchShop, generateInvoice } from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const statusColors = {
   PAID: 'success',
@@ -46,6 +47,8 @@ const SalesHistory = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedRow, setExpandedRow] = useState(null);
+
+  const navigate = useNavigate();
 
   const handlePrintInvoice = async (sale) => {
     setPrintLoading(true);
@@ -136,6 +139,10 @@ const SalesHistory = () => {
     a.download = `sales-history-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handlePay = (sale) => {
+    navigate(`/customer-payments?saleId=${sale.saleId}`);
   };
 
   return (
@@ -291,7 +298,7 @@ const SalesHistory = () => {
                                   </Typography>
                                 </Box>
                               </Box>
-                              <Box sx={{ mt: 2 }}>
+                              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
                                 <Button
                                   variant="contained"
                                   color="primary"
@@ -301,6 +308,15 @@ const SalesHistory = () => {
                                 >
                                   {printLoading ? "Loading..." : "Print Invoice"}
                                 </Button>
+                                {getStatus(sale.dueAmount) === 'DUE' && (
+                                  <Button
+                                    variant="contained"
+                                    color="success"
+                                    onClick={() => handlePay(sale)}
+                                  >
+                                    Pay
+                                  </Button>
+                                )}
                               </Box>
                             </Box>
                           </Collapse>

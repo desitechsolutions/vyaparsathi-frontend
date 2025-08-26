@@ -61,6 +61,11 @@ generateInvoice: ({ saleId, invoiceNo }) =>
     export: `${API_BASE}/backup/export`,
   },
 
+    //Receiving endpoint
+  receiving: `${API_BASE}/receiving`,
+  receivingById: (id) => `${API_BASE}/receiving/${id}`,
+  receivingTickets: `${API_BASE}/receiving/tickets`,
+  
   //Analytics endpoint
   analytics: {
     itemDemand: `${API_BASE}/analytics/item-demand`,

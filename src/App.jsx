@@ -7,7 +7,7 @@ import theme from './theme';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
-import Header from './components/layout/Header';
+// import Header from './components/layout/Header'; // No longer needed here
 import { I18nextProvider } from 'react-i18next';
 import i18n from './config/i18n';
 
@@ -18,7 +18,7 @@ function App() {
         <CssBaseline />
         <AuthProvider>
           <Router>
-            <Header />
+            {/* <Header />  <- REMOVE THIS LINE */}
             <AppRoutes />
           </Router>
           <ToastContainer />

@@ -74,9 +74,16 @@ const Customers = () => {
     name: customer.name,
     phone: customer.phone,
     email: customer.email || '',
-    address: `${customer.addressLine1 || ''} ${customer.addressLine2 || ''}`.trim(),
+    addressLine1: customer.addressLine1 || '',
+    addressLine2: customer.addressLine2 || '',
+    city: customer.city || '',
     state: customer.state,
+    postalCode: customer.postalCode || '',
+    country: customer.country || '',
     gstNumber: customer.gstNumber || '',
+    panNumber: customer.panNumber || '',
+    notes: customer.notes || '',
+    creditBalance: customer.creditBalance || 0,
     outstanding: customer.creditBalance || 0,
   });
 
@@ -152,9 +159,14 @@ const Customers = () => {
     { field: 'name', headerName: 'Name', flex: 1, minWidth: 150, sortable: true },
     { field: 'phone', headerName: 'Phone', width: 150, sortable: true },
     { field: 'email', headerName: 'Email', flex: 1, minWidth: 200, sortable: true },
-    { field: 'address', headerName: 'Address', flex: 1, minWidth: 200, sortable: true },
+    { field: 'addressLine1', headerName: 'Address Line 1', flex: 1, minWidth: 200, sortable: true },
+    { field: 'addressLine2', headerName: 'Address Line 2', flex: 1, minWidth: 200, sortable: true },
+    { field: 'city', headerName: 'City', width: 120, sortable: true },
     { field: 'state', headerName: 'State', width: 120, sortable: true },
+    { field: 'postalCode', headerName: 'Postal Code', width: 120, sortable: true },
+    { field: 'country', headerName: 'Country', width: 120, sortable: true },
     { field: 'gstNumber', headerName: 'GSTIN', width: 150, sortable: true },
+    { field: 'panNumber', headerName: 'PAN', width: 150, sortable: true },
     {
       field: 'outstanding',
       headerName: 'Outstanding',
@@ -176,7 +188,22 @@ const Customers = () => {
             startIcon={<EditIcon />}
             onClick={() => {
               setSelectedCustomer(params.row);
-              setFormData({ ...params.row, creditBalance: params.row.outstanding });
+              setFormData({
+                id: params.row.id,
+                name: params.row.name,
+                phone: params.row.phone,
+                email: params.row.email,
+                addressLine1: params.row.addressLine1,
+                addressLine2: params.row.addressLine2,
+                city: params.row.city,
+                state: params.row.state,
+                postalCode: params.row.postalCode,
+                country: params.row.country,
+                gstNumber: params.row.gstNumber,
+                panNumber: params.row.panNumber,
+                notes: params.row.notes,
+                //creditBalance: params.row.outstanding, // Do not pass creditBalance
+              });
               setOpenEdit(true);
             }}
             sx={{ mr: 1 }}

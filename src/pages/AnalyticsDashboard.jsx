@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
+  LineChart, Line, PieChart, Pie, Cell, CartesianGrid
 } from 'recharts';
 import {
   Box,
@@ -21,6 +21,8 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   fetchItemDemand,
@@ -99,6 +101,74 @@ const AnalyticsDashboard = () => {
     }
   };
 
+  const renderTopItemsChart = () => {
+    if (!topItems || topItems.length === 0) {
+      return <Typography>No top items data available.</Typography>;
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={topItems} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
+          <YAxis stroke="#888" />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey="changePercent" name="Change (%)" stroke="#A78BFA" strokeWidth={2} activeDot={{ r: 8 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderItemDemandChart = () => {
+    if (!itemDemand || itemDemand.length === 0) {
+      return <Typography>No item demand data available.</Typography>;
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={itemDemand} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
+          <YAxis stroke="#888" />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="predictedDemandNextMonth" name="Predicted Demand" fill="#3B82F6" barSize={20} />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderChurnPredictionChart = () => {
+    if (!churnPrediction || churnPrediction.length === 0) {
+      return <Typography>No churn prediction data available.</Typography>;
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={churnPrediction}
+            dataKey="churnProbability"
+            nameKey="customerName"
+            cx="50%"
+            cy="50%"
+            outerRadius={80}
+            label
+          >
+            {
+              churnPrediction.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              ))
+            }
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f6fa', p: { xs: 2, md: 4 } }}>
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
@@ -142,143 +212,119 @@ const AnalyticsDashboard = () => {
           <Grid container spacing={3}>
             {/* Item Demand Analytics Card */}
             <Grid item xs={12} md={6} lg={4}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Item Demand Prediction
-                </Typography>
-                <Box sx={{ width: '100%', height: 250 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={itemDemand}>
-                      <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
-                      <YAxis stroke="#888" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="predictedDemandNextMonth" name="Predicted Demand" fill="#3B82F6" barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
+              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Item Demand Prediction
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 250 }}>
+                    {renderItemDemandChart()}
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Top Selling Items Card */}
             <Grid item xs={12} md={6} lg={4}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Top Selling Items
-                </Typography>
-                <Box sx={{ width: '100%', height: 250 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={topItems}>
-                      <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
-                      <YAxis stroke="#888" />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="changePercent" name="Change (%)" stroke="#A78BFA" strokeWidth={2} activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
+              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Top Selling Items
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 250 }}>
+                    {renderTopItemsChart()}
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Churn Prediction Card */}
             <Grid item xs={12} md={6} lg={4}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Customer Churn Risk
-                </Typography>
-                <Box sx={{ width: '100%', height: 250 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={churnPrediction}
-                        dataKey="churnProbability"
-                        nameKey="customerName"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label
-                      >
-                        {
-                          churnPrediction.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))
-                        }
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-              </Paper>
+              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Customer Churn Risk
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 250 }}>
+                    {renderChurnPredictionChart()}
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Customer Trends Card */}
             <Grid item xs={12} md={12} lg={8}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Customer Buying Trends
-                </Typography>
-                <Grid container spacing={2}>
-                  {customerTrends.map(trend => (
-                    <Grid item xs={12} md={4} key={trend.customerId}>
-                      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc' }}>
-                        <Typography fontWeight="bold">{trend.customerName}</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
-                          Pattern: {trend.buyingPattern}
-                        </Typography>
-                        <Typography variant="body2">
-                          <b>Freq. Items:</b> {trend.frequentlyBoughtItems.join(', ')}
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Paper>
+              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Customer Buying Trends
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {customerTrends.map(trend => (
+                      <Grid item xs={12} md={4} key={trend.customerId}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc' }}>
+                          <Typography fontWeight="bold">{trend.customerName}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
+                            Pattern: {trend.buyingPattern}
+                          </Typography>
+                          <Typography variant="body2">
+                            <b>Freq. Items:</b> {trend.frequentlyBoughtItems.join(', ')}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Seasonal Trends Card */}
             <Grid item xs={12} md={4} lg={4}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Seasonal Trends
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                {seasonalTrends.map((trend, index) => (
-                  <Box key={index} sx={{ mb: 2 }}>
-                    <Typography fontWeight="bold">{trend.season}</Typography>
-                    <Typography variant="body2" color="text.secondary">{trend.trendDescription}</Typography>
-                  </Box>
-                ))}
-              </Paper>
+              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Seasonal Trends
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  {seasonalTrends.map((trend, index) => (
+                    <Box key={index} sx={{ mb: 2 }}>
+                      <Typography fontWeight="bold">{trend.season}</Typography>
+                      <Typography variant="body2" color="text.secondary">{trend.trendDescription}</Typography>
+                    </Box>
+                  ))}
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Future Purchase Orders Card */}
             <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                  Future Purchase Order Suggestions
-                </Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell><b>Item ID</b></TableCell>
-                        <TableCell><b>Item Name</b></TableCell>
-                        <TableCell><b>Suggested Quantity</b></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {purchaseOrders.map((order, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{order.itemId}</TableCell>
-                          <TableCell>{order.itemName}</TableCell>
-                          <TableCell>{order.suggestedQuantity}</TableCell>
+              <Card elevation={3} sx={{ borderRadius: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
+                    Future Purchase Order Suggestions
+                  </Typography>
+                  <TableContainer component={Paper}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><b>Item ID</b></TableCell>
+                          <TableCell><b>Item Name</b></TableCell>
+                          <TableCell><b>Suggested Quantity</b></TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
+                      </TableHead>
+                      <TableBody>
+                        {purchaseOrders.map((order, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{order.itemId}</TableCell>
+                            <TableCell>{order.itemName}</TableCell>
+                            <TableCell>{order.suggestedQuantity}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
             </Grid>
           </Grid>
         )}
