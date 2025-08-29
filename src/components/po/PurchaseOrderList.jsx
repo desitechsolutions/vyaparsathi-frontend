@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid, Box, Typography, Skeleton } from '@mui/material';
+import { Grid, Skeleton } from '@mui/material';
 import PurchaseOrderCard from './PurchaseOrderCard';
 
 const PurchaseOrderList = ({ isLoading, orders, allSuppliers, onView, onEdit, onDelete, onReceive }) => {
@@ -18,7 +18,7 @@ const PurchaseOrderList = ({ isLoading, orders, allSuppliers, onView, onEdit, on
   return (
     <Grid container spacing={3}>
       {orders.map((po) => {
-        const supplier = allSuppliers.find((s) => String(s.id) === String(po.supplierId));
+        const supplier = allSuppliers.find((s) => s.id === po.supplierId);
         return (
           <Grid item xs={12} sm={6} md={4} key={po.id}>
             <PurchaseOrderCard

@@ -8,7 +8,7 @@ const getStatusChip = (status) => {
     Received: 'success',
     Cancelled: 'error',
   };
-  return <Chip label={status} color={colorMap[status] || 'default'} size="small" />;
+  return <Chip label={status || 'Unknown'} color={colorMap[status] || 'default'} size="small" />;
 };
 
 const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onReceive }) => {
@@ -33,13 +33,13 @@ const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onReceive }
           {getStatusChip(po.status)}
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Supplier: <strong>{supplier ? supplier.name : 'N/A'}</strong>
+          Supplier: <strong>{supplier?.name || 'N/A'}</strong>
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Order Date: {new Date(po.orderDate).toLocaleDateString()}
         </Typography>
         <Typography variant="h6" mt={1}>
-          ₹{Number(po.totalAmount).toFixed(2)}
+          ₹{Number(po.totalAmount || 0).toFixed(2)}
         </Typography>
       </CardContent>
       <Divider />
@@ -50,12 +50,12 @@ const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onReceive }
           </IconButton>
         </Tooltip>
         <Tooltip title="Edit">
-          <IconButton color="secondary" onClick={() => onEdit(po)} size="small">
+          <IconButton color="secondary" onClick={() => onEdit(po)} size="small" disabled={po.status !== 'Pending'}>
             <EditIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Delete">
-          <IconButton color="error" onClick={() => onDelete(po.id)} size="small">
+          <IconButton color="error" onClick={() => onDelete(po.id)} size="small" disabled={po.status !== 'Pending'}>
             <DeleteIcon />
           </IconButton>
         </Tooltip>

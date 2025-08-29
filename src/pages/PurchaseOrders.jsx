@@ -10,8 +10,9 @@ import PurchaseOrderModal from '../components/po/PurchaseOrderModal';
 const PurchaseOrders = () => {
   const {
     isLoading,
-    allSuppliers,
     filteredOrders,
+    orders,
+    allSuppliers, // **FIX**: Use allSuppliers from the hook
     snackbar,
     search,
     setSearch,
@@ -19,12 +20,14 @@ const PurchaseOrders = () => {
     handleReceive,
     handleCreateOrUpdate,
     handleSnackbarClose,
-    showSnackbar,
+    refreshData, // Use the refresh function from the hook
   } = usePurchaseOrders();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
   const [selectedPo, setSelectedPo] = useState(null);
+
+  // **FIX**: Removed redundant useState and useEffect for allSuppliers
 
   const handleOpenModal = (mode, po = null) => {
     setModalMode(mode);
@@ -35,6 +38,7 @@ const PurchaseOrders = () => {
   const handleCloseModal = () => {
     setModalOpen(false);
     setSelectedPo(null);
+    // The hook now handles data refresh, so no extra logic needed here.
   };
 
   const renderContent = () => {
@@ -51,7 +55,7 @@ const PurchaseOrders = () => {
       );
     }
     
-    if (!isLoading && filteredOrders.length === 0) {
+    if (!isLoading && orders.length === 0) {
       return (
         <Box textAlign="center" mt={8} p={4} sx={{ bgcolor: 'grey.100', borderRadius: 2 }}>
           <ShoppingBagIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
@@ -105,7 +109,6 @@ const PurchaseOrders = () => {
         </Typography>
       </Box>
 
-      {/* Always render filters */}
       <PurchaseOrderFilters
         search={search}
         setSearch={setSearch}
@@ -115,15 +118,18 @@ const PurchaseOrders = () => {
 
       {renderContent()}
 
-      <PurchaseOrderModal
-        open={modalOpen}
-        onClose={handleCloseModal}
-        mode={modalMode}
-        selectedPo={selectedPo}
-        onSubmit={handleCreateOrUpdate}
-        allSuppliers={allSuppliers}
-        showSnackbar={showSnackbar}
-      />
+      {/* **FIX**: Conditionally render the modal to ensure it re-initializes */}
+      {modalOpen && (
+        <PurchaseOrderModal
+          open={modalOpen}
+          onClose={handleCloseModal}
+          mode={modalMode}
+          selectedPo={selectedPo}
+          onSubmit={handleCreateOrUpdate}
+          allSuppliers={allSuppliers} // Pass suppliers from the hook
+          showSnackbar={handleSnackbarClose} // Pass down the snackbar handler from the hook
+        />
+      )}
     </Container>
   );
 };

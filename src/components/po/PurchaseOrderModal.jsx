@@ -6,7 +6,6 @@ import { styled } from '@mui/system';
 import { Add as AddIcon, Delete as DeleteIcon, NoteAdd as NoteAddIcon } from '@mui/icons-material';
 import { fetchItemVariants } from '../../services/api';
 
-// --- Styled Components for Modal ---
 const StyledModal = styled(Modal)({
   display: 'flex',
   alignItems: 'center',
@@ -27,71 +26,51 @@ const ModalContent = styled(Box)({
 
 const initialFormState = {
   poNumber: '',
-  supplierId: null,
+  supplier: null,
   orderDate: '',
   expectedDeliveryDate: '',
-  items: [{ id: Date.now(), itemVariantId: '', quantity: '', unitCost: '' }],
+  items: [{ tempId: Date.now(), itemVariantId: '', quantity: '1', unitCost: '' }],
   notes: '',
-  totalAmount: '',
+  totalAmount: '0.00',
 };
 
 const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSuppliers, showSnackbar }) => {
   const [formPo, setFormPo] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState({});
   const [itemVariantOptions, setItemVariantOptions] = useState({});
-  const [itemVariantLoading, setItemVariantLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Avoid fetching on every keystroke by tracking last search per index
   const lastSearchRef = React.useRef({});
-
-  // Preload item variants when opening in "create" mode
-  useEffect(() => {
-    if (open && mode === 'create') {
-      fetchItemVariants({ search: '' })
-        .then((res) => setItemVariantOptions({ 0: res.data || res }))
-        .catch(() => showSnackbar('Failed to fetch item variants.', 'error'));
-    }
-  }, [open, mode, showSnackbar]);
 
   useEffect(() => {
     if (open) {
       setFormErrors({});
+      fetchItemVariants({ search: '' })
+        .then((res) => setItemVariantOptions({ 0: res.data || res }))
+        .catch(() => showSnackbar('Failed to fetch initial item variants.', 'error'));
+
       if (mode === 'create') {
         setFormPo(initialFormState);
-      } else if (selectedPo) {
+      } else if (selectedPo && allSuppliers.length > 0) {
+        const supplierObject = allSuppliers.find(s => s.id === selectedPo.supplierId) || null;
+        
         setFormPo({
           ...selectedPo,
-          supplierId: selectedPo.supplierId ? String(selectedPo.supplierId) : null,
+          supplier: supplierObject,
           orderDate: selectedPo.orderDate?.split('T')[0] || '',
           expectedDeliveryDate: selectedPo.expectedDeliveryDate?.split('T')[0] || '',
-          totalAmount: Number(selectedPo.totalAmount).toFixed(2),
+          totalAmount: Number(selectedPo.totalAmount || 0).toFixed(2),
           notes: selectedPo.notes || '',
-          items: selectedPo.items.map(item => ({
+          items: (selectedPo.items || []).map(item => ({
             ...item,
-            id: item.id || Date.now(),
+            tempId: item.id || Date.now() + Math.random(),
             itemVariantId: item.itemVariantId || ''
           }))
         });
-        // Preload item variants for edit mode based on existing items
-        selectedPo.items.forEach((item, index) => {
-          if (item.itemVariantId && !itemVariantOptions[index]) {
-            fetchItemVariants({ search: '' })
-              .then((res) => {
-                setItemVariantOptions(prev => ({
-                  ...prev,
-                  [index]: res.data || res
-                }));
-              })
-              .catch(() => showSnackbar('Failed to fetch item variants.', 'error'));
-          }
-        });
       }
     }
-  // eslint-disable-next-line
-  }, [open, mode, selectedPo, showSnackbar]);
+  }, [open, mode, selectedPo, allSuppliers, showSnackbar]);
 
-  // Automatic Total Calculation
   useEffect(() => {
     if (mode !== 'view') {
       const total = formPo.items.reduce((acc, item) => {
@@ -103,20 +82,16 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
     }
   }, [formPo.items, mode]);
 
-  // Debounced fetch for item variants (per index, only on input, not on select)
   const fetchVariantOptions = useCallback(
     debounce((inputValue, index) => {
-      // Prevent refetching for same input
       if (lastSearchRef.current[index] === inputValue) return;
       lastSearchRef.current[index] = inputValue;
 
-      setItemVariantLoading(true);
       fetchItemVariants({ search: inputValue })
         .then((res) => {
           setItemVariantOptions((prev) => ({ ...prev, [index]: res.data || res }));
         })
-        .catch(() => showSnackbar('Failed to fetch item variants.', 'error'))
-        .finally(() => setItemVariantLoading(false));
+        .catch(() => showSnackbar('Failed to fetch item variants.', 'error'));
     }, 400),
     [showSnackbar]
   );
@@ -127,20 +102,13 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   };
 
   const handleSupplierChange = (_, value) => {
-    setFormPo(prev => ({ ...prev, supplierId: value ? String(value.id) : null }));
+    setFormPo(prev => ({ ...prev, supplier: value }));
   };
 
   const handleItemChange = (e, index) => {
     const { name, value } = e.target;
     const newItems = [...formPo.items];
-    // Allow empty string for quantity/unitCost for better typing UX
-    if (name === 'quantity' || name === 'unitCost') {
-      if (value === '' || /^\d+$/.test(value)) {
-        newItems[index] = { ...newItems[index], [name]: value };
-      }
-    } else {
-      newItems[index] = { ...newItems[index], [name]: value };
-    }
+    newItems[index] = { ...newItems[index], [name]: value };
     setFormPo(prev => ({ ...prev, items: newItems }));
   };
   
@@ -153,15 +121,8 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   const handleAddItem = () => {
     setFormPo(prev => ({
       ...prev,
-      items: [...prev.items, { id: Date.now(), itemVariantId: '', quantity: '', unitCost: '' }],
+      items: [...prev.items, { tempId: Date.now(), itemVariantId: '', quantity: '1', unitCost: '' }],
     }));
-    // Optionally, fetch all variants for the new row
-    fetchItemVariants({ search: '' })
-      .then((res) => setItemVariantOptions(prev => ({
-        ...prev,
-        [formPo.items.length]: res.data || res
-      })))
-      .catch(() => showSnackbar('Failed to fetch item variants.', 'error'));
   };
 
   const handleRemoveItem = (index) => {
@@ -170,11 +131,11 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
 
   const validateForm = () => {
     const errors = {};
-    if (!formPo.poNumber) errors.poNumber = 'PO Number is required.';
-    if (!formPo.supplierId) errors.supplierId = 'Supplier is required.';
+    if (!formPo.poNumber.trim()) errors.poNumber = 'PO Number is required.';
+    if (!formPo.supplier) errors.supplier = 'Supplier is required.';
     if (!formPo.orderDate) errors.orderDate = 'Order Date is required.';
-    if (formPo.items.some(item => !item.itemVariantId || !item.quantity || !item.unitCost)) {
-      errors.items = 'All item fields (Variant, Quantity, Unit Cost) are required.';
+    if (formPo.items.some(item => !item.itemVariantId || !item.quantity || Number(item.quantity) <= 0 || !item.unitCost || Number(item.unitCost) < 0)) {
+      errors.items = 'All item fields (Variant, Quantity, Unit Cost) must be valid.';
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -185,7 +146,21 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    const result = await onSubmit(mode, formPo, selectedPo?.id);
+    
+    const payload = {
+      ...formPo,
+      supplierId: formPo.supplier ? formPo.supplier.id : null,
+      totalAmount: Number(formPo.totalAmount),
+      items: formPo.items.map(({ tempId, ...item }) => ({
+        ...item,
+        itemVariantId: Number(item.itemVariantId),
+        quantity: Number(item.quantity),
+        unitCost: Number(item.unitCost),
+      })),
+    };
+    delete payload.supplier;
+
+    const result = await onSubmit(mode, payload, selectedPo?.id);
     setIsSubmitting(false);
 
     if (result.success) {
@@ -196,8 +171,8 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   };
 
   const renderViewMode = () => {
-    if (!selectedPo) return <Typography>No Purchase Order selected.</Typography>; // Null check
-    const supplier = allSuppliers.find(s => String(s.id) === String(selectedPo.supplierId));
+    if (!selectedPo) return <Typography>No Purchase Order selected.</Typography>;
+    const supplier = allSuppliers.find(s => s.id === selectedPo.supplierId);
     return (
       <Box>
         <Typography variant="h5" fontWeight="bold" mb={2}>Purchase Order Details</Typography>
@@ -205,18 +180,18 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
             <Grid item xs={12} sm={6}> <Typography><strong>PO Number:</strong> {selectedPo.poNumber}</Typography> </Grid>
             <Grid item xs={12} sm={6}> <Typography><strong>Supplier:</strong> {supplier?.name || 'N/A'}</Typography> </Grid>
             <Grid item xs={12} sm={6}> <Typography><strong>Order Date:</strong> {new Date(selectedPo.orderDate).toLocaleDateString()}</Typography> </Grid>
-            <Grid item xs={12} sm={6}> <Typography><strong>Expected Delivery:</strong> {new Date(selectedPo.expectedDeliveryDate).toLocaleDateString()}</Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography><strong>Expected Delivery:</strong> {selectedPo.expectedDeliveryDate ? new Date(selectedPo.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</Typography> </Grid>
             <Grid item xs={12}> <Typography><strong>Notes:</strong> {selectedPo.notes || '—'}</Typography> </Grid>
         </Grid>
         <Divider sx={{ my: 2 }} />
         <Typography variant="h6" mt={2} mb={1}>Items</Typography>
-        <List sx={{ bgcolor: '#f5f5f5', borderRadius: 2, p: 2 }}>
-          {selectedPo.items.map((item, index) => (
+        <List sx={{ bgcolor: '#f5f5f5', borderRadius: 2, p: 1 }}>
+          {(selectedPo.items || []).map((item, index) => (
             <ListItem key={index} divider>
-              <Box>
-                <Typography><strong>Variant SKU:</strong> {item.sku || item.itemVariantId || 'N/A'}</Typography>
-                <Typography><strong>Quantity:</strong> {item.quantity}</Typography>
-                <Typography><strong>Unit Cost:</strong> ₹{Number(item.unitCost).toFixed(2)}</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <Typography><strong>SKU:</strong> {item.sku || 'N/A'}</Typography>
+                <Typography><strong>Qty:</strong> {item.quantity}</Typography>
+                <Typography><strong>Cost:</strong> ₹{Number(item.unitCost).toFixed(2)}</Typography>
               </Box>
             </ListItem>
           ))}
@@ -226,25 +201,39 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   };
   
   const renderFormMode = () => (
-     <Box component="form" onSubmit={handleSubmit}>
+     <Box component="form" noValidate onSubmit={handleSubmit}>
         <Typography variant="h5" fontWeight="bold" mb={3}>
             {mode === 'edit' ? 'Edit Purchase Order' : 'Create New Purchase Order'}
         </Typography>
         <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-            <TextField label="PO Number" name="poNumber" value={formPo.poNumber} onChange={handleFormChange} fullWidth error={!!formErrors.poNumber} helperText={formErrors.poNumber} disabled={mode === 'edit'} required />
+              <TextField label="PO Number" name="poNumber" value={formPo.poNumber} onChange={handleFormChange} fullWidth error={!!formErrors.poNumber} helperText={formErrors.poNumber} disabled={mode === 'edit'} required />
             </Grid>
             <Grid item xs={12} sm={6}>
-            <Autocomplete options={allSuppliers} value={allSuppliers.find(s => String(s.id) === String(formPo.supplierId)) || null} getOptionLabel={(option) => option?.name || ''} onChange={handleSupplierChange} isOptionEqualToValue={(option, value) => String(option.id) === String(value?.id)} renderInput={(params) => <TextField {...params} label="Supplier" error={!!formErrors.supplierId} helperText={formErrors.supplierId} required />} />
+              <Autocomplete 
+                options={allSuppliers} 
+                value={formPo.supplier || null} 
+                getOptionLabel={(option) => {
+                  if (!option) return '';
+                  if (!option.name) return ''; // Handle case where option is selected but data is weird
+                  // **FIX**: This formats the label in the dropdown and input field
+                  const city = option.address ? option.address.split(',')[1]?.trim() : '';
+                  const details = [city, option.phone].filter(Boolean).join(', ');
+                  return `${option.name}${details ? ` (${details})` : ''}`;
+                }}
+                onChange={handleSupplierChange} 
+                isOptionEqualToValue={(option, value) => option?.id === value?.id} 
+                renderInput={(params) => <TextField {...params} label="Supplier" error={!!formErrors.supplier} helperText={formErrors.supplier} required />} 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-            <TextField label="Order Date" type="date" name="orderDate" value={formPo.orderDate} onChange={handleFormChange} fullWidth InputLabelProps={{ shrink: true }} error={!!formErrors.orderDate} helperText={formErrors.orderDate} required />
+              <TextField label="Order Date" type="date" name="orderDate" value={formPo.orderDate} onChange={handleFormChange} fullWidth InputLabelProps={{ shrink: true }} error={!!formErrors.orderDate} helperText={formErrors.orderDate} required />
             </Grid>
             <Grid item xs={12} sm={6}>
-            <TextField label="Expected Delivery" type="date" name="expectedDeliveryDate" value={formPo.expectedDeliveryDate} onChange={handleFormChange} fullWidth InputLabelProps={{ shrink: true }} required />
+              <TextField label="Expected Delivery" type="date" name="expectedDeliveryDate" value={formPo.expectedDeliveryDate} onChange={handleFormChange} fullWidth InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12}>
-            <TextField label="Notes" name="notes" value={formPo.notes} onChange={handleFormChange} fullWidth multiline rows={2} InputProps={{ startAdornment: (<InputAdornment position="start"><NoteAddIcon /></InputAdornment>),}}/>
+              <TextField label="Notes" name="notes" value={formPo.notes} onChange={handleFormChange} fullWidth multiline rows={2} InputProps={{ startAdornment: (<InputAdornment position="start"><NoteAddIcon /></InputAdornment>),}}/>
             </Grid>
         </Grid>
 
@@ -252,65 +241,28 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
 
         <List>
             {formPo.items.map((item, index) => (
-            <ListItem key={item.id} sx={{ p: 0, mb: 2 }}>
-                <Grid container spacing={2} alignItems="center">
+            <ListItem key={item.tempId} sx={{ p: 0, mb: 2 }}>
+                <Grid container spacing={1} alignItems="center">
                 <Grid item xs={12} sm={5}>
                     <Autocomplete
-                      options={itemVariantOptions[index] || []}
-                      loading={itemVariantLoading}
-                      value={(itemVariantOptions[index] || []).find(v => v.id === item.itemVariantId) || null}
+                      options={itemVariantOptions[index] || itemVariantOptions[0] || []}
+                      value={(itemVariantOptions[index] || itemVariantOptions[0] || []).find(v => v.id === item.itemVariantId) || null}
                       getOptionLabel={(option) => `${option.name || ''} (${option.sku || ''})`}
                       onInputChange={(_, value, reason) => {
                         if (reason === 'input' && typeof value === 'string') fetchVariantOptions(value, index);
                       }}
                       onChange={(_, value) => handleItemVariantChange(value, index)}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
                       renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Item Variant"
-                          size="small"
-                          InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                              <>
-                                {itemVariantLoading ? <CircularProgress color="inherit" size={16} /> : null}
-                                {params.InputProps.endAdornment}
-                              </>
-                            )
-                          }}
-                        />
+                        <TextField {...params} label="Item Variant" size="small" required />
                       )}
                     />
                 </Grid>
                 <Grid item xs={5} sm={3}>
-                    <TextField
-                      label="Quantity"
-                      name="quantity"
-                      value={item.quantity}
-                      onChange={e => handleItemChange(e, index)}
-                      onBlur={e => {
-                        // On blur, if blank or zero, set to 1 for better UX
-                        if (e.target.value === '' || Number(e.target.value) < 1) {
-                          handleItemChange({ target: { name: 'quantity', value: '1' } }, index);
-                        }
-                      }}
-                      type="number"
-                      fullWidth
-                      size="small"
-                      inputProps={{ min: 1 }}
-                    />
+                    <TextField label="Quantity" name="quantity" value={item.quantity} onChange={e => handleItemChange(e, index)} type="number" fullWidth size="small" required inputProps={{ min: 1 }} />
                 </Grid>
                 <Grid item xs={5} sm={3}>
-                    <TextField
-                      label="Unit Cost"
-                      name="unitCost"
-                      value={item.unitCost}
-                      onChange={e => handleItemChange(e, index)}
-                      type="number"
-                      fullWidth
-                      size="small"
-                      InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
-                    />
+                    <TextField label="Unit Cost" name="unitCost" value={item.unitCost} onChange={e => handleItemChange(e, index)} type="number" fullWidth size="small" required InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} inputProps={{ min: 0 }} />
                 </Grid>
                 <Grid item xs={2} sm={1}>
                     {formPo.items.length > 1 && <IconButton onClick={() => handleRemoveItem(index)} color="error"><DeleteIcon /></IconButton>}
@@ -320,7 +272,7 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
             ))}
         </List>
         <Button onClick={handleAddItem} startIcon={<AddIcon />} variant="outlined">Add Item</Button>
-        {formErrors.items && <Typography color="error" sx={{ mt: 2 }}>{formErrors.items}</Typography>}
+        {formErrors.items && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{formErrors.items}</Typography>}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 4, gap: 2 }}>
             <Typography variant="h6">Total: ₹{formPo.totalAmount}</Typography>
@@ -341,7 +293,6 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   );
 };
 
-// Debounce utility function
 function debounce(func, delay) {
   let timer;
   return function (...args) {

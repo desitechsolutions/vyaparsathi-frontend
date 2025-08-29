@@ -13,9 +13,9 @@ const PurchaseOrderFilters = ({ search, setSearch, allSuppliers, onAddNew }) => 
       direction={{ xs: 'column', md: 'row' }}
       spacing={2}
       alignItems="center"
-      justifyContent="space-between" // Distribute space evenly
+      justifyContent="space-between"
       width="100%"
-      sx={{ mt: 1, mb: 4, p: 2, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, flexWrap: 'wrap' }} // Allow wrapping
+      sx={{ mt: 1, mb: 4, p: 2, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, flexWrap: 'wrap' }}
     >
       <TextField
         label="Search PO Number"
@@ -24,19 +24,18 @@ const PurchaseOrderFilters = ({ search, setSearch, allSuppliers, onAddNew }) => 
         onChange={handleSearchChange}
         size="small"
         variant="outlined"
-        fullWidth
-        sx={{ flex: '1 1 auto', maxWidth: '250px' }} // Limit width but allow flexibility
+        sx={{ flex: '1 1 200px', minWidth: '180px' }}
       />
       <Autocomplete
         options={allSuppliers}
-        value={allSuppliers.find((s) => String(s.id) === String(search.supplierId)) || null}
+        value={allSuppliers.find((s) => s.id === search.supplierId) || null}
         getOptionLabel={(option) => option?.name || ''}
-        isOptionEqualToValue={(option, value) => String(option.id) === String(value?.id)}
-        onChange={(_, value) => setSearch((prev) => ({ ...prev, supplierId: value ? String(value.id) : '' }))}
+        isOptionEqualToValue={(option, value) => option.id === value?.id}
+        onChange={(_, value) => setSearch((prev) => ({ ...prev, supplierId: value ? value.id : '' }))}
         renderInput={(params) => <TextField {...params} label="Supplier" size="small" />}
-        sx={{ flex: '1 1 auto', maxWidth: '250px' }} // Limit width but allow flexibility
+        sx={{ flex: '1 1 200px', minWidth: '180px' }}
       />
-      <FormControl size="small" sx={{ flex: '1 1 auto', maxWidth: '200px' }}>
+      <FormControl size="small" sx={{ flex: '1 1 150px', minWidth: '120px' }}>
         <InputLabel>Status</InputLabel>
         <Select
           label="Status"
@@ -56,9 +55,8 @@ const PurchaseOrderFilters = ({ search, setSearch, allSuppliers, onAddNew }) => 
         onClick={onAddNew}
         sx={{ 
           whiteSpace: 'nowrap', 
-          minWidth: '150px', // Increased width
-          flexShrink: 0, // Prevent shrinking
-          height: '40px' // Consistent height
+          flexShrink: 0,
+          height: '40px'
         }}
       >
         New PO

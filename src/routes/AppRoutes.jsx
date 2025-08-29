@@ -21,6 +21,7 @@ import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import Suppliers from '../pages/Suppliers';
 import PublicLayout from '../components/layout/PublicLayout'; 
+import ReceivingPage from '../pages/ReceivingPage';
 
 function AppRoutes() {
   return (
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="about-us" element={<AboutUs />} />
         <Route path="analytics" element={<AnalyticsDashboard />} />
         <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route path='receiving' element={<ReceivingPage />} />
         <Route path="suppliers" element={<Suppliers />} />
         
         {/* SetupShop should be inside PrivateRoute but not Layout */}
