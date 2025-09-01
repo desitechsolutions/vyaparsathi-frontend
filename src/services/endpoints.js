@@ -17,6 +17,7 @@ const endpoints = {
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
   receivePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/receive`,
+  submitPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/submit`,
 
   items: `${API_BASE}/catalog`,
   getItemById: (id) => `${API_BASE}/catalog/${id}`,
@@ -65,6 +66,7 @@ generateInvoice: ({ saleId, invoiceNo }) =>
   receiving: `${API_BASE}/receiving`,
   receivingById: (id) => `${API_BASE}/receiving/${id}`,
   receivingTickets: `${API_BASE}/receiving/tickets`,
+  receivingTicketById: (id) => `${API_BASE}/receiving/tickets/${id}`,
   
   //Analytics endpoint
   analytics: {

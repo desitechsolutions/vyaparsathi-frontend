@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   TextField,
   Button,
@@ -11,6 +11,8 @@ import {
   Link,
   IconButton,
   MenuItem,
+  Stack,
+  Avatar,
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
@@ -18,7 +20,7 @@ import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { login as loginApi } from '../services/api'; // Use the login function from api.js
+import { login as loginApi } from '../services/api';
 import endpoints from '../services/endpoints';
 import API from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +30,9 @@ const ROLE_OPTIONS = [
   { value: 'OWNER', label: 'Owner' },
   { value: 'STAFF', label: 'Staff' },
 ];
+
+const APP_NAME = "VyaparSathi";
+const COMPANY_NAME = "DesiTech Innovations Pvt Ltd.";
 
 const Login = () => {
   const { login, user } = useAuthContext();
@@ -44,7 +49,6 @@ const Login = () => {
   const usernameRef = useRef(null);
   const pinRef = useRef(null);
 
-  // Effect to handle navigation after login
   useEffect(() => {
     if (user) {
       navigate('/', { replace: true });
@@ -100,7 +104,6 @@ const Login = () => {
           setIsSubmitting(false);
           return;
         }
-        // Use the loginApi function which skips refresh logic on 401
         const response = await loginApi({ username, pin });
         login(response.data.token, response.data.refreshToken);
         navigate('/', { replace: true });
@@ -115,7 +118,6 @@ const Login = () => {
           setIsSubmitting(false);
           return;
         }
-        // Registration does not need skipAuthRefresh
         const response = await API.post(endpoints.auth.register, { username, pin, role });
         setSuccessMessage(t('login.successRegister'));
         setTimeout(() => setView('login'), 2000);
@@ -125,7 +127,6 @@ const Login = () => {
           setIsSubmitting(false);
           return;
         }
-        // Forgot PIN does not need skipAuthRefresh
         const response = await API.post(endpoints.auth.forgetPin, { username });
         setSuccessMessage(response.data.message || t('login.successPinReset'));
         setTimeout(() => setView('login'), 2000);
@@ -142,7 +143,13 @@ const Login = () => {
       case 'login':
         return (
           <>
-            <PersonOutlineIcon sx={{ fontSize: 60, color: 'primary.main' }} />
+            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light' }}>
+                <PersonOutlineIcon sx={{ fontSize: 38, color: 'primary.main' }} />
+              </Avatar>
+              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+            </Stack>
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
               {t('login.signIn')}
             </Typography>
@@ -216,7 +223,13 @@ const Login = () => {
                 <ArrowBackIcon />
               </IconButton>
             </Box>
-            <PersonAddAltOutlinedIcon sx={{ fontSize: 60, color: 'secondary.main' }} />
+            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'secondary.light' }}>
+                <PersonAddAltOutlinedIcon sx={{ fontSize: 38, color: 'secondary.main' }} />
+              </Avatar>
+              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+            </Stack>
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
               {t('login.signUp')}
             </Typography>
@@ -294,7 +307,13 @@ const Login = () => {
                 <ArrowBackIcon />
               </IconButton>
             </Box>
-            <VpnKeyOutlinedIcon sx={{ fontSize: 60, color: 'error.main' }} />
+            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'error.light' }}>
+                <VpnKeyOutlinedIcon sx={{ fontSize: 38, color: 'error.main' }} />
+              </Avatar>
+              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+            </Stack>
             <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
               {t('login.forgotPinTitle')}
             </Typography>

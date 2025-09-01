@@ -57,6 +57,7 @@ function AppRoutes() {
         <Route path="analytics" element={<AnalyticsDashboard />} />
         <Route path="purchase-orders" element={<PurchaseOrders />} />
         <Route path='receiving' element={<ReceivingPage />} />
+        <Route path="receiving/:poId" element={<ReceivingPage />} />
         <Route path="suppliers" element={<Suppliers />} />
         
         {/* SetupShop should be inside PrivateRoute but not Layout */}

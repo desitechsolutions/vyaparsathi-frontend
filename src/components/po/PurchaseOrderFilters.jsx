@@ -44,9 +44,11 @@ const PurchaseOrderFilters = ({ search, setSearch, allSuppliers, onAddNew }) => 
           onChange={handleSearchChange}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="Pending">Pending</MenuItem>
-          <MenuItem value="Received">Received</MenuItem>
-          <MenuItem value="Cancelled">Cancelled</MenuItem>
+          <MenuItem value="DRAFT">Draft</MenuItem>
+          <MenuItem value="SUBMITTED">Submitted</MenuItem>
+          <MenuItem value="PARTIALLY_RECEIVED">Partially Received</MenuItem>
+          <MenuItem value="RECEIVED">Received</MenuItem>
+          <MenuItem value="CANCELLED">Cancelled</MenuItem>
         </Select>
       </FormControl>
       <Button

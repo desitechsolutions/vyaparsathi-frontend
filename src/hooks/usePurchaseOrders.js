@@ -4,9 +4,9 @@ import {
   createPurchaseOrder,
   updatePurchaseOrder,
   deletePurchaseOrder,
-  receivePurchaseOrder,
   getSuppliers,
-} from '../services/api'; // Assuming your api service file path
+  submitPurchaseOrder // <-- Add this import (see note below)
+} from '../services/api';
 
 export const usePurchaseOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -15,6 +15,12 @@ export const usePurchaseOrders = () => {
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [search, setSearch] = useState({ poNumber: '', supplierId: '', status: '' });
+
+  // Dialog for confirming delete
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    poId: null,
+  });
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -54,6 +60,29 @@ export const usePurchaseOrders = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Instead of window.confirm, open dialog and return a promise
+  const handleDelete = (poId) => {
+    setDeleteDialog({ open: true, poId });
+  };
+
+  const confirmDelete = async () => {
+    const poId = deleteDialog.poId;
+    setDeleteDialog({ open: false, poId: null });
+    if (!poId) return;
+    try {
+      await deletePurchaseOrder(poId);
+      showSnackbar('Purchase order deleted successfully.');
+      setOrders((prev) => prev.filter((po) => po.id !== poId));
+    } catch (err) {
+      console.error('Failed to delete purchase order:', err);
+      showSnackbar('Failed to delete purchase order.', 'error');
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialog({ open: false, poId: null });
+  };
+
   const handleCreateOrUpdate = async (mode, poData, poId = null) => {
     try {
       if (mode === 'create') {
@@ -73,27 +102,17 @@ export const usePurchaseOrders = () => {
     }
   };
 
-  const handleDelete = async (poId) => {
-    if (window.confirm('Are you sure you want to delete this purchase order?')) {
-      try {
-        await deletePurchaseOrder(poId);
-        showSnackbar('Purchase order deleted successfully.');
-        setOrders((prev) => prev.filter((po) => po.id !== poId));
-      } catch (err) {
-        console.error('Failed to delete purchase order:', err);
-        showSnackbar('Failed to delete purchase order.', 'error');
-      }
-    }
-  };
-
-  const handleReceive = async (poId) => {
+  // Add this function to handle PO submit
+  const handleSubmitPO = async (poId) => {
     try {
-      await receivePurchaseOrder(poId);
-      showSnackbar('Purchase order marked as received.');
-      await fetchAllData(); // Refresh to show status update
+      await submitPurchaseOrder(poId);
+      showSnackbar('Purchase order submitted successfully.', 'success');
+      await fetchAllData();
+      return { success: true };
     } catch (err) {
-      console.error('Failed to update purchase order status:', err);
-      showSnackbar('Failed to mark order as received.', 'error');
+      const errorMessage = err?.response?.data?.message || 'Failed to submit purchase order.';
+      showSnackbar(errorMessage, 'error');
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -113,9 +132,12 @@ export const usePurchaseOrders = () => {
     search,
     filteredOrders,
     setSearch,
-    handleDelete,
-    handleReceive,
+    handleDelete,       // Use this to open the dialog
+    confirmDelete,      // Call this to actually delete
+    cancelDelete,       // Call this to cancel dialog
+    deleteDialog,       // Expose dialog state to UI
     handleCreateOrUpdate,
+    handleSubmitPO,     // <-- expose to modal
     handleSnackbarClose,
     refreshData: fetchAllData,
   };

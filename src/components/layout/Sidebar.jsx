@@ -38,12 +38,11 @@ const Sidebar = () => {
   // Menu for all users (excluding About Us)
   const menuItems = [
     { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' , protected: true},
+    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items', protected: true },
     { text: 'productsOverview', icon: <ShoppingCartIcon />, path: '/products' },
     { text: 'inventory', icon: <InventoryIcon />, path: '/stock' },
     { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
-    { text: 'customerPayments', icon: <PaymentIcon />, path: '/payments' },
     { text: 'reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
@@ -54,13 +53,15 @@ const Sidebar = () => {
     { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers' },
     { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders' },
     { text: 'receiving', icon: <InventoryIcon />, path: '/receiving' },
-    { text: 'payments', icon: <PaymentIcon />,
+    {
+      text: 'payments',
+      icon: <PaymentIcon />,
       nested: true,
       open: openPayments,
       onClick: () => setOpenPayments((prev) => !prev),
       children: [
-        { text: 'customerPayments', path: '/customer-payments' },
-        { text: 'supplierPayments', path: '/supplier-payments' },
+        { text: 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
+        { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments' },
       ],
     },
     { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
@@ -72,15 +73,15 @@ const Sidebar = () => {
       open: openReports,
       onClick: () => setOpenReports((prev) => !prev),
       children: [
-        { text: 'overview', path: '/reports' },
-        { text: 'salesReport', path: '/reports/sales' },
-        { text: 'gstSummary', path: '/reports/gst-summary' },
-        { text: 'gstBreakdown', path: '/reports/gst-breakdown' },
-        { text: 'itemsSold', path: '/reports/items-sold' },
-        { text: 'categorySales', path: '/reports/category-sales' },
-        { text: 'customerSales', path: '/reports/customer-sales' },
-        { text: 'expensesSummary', path: '/reports/expenses-summary' },
-        { text: 'paymentsSummary', path: '/reports/payments-summary' },
+        { text: 'overview', icon: <AssessmentIcon />, path: '/reports' },
+        { text: 'salesReport', icon: <AssessmentIcon />, path: '/reports/sales' },
+        { text: 'gstSummary', icon: <AssessmentIcon />, path: '/reports/gst-summary' },
+        { text: 'gstBreakdown', icon: <AssessmentIcon />, path: '/reports/gst-breakdown' },
+        { text: 'itemsSold', icon: <AssessmentIcon />, path: '/reports/items-sold' },
+        { text: 'categorySales', icon: <AssessmentIcon />, path: '/reports/category-sales' },
+        { text: 'customerSales', icon: <AssessmentIcon />, path: '/reports/customer-sales' },
+        { text: 'expensesSummary', icon: <AssessmentIcon />, path: '/reports/expenses-summary' },
+        { text: 'paymentsSummary', icon: <AssessmentIcon />, path: '/reports/payments-summary' },
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
@@ -91,9 +92,9 @@ const Sidebar = () => {
       open: openAdmin,
       onClick: () => setOpenAdmin((prev) => !prev),
       children: [
-        { text: 'users', path: '/admin/users' },
-        { text: 'auditLogs', path: '/audit' },
-        { text: 'notifications', path: '/notifications' },
+        { text: 'users', icon: <PeopleIcon />, path: '/admin/users' },
+        { text: 'auditLogs', icon: <NotificationsIcon />, path: '/audit' },
+        { text: 'notifications', icon: <NotificationsIcon />, path: '/notifications' },
       ],
     },
   ];
@@ -143,6 +144,11 @@ const Sidebar = () => {
                       '&.active': activeStyle,
                     }}
                   >
+                    {child.icon && (
+                      <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
+                        {child.icon}
+                      </ListItemIcon>
+                    )}
                     <ListItemText primary={t(child.text)} />
                   </ListItemButton>
                 </ListItem>

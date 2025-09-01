@@ -102,6 +102,9 @@ export const deletePurchaseOrder = (id) =>
 export const receivePurchaseOrder = (id) =>
   API.post(endpoints.receivePurchaseOrder(id)).then((r) => r.data);
 
+  export const submitPurchaseOrder = (id) =>
+    API.post(endpoints.submitPurchaseOrder(id)).then((r) => r.data);
+
 // Supplier APIs
 export const getSuppliers = () =>
   API.get(endpoints.suppliers).then((r) => r.data);
@@ -141,6 +144,7 @@ export const fetchStock = () => API.get(endpoints.fetchStock);
 export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
+export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
 
 
 //Sales related APIs
@@ -183,6 +187,7 @@ export const exportBackup = () => API.post(endpoints.backup.export, {}, { respon
 
 // Payments related APIs
 export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
+export const recordDuePaymentsBatch = (data) => API.post('/api/payments/record-batch', data);
 
 export const fetchProducts = () => API.get(endpoints.products);
 
@@ -202,6 +207,8 @@ export const createReceiving = (data) => API.post(endpoints.receiving, data).the
 export const updateReceiving = (id, data) => API.put(endpoints.receivingById(id), data).then(r => r.data);
 export const fetchReceivingTickets = () => API.get(endpoints.receivingTickets).then(r => r.data);
 export const createReceivingTicket = (data) => API.post(endpoints.receivingTickets, data).then(r => r.data);
+export const fetchReceivingByPoId = (poId) =>
+  API.get(`${endpoints.receiving}/by-po/${poId}`).then(r => r.data);
 // --- Auth related API ---
 // Use skipAuthRefresh on login to prevent refresh logic on login failure
 export const login = (payload) =>

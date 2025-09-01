@@ -1,17 +1,53 @@
 import React from 'react';
 import { Card, CardContent, CardActions, Typography, Chip, Divider, IconButton, Tooltip, Box } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
+  CheckCircle as CheckCircleIcon,
+  Send as SendIcon
+} from '@mui/icons-material';
 
 const getStatusChip = (status) => {
+  // Normalize status for display and color mapping
+  const normalized = (status || '').toUpperCase();
   const colorMap = {
-    Pending: 'warning',
-    Received: 'success',
-    Cancelled: 'error',
+    DRAFT: 'default',
+    SUBMITTED: 'primary',
+    PENDING: 'warning',
+    'IN_PROGRESS': 'info',
+    'PARTIALLY_RECEIVED': 'info',
+    RECEIVED: 'success',
+    CANCELLED: 'error',
   };
-  return <Chip label={status || 'Unknown'} color={colorMap[status] || 'default'} size="small" />;
+  // Display label
+  const labelMap = {
+    DRAFT: 'Draft',
+    SUBMITTED: 'Submitted',
+    PENDING: 'Pending',
+    IN_PROGRESS: 'In Progress',
+    PARTIALLY_RECEIVED: 'Partially Received',
+    RECEIVED: 'Received',
+    CANCELLED: 'Cancelled',
+  };
+  return (
+    <Chip
+      label={labelMap[normalized] || status || 'Unknown'}
+      color={colorMap[normalized] || 'default'}
+      size="small"
+    />
+  );
 };
 
-const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onReceive }) => {
+const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onGoToReceiving, onSubmit }) => {
+  // Only allow edit/delete for DRAFT
+  const canEdit = po.status === 'DRAFT';
+  const canDelete = po.status === 'DRAFT';
+  // Only allow submit for DRAFT
+  const canSubmit = po.status === 'DRAFT';
+  // Only allow receiving for SUBMITTED or PARTIALLY_RECEIVED
+  const canReceive = po.status === 'SUBMITTED' || po.status === 'PARTIALLY_RECEIVED';
+
   return (
     <Card sx={{
       height: '100%',
@@ -50,18 +86,25 @@ const PurchaseOrderCard = ({ po, supplier, onView, onEdit, onDelete, onReceive }
           </IconButton>
         </Tooltip>
         <Tooltip title="Edit">
-          <IconButton color="secondary" onClick={() => onEdit(po)} size="small" disabled={po.status !== 'Pending'}>
+          <IconButton color="secondary" onClick={() => onEdit(po)} size="small" disabled={!canEdit}>
             <EditIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Delete">
-          <IconButton color="error" onClick={() => onDelete(po.id)} size="small" disabled={po.status !== 'Pending'}>
+          <IconButton color="error" onClick={() => onDelete(po.id)} size="small" disabled={!canDelete}>
             <DeleteIcon />
           </IconButton>
         </Tooltip>
-        {po.status === 'Pending' && (
-          <Tooltip title="Mark as Received">
-            <IconButton color="success" onClick={() => onReceive(po.id)} size="small">
+        {canSubmit && (
+          <Tooltip title="Submit PO (cannot edit after submit)">
+            <IconButton color="primary" onClick={() => onSubmit(po)} size="small">
+              <SendIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+        {canReceive && (
+          <Tooltip title="Go to Receiving">
+            <IconButton color="success" onClick={() => onGoToReceiving(po.id)} size="small">
               <CheckCircleIcon />
             </IconButton>
           </Tooltip>

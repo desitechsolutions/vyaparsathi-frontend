@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Container, Typography, Box, Snackbar, Alert, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Container, Typography, Box, Snackbar, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ShoppingBag as ShoppingBagIcon, Add as AddIcon } from '@mui/icons-material';
 
 import { usePurchaseOrders } from '../hooks/usePurchaseOrders';
@@ -12,22 +13,28 @@ const PurchaseOrders = () => {
     isLoading,
     filteredOrders,
     orders,
-    allSuppliers, // **FIX**: Use allSuppliers from the hook
+    allSuppliers,
     snackbar,
     search,
     setSearch,
     handleDelete,
-    handleReceive,
     handleCreateOrUpdate,
+    handleSubmitPO, // <-- Added
     handleSnackbarClose,
-    refreshData, // Use the refresh function from the hook
+    refreshData,
+    deleteDialog,
+    confirmDelete,
+    cancelDelete,
   } = usePurchaseOrders();
+
+  const navigate = useNavigate();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
   const [selectedPo, setSelectedPo] = useState(null);
-
-  // **FIX**: Removed redundant useState and useEffect for allSuppliers
+  const [submitDialog, setSubmitDialog] = useState(false);
+  const [poToSubmit, setPoToSubmit] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleOpenModal = (mode, po = null) => {
     setModalMode(mode);
@@ -38,14 +45,47 @@ const PurchaseOrders = () => {
   const handleCloseModal = () => {
     setModalOpen(false);
     setSelectedPo(null);
-    // The hook now handles data refresh, so no extra logic needed here.
+  };
+
+  // Use React Router navigation for "Go to Receiving"
+  const handleGoToReceiving = (poId) => {
+    navigate(`/receiving/${poId}`);
+  };
+
+  // --- SUBMIT PO HANDLER for Card view ---
+  const handleCardSubmit = (po) => {
+    setPoToSubmit(po);
+    setSubmitDialog(true);
+  };
+
+  const confirmCardSubmit = async () => {
+    if (!poToSubmit) return;
+    setIsSubmitting(true);
+    await handleSubmitPO(poToSubmit.id);
+    setIsSubmitting(false);
+    setSubmitDialog(false);
+    setPoToSubmit(null);
+    refreshData();
+  };
+
+  const cancelCardSubmit = () => {
+    setSubmitDialog(false);
+    setPoToSubmit(null);
   };
 
   const renderContent = () => {
     if (!isLoading && filteredOrders.length === 0 && (search.poNumber || search.supplierId || search.status)) {
       return (
         <>
-          <PurchaseOrderList orders={[]} allSuppliers={allSuppliers} onView={handleOpenModal} onEdit={handleOpenModal} onDelete={handleDelete} onReceive={handleReceive} />
+          <PurchaseOrderList
+            orders={[]}
+            allSuppliers={allSuppliers}
+            onView={handleOpenModal}
+            onEdit={handleOpenModal}
+            onDelete={handleDelete}
+            onGoToReceiving={handleGoToReceiving}
+            onSubmit={handleCardSubmit} // <-- new prop
+          />
           <Box textAlign="center" mt={5} p={3}>
             <Typography variant="h6" color="text.secondary">
               No purchase orders match your search.
@@ -54,7 +94,7 @@ const PurchaseOrders = () => {
         </>
       );
     }
-    
+
     if (!isLoading && orders.length === 0) {
       return (
         <Box textAlign="center" mt={8} p={4} sx={{ bgcolor: 'grey.100', borderRadius: 2 }}>
@@ -75,7 +115,7 @@ const PurchaseOrders = () => {
         </Box>
       );
     }
-    
+
     return (
       <PurchaseOrderList
         isLoading={isLoading}
@@ -84,7 +124,8 @@ const PurchaseOrders = () => {
         onView={(po) => handleOpenModal('view', po)}
         onEdit={(po) => handleOpenModal('edit', po)}
         onDelete={handleDelete}
-        onReceive={handleReceive}
+        onGoToReceiving={handleGoToReceiving}
+        onSubmit={handleCardSubmit} // <-- new prop
       />
     );
   };
@@ -118,7 +159,6 @@ const PurchaseOrders = () => {
 
       {renderContent()}
 
-      {/* **FIX**: Conditionally render the modal to ensure it re-initializes */}
       {modalOpen && (
         <PurchaseOrderModal
           open={modalOpen}
@@ -126,10 +166,50 @@ const PurchaseOrders = () => {
           mode={modalMode}
           selectedPo={selectedPo}
           onSubmit={handleCreateOrUpdate}
-          allSuppliers={allSuppliers} // Pass suppliers from the hook
-          showSnackbar={handleSnackbarClose} // Pass down the snackbar handler from the hook
+          allSuppliers={allSuppliers}
+          showSnackbar={handleSnackbarClose}
+          onSubmitPO={handleSubmitPO} // <-- for modal edit submit
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDialog?.open || false} onClose={cancelDelete}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete this purchase order?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDelete} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Submit PO confirmation dialog for Card */}
+      <Dialog open={submitDialog} onClose={cancelCardSubmit}>
+        <DialogTitle>Submit Purchase Order</DialogTitle>
+        <DialogContent>
+          Are you sure you want to submit this purchase order?
+          <br />
+          <strong>Once submitted, it cannot be edited.</strong>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelCardSubmit} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmCardSubmit}
+            color="primary"
+            variant="contained"
+            disabled={isSubmitting}
+          >
+            Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

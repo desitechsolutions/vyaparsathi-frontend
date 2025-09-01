@@ -2,7 +2,7 @@ import React from 'react';
 import { Grid, Skeleton } from '@mui/material';
 import PurchaseOrderCard from './PurchaseOrderCard';
 
-const PurchaseOrderList = ({ isLoading, orders, allSuppliers, onView, onEdit, onDelete, onReceive }) => {
+const PurchaseOrderList = ({ isLoading, orders, allSuppliers, onView, onEdit, onDelete, onGoToReceiving }) => {
   if (isLoading) {
     return (
       <Grid container spacing={3}>
@@ -27,7 +27,8 @@ const PurchaseOrderList = ({ isLoading, orders, allSuppliers, onView, onEdit, on
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}
-              onReceive={onReceive}
+              onGoToReceiving={onGoToReceiving}
+              
             />
           </Grid>
         );
