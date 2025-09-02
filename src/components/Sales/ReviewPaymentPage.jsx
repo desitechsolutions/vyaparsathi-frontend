@@ -174,6 +174,17 @@ const ReviewPaymentPage = ({
               ₹{Number(previousDues).toFixed(2)}
             </span>
           </Typography>
+          {/* Delivery Review Section */}
+                {formData.deliveryRequired && (
+                  <Paper sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>Delivery Details</Typography>
+                    <Typography><strong>Address:</strong> {formData.deliveryAddress}</Typography>
+                    <Typography><strong>Charge:</strong> ₹{formData.deliveryCharge}</Typography>
+                    <Typography><strong>Paid By:</strong> {formData.deliveryPaidBy}</Typography>
+                    <Typography><strong>Status:</strong> PACKED</Typography>
+                    <Typography><strong>Notes:</strong> {formData.deliveryNotes}</Typography>
+                  </Paper>
+                )}
         </Box>
         {previousDues > 0 && (
           <Alert severity="warning" sx={{ mb: 1 }}>

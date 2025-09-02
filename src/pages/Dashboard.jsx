@@ -1,332 +1,365 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Grid, Paper, Typography, Box, CircularProgress, Button, TextField, Alert
-} from '@mui/material';
+  Grid, Paper, Typography, Box, CircularProgress, Button, ButtonGroup, TextField, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableRow, TableCell,
+  TableBody, IconButton, InputAdornment,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
+import PeopleIcon from '@mui/icons-material/People';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell,
-} from 'recharts';
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts";
 import {
-  fetchShop,
-  fetchDailyReport,
-  fetchSalesSummary,
-  fetchSalesWithDue,
-  fetchCategorySales,
-  fetchCustomers,
-  fetchItemsSold
-} from '../services/api';
-import { useNavigate } from 'react-router-dom';
-import dayjs from 'dayjs';
-import { useTranslation } from 'react-i18next';
+  fetchShop, fetchDailyReport, fetchSalesSummary, fetchCategorySales, fetchItemsSold,
+  fetchCustomers, fetchAllSales,
+} from "../services/api";
+import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
+import { useTranslation } from "react-i18next";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A020F0', '#FF6666'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A020F0", "#FF6666"];
+const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+
+// Custom label renderer for Pie Charts
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+  // Only render label if the slice is large enough
+  if (percent < 0.05) {
+    return null;
+  }
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize="12px" fontWeight="bold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
+// Reusable StatCard component
+const StatCard = ({ title, value, icon, color = "#1a237e", onClick, tooltip }) => (
+  <Paper
+    elevation={3}
+    sx={{
+      p: 2, textAlign: "center", borderRadius: "12px", bgcolor: "#fff", height: '100%',
+      cursor: onClick ? "pointer" : "default",
+      transition: "box-shadow .2s",
+      "&:hover": { boxShadow: onClick ? 7 : 3 },
+      display: 'flex', flexDirection: 'column', justifyContent: 'center'
+    }}
+    onClick={onClick}
+    title={tooltip}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+      {icon}
+      <Typography variant="body2" color="text.secondary">{title}</Typography>
+    </Box>
+    <Typography variant="h5" sx={{ fontWeight: "bold", color, mt: 1 }}>{value}</Typography>
+    {onClick && <Typography variant="caption" color="primary" display="block" sx={{ mt: 0.5 }}>(View details)</Typography>}
+  </Paper>
+);
+
+// Component to display in the center of a chart when there's no data
+const NoDataDisplay = () => (
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+    <Typography color="text.secondary">No data available for this period</Typography>
+  </Box>
+);
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const [shop, setShop] = useState(null);
-  const [todayStats, setTodayStats] = useState({ sales: 0, numberOfSales: 0, netRevenue: 0 });
-  const [summaryStats, setSummaryStats] = useState({
-    totalSales: 0, totalSalesCount: 0, netRevenue: 0, outstandingReceivable: 0
-  });
-  const [totalCustomers, setTotalCustomers] = useState(0);
-  const [totalItemsSold, setTotalItemsSold] = useState(0);
-  const [weeklySalesData, setWeeklySalesData] = useState([]);
-  const [categorySalesData, setCategorySalesData] = useState([]);
-  const [dues, setDues] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [date, setDate] = useState(dayjs().format('YYYY-MM-DD')); // for today's stats
-  const [summaryRange, setSummaryRange] = useState({ from: '', to: '' });
-
   const navigate = useNavigate();
 
-  // Helper function to ignore specific API errors (for endpoints not implemented yet)
-  const ignoreApiError = (err) => {
-    // Ignore 404s for category-sales/items-sold
-    if (err?.response?.config?.url?.includes('category-sales')) return true;
-    if (err?.response?.config?.url?.includes('items-sold')) return true;
-    return false;
+  // State Management
+  const [shop, setShop] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    todayStats: { sales: 0, numberOfSales: 0, netRevenue: 0 },
+    summaryStats: { totalSales: 0, totalSalesCount: 0, netRevenue: 0, outstandingReceivable: 0, netProfit: 0, totalPaid: 0, totalCOGS: 0 },
+    totalCustomers: 0,
+    categorySales: [],
+    itemSales: [],
+    salesTimeSeries: [],
+    todaySales: [],
+  });
+  const [range, setRange] = useState({ from: dayjs().subtract(6, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Dialogs State
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [itemFilter, setItemFilter] = useState("");
+  const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [todayFilter, setTodayFilter] = useState("");
+
+  // Centralized data fetching function
+  const fetchDashboardData = useCallback(async (fromDate, toDate) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const today = dayjs().format("YYYY-MM-DD");
+      const results = await Promise.allSettled([
+        fetchShop(),
+        fetchCustomers(),
+        fetchSalesSummary(fromDate, toDate),
+        fetchCategorySales(fromDate, toDate),
+        fetchItemsSold(fromDate, toDate),
+        fetchAllSales(fromDate, toDate),
+        fetchDailyReport(today),
+        fetchAllSales(today, today),
+      ]);
+
+      const getResultData = (result, fallback = null) => result.status === 'fulfilled' ? (result.value.data || fallback) : fallback;
+
+      // Process Shop and Customer info (fetched once)
+      if (!shop) setShop(getResultData(results[0]));
+      setDashboardData(prev => ({ ...prev, totalCustomers: getResultData(results[1], []).length }));
+
+      // Process summary and pie data
+      const summaryRes = getResultData(results[2], {});
+      const categoryRes = getResultData(results[3], []);
+      const itemsRes = getResultData(results[4], []);
+      
+      const itemMap = {};
+      itemsRes.forEach(row => {
+        if (!itemMap[row.itemName]) {
+          itemMap[row.itemName] = { name: row.itemName, value: 0, totalSold: 0 };
+        }
+        itemMap[row.itemName].value += Number(row.totalSales || 0);
+        itemMap[row.itemName].totalSold += Number(row.totalSold || 0);
+      });
+
+      // Process time series data
+      const sales = getResultData(results[5], []);
+      const byDate = {};
+      sales.forEach(sale => {
+        const date = sale.date ? sale.date.substring(0, 10) : "";
+        if (!byDate[date]) byDate[date] = { date, totalSales: 0, count: 0 };
+        byDate[date].totalSales += Number(sale.totalAmount || 0);
+        byDate[date].count += 1;
+      });
+      const chartData = Object.values(byDate).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // Process today's stats
+      const dailyRes = getResultData(results[6], {});
+      const todaySalesRes = getResultData(results[7], []);
+
+      setDashboardData(prev => ({
+        ...prev,
+        summaryStats: {
+          totalSales: summaryRes.totalSales || 0,
+          totalSalesCount: summaryRes.totalSalesCount || 0,
+          netRevenue: summaryRes.netRevenue || 0,
+          outstandingReceivable: summaryRes.outstandingReceivable || 0,
+          netProfit: summaryRes.netProfit || 0,
+          totalPaid: summaryRes.totalPaid || 0,
+          totalCOGS: summaryRes.totalCOGS || 0,
+        },
+        categorySales: categoryRes.map(row => ({ name: row.categoryName, value: Number(row.totalSales || 0) })),
+        itemSales: Object.values(itemMap),
+        salesTimeSeries: chartData,
+        todayStats: {
+          sales: dailyRes.totalSales || 0,
+          numberOfSales: dailyRes.numberOfSales || 0,
+          netRevenue: dailyRes.netRevenue || 0,
+        },
+        todaySales: todaySalesRes,
+      }));
+
+    } catch (e) {
+      setError("Failed to load dashboard data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [shop]);
+
+  useEffect(() => {
+    fetchDashboardData(range.from, range.to);
+  }, [range, fetchDashboardData]);
+
+  const handleSetRange = (preset) => {
+    let from, to = dayjs().format("YYYY-MM-DD");
+    if (preset === 'today') {
+      from = to;
+    } else if (preset === '7days') {
+      from = dayjs().subtract(6, 'day').format("YYYY-MM-DD");
+    } else if (preset === '30days') {
+      from = dayjs().subtract(29, 'day').format("YYYY-MM-DD");
+    }
+    setRange({ from, to });
   };
 
-  // Load static/fixed data on mount (shop/customers/items/category)
-  useEffect(() => {
-    let isMounted = true;
-    setIsLoading(true);
-    setError('');
-    Promise.allSettled([
-      fetchShop(),
-      fetchCustomers(),
-      fetchItemsSold(),
-      fetchCategorySales(),
-      fetchSalesWithDue(),
-    ]).then((results) => {
-      if (!isMounted) return;
-      // Results: [{status, value/reason}, ...]
-      let hasCriticalError = false;
-      // Shop
-      if (results[0].status === 'fulfilled') {
-        setShop(results[0].value.data);
-      } else {
-        hasCriticalError = true;
-      }
-      // Customers
-      if (results[1].status === 'fulfilled') {
-        setTotalCustomers(Array.isArray(results[1].value.data) ? results[1].value.data.length : 0);
-      }
-      // Items Sold
-      if (results[2].status === 'fulfilled') {
-        setTotalItemsSold(results[2].value.data?.totalItemsSold || 0);
-      }
-      // Category Sales (ignore error if endpoint missing)
-      if (results[3].status === 'fulfilled') {
-        setCategorySalesData(results[3].value.data || []);
-      }
-      // Dues
-      if (results[4].status === 'fulfilled') {
-        const duesRes = results[4].value;
-        const totalDue = (duesRes.data || []).reduce((sum, sale) => sum + Number(sale.dueAmount || 0), 0);
-        setDues(totalDue);
-      }
-      setIsLoading(false);
-      if (hasCriticalError) setError(t('dashboardPage.errorLoad'));
-    }).catch(() => {
-      if (!isMounted) return;
-      setError(t('dashboardPage.errorLoad'));
-      setIsLoading(false);
-    });
-    return () => { isMounted = false; };
-  }, []);
-
-  // Load today's stats whenever date changes
-  useEffect(() => {
-    setTodayStats({ sales: 0, numberOfSales: 0, netRevenue: 0 });
-    fetchDailyReport(date)
-      .then((dailyRes) => {
-        setTodayStats({
-          sales: dailyRes.data?.totalSales || 0,
-          numberOfSales: dailyRes.data?.numberOfSales || 0,
-          netRevenue: dailyRes.data?.netRevenue || 0,
-        });
-      }).catch(() => {
-        // Ignore error, show zeroes
-        setTodayStats({ sales: 0, numberOfSales: 0, netRevenue: 0 });
-      });
-  }, [date]);
-
-  // Load all-time summary (for summary cards) only on mount
-  useEffect(() => {
-    fetchSalesSummary()
-      .then((summaryRes) => {
-        setSummaryStats({
-          totalSales: summaryRes.data?.totalSales || 0,
-          totalSalesCount: summaryRes.data?.totalSalesCount || 0,
-          netRevenue: summaryRes.data?.netRevenue || 0,
-          outstandingReceivable: summaryRes.data?.outstandingReceivable || 0,
-        });
-      }).catch(() => {
-        setSummaryStats({
-          totalSales: 0,
-          totalSalesCount: 0,
-          netRevenue: 0,
-          outstandingReceivable: 0,
-        });
-      });
-  }, []);
-
-  // Weekly sales data for chart: by default load last 7 days, or custom range
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSummary() {
-      let summaryData = null;
-      try {
-        if (summaryRange.from && summaryRange.to) {
-          summaryData = await fetchSalesSummary(summaryRange.from, summaryRange.to);
-        } else {
-          // default last 7 days
-          const to = dayjs();
-          const from = dayjs().subtract(6, 'day');
-          summaryData = await fetchSalesSummary(from.format('YYYY-MM-DD'), to.format('YYYY-MM-DD'));
-        }
-        if (cancelled) return;
-        setWeeklySalesData([
-          {
-            name: summaryData.data?.fromDate && summaryData.data?.toDate
-              ? `${dayjs(summaryData.data?.fromDate).format('DD MMM')} - ${dayjs(summaryData.data?.toDate).format('DD MMM')}`
-              : 'Period',
-            sales: summaryData.data?.totalSales || 0,
-            count: summaryData.data?.totalSalesCount || 0,
-            netRevenue: summaryData.data?.netRevenue || 0,
-            outstandingReceivable: summaryData.data?.outstandingReceivable || 0,
-          }
-        ]);
-      } catch (err) {
-        if (!cancelled) setWeeklySalesData([]);
-      }
-    }
-    loadSummary();
-    return () => { cancelled = true; }
-  }, [summaryRange]);
-
-  const formatCurrency = (amount) =>
-    `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-
-  const topCategory = categorySalesData.length
-    ? categorySalesData.reduce((a, b) => (a.value > b.value ? a : b)).name
-    : '-';
+  // Memoized filters for dialogs
+  const filteredItemSalesData = useMemo(() => dashboardData.itemSales.filter(item => item.name.toLowerCase().includes(itemFilter.toLowerCase())), [dashboardData.itemSales, itemFilter]);
+  const filteredTodaySales = useMemo(() => dashboardData.todaySales.filter(sale => (sale.customerName && sale.customerName.toLowerCase().includes(todayFilter.toLowerCase())) || (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(todayFilter.toLowerCase()))), [dashboardData.todaySales, todayFilter]);
 
   return (
-    <Box sx={{ flexGrow: 1, p: { xs: 1, md: 3 }, backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
-      {error && (
-        <Box sx={{ p: 4 }}>
-          <Alert severity="error">{error}</Alert>
-        </Box>
-      )}
-
-      {/* Shop Info */}
+    <Box sx={{ flexGrow: 1, p: { xs: 1, md: 3 }, backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {shop && (
-        <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: '#f8fafc' }}>
-          <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-            {shop.name}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {shop.address}, {shop.state} {shop.gstin ? `| ${t('dashboardPage.gstin')}: ${shop.gstin}` : ''}
-          </Typography>
+        <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 2, bgcolor: "#f8fafc" }}>
+          <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2" }}>{shop.name}</Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>{shop.address}, {shop.state} {shop.gstin ? `| ${t("dashboardPage.gstin")}: ${shop.gstin}` : ""}</Typography>
         </Paper>
       )}
 
-      {/* Date Filter and Quick Actions */}
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', md: 'row' },
-        alignItems: { md: 'center' }, justifyContent: 'space-between', mb: 3, gap: 2
-      }}>
-        <TextField
-          label={t('dashboardPage.selectDate')}
-          type="date"
-          size="small"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          sx={{ width: 180, bgcolor: '#fff', borderRadius: 1 }}
-          InputLabelProps={{ shrink: true }}
-        />
-        {/* Optional: Add summary date range filter here for sales summary chart */}
-        {/* <TextField
-          label="Summary From"
-          type="date"
-          size="small"
-          value={summaryRange.from}
-          onChange={e => setSummaryRange({ ...summaryRange, from: e.target.value })}
-        />
-        <TextField
-          label="Summary To"
-          type="date"
-          size="small"
-          value={summaryRange.to}
-          onChange={e => setSummaryRange({ ...summaryRange, to: e.target.value })}
-        /> */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => navigate('/sales')}>
-            {t('dashboardPage.addSale')}
-          </Button>
-          <Button variant="outlined" color="primary" onClick={() => navigate('/sales?tab=history')}>
-            {t('dashboardPage.viewSalesHistory')}
-          </Button>
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, alignItems: { md: "center" }, justifyContent: "space-between", mb: 3, gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <ButtonGroup variant="outlined" size="small">
+            <Button onClick={() => handleSetRange('today')}>Today</Button>
+            <Button onClick={() => handleSetRange('7days')}>Last 7 Days</Button>
+            <Button onClick={() => handleSetRange('30days')}>Last 30 Days</Button>
+          </ButtonGroup>
+          <TextField label="From" type="date" size="small" value={range.from} onChange={(e) => setRange(prev => ({ ...prev, from: e.target.value }))} sx={{ width: 160, bgcolor: "#fff", borderRadius: 1 }} InputLabelProps={{ shrink: true }} />
+          <TextField label="To" type="date" size="small" value={range.to} onChange={(e) => setRange(prev => ({ ...prev, to: e.target.value }))} sx={{ width: 160, bgcolor: "#fff", borderRadius: 1 }} InputLabelProps={{ shrink: true }} />
+        </Box>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button variant="contained" color="primary" onClick={() => navigate("/sales")}>{t("dashboardPage.addSale")}</Button>
+          <Button variant="outlined" color="primary" onClick={() => navigate("/sales?tab=history")}>{t("dashboardPage.viewSalesHistory")}</Button>
         </Box>
       </Box>
 
-      {/* Loading Indicator (if still loading but not error) */}
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-          <CircularProgress />
-        </Box>
+      {isLoading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}><CircularProgress /></Box>
+      ) : (
+        <>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={2.4}><StatCard title={t("dashboardPage.todaysSales")} value={formatCurrency(dashboardData.todayStats.sales)} icon={<CurrencyRupeeIcon color="primary" />} onClick={() => setTodayModalOpen(true)} tooltip="Click to see today's sales details" /></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><StatCard title={t("dashboardPage.totalCustomers")} value={dashboardData.totalCustomers} icon={<PeopleIcon color="primary" />} /></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><StatCard title={t("dashboardPage.totalItemsSold")} value={dashboardData.itemSales.reduce((sum, i) => sum + i.totalSold, 0)} icon={<ShoppingCartIcon color="primary" />} onClick={() => setItemModalOpen(true)} tooltip="Click to view item-wise details" /></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><StatCard title={t("dashboardPage.outstandingDues")} value={formatCurrency(dashboardData.summaryStats.outstandingReceivable)} icon={<AccountBalanceWalletIcon color="error" />} color="#b71c1c" /></Grid>
+            <Grid item xs={12} sm={6} md={2.4}><StatCard title={t("dashboardPage.netProfit")} value={formatCurrency(dashboardData.summaryStats.netProfit)} icon={<TrendingUpIcon color="success" />} color="#388e3c" /></Grid>
+          </Grid>
+
+          <Grid container spacing={2} sx={{ mt: 4 }}>
+            <Grid item xs={12} md={6}>
+              <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff", height: 340 }}>
+                <Typography variant="h6" gutterBottom align="center">Sales by Category</Typography>
+                {dashboardData.categorySales.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie 
+                        data={dashboardData.categorySales} 
+                        cx="50%" 
+                        cy="50%" 
+                        outerRadius={100} 
+                        fill="#1976d2" 
+                        dataKey="value" 
+                        nameKey="name"
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {dashboardData.categorySales.map((entry, index) => (<Cell key={`cell-cat-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <NoDataDisplay />}
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff", height: 340 }}>
+                <Typography variant="h6" gutterBottom align="center">Sales by Item</Typography>
+                {dashboardData.itemSales.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie 
+                        data={dashboardData.itemSales} 
+                        cx="50%" 
+                        cy="50%" 
+                        outerRadius={100} 
+                        fill="#388e3c" 
+                        dataKey="value" 
+                        nameKey="name"
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {dashboardData.itemSales.map((entry, index) => (<Cell key={`cell-item-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <NoDataDisplay />}
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2} sx={{ mt: 4 }}>
+            <Grid item xs={12}>
+              <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff" }}>
+                <Typography variant="h6" gutterBottom>Sales Trend</Typography>
+                {dashboardData.salesTimeSeries.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={dashboardData.salesTimeSeries}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(date) => dayjs(date).format('MMM DD')}
+                        padding={{ left: 20, right: 20 }}
+                      />
+                      <YAxis 
+                        yAxisId="left" 
+                        tickFormatter={(value) => `₹${value >= 1000 ? `${value/1000}k` : value}`}
+                        label={{ value: 'Sales Amount (₹)', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' } }}
+                      />
+                      <YAxis 
+                        yAxisId="right" 
+                        orientation="right"
+                        label={{ value: 'Number of Sales', angle: 90, position: 'insideRight', style: { textAnchor: 'middle' } }}
+                      />
+                      <Tooltip formatter={(value, name) => {
+                        if (name === 'totalSales') return [formatCurrency(value), 'Sales'];
+                        if (name === 'count') return [value, 'No. of Sales'];
+                        return [value, name];
+                      }} />
+                      <Legend />
+                      <Line yAxisId="left" type="monotone" dataKey="totalSales" name="Sales" stroke="#1976d2" strokeWidth={2} activeDot={{ r: 8 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="count" name="No. of Sales" stroke="#00C49F" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : <NoDataDisplay />}
+              </Paper>
+            </Grid>
+          </Grid>
+        </>
       )}
 
-      {/* Metric Cards */}
-      {!isLoading && (
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">{t('dashboardPage.todaysSales')}</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
-                {formatCurrency(todayStats.sales)}
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">{t('dashboardPage.totalCustomers')}</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
-                {totalCustomers}
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">{t('dashboardPage.totalItemsSold')}</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
-                {totalItemsSold}
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper elevation={3} sx={{ p: 3, textAlign: 'center', borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" color="text.secondary">{t('dashboardPage.outstandingDues')}</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#b71c1c' }}>
-                {formatCurrency(dues)}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          {/* Weekly Sales Chart */}
-          <Grid item xs={12} md={8}>
-            <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" gutterBottom>{t('dashboardPage.salesSummary')}</Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={weeklySalesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="sales" name={t('dashboardPage.chartSales')} stroke="#1976d2" strokeWidth={2} activeDot={{ r: 8 }} />
-                  <Line type="monotone" dataKey="count" name={t('dashboardPage.chartCount')} stroke="#00C49F" strokeWidth={2} />
-                  <Line type="monotone" dataKey="netRevenue" name={t('dashboardPage.chartNetRevenue')} stroke="#A020F0" strokeWidth={2} />
-                  <Line type="monotone" dataKey="outstandingReceivable" name={t('dashboardPage.chartOutstandingReceivable')} stroke="#b71c1c" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </Paper>
-          </Grid>
-
-          {/* Sales by Category Chart */}
-          <Grid item xs={12} md={4}>
-            <Paper elevation={3} sx={{ p: 3, borderRadius: '12px', bgcolor: '#fff' }}>
-              <Typography variant="h6" gutterBottom>{t('dashboardPage.salesByCategory')}</Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categorySalesData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#1976d2"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {categorySalesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <Box sx={{ mt: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('dashboardPage.topCategory')}: <b>{topCategory}</b>
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-      )}
+      {/* Dialogs */}
+      <Dialog open={itemModalOpen} onClose={() => setItemModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Items Sold Details<IconButton aria-label="close" onClick={() => setItemModalOpen(false)} sx={{ position: "absolute", right: 8, top: 8, color: (theme) => theme.palette.grey[500] }}><CloseIcon /></IconButton></DialogTitle>
+        <DialogContent dividers>
+          <TextField placeholder="Search by name" value={itemFilter} onChange={(e) => setItemFilter(e.target.value)} size="small" fullWidth sx={{ mb: 2 }} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>), }} />
+          <Table size="small">
+            <TableHead><TableRow><TableCell><b>Item Name</b></TableCell><TableCell align="right"><b>Quantity Sold</b></TableCell><TableCell align="right"><b>Total Sales</b></TableCell></TableRow></TableHead>
+            <TableBody>
+              {filteredItemSalesData.length === 0 ? (<TableRow><TableCell colSpan={3} align="center">No items sold found.</TableCell></TableRow>) : (filteredItemSalesData.map((item) => (<TableRow key={item.name}><TableCell>{item.name}</TableCell><TableCell align="right">{item.totalSold}</TableCell><TableCell align="right">{formatCurrency(item.value)}</TableCell></TableRow>)))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setItemModalOpen(false)} color="primary">Close</Button></DialogActions>
+      </Dialog>
+      <Dialog open={todayModalOpen} onClose={() => setTodayModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Today's Sales Details<IconButton aria-label="close" onClick={() => setTodayModalOpen(false)} sx={{ position: "absolute", right: 8, top: 8, color: (theme) => theme.palette.grey[500] }}><CloseIcon /></IconButton></DialogTitle>
+        <DialogContent dividers>
+          <TextField placeholder="Search by customer or invoice" value={todayFilter} onChange={(e) => setTodayFilter(e.target.value)} size="small" fullWidth sx={{ mb: 2 }} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>), }} />
+          <Table size="small">
+            <TableHead><TableRow><TableCell><b>Invoice No</b></TableCell><TableCell><b>Customer Name</b></TableCell><TableCell align="right"><b>Total Amount</b></TableCell><TableCell align="right"><b>Date/Time</b></TableCell></TableRow></TableHead>
+            <TableBody>
+              {filteredTodaySales.length === 0 ? (<TableRow><TableCell colSpan={4} align="center">No sale for today.</TableCell></TableRow>) : (filteredTodaySales.map((sale, idx) => (<TableRow key={sale.invoiceNo || idx}><TableCell>{sale.invoiceNo || "-"}</TableCell><TableCell>{sale.customerName || "-"}</TableCell><TableCell align="right">{formatCurrency(sale.totalAmount)}</TableCell><TableCell align="right">{sale.date ? sale.date.replace("T", " ") : "-"}</TableCell></TableRow>)))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setTodayModalOpen(false)} color="primary">Close</Button></DialogActions>
+      </Dialog>
     </Box>
   );
 };

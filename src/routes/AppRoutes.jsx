@@ -22,6 +22,7 @@ import PurchaseOrders from '../pages/PurchaseOrders';
 import Suppliers from '../pages/Suppliers';
 import PublicLayout from '../components/layout/PublicLayout'; 
 import ReceivingPage from '../pages/ReceivingPage';
+import DeliveryManagement from '../pages/DeliveryManagement';
 
 function AppRoutes() {
   return (
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="customers" element={<Customers />} />
         <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
         <Route path="sales" element={<Sales />} />
+         <Route path="delivery" element={<DeliveryManagement />} />
         <Route path="reports" element={<Reports />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="backup" element={<Backup />} />

@@ -1,5 +1,8 @@
 import React from 'react';
-import { Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, TextField, Typography, Box } from '@mui/material';
+import { Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, TextField, Typography, Box,
+           Checkbox, FormControl, InputLabel, Select as MuiSelect, MenuItem
+
+} from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -86,6 +89,68 @@ const CustomerSection = ({
           disabled
           sx={{ mb: 2, fontSize: { xs: '0.8rem', md: '0.9rem' }, maxWidth: '300px', margin: '0 auto' }}
         />
+
+        {/* Delivery Section Start */}
+                <Box sx={{ mt: 3 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.deliveryRequired || false}
+                        onChange={e => setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }))}
+                      />
+                    }
+                    label="Delivery Required?"
+                  />
+                  {formData.deliveryRequired && (
+                    <>
+                      <TextField
+                        label="Delivery Address"
+                        multiline
+                        minRows={2}
+                        fullWidth
+                        sx={{ mt: 2 }}
+                        value={formData.deliveryAddress || ''}
+                        onChange={e => setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
+                      />
+                      <TextField
+                        label="Delivery Charge"
+                        type="number"
+                        fullWidth
+                        sx={{ mt: 2 }}
+                        value={formData.deliveryCharge || ''}
+                        onChange={e => setFormData(prev => ({ ...prev, deliveryCharge: e.target.value }))}
+                      />
+                      <FormControl fullWidth sx={{ mt: 2 }}>
+                        <InputLabel id="delivery-paidby-label">Delivery Paid By</InputLabel>
+                        <MuiSelect
+                          labelId="delivery-paidby-label"
+                          value={formData.deliveryPaidBy || ''}
+                          label="Delivery Paid By"
+                          onChange={e => setFormData(prev => ({ ...prev, deliveryPaidBy: e.target.value }))}
+                        >
+                          <MenuItem value="CUSTOMER">Customer</MenuItem>
+                          <MenuItem value="SHOP">Shop</MenuItem>
+                        </MuiSelect>
+                      </FormControl>
+                      <TextField
+                        label="Delivery Notes"
+                        fullWidth
+                        sx={{ mt: 2 }}
+                        value={formData.deliveryNotes || ''}
+                        onChange={e => setFormData(prev => ({ ...prev, deliveryNotes: e.target.value }))}
+                      />
+                      <TextField
+                        label="Delivery Status"
+                        value="PACKED"
+                        fullWidth
+                        sx={{ mt: 2 }}
+                        disabled
+                      />
+                    </>
+                  )}
+
+                </Box>
+                {/* Delivery Section End */}
       </CardContent>
     </Card>
 

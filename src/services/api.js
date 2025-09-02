@@ -159,19 +159,69 @@ export const createSale = (data) => {
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
+export const fetchAllSales = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.salesByDateRange(from, to));
+  }
+  return API.get(endpoints.sales);
+};
 
 // Reports related APIs
-export const fetchDailyReport = (date) => API.get(endpoints.reports.daily(date));
+
+// Daily Report
+export const fetchDailyReport = (date) =>
+  API.get(endpoints.reports.daily(date));
+// Sales Summary
 export const fetchSalesSummary = (from, to) => {
   if (from && to) {
     return API.get(endpoints.reports.salesSummary(from, to));
   }
-  return API.get(endpoints.reports.salesSummary()); // Call without params if not provided
+  return API.get(endpoints.reports.salesSummary()); // no params
 };
-export const fetchGstSummary = (from, to) => API.get(endpoints.reports.gstSummary(from, to));
-export const fetchGstBreakdown = (from, to) => API.get(endpoints.reports.gstBreakdown(from, to));
-export const fetchItemsSold = () => API.get(endpoints.fetchItemsSold);
-export const fetchCategorySales = () => API.get(endpoints.fetchCategorySales);
+// GST Summary
+export const fetchGstSummary = (from, to) =>
+  API.get(endpoints.reports.gstSummary(from, to));
+// GST Breakdown
+export const fetchGstBreakdown = (from, to) =>
+  API.get(endpoints.reports.gstBreakdown(from, to));
+// Items Sold
+export const fetchItemsSold = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.itemsSold(from, to));
+  }
+  return API.get(endpoints.reports.itemsSold());
+};
+
+// Category Sales
+export const fetchCategorySales = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.categorySales(from, to));
+  }
+  return API.get(endpoints.reports.categorySales());
+};
+
+// Customer Sales
+export const fetchCustomerSales = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.customerSales(from, to));
+  }
+  return API.get(endpoints.reports.customerSales());
+};
+
+// Expenses Summary
+export const fetchExpensesSummary = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.expensesSummary(from, to));
+  }
+  return API.get(endpoints.reports.expensesSummary());
+};
+// Payments Summary
+export const fetchPaymentsSummary = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.paymentsSummary(from, to));
+  }
+  return API.get(endpoints.reports.paymentsSummary());
+};
 
 // Generate Invoice for each sale by saleId or invoiceId
 export const generateInvoice = ({ saleId, invoiceNo }) =>

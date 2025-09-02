@@ -36,6 +36,7 @@ const endpoints = {
 
   customers: `${API_BASE}/customers`,
   sales: `${API_BASE}/sales`,
+  salesByDateRange: (from, to) => `${API_BASE}/sales?from=${from}&to=${to}`,
   payments: `${API_BASE}/payments`,
   salesWithDue: `${API_BASE}/sales/with-due`,
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
@@ -46,17 +47,36 @@ generateInvoice: ({ saleId, invoiceNo }) =>
 
   reports: {
     // Daily report requires a single date
-    daily: (date) => `${API_BASE}/reports/daily?date=${date}`,
-
-    // Sales summary requires a date range
-    salesSummary: (from, to) => `${API_BASE}/reports/sales-summary?from=${from}&to=${to}`,
-
-    // GST summary requires a date range
-    gstSummary: (from, to) => `${API_BASE}/reports/gst-summary?from=${from}&to=${to}`,
-
-    // GST breakdown requires a date range
-    gstBreakdown: (from, to) => `${API_BASE}/reports/gst-breakdown?from=${from}&to=${to}`,
+  daily: (date) => `${API_BASE}/reports/daily?date=${date}`,
+  salesSummary: (from, to) =>
+    from && to
+      ? `${API_BASE}/reports/sales-summary?from=${from}&to=${to}`
+      : `${API_BASE}/reports/sales-summary`,
+  gstSummary: (from, to) => `${API_BASE}/reports/gst-summary?from=${from}&to=${to}`,
+  gstBreakdown: (from, to) =>
+    `${API_BASE}/reports/gst-breakdown?from=${from}&to=${to}`,
+  itemsSold: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/items-sold?from=${from}&to=${to}`
+    : `${API_BASE}/reports/items-sold`,
+  categorySales: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/category-sales?from=${from}&to=${to}`
+    : `${API_BASE}/reports/category-sales`,
+  customerSales: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/customer-sales?from=${from}&to=${to}`
+    : `${API_BASE}/reports/customer-sales`,
+  expensesSummary: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/expenses-summary?from=${from}&to=${to}`
+    : `${API_BASE}/reports/expenses-summary`,
+  paymentsSummary: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/payments-summary?from=${from}&to=${to}`
+    : `${API_BASE}/reports/payments-summary`,
   },
+  
   expenses: `${API_BASE}/expenses`,
   backup: {
     export: `${API_BASE}/backup/export`,

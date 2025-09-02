@@ -60,6 +60,11 @@ const initialFormData = {
   paymentMethods: [{ method: 'Cash', amount: 0 }],
   remaining: 0,
   paymentStatus: 'Pending',
+  deliveryRequired: false,
+    deliveryAddress: '',
+    deliveryCharge: '',
+    deliveryPaidBy: '',
+    deliveryNotes: '',
 };
 
 const Sales = () => {
@@ -363,6 +368,17 @@ const Sales = () => {
           notes: pm.notes || "",
           transactionId: pm.transactionId || "",
         })),
+        // --- DELIVERY INTEGRATION START ---
+        delivery: formData.deliveryRequired
+          ? {
+              deliveryAddress: formData.deliveryAddress,
+              deliveryCharge: formData.deliveryCharge ? parseFloat(formData.deliveryCharge) : 0,
+              deliveryPaidBy: formData.deliveryPaidBy,
+              deliveryStatus: "PACKED",
+              deliveryNotes: formData.deliveryNotes,
+            }
+          : null,
+                // --- DELIVERY INTEGRATION END ---
       };
       const saleResponse = await createSale(saleData);
       const totalPaid = paymentDetails.reduce((sum, pm) => sum + (pm.amount || 0), 0);

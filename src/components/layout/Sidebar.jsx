@@ -21,6 +21,7 @@ import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
 const drawerWidth = 240;
 
@@ -43,6 +44,7 @@ const Sidebar = () => {
     { text: 'inventory', icon: <InventoryIcon />, path: '/stock' },
     { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
+    { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery' },
     { text: 'reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
