@@ -6,7 +6,7 @@ import {
     DialogContent, DialogActions, Fab, Grid, Divider, Chip, Card, CardContent, Tooltip
 } from '@mui/material';
 import {
-    getPurchaseOrders, fetchShop, createReceiving, fetchReceiving, updateReceiving, createReceivingTicket
+    getPurchaseOrders, fetchShop, initiateReceivingFromPO, fetchReceiving, updateReceiving, createReceivingTicket
 } from '../services/api';
 import AddIcon from '@mui/icons-material/Add';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -253,13 +253,19 @@ const ReceivingPage = () => {
     }, []);
 
     const handleCreateReceiving = async () => {
+        if (!receivingForm.purchaseOrderId) {
+            setSnackbar({ open: true, message: 'Please select a Purchase Order.', severity: 'warning' });
+            return;
+        }
         try {
-            const response = await createReceiving({ ...receivingForm, receivedAt: receivingForm.receivedAt.toISOString() });
-            setReceivings(prev => [...prev, response.data]);
+            const response = await initiateReceivingFromPO({ purchaseOrderId: receivingForm.purchaseOrderId });
+            setReceivings(prev => [...prev, response]);
             setSnackbar({ open: true, message: 'Receiving created successfully!', severity: 'success' });
             setOpenReceivingDialog(false);
+            setReceivingForm({ purchaseOrderId: '' }); 
         } catch (err) {
-            setSnackbar({ open: true, message: 'Failed to create receiving.', severity: 'error' });
+            const errorMsg = err.response?.data?.message || 'Failed to create receiving record.';
+            setSnackbar({ open: true, message: errorMsg, severity: 'error' });
         }
     };
 

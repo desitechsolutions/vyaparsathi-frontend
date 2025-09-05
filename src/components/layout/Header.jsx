@@ -29,7 +29,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import SupportIcon from '@mui/icons-material/Support';
 import LanguageIcon from '@mui/icons-material/Language';
-import NotificationsIcon from '@mui/icons-material/Notifications'; 
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
@@ -69,15 +69,24 @@ const Header = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
-  const username = user ? (user.name || user.sub || user.username || 'User') : '';
+  // --- MODIFICATION START ---
+  // Construct the display name, prioritizing first and last name.
+  let displayName = 'User';
+  if (user) {
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    // Fallback to username (sub) if full name is not available
+    displayName = fullName || user.sub || user.username || 'User';
+  }
+  // --- MODIFICATION END ---
+
   const isLoggedIn = !!user;
 
   const handleMenu = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
   const handleLogout = () => {
     handleClose();
+    // The logout function from context now handles navigation
     logout();
-    navigate('/login');
   };
   const handleProfile = () => {
     setOpenProfileModal(true);
@@ -130,7 +139,7 @@ const Header = () => {
                   sx={{ color: 'inherit', marginRight: 2, fontWeight: 500, cursor: 'pointer' }}
                   onClick={handleProfile}
                 >
-                  {username}
+                  {displayName}
                 </Typography>
               )}
               {/* START: Alert Icon Logic */}
@@ -140,8 +149,8 @@ const Header = () => {
                     size="medium"
                     color="inherit"
                     onClick={() => navigate('/low-stock-alerts')}
-                    sx={{ 
-                      marginRight: 1, 
+                    sx={{
+                      marginRight: 1,
                       '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
                       // Apply animation only if there are critical alerts
                       animation: criticalCount > 0 ? `${pulse} 1.5s ease-in-out infinite` : 'none',
@@ -185,7 +194,7 @@ const Header = () => {
                 sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
               >
                 <Avatar sx={{ bgcolor: 'white', color: theme.palette.primary.main, width: 32, height: 32 }}>
-                  {username.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </Avatar>
               </IconButton>
               <Menu

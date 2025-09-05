@@ -10,7 +10,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
 import { styled, keyframes } from '@mui/system';
-// Keeping the user's AuthContext import as requested
 import { useAuthContext } from '../context/AuthContext';
 
 // 1. Define keyframes for a slightly more pronounced fade-in and scale animation
@@ -43,9 +42,7 @@ const StyledPopoverContent = styled(Box)(({ theme }) => ({
   color: '#fff',
   borderRadius: theme.shape.borderRadius,
   padding: theme.spacing(3),
-  // Apply a more prominent shadow for an 'elevated' look
   boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-  // Apply the custom animation
   animation: `${fadeInScaleUp} 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both`,
   position: 'relative',
 }));
@@ -66,10 +63,8 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
 
 // Main UserProfile component
 const UserProfile = ({ anchorEl, open, onClose }) => {
-  // Use the provided context hook to get the user object
   const { user } = useAuthContext();
 
-  // Determine the greeting based on the time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -77,12 +72,13 @@ const UserProfile = ({ anchorEl, open, onClose }) => {
     return 'Good Evening';
   };
 
-  // Keep the user name logic as it is
-  const displayName = user?.name || user?.username || user?.sub || 'User';
-  // Attempt to get the user's role from the context, defaulting to 'Staff'
-  const userRole = user?.role || 'Staff';
+  // --- FIX IS HERE ---
+  // Construct the display name, prioritizing first and last name.
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
+  // Fallback to username (sub) if full name is not available
+  const displayName = fullName || user?.sub || 'User';
   
-  // Choose an icon based on the user's role
+  const userRole = user?.role || 'Staff';
   const RoleIcon = userRole.toLowerCase() === 'admin' || userRole.toLowerCase() === 'owner' ? StarIcon : PersonIcon;
 
   return (
@@ -91,14 +87,13 @@ const UserProfile = ({ anchorEl, open, onClose }) => {
       anchorEl={anchorEl}
       onClose={onClose}
       anchorOrigin={{
-        vertical: 'bottom', // Anchoring to the bottom of the click element
+        vertical: 'bottom',
         horizontal: 'right',
       }}
       transformOrigin={{
-        vertical: 'top', // Popover animates from the top
+        vertical: 'top',
         horizontal: 'right',
       }}
-      // Enhanced PaperProps for a cleaner look
       PaperProps={{
         sx: {
           boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
@@ -107,7 +102,6 @@ const UserProfile = ({ anchorEl, open, onClose }) => {
       }}
     >
       <StyledPopoverContent>
-        {/* Close button with new styled component and animation */}
         <StyledIconButton
           aria-label="close"
           onClick={onClose}
@@ -115,7 +109,6 @@ const UserProfile = ({ anchorEl, open, onClose }) => {
           <CloseIcon />
         </StyledIconButton>
         
-        {/* Main greeting content */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
           <RoleIcon sx={{ mr: 1, color: '#ffb74d' }} />
           <Typography variant="h6" sx={{ fontWeight: 600 }}>

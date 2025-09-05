@@ -18,27 +18,6 @@ export const decodeToken = (token) => {
   }
 };
 
-// Store token and its expiry in localStorage
-export const setToken = (token, refreshToken) => {
-  const decoded = decodeToken(token);
-  localStorage.setItem('token', token);
-  if (refreshToken) {
-    localStorage.setItem('refreshToken', refreshToken);
-  }
-  if (decoded.exp) {
-    localStorage.setItem('tokenExpiry', decoded.exp * 1000); // ms
-  }
-  window.dispatchEvent(new Event('tokenUpdated'));
-};
-
-// Check if user is authenticated (token exists and not expired)
-export const isAuthenticated = () => {
-  const token = localStorage.getItem('token');
-  if (!token) return false;
-  const expiry = localStorage.getItem('tokenExpiry');
-  return expiry ? new Date().getTime() < expiry : false;
-};
-
 // Remove token and expiry, redirect to login
 export const logout = () => {
   localStorage.removeItem('token');
@@ -48,7 +27,7 @@ export const logout = () => {
 };
 
 let inactivityTimeout;
-const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes
+const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
 
 export function startInactivityTimer(onTimeout) {
   const resetTimer = () => {
@@ -56,16 +35,14 @@ export function startInactivityTimer(onTimeout) {
     inactivityTimeout = setTimeout(onTimeout, INACTIVITY_LIMIT);
   };
 
-  ['mousemove', 'keydown', 'scroll', 'click'].forEach(event =>
-    window.addEventListener(event, resetTimer)
-  );
+  const events = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+  events.forEach(event => window.addEventListener(event, resetTimer, { passive: true }));
 
-  resetTimer();
+  resetTimer(); // Initialize timer
 
+  // Return a cleanup function to be called on component unmount
   return () => {
     clearTimeout(inactivityTimeout);
-    ['mousemove', 'keydown', 'scroll', 'click'].forEach(event =>
-      window.removeEventListener(event, resetTimer)
-    );
+    events.forEach(event => window.removeEventListener(event, resetTimer));
   };
 }

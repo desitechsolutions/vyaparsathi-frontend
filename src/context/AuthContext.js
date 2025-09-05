@@ -1,112 +1,100 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { decodeToken, logout as utilsLogout, startInactivityTimer } from '../utils/auth';
-import { refreshToken as refreshTokenApi } from '../services/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
+import API from '../services/api';
+import { startInactivityTimer } from '../utils/auth';
 import i18n from '../config/i18n';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const token = localStorage.getItem('token');
-    return token ? { ...decodeToken(token), token } : null;
-  });
-  const inactivityTimerRef = useRef(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // Start inactivity timer
-  useEffect(() => {
-    const onInactivityLogout = () => {
-      if (user) {
-        logout(i18n.t('auth.inactivityLogout'));
-      }
-    };
-    inactivityTimerRef.current = startInactivityTimer(onInactivityLogout);
-
-    return () => {
-      if (inactivityTimerRef.current) inactivityTimerRef.current();
-    };
-  }, [user]);
-
-  const refreshToken = async () => {
-    const currentRefreshToken = localStorage.getItem('refreshToken');
-    if (!currentRefreshToken) {
-      return logout(i18n.t('auth.sessionExpired'));
-    }
-    try {
-      const res = await refreshTokenApi(currentRefreshToken);
-      if (res.data && res.data.token) {
-        setToken(res.data.token, res.data.refreshToken);
-        // Reset inactivity timer on successful refresh
-        if (inactivityTimerRef.current) inactivityTimerRef.current();
-      } else {
-        logout(i18n.t('auth.refreshFailed'));
-      }
-    } catch (err) {
-      logout(i18n.t('auth.refreshFailedLogin'));
-    }
-  };
-
-  // Token refresh logic
-  useEffect(() => {
-    if (!user || !user.token) return;
-
-    const decoded = decodeToken(user.token);
-    if (!decoded) {
-      return logout(i18n.t('auth.invalidToken'));
-    }
-
-    const expiresIn = decoded.exp * 1000 - Date.now() - 60 * 1000; // 1 minute buffer
-
-    if (expiresIn <= 0) {
-      refreshToken();
-      return;
-    }
-
-    const timeoutId = setTimeout(refreshToken, expiresIn);
-    return () => clearTimeout(timeoutId);
-  }, [user]);
-
-  // Sync with localStorage and events
-  useEffect(() => {
-    const updateUser = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setUser(null);
-      } else {
-        setUser({ ...decodeToken(token), token });
-      }
-    };
-    window.addEventListener('tokenUpdated', updateUser);
-    window.addEventListener('storage', updateUser);
-    return () => {
-      window.removeEventListener('tokenUpdated', updateUser);
-      window.removeEventListener('storage', updateUser);
-    };
-  }, []);
-
-  const setToken = (token, refreshToken) => {
-    localStorage.setItem('token', token);
-    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    const userInfo = decodeToken(token);
-    console.log('Setting user info from token:', userInfo);
-    setUser({ ...userInfo, token });
-    window.dispatchEvent(new Event('tokenUpdated'));
-  };
-
-  const login = (token, refreshToken) => setToken(token, refreshToken);
-
-  const logout = (message) => {
-    utilsLogout();
+  const logout = useCallback((message) => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    delete API.defaults.headers.common['Authorization'];
     setUser(null);
     if (message) {
-      console.log(message); // Replace with a toast notification if you have one
+      // You can replace this with a toast notification
+      console.log("Logout reason:", message);
+    }
+    navigate('/login', { replace: true });
+  }, [navigate]);
+
+  // Initialize user from token on initial load
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const decodedUser = jwtDecode(token);
+        // Check if token is expired
+        if (decodedUser.exp * 1000 < Date.now()) {
+          logout(i18n.t('auth.sessionExpired'));
+        } else {
+          API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(decodedUser);
+        }
+      }
+    } catch (error) {
+      logout(i18n.t('auth.invalidToken'));
+    } finally {
+      setLoading(false);
+    }
+  }, [logout]);
+
+  // Inactivity timer logic
+  useEffect(() => {
+    let cleanupTimer;
+    if (user) {
+      const onTimeout = () => logout(i18n.t('auth.inactivityLogout'));
+      cleanupTimer = startInactivityTimer(onTimeout);
+    }
+    // Cleanup function to remove event listeners when component unmounts or user logs out
+    return () => {
+      if (cleanupTimer) {
+        cleanupTimer();
+      }
+    };
+  }, [user, logout]);
+
+
+  const login = (token, refreshToken) => {
+    try {
+      // 1. Set tokens in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', refreshToken);
+
+      // 2. Set the authorization header for all future requests
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // 3. Decode user info and set state
+      const decodedUser = jwtDecode(token);
+      setUser(decodedUser);
+
+      // 4. Navigate AFTER everything is set. This fixes the race condition.
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error("Failed to process login:", error);
+      logout(i18n.t('auth.invalidToken'));
     }
   };
 
+  const value = { user, login, logout, loading };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, setToken }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuthContext = () => useContext(AuthContext);
+export const useAuthContext = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  return context;
+};

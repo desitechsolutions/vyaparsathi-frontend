@@ -7,9 +7,17 @@ const endpoints = {
     login: `${API_BASE}/auth/login`,
     refresh: `${API_BASE}/auth/refresh`,
     register: `${API_BASE}/auth/register`,
+    forgotPin: `${API_BASE}/auth/forgot-pin`,
+    resetPin: `${API_BASE}/auth/reset-pin`,
+    changePin: `${API_BASE}/auth/change-pin`,
   },
   shop: `${API_BASE}/shop`,
 
+  // User Management
+  users: `${API_BASE}/admin/users`,
+  userById: (id) => `${API_BASE}/admin/users/${id}`,
+  userStatus: (id) => `${API_BASE}/admin/users/${id}/status`,
+  userRole: (id) => `${API_BASE}/admin/users/${id}/role`,
   // Supplier endpoints
   suppliers: `${API_BASE}/suppliers`,
   supplierById: (id) => `${API_BASE}/suppliers/${id}`,
@@ -90,12 +98,14 @@ const endpoints = {
     export: `${API_BASE}/backup/export`,
   },
 
-    //Receiving endpoint
-  receiving: `${API_BASE}/receiving`,
-  receivingById: (id) => `${API_BASE}/receiving/${id}`,
-  receivingTickets: `${API_BASE}/receiving/tickets`,
-  receivingTicketById: (id) => `${API_BASE}/receiving/tickets/${id}`,
-  
+   // Receiving endpoints
+receiving: `${API_BASE}/receiving`,
+receivingById: (id) => `${API_BASE}/receiving/${id}`,
+receivingByPoId: (poId) => `${API_BASE}/receiving/by-po/${poId}`,
+receivingTickets: `${API_BASE}/receiving/tickets`,
+receivingTicketById: (id) => `${API_BASE}/receiving/tickets/${id}`,
+receiveGoods: `${API_BASE}/receiving/receive-goods`,
+
   //Analytics endpoint
   analytics: {
     itemDemand: `${API_BASE}/analytics/item-demand`,

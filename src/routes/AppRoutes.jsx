@@ -25,6 +25,7 @@ import ReceivingPage from '../pages/ReceivingPage';
 import DeliveryManagement from '../pages/DeliveryManagement';
 import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
+import UserManagementPage from '../pages/UserManagementPage';
 
 function AppRoutes() {
   return (
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path='receiving' element={<ReceivingPage />} />
         <Route path="receiving/:poId" element={<ReceivingPage />} />
         <Route path="suppliers" element={<Suppliers />} />
+        <Route path="admin/users" element={<UserManagementPage />} />
         
         {/* SetupShop should be inside PrivateRoute but not Layout */}
         <Route path="setup-shop" element={<SetupShop />} />

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import endpoints from './endpoints';
 import 'react-toastify/dist/ReactToastify.css';
-import { setToken } from '../utils/auth';
+// REMOVED: import { setToken } from '../utils/auth';
 
 const API = axios.create({
   baseURL: 'http://localhost:8080',
@@ -34,12 +34,11 @@ API.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Skip refresh logic for login or any request that explicitly opts out
     if (originalRequest && originalRequest.skipAuthRefresh) {
       return Promise.reject(error);
     }
 
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -54,28 +53,53 @@ API.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          // No refresh token, force logout
+          window.location.href = '/login';
+          return Promise.reject(new Error("No refresh token available."));
+        }
+
         const res = await axios.post(endpoints.auth.refresh, { refreshToken }, { baseURL: API.defaults.baseURL });
         const newToken = res.data.token;
         const newRefreshToken = res.data.refreshToken;
-        setToken(newToken, newRefreshToken);
-        processQueue(null, newToken);
-        isRefreshing = false;
+
+        // --- FIX IS HERE ---
+        // 1. Replace setToken with direct localStorage operations
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('refreshToken', newRefreshToken);
+
+        // 2. Update the axios instance default header for subsequent requests
+        API.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        
+        // 3. Update the header of the original failed request
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        
+        // 4. Process the queue of failed requests with the new token
+        processQueue(null, newToken);
+        
+        // 5. Retry the original request
         return API(originalRequest);
+
       } catch (refreshError) {
         processQueue(refreshError, null);
-        isRefreshing = false;
-        // Clear tokens on refresh failure
+        // If refresh fails, clear storage and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        // Let AuthContext handle logout
+        window.location.href = '/login';
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     return Promise.reject(error);
   }
 );
 
+// --- ALL EXPORTED API FUNCTIONS REMAIN THE SAME ---
+
+//Login API
+export const forgotPin = (data) => API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
+export const resetPin = (data) => API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
 // API functions
 export const setupShop = (data) => API.post(endpoints.shop, data);
 export const refreshToken = (refreshToken) =>
@@ -295,14 +319,50 @@ export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
 
-// Receiving related APIs
-export const fetchReceiving = () => API.get(endpoints.receiving).then(r => r.data);
-export const createReceiving = (data) => API.post(endpoints.receiving, data).then(r => r.data);
-export const updateReceiving = (id, data) => API.put(endpoints.receivingById(id), data).then(r => r.data);
-export const fetchReceivingTickets = () => API.get(endpoints.receivingTickets).then(r => r.data);
-export const createReceivingTicket = (data) => API.post(endpoints.receivingTickets, data).then(r => r.data);
+// Receiving APIs
+export const fetchReceiving = () =>
+  API.get(endpoints.receiving).then(r => r.data);
+
+export const fetchReceivingById = (id) =>
+  API.get(endpoints.receivingById(id)).then(r => r.data);
+
 export const fetchReceivingByPoId = (poId) =>
-  API.get(`${endpoints.receiving}/by-po/${poId}`).then(r => r.data);
+  API.get(endpoints.receivingByPoId(poId)).then(r => r.data);
+
+export const createReceiving = (data) =>
+  API.post(endpoints.receiving, data).then(r => r.data);
+
+export const updateReceiving = (id, data) =>
+  API.put(endpoints.receivingById(id), data).then(r => r.data);
+
+export const deleteReceiving = (id) =>
+  API.delete(endpoints.receivingById(id)).then(r => r.data);
+
+export const createReceivingTicket = (data) =>
+  API.post(endpoints.receivingTickets, data).then(r => r.data);
+
+export const fetchReceivingTicketById = (id) =>
+  API.get(endpoints.receivingTicketById(id)).then(r => r.data);
+
+export const initiateReceivingFromPO = (data) =>
+  API.post(endpoints.receiveGoods, data).then(r => r.data);
+
+// --- User Management API ---
+export const fetchUsers = () =>
+  API.get(endpoints.users).then(r => r.data);
+
+export const adminCreateUser = (data) =>
+  API.post(endpoints.users, data).then(r => r.data);
+
+export const updateUser = (userId, data) =>
+  API.put(endpoints.userById(userId), data).then(r => r.data);
+
+export const updateUserStatus = (userId, isActive) =>
+  API.patch(endpoints.userStatus(userId), { active: isActive }).then(r => r.data);
+
+export const updateUserRole = (userId, role) =>
+  API.patch(endpoints.userRole(userId), { role }).then(r => r.data);
+
 // --- Auth related API ---
 // Use skipAuthRefresh on login to prevent refresh logic on login failure
 export const login = (payload) =>
