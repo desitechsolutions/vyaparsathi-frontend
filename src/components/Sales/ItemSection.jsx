@@ -14,6 +14,9 @@ const ItemSection = ({
   uniqueSizes,
   uniqueDesigns,
   uniqueCategory,
+  uniqueFabrics,
+  uniqueSeasons,
+  uniqueFits,
   searchParams,
   handleVariantSelect,
   handleSearchParamChange,
@@ -142,6 +145,57 @@ const ItemSection = ({
                 isClearable={false}
               />
             </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                Fabric
+              </Typography>
+              <Select
+                options={uniqueFabrics}
+                value={uniqueFabrics.find((option) => option.value === searchParams.fabric) || null}
+                onChange={(option) => handleSearchParamChange('fabric', option)}
+                isSearchable
+                placeholder="All Fabrics"
+                styles={customStyles}
+                menuPortalTarget={document.body}
+                menuPosition="fixed"
+                noOptionsMessage={() => "No fabrics found"}
+                isClearable={false}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                Season
+              </Typography>
+              <Select
+                options={uniqueSeasons}
+                value={uniqueSeasons.find((option) => option.value === searchParams.season) || null}
+                onChange={(option) => handleSearchParamChange('season', option)}
+                isSearchable
+                placeholder="All Seasons"
+                styles={customStyles}
+                menuPortalTarget={document.body}
+                menuPosition="fixed"
+                noOptionsMessage={() => "No seasons found"}
+                isClearable={false}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
+                Fit
+              </Typography>
+              <Select
+                options={uniqueFits}
+                value={uniqueFits.find((option) => option.value === searchParams.fit) || null}
+                onChange={(option) => handleSearchParamChange('fit', option)}
+                isSearchable
+                placeholder="All Fits"
+                styles={customStyles}
+                menuPortalTarget={document.body}
+                menuPosition="fixed"
+                noOptionsMessage={() => "No fits found"}
+                isClearable={false}
+              />
+            </Grid>
           </Grid>
         </Card>
         <Select
@@ -243,7 +297,8 @@ const ItemSection = ({
               variant="outlined"
               type="number"
               value={item.qty}
-              onChange={(e) => setItem({ ...item, qty: parseInt(e.target.value) || 1 })}
+              // THIS IS THE FIX: Allow the value to be an empty string
+              onChange={(e) => setItem({ ...item, qty: e.target.value })}
               sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
             />
           </Grid>

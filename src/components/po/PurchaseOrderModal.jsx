@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/system';
 import { Add as AddIcon, Delete as DeleteIcon, NoteAdd as NoteAddIcon, Send as SendIcon } from '@mui/icons-material';
-import { fetchItemVariants } from '../../services/api';
+import { fetchItemVariants, fetchItemVariantById } from '../../services/api';
 
 const StyledModal = styled(Modal)({
   display: 'flex',
@@ -48,6 +48,39 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   const isDraft = formPo.status === 'DRAFT' || mode === 'create';
   const isReadOnly = mode === 'view' || (!isDraft && mode === 'edit');
 
+useEffect(() => {
+    if (mode === 'create' && selectedPo?.initialVariantId && allSuppliers.length > 0) {
+      const { initialVariantId, initialSupplierId } = selectedPo;
+
+      // 1. Pre-select the supplier if an ID is provided
+      const supplierObject = allSuppliers.find(s => s.id === Number(initialSupplierId)) || null;
+
+      // 2. Fetch the specific item variant by its ID
+      fetchItemVariantById(initialVariantId)
+        .then(variant => {
+          if (variant) {
+            // Update the item options so the Autocomplete can find and display it
+            setItemVariantOptions(prev => ({ ...prev, 0: [variant] }));
+
+            // Set the form state
+            setFormPo(prev => ({
+              ...prev,
+              supplier: supplierObject,
+              items: [{
+                tempId: Date.now(),
+                itemVariantId: variant.id,
+                quantity: '1',
+                unitCost: variant.purchasePrice || '' // Pre-fill price if available
+              }],
+            }));
+          }
+        })
+        .catch(() => showSnackbar('Failed to fetch item details.', 'error'));
+    }
+    // We only want this to run when the initial IDs are set
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPo?.initialVariantId, allSuppliers]);
+
   useEffect(() => {
     if (open && !wasOpen.current) {
       setFormErrors({});
@@ -55,7 +88,7 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
         .then((res) => setItemVariantOptions({ 0: res.data || res }))
         .catch(() => showSnackbar('Failed to fetch initial item variants.', 'error'));
 
-      if (mode === 'create') {
+      if (mode === 'create' && !selectedPo?.initialVariantId) {
         setFormPo(initialFormState);
       } else if (selectedPo && allSuppliers.length > 0) {
         const supplierObject = allSuppliers.find(s => s.id === selectedPo.supplierId) || null;

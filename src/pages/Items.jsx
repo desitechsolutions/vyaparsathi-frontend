@@ -55,14 +55,17 @@ import {
   updateItem,
   deleteItemVariant,
   fetchStock,
+  fetchCategories,
 } from '../services/api';
 
 import {
-  clothingCategories,
   clothingSizes,
   clothingColors,
   clothingDesigns,
   clothingUnits,
+  clothingFabrics,
+  clothingSeasons,
+  clothingFits,
 } from '../ui/constants';
 
 const API_BASE_URL = 'http://localhost:8080';
@@ -100,10 +103,10 @@ const flattenOptions = (options) => {
 
 const initialVariantState = {
   unit: '', pricePerUnit: '', size: '', color: '', design: '', gstRate: '',
-  photoFile: null, photoPreviewUrl: null, lowStockThreshold: ''
+  photoFile: null, photoPreviewUrl: null, lowStockThreshold: '',
+  fit: '',
 };
 
-// Toolbar that matches the desired layout
 const CustomToolbar = ({ onAddItemClick }) => (
   <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     <Box>
@@ -129,7 +132,6 @@ const CustomToolbar = ({ onAddItemClick }) => (
   </GridToolbarContainer>
 );
 
-// This component is now reused for the "View Variants" Dialog
 const VariantDetailDisplay = ({ item, stockData, onDeleteVariant }) => {
   const stockLookup = useMemo(() => {
     const map = new Map();
@@ -156,7 +158,7 @@ const VariantDetailDisplay = ({ item, stockData, onDeleteVariant }) => {
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold">SKU: {variant.sku || 'N/A'}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {variant.size || ''} {variant.color || ''} {variant.design || ''}
+                        {variant.size || ''} {variant.color || ''} {variant.design || ''} {variant.fit || ''}
                       </Typography>
                       <Divider sx={{ my: 1 }} />
                       <Typography variant="body1" fontWeight="bold">₹{variant.pricePerUnit}</Typography>
@@ -167,7 +169,6 @@ const VariantDetailDisplay = ({ item, stockData, onDeleteVariant }) => {
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
                       <Tooltip title={hasStock ? "Cannot delete variant, stock exists" : "Delete this variant"}>
-                        {/* Wrapper span is required for tooltip on disabled elements */}
                         <span>
                           <IconButton
                             size="small"
@@ -219,13 +220,14 @@ const Items = () => {
   const [openViewVariantsDialog, setOpenViewVariantsDialog] = useState(false);
   const [variantsToView, setVariantsToView] = useState({ name: '', variants: [] });
   const [step, setStep] = useState(0);
-  const [itemFormData, setItemFormData] = useState({ name: '', description: '', category: '', brandName: '' });
+  const [itemFormData, setItemFormData] = useState({ name: '', description: '', categoryId: '', brandName: '', fabric: '', season: '' });
   const [variantList, setVariantList] = useState([]);
   const [currentVariant, setCurrentVariant] = useState({ ...initialVariantState });
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
   const [dialogError, setDialogError] = useState(null);
+  const [apiCategories, setApiCategories] = useState([]);
   
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
@@ -243,7 +245,7 @@ const Items = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [itemsRes, stockRes] = await Promise.all([fetchItems(), fetchStock()]);
+      const [itemsRes, stockRes, categoriesRes] = await Promise.all([fetchItems(), fetchStock(), fetchCategories()]);
 
       if (Array.isArray(itemsRes.data)) {
         setAllItems(itemsRes.data);
@@ -259,6 +261,12 @@ const Items = () => {
         setStockData(stockRes.data);
       } else {
         throw new Error('API response for stock is not an array.');
+      }
+      
+      if (Array.isArray(categoriesRes.data)) {
+        setApiCategories(categoriesRes.data);
+      } else {
+        throw new Error('API response for categories is not an array.');
       }
 
     } catch (err) {
@@ -288,8 +296,11 @@ const Items = () => {
   const handleCurrentVariantFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      setCurrentVariant(prev => ({ ...prev, photoFile: file, photoPreviewUrl: previewUrl }));
+      // Create a new File object (a clone) to avoid reference issues.
+      // This is crucial when the same file is used for multiple variants.
+      const newFile = new File([file], file.name, { type: file.type });
+      const previewUrl = URL.createObjectURL(newFile);
+      setCurrentVariant(prev => ({ ...prev, photoFile: newFile, photoPreviewUrl: previewUrl }));
     }
     setDialogError(null);
   };
@@ -320,27 +331,28 @@ const Items = () => {
   };
 
   const handleMultiStepSubmit = async () => {
-    if (!itemFormData.name || !itemFormData.category || variantList.length === 0) {
+    if (!itemFormData.name || !itemFormData.categoryId || variantList.length === 0) {
       setDialogError('Item name, category, and at least one variant are required.');
       return;
     }
     setIsSubmitting(true);
     setDialogError(null);
     try {
-      const variantsPayload = variantList.map(v => ({
-        unit: v.unit, pricePerUnit: v.pricePerUnit, size: v.size, color: v.color,
-        design: v.design, gstRate: v.gstRate, lowStockThreshold: v.lowStockThreshold,
-      }));
-
-      const itemDto = { ...itemFormData, variants: variantsPayload };
       const formData = new FormData();
-      formData.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
+      const variantsPayload = [];
 
-      variantList.forEach((variant, index) => {
-        if (variant.photoFile) {
-          formData.append(`variant_photo_${index}`, variant.photoFile, variant.photoFile.name);
+      variantList.forEach((variant) => {
+        const { photoFile, photoPreviewUrl, id, ...rest } = variant;
+        variantsPayload.push(rest);
+        
+        if (photoFile) {
+          const photoIndex = variantsPayload.length - 1;
+          formData.append(`variant_photo_${photoIndex}`, photoFile, photoFile.name);
         }
       });
+
+      const itemDto = { ...itemFormData, variants: variantsPayload };
+      formData.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
 
       await createItem(formData);
       showSnackbar("Item saved successfully!", 'success');
@@ -356,31 +368,32 @@ const Items = () => {
   };
 
   const handleMultiStepUpdate = async () => {
-    if (!itemFormData.name || !itemFormData.category || variantList.length === 0) {
+    if (!itemFormData.name || !itemFormData.categoryId || variantList.length === 0) {
       setDialogError('Item name, category, and at least one variant are required.');
       return;
     }
     setIsSubmitting(true);
     setDialogError(null);
     try {
-      const variantsPayload = variantList.map(variant => {
+      const formData = new FormData();
+      const variantsPayload = [];
+
+      variantList.forEach((variant) => {
         const { photoFile, photoPreviewUrl, id, ...rest } = variant;
         const newVariant = { ...rest };
         if (id && !String(id).startsWith('local_')) {
           newVariant.id = id;
         }
-        return newVariant;
+        variantsPayload.push(newVariant);
+
+        if (photoFile) {
+          const photoIndex = variantsPayload.length - 1;
+          formData.append(`variant_photo_${photoIndex}`, photoFile, photoFile.name);
+        }
       });
 
       const itemDto = { id: selectedItemId, ...itemFormData, variants: variantsPayload };
-      const formData = new FormData();
       formData.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
-
-      variantList.forEach((variant, index) => {
-        if (variant.photoFile) {
-          formData.append(`variant_photo_${index}`, variant.photoFile, variant.photoFile.name);
-        }
-      });
 
       await updateItem(selectedItemId, formData);
       showSnackbar("Item updated successfully!", 'success');
@@ -400,13 +413,16 @@ const Items = () => {
       setItemFormData({
         name: itemToManage.name || '',
         description: itemToManage.description || '',
-        category: itemToManage.category || '',
+        categoryId: itemToManage.categoryId || '',
         brandName: itemToManage.brandName || '',
+        fabric: itemToManage.fabric || '',
+        season: itemToManage.season || '',
       });
       
       const allVariants = (itemToManage.variants || []).map(v => ({
         id: v.id, unit: v.unit, pricePerUnit: v.pricePerUnit, size: v.size, color: v.color,
         design: v.design, gstRate: v.gstRate, photoUrl: v.photoPath, lowStockThreshold: v.lowStockThreshold || '',
+        fit: v.fit || '',
         sku: v.sku, currentStock: v.currentStock
       }));
 
@@ -447,7 +463,7 @@ const Items = () => {
 
   const columns = [
     { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 200 },
-    { field: 'category', headerName: 'Category', flex: 1, minWidth: 150 },
+    { field: 'categoryName', headerName: 'Category', flex: 1, minWidth: 150 },
     { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 150 },
     { 
       field: 'variants', 
@@ -486,7 +502,7 @@ const Items = () => {
     setOpenAddDialog(false);
     setOpenEditDialog(false);
     setStep(0);
-    setItemFormData({ name: '', description: '', category: '', brandName: '' });
+    setItemFormData({ name: '', description: '', categoryId: '', brandName: '', fabric: '', season: '' });
     setVariantList([]);
     setCurrentVariant({ ...initialVariantState });
     setDialogError(null);
@@ -501,6 +517,7 @@ const Items = () => {
       <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingSizes)} value={currentVariant.size || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, size: newValue || '' })} renderInput={(params) => <TextField {...params} label="Size" variant="outlined" />} /></Grid>
       <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingColors} value={currentVariant.color || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, color: newValue || '' })} renderInput={(params) => <TextField {...params} label="Color" variant="outlined" />} /></Grid>
       <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingDesigns)} value={currentVariant.design || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, design: newValue || '' })} renderInput={(params) => <TextField {...params} label="Design" variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFits} value={currentVariant.fit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, fit: newValue || '' })} renderInput={(params) => <TextField {...params} label="Fit" variant="outlined" />} /></Grid>
       <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingUnits} value={currentVariant.unit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, unit: newValue || '' })} renderInput={(params) => <TextField {...params} label="Unit" required variant="outlined" />} /></Grid>
       <Grid item xs={12} sm={6}><TextField label="Price per Unit" name="pricePerUnit" type="number" value={currentVariant.pricePerUnit || ''} onChange={handleCurrentVariantChange} required fullWidth variant="outlined" /></Grid>
       <Grid item xs={12} sm={6}><TextField label="GST Rate (%)" name="gstRate" type="number" value={currentVariant.gstRate || ''} onChange={handleCurrentVariantChange} fullWidth variant="outlined" /></Grid>
@@ -530,8 +547,18 @@ const Items = () => {
         {step === 0 && (
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}><TextField label="Name" name="name" value={itemFormData.name} onChange={handleItemFormChange} required fullWidth variant="outlined" /></Grid>
-            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingCategories)} value={itemFormData.category || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, category: newValue || '' })} renderInput={(params) => <TextField {...params} label="Category" required variant="outlined" />} /></Grid>
+            <Grid item xs={12} sm={6}>
+              <Autocomplete
+                options={apiCategories}
+                getOptionLabel={(option) => option.name || ''}
+                value={apiCategories.find(cat => cat.id === itemFormData.categoryId) || null}
+                onChange={(e, newValue) => setItemFormData(prev => ({ ...prev, categoryId: newValue ? newValue.id : '' }))}
+                renderInput={(params) => <TextField {...params} label="Category" required variant="outlined" />}
+              />
+            </Grid>
             <Grid item xs={12} sm={6}><TextField label="Brand Name" name="brandName" value={itemFormData.brandName} onChange={handleItemFormChange} fullWidth variant="outlined" /></Grid>
+            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFabrics} value={itemFormData.fabric || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, fabric: newValue || '' })} renderInput={(params) => <TextField {...params} label="Fabric" variant="outlined" />} /></Grid>
+            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingSeasons} value={itemFormData.season || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, season: newValue || '' })} renderInput={(params) => <TextField {...params} label="Season" variant="outlined" />} /></Grid>
             <Grid item xs={12}><TextField label="Description" name="description" value={itemFormData.description} onChange={handleItemFormChange} fullWidth multiline rows={2} variant="outlined" /></Grid>
           </Grid>
         )}
@@ -588,9 +615,13 @@ const Items = () => {
                 <Grid item xs={6}><Typography variant="body2" color="text.secondary">Name:</Typography></Grid>
                 <Grid item xs={6}><Typography>{itemFormData.name}</Typography></Grid>
                 <Grid item xs={6}><Typography variant="body2" color="text.secondary">Category:</Typography></Grid>
-                <Grid item xs={6}><Typography>{itemFormData.category}</Typography></Grid>
+                <Grid item xs={6}><Typography>{apiCategories.find(c => c.id === itemFormData.categoryId)?.name || 'N/A'}</Typography></Grid>
                 <Grid item xs={6}><Typography variant="body2" color="text.secondary">Brand:</Typography></Grid>
                 <Grid item xs={6}><Typography>{itemFormData.brandName || 'N/A'}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="body2" color="text.secondary">Fabric:</Typography></Grid>
+                <Grid item xs={6}><Typography>{itemFormData.fabric || 'N/A'}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="body2" color="text.secondary">Season:</Typography></Grid>
+                <Grid item xs={6}><Typography>{itemFormData.season || 'N/A'}</Typography></Grid>
               </Grid>
             </Paper>
             <Typography variant="h6" sx={{ mt: 2 }}>Variants ({variantList.length})</Typography>
@@ -599,7 +630,7 @@ const Items = () => {
                 <ListItem key={variant.id || index} divider>
                   <ListItemText
                     primary={`Variant ${index + 1}: Price - ₹${variant.pricePerUnit}, Unit - ${variant.unit}`}
-                    secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}, GST: ${variant.gstRate || '0'}%, Low Stock: ${variant.lowStockThreshold || '-'}`}
+                    secondary={`Size: ${variant.size || 'N/A'}, Color: ${variant.color || 'N/A'}, Design: ${variant.design || 'N/A'}, Fit: ${variant.fit || 'N/A'}, GST: ${variant.gstRate || '0'}%, Low Stock: ${variant.lowStockThreshold || '-'}`}
                   />
                 </ListItem>
               ))}
@@ -612,7 +643,7 @@ const Items = () => {
 
   const handleNext = () => {
     setDialogError(null);
-    if (step === 0 && (!itemFormData.name || !itemFormData.category)) {
+    if (step === 0 && (!itemFormData.name || !itemFormData.categoryId)) {
       setDialogError('Name and Category are required fields.');
       return;
     }
@@ -669,7 +700,7 @@ const Items = () => {
                       >
                         <ListItemText
                           primary={item.name}
-                          secondary={`Category: ${item.category || 'N/A'} | Brand: ${item.brandName || 'N/A'}`}
+                          secondary={`Category: ${item.categoryName || 'N/A'} | Brand: ${item.brandName || 'N/A'}`}
                         />
                       </ListItem>
                       {index < itemsWithoutVariants.length - 1 && <Divider />}
@@ -699,7 +730,7 @@ const Items = () => {
         </>
       )}
 
-      <Dialog open={openAddDialog || openEditDialog} onClose={handleDialogClose} fullWidth maxWidth="lg">
+      <Dialog open={openAddDialog || openEditDialog} onClose={handleDialogClose} fullWidth maxWidth="md">
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
           {openAddDialog ? 'Add New Item' : 'Manage Item'}
         </DialogTitle>

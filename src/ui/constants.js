@@ -19,10 +19,11 @@ export const clothingCategories = {
   KIDS: {
     BOYS: ['T-shirts', 'Shirts', 'Jeans', 'Shorts', 'Kurta Pajama', 'Jackets', 'Sleepwear'],
     GIRLS: ['Dresses', 'Tops', 'Skirts', 'Lehengas', 'Kurtis', 'Frocks', 'Sleepwear', 'Jackets'],
-    INFANT_0_12_MONTHS: [],
-    TODDLER_1_3_YEARS: [],
-    YOUNG_KIDS_4_8_YEARS: [],
-    PRE_TEENS_9_16_YEARS: [],
+    // Populated age-based categories for better filtering
+    INFANT_0_12_MONTHS: ['Rompers', 'Onesies', 'Sleepsuits', 'Sets'],
+    TODDLER_1_3_YEARS: ['T-shirts', 'Dresses', 'Shorts', 'Sets'],
+    YOUNG_KIDS_4_8_YEARS: ['T-shirts', 'Dresses', 'Jeans', 'Skirts', 'Ethnic Wear'],
+    PRE_TEENS_9_16_YEARS: ['Tops', 'Dresses', 'Jeans', 'Activewear', 'Ethnic Wear'],
   },
 };
 
@@ -34,7 +35,9 @@ export const clothingSizes = {
   KIDS_AGE_BASED: ['6 Months', '9 Months', '12 Months', '18 Months', '2 Years', '3 Years', '4 Years', '5 Years', '6 Years', '7 Years', '8 Years', '9 Years', '10 Years', '11 Years', '12 Years', '13 Years', '14 Years', '15 Years', '16 Years'],
   KIDS_NUMERIC_STANDARD: ['22', '24', '26', '28', '30', '32', '34', '36'], // Commonly used for kids dresses/sets
   PLUS_SIZE: ['7XL', '8XL', '9XL', '10XL'], // Extend as needed based on supplier availability
-  // Consideration for Petite, Tall etc. could be added here if applicable
+  FOOTWEAR_UK_IND: ['3', '4', '5', '6', '7', '8', '9', '10', '11', '12'], // For Men/Women
+  FOOTWEAR_EU: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'], // For Men/Women
+  FREE_SIZE: ['Free Size', 'One Size Fits All'], // Crucial for many items
 };
 
 // --- Colors ---
@@ -69,5 +72,25 @@ export const clothingDesigns = {
   ]
 };
 
+// --- NEW: Fit ---
+export const clothingFits = [
+  'Regular Fit', 'Slim Fit', 'Loose Fit', 'Relaxed Fit', 'Skinny Fit', 'Tailored Fit', 'Boxy Fit', 'Asymmetric Fit'
+];
+
+// --- NEW: Season ---
+export const clothingSeasons = [
+  'Summer', 'Winter', 'Monsoon', 'Spring', 'Autumn', 'All-Season'
+];
+
 // --- Units ---
 export const clothingUnits = ['PIECE', 'SET', 'METER', 'YARD']; // Include 'SET' for outfits, 'METER/YARD' for fabrics
+
+// --- Fabric ---
+// Added famous Indian textiles to the fabric list
+export const clothingFabrics = [
+  'Cotton', 'Linen', 'Silk', 'Polyester', 'Rayon', 'Viscose', 'Wool', 'Denim',
+  'Satin', 'Velvet', 'Chiffon', 'Georgette', 'Crepe', 'Organza', 'Net', 'Lace',
+  'Cotton Blend', 'Poly-Cotton', 'Silk Blend', 'Wool Blend',
+  // Famous Indian Fabrics
+  'Khadi', 'Chanderi Silk', 'Banarasi Silk', 'Kanjeevaram Silk', 'Tussar Silk', 'Muga Silk', 'Pashmina'
+];

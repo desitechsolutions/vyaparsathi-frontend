@@ -29,7 +29,6 @@ const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString("en-
 // Custom label renderer for Pie Charts
 const RADIAN = Math.PI / 180;
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-  // Only render label if the slice is large enough
   if (percent < 0.05) {
     return null;
   }
@@ -113,20 +112,22 @@ const Dashboard = () => {
         fetchItemsSold(fromDate, toDate),
         fetchAllSales(fromDate, toDate),
         fetchDailyReport(today),
-        fetchAllSales(today, today),
+        fetchAllSales(today, today), // <-- This fetches ONLY today's sales
       ]);
 
       const getResultData = (result, fallback = null) => result.status === 'fulfilled' ? (result.value.data || fallback) : fallback;
 
-      // Process Shop and Customer info (fetched once)
-      if (!shop) setShop(getResultData(results[0]));
-      setDashboardData(prev => ({ ...prev, totalCustomers: getResultData(results[1], []).length }));
-
-      // Process summary and pie data
+      // Process all results first
+      const shopRes = getResultData(results[0]);
+      const customersRes = getResultData(results[1], []);
       const summaryRes = getResultData(results[2], {});
       const categoryRes = getResultData(results[3], []);
       const itemsRes = getResultData(results[4], []);
-      
+      const rangeSales = getResultData(results[5], []);
+      const dailyRes = getResultData(results[6], {});
+      const todaySalesRes = getResultData(results[7], []); // <-- Only today's sales
+
+      // Prepare data for state update
       const itemMap = {};
       itemsRes.forEach(row => {
         if (!itemMap[row.itemName]) {
@@ -136,10 +137,8 @@ const Dashboard = () => {
         itemMap[row.itemName].totalSold += Number(row.totalSold || 0);
       });
 
-      // Process time series data
-      const sales = getResultData(results[5], []);
       const byDate = {};
-      sales.forEach(sale => {
+      rangeSales.forEach(sale => {
         const date = sale.date ? sale.date.substring(0, 10) : "";
         if (!byDate[date]) byDate[date] = { date, totalSales: 0, count: 0 };
         byDate[date].totalSales += Number(sale.totalAmount || 0);
@@ -147,12 +146,12 @@ const Dashboard = () => {
       });
       const chartData = Object.values(byDate).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // Process today's stats
-      const dailyRes = getResultData(results[6], {});
-      const todaySalesRes = getResultData(results[7], []);
+      // Set shop info only if it's not already set
+      if (!shop) setShop(shopRes);
 
-      setDashboardData(prev => ({
-        ...prev,
+      // Update all dashboard data in a single call
+      setDashboardData({
+        totalCustomers: customersRes.length,
         summaryStats: {
           totalSales: summaryRes.totalSales || 0,
           totalSalesCount: summaryRes.totalSalesCount || 0,
@@ -170,8 +169,8 @@ const Dashboard = () => {
           numberOfSales: dailyRes.numberOfSales || 0,
           netRevenue: dailyRes.netRevenue || 0,
         },
-        todaySales: todaySalesRes,
-      }));
+        todaySales: todaySalesRes, // <-- Only today's sales
+      });
 
     } catch (e) {
       setError("Failed to load dashboard data. Please try again.");
@@ -198,7 +197,16 @@ const Dashboard = () => {
 
   // Memoized filters for dialogs
   const filteredItemSalesData = useMemo(() => dashboardData.itemSales.filter(item => item.name.toLowerCase().includes(itemFilter.toLowerCase())), [dashboardData.itemSales, itemFilter]);
-  const filteredTodaySales = useMemo(() => dashboardData.todaySales.filter(sale => (sale.customerName && sale.customerName.toLowerCase().includes(todayFilter.toLowerCase())) || (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(todayFilter.toLowerCase()))), [dashboardData.todaySales, todayFilter]);
+  const filteredTodaySales = useMemo(() => {
+    if (!todayFilter) {
+      return dashboardData.todaySales;
+    }
+    return dashboardData.todaySales.filter(sale =>
+      (sale.customerName && sale.customerName.toLowerCase().includes(todayFilter.toLowerCase())) ||
+      (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(todayFilter.toLowerCase()))
+    );
+  }, [dashboardData.todaySales, todayFilter]);
+
 
   return (
     <Box sx={{ flexGrow: 1, p: { xs: 1, md: 3 }, backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
@@ -352,9 +360,9 @@ const Dashboard = () => {
         <DialogContent dividers>
           <TextField placeholder="Search by customer or invoice" value={todayFilter} onChange={(e) => setTodayFilter(e.target.value)} size="small" fullWidth sx={{ mb: 2 }} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>), }} />
           <Table size="small">
-            <TableHead><TableRow><TableCell><b>Invoice No</b></TableCell><TableCell><b>Customer Name</b></TableCell><TableCell align="right"><b>Total Amount</b></TableCell><TableCell align="right"><b>Date/Time</b></TableCell></TableRow></TableHead>
+            <TableHead><TableRow><TableCell><b>Invoice No</b></TableCell><TableCell><b>Customer Name</b></TableCell><TableCell align="right"><b>Total Amount</b></TableCell><TableCell align="right"><b>Total Paid</b></TableCell><TableCell align="right"><b>Due Amount</b></TableCell><TableCell align="right"><b>Date/Time</b></TableCell></TableRow></TableHead>
             <TableBody>
-              {filteredTodaySales.length === 0 ? (<TableRow><TableCell colSpan={4} align="center">No sale for today.</TableCell></TableRow>) : (filteredTodaySales.map((sale, idx) => (<TableRow key={sale.invoiceNo || idx}><TableCell>{sale.invoiceNo || "-"}</TableCell><TableCell>{sale.customerName || "-"}</TableCell><TableCell align="right">{formatCurrency(sale.totalAmount)}</TableCell><TableCell align="right">{sale.date ? sale.date.replace("T", " ") : "-"}</TableCell></TableRow>)))}
+              {filteredTodaySales.length === 0 ? (<TableRow><TableCell colSpan={6} align="center">No sale for today.</TableCell></TableRow>) : (filteredTodaySales.map((sale, idx) => (<TableRow key={sale.invoiceNo || idx}><TableCell>{sale.invoiceNo || "-"}</TableCell><TableCell>{sale.customerName || "-"}</TableCell><TableCell align="right">{formatCurrency(sale.totalAmount)}</TableCell><TableCell align="right">{formatCurrency(sale.paidAmount)}</TableCell><TableCell align="right">{formatCurrency(sale.dueAmount)}</TableCell><TableCell align="right">{sale.date ? dayjs(sale.date).format('YYYY-MM-DD HH:mm') : "-"}</TableCell></TableRow>)))}
             </TableBody>
           </Table>
         </DialogContent>

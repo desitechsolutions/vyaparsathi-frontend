@@ -1,4 +1,4 @@
-import { fetchCategorySales } from "./api";
+import { fetchCategories, fetchCategorySales } from "./api";
 
 const API_BASE = '/api';
 
@@ -23,6 +23,7 @@ const endpoints = {
   getItemById: (id) => `${API_BASE}/catalog/${id}`,
   updateItem: (id) => `${API_BASE}/catalog/${id}`,
   deleteItemVariant: (id) => `${API_BASE}/catalog/${id}`,
+  fetchCategories: `${API_BASE}/categories`,
 
   fetchItemVariants: `${API_BASE}/item-variants/filter`,
   createItemVariant: `${API_BASE}/item-variants`,
@@ -42,8 +43,15 @@ const endpoints = {
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
   recordDuePayment: `${API_BASE}/payments/record`,
   products: `${API_BASE}/products`,
-generateInvoice: ({ saleId, invoiceNo }) =>
+  generateInvoice: ({ saleId, invoiceNo }) =>
   `${API_BASE}/invoices/download?${saleId ? `saleId=${saleId}` : `invoiceNo=${invoiceNo}`}`,
+
+  //Delivery endpoints
+  deliveryById: (id) => `${API_BASE}/deliveries/${id}`,
+  assignDeliveryPerson: (id) => `${API_BASE}/deliveries/${id}/assign`,
+  updateDeliveryStatus: (id) => `${API_BASE}/deliveries/${id}/status`,
+  createDelivery: `${API_BASE}/deliveries`,
+  fetchDeliveries: `${API_BASE}/deliveries/`,
 
   reports: {
     // Daily report requires a single date
@@ -76,7 +84,7 @@ generateInvoice: ({ saleId, invoiceNo }) =>
     ? `${API_BASE}/reports/payments-summary?from=${from}&to=${to}`
     : `${API_BASE}/reports/payments-summary`,
   },
-  
+
   expenses: `${API_BASE}/expenses`,
   backup: {
     export: `${API_BASE}/backup/export`,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -15,10 +15,10 @@ import {
   CardActions,
   Box,
   TextField,
+  CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import CircularProgress from '@mui/material/CircularProgress';
-import Tooltip from '@mui/material/Tooltip'; 
 import EditIcon from '@mui/icons-material/Edit';
 
 const SalesSummary = ({
@@ -29,59 +29,60 @@ const SalesSummary = ({
   error,
   setFormData,
   selectedCustomer,
-  selectedVariant,
   setSelectedCustomer,
   setSelectedVariant,
   setItem,
   setSearchParams,
   handleEditItem,
-  item,
+  proceedDisabledTooltip,
 }) => {
-  // Use the discount from formData if available, or 0
   const [discount, setDiscount] = useState(formData.discount || 0);
 
   const handleClearForm = () => {
-    setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no', discount: 0 });
+    setFormData({
+      customerId: '',
+      items: [],
+      totalAmount: 0,
+      isGstRequired: 'no',
+      discount: 0,
+      paymentMethods: [{ method: 'Cash', amount: 0 }],
+      remaining: 0,
+      paymentStatus: 'Pending',
+    });
     setSelectedCustomer(null);
     setSelectedVariant(null);
     setItem({
       id: '',
       sku: '',
-      qty: 1,
+      qty: '',
       unitPrice: 0,
       itemName: '',
       description: '',
       color: '',
       size: '',
+      brand: '',
       design: '',
       currentStock: 0,
     });
-    setSearchParams({
-      name: '',
-      sku: '',
-      color: '',
-      size: '',
-      design: '',
-      category: '',
-    });
+    setSearchParams({});
     setDiscount(0);
   };
 
-  // Calculate subtotal based on items (original total without discount)
-  const subtotal = formData.items.reduce(
-    (sum, item) => sum + item.qty * item.unitPrice,
-    0
-  ).toFixed(2);
+  const subtotal = useMemo(() =>
+    formData.items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0),
+    [formData.items]
+  );
 
-  const netTotal = (parseFloat(subtotal) - discount).toFixed(2);
+  const netTotal = useMemo(() => subtotal - discount, [subtotal, discount]);
 
-  // Keep formData in sync with discount (optional, to persist on review)
   React.useEffect(() => {
     setFormData(prev => ({
       ...prev,
       discount: discount,
     }));
   }, [discount, setFormData]);
+
+  const isButtonDisabled = loading || formData.items.length === 0 || !selectedCustomer;
 
   return (
     <Box sx={{ mt: 4 }}>
@@ -123,7 +124,7 @@ const SalesSummary = ({
                         title={
                           <>
                             <div>Description: {saleItem.description}</div>
-                            <div>Item: {saleItem.itemName}</div>                        
+                            <div>Item: {saleItem.itemName}</div>
                             <div>Size: {saleItem.size}</div>
                             <div>Color: {saleItem.color}</div>
                             <div>Brand: {saleItem.brand || '-'}</div>
@@ -142,7 +143,7 @@ const SalesSummary = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>{saleItem.qty}</TableCell>
-                    <TableCell align="right">₹{saleItem.unitPrice}</TableCell>
+                    <TableCell align="right">₹{saleItem.unitPrice.toFixed(2)}</TableCell>
                     <TableCell align="right">
                       ₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}
                     </TableCell>
@@ -161,8 +162,8 @@ const SalesSummary = ({
                   </TableRow>
                 ))}
                 <TableRow>
-                  <TableCell colSpan={3}>Subtotal</TableCell>
-                  <TableCell align="right">₹{subtotal}</TableCell>
+                  <TableCell colSpan={3} sx={{ fontWeight: 'bold' }}>Subtotal</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>₹{subtotal.toFixed(2)}</TableCell>
                   <TableCell />
                 </TableRow>
                 <TableRow>
@@ -171,22 +172,20 @@ const SalesSummary = ({
                     <TextField
                       type="number"
                       value={discount}
-                      onChange={(e) => setDiscount(Math.max(0, Math.min(parseFloat(e.target.value) || 0, parseFloat(subtotal))))}
-                      InputProps={{ inputProps: { min: 0, max: parseFloat(subtotal) } }}
+                      onChange={(e) => setDiscount(Math.max(0, Math.min(parseFloat(e.target.value) || 0, subtotal)))}
+                      InputProps={{
+                        startAdornment: '₹',
+                        inputProps: { min: 0, max: subtotal }
+                      }}
                       size="small"
-                      sx={{ width: 100 }}
+                      sx={{ width: 120 }}
                     />
                   </TableCell>
                   <TableCell align="right" />
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={3}>Total Discount Applied</TableCell>
-                  <TableCell align="right">₹{discount.toFixed(2)}</TableCell>
-                  <TableCell />
-                </TableRow>
-                <TableRow>
-                  <TableCell colSpan={3}>Net Total</TableCell>
-                  <TableCell align="right">₹{netTotal}</TableCell>
+                  <TableCell colSpan={3} sx={{ fontWeight: 'bold' }}>Net Total</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>₹{netTotal.toFixed(2)}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableBody>
@@ -203,16 +202,33 @@ const SalesSummary = ({
           >
             Clear Form
           </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => handleProceedToReview(discount)} // Pass discount to review page if needed
-            disabled={loading || formData.items.length === 0 || !selectedCustomer}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
-            sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-          >
-            {loading ? 'Processing...' : 'Proceed to Review'}
-          </Button>
+
+          {isButtonDisabled ? (
+            <Tooltip title={proceedDisabledTooltip || ''}>
+              <span>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={true}
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+                  sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
+                >
+                  {loading ? 'Processing...' : 'Proceed to Review'}
+                </Button>
+              </span>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleProceedToReview(discount)}
+              disabled={false}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+              sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
+            >
+              {loading ? 'Processing...' : 'Proceed to Review'}
+            </Button>
+          )}
         </CardActions>
       </Card>
     </Box>

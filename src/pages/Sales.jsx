@@ -65,6 +65,7 @@ const initialFormData = {
     deliveryCharge: '',
     deliveryPaidBy: '',
     deliveryNotes: '',
+    deliveryStatus: "PACKED",
 };
 
 const Sales = () => {
@@ -92,12 +93,15 @@ const Sales = () => {
     size: '',
     design: '',
     category: '',
+    fabric: '',
+    season: '',
+    fit: '',
   });
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [editIndex, setEditIndex] = useState(null);
+  const [itemError, setItemError] = useState('');
 
-  // PATCH: Extract fetch logic to a function (useCallback for stable reference)
   const loadVariants = useCallback(() => {
     setLoading(true);
     fetchItemVariants({}, 'http://localhost:8080/api/item-variants')
@@ -127,7 +131,6 @@ const Sales = () => {
     }
   }, [urlParams]);
 
-  // PATCH: use loadVariants on mount
   useEffect(() => {
     loadVariants();
     setLoadingCustomers(true);
@@ -145,10 +148,9 @@ const Sales = () => {
       .finally(() => setLoadingCustomers(false));
   }, [loadVariants]);
 
-  // PATCH: Handler to close invoice modal and refresh variants from server
   const handleCloseInvoiceModal = () => {
     setOpenInvoiceModal(false);
-    loadVariants(); // <-- refresh variants after sale completes
+    loadVariants();
   };
 
   // Unique filter options (memoized)
@@ -157,7 +159,10 @@ const Sales = () => {
   const uniqueColors = useMemo(() => [{ value: '', label: 'All Colors' }, ...[...new Set(variants.map(v => v.color).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
   const uniqueSizes = useMemo(() => [{ value: '', label: 'All Sizes' }, ...[...new Set(variants.map(v => v.size).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueDesigns = useMemo(() => [{ value: '', label: 'All Designs' }, ...[...new Set(variants.map(v => v.design).filter(Boolean))].map(d => ({ value: d, label: d }))], [variants]);
-  const uniqueCategory = useMemo(() => [{ value: '', label: 'All Categories' }, ...[...new Set(variants.map(v => v.category).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
+  const uniqueCategory = useMemo(() => [{ value: '', label: 'All Categories' }, ...[...new Set(variants.map(v => v.categoryName).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
+  const uniqueFabrics = useMemo(() => [{ value: '', label: 'All Fabrics' }, ...[...new Set(variants.map(v => v.fabric).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
+  const uniqueSeasons = useMemo(() => [{ value: '', label: 'All Seasons' }, ...[...new Set(variants.map(v => v.season).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
+  const uniqueFits = useMemo(() => [{ value: '', label: 'All Fits' }, ...[...new Set(variants.map(v => v.fit).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
 
   // Filtered variants (client-side filtering)
   const filteredVariants = useMemo(() => {
@@ -167,17 +172,18 @@ const Sales = () => {
       (!searchParams.color || v.color === searchParams.color) &&
       (!searchParams.size || v.size === searchParams.size) &&
       (!searchParams.design || v.design === searchParams.design) &&
-      (!searchParams.category || v.category === searchParams.category)
+      (!searchParams.category || v.categoryName === searchParams.category) &&
+      (!searchParams.fabric || v.fabric === searchParams.fabric) &&
+      (!searchParams.season || v.season === searchParams.season) &&
+      (!searchParams.fit || v.fit === searchParams.fit)
     );
   }, [variants, searchParams]);
 
-  // Debounced search param change
   const debouncedSetSearchParams = useMemo(
     () => debounce((field, value) => setSearchParams(prev => ({ ...prev, [field]: value })), 300),
     []
   );
 
-  // Update totalAmount when items change
   useEffect(() => {
     const newTotal = formData.items.reduce(
       (sum, currentItem) => sum + Number(currentItem.qty) * currentItem.unitPrice,
@@ -191,16 +197,20 @@ const Sales = () => {
 
   // Handlers
   const handleAddItem = () => {
+    setItemError('');
     const quantity = Number(item.qty);
-    if (!item.id || !quantity || !item.unitPrice) {
-      setSnackbar({ open: true, message: 'Please select an item and specify quantity.', severity: 'error' });
+    if (!item.id || !item.unitPrice) {
+      setItemError('Please select an item.');
+      return;
+    }
+    if (isNaN(quantity) || quantity <= 0) {
+      setItemError('Please specify a valid quantity greater than 0.');
       return;
     }
 
     const uniqueKey = (it) => [it.id, it.size, it.color, it.brand, it.design].join('_');
     const key = uniqueKey(item);
 
-    // Calculate total intended qty in this sale (sum of all matching items except the one being edited)
     let existingQty = 0;
     if (editIndex === null) {
       existingQty = formData.items
@@ -213,7 +223,6 @@ const Sales = () => {
     }
     const intendedQty = existingQty + quantity;
 
-    // Find item's available stock (use item.currentStock, or from variants if needed)
     let availableStock = item.currentStock;
     if (!availableStock || isNaN(availableStock)) {
       const foundVariant = variants.find(v => v.id === item.id);
@@ -221,17 +230,12 @@ const Sales = () => {
     }
 
     if (intendedQty > availableStock) {
-      setSnackbar({
-        open: true,
-        message: `Cannot add more than available stock (${availableStock}). You already have ${existingQty} in this sale.`,
-        severity: 'error',
-      });
+      setItemError(`Cannot add more than available stock (${availableStock}). You already have ${existingQty} in this sale.`);
       return;
     }
 
     let newItems;
     if (editIndex !== null) {
-      // Replace the item at editIndex
       newItems = [...formData.items];
       newItems[editIndex] = { ...item, qty: quantity };
     } else {
@@ -268,6 +272,7 @@ const Sales = () => {
       ) || null
     );
     setEditIndex(index);
+    setItemError('');
   };
 
   const handleRemoveItem = (index) => {
@@ -286,7 +291,7 @@ const Sales = () => {
       setItem((prevItem) => ({
         id: selectedOption.id,
         sku: selectedOption.sku,
-        qty: (editIndex !== null && prevItem.id === selectedOption.id) ? prevItem.qty : '',
+        qty: (editIndex !== null && prevItem.id === selectedOption.id) ? prevItem.qty : '1',
         unitPrice: selectedOption.pricePerUnit,
         itemName: selectedOption.itemName,
         description: selectedOption.description,
@@ -296,6 +301,7 @@ const Sales = () => {
         design: selectedOption.design,
         currentStock: selectedOption.currentStock,
       }));
+      setItemError('');
     } else {
       setSelectedVariant(null);
       setItem(initialItem);
@@ -347,7 +353,6 @@ const Sales = () => {
     setShowReviewPage(true);
   };
 
-  // FIX: Send correct paymentDetails fields to match PaymentDto in backend
   const handleSubmitSale = async (payload, discount, sendInvoice) => {
     setLoading(true);
     try {
@@ -361,14 +366,13 @@ const Sales = () => {
         isGstRequired: sale.isGstRequired,
         discount: discount,
         paymentDetails: paymentDetails.map(pm => ({
-          amount: pm.amount, // <-- CORRECT field for backend PaymentDto
-          paymentMethod: pm.paymentMethod, // <-- CORRECT field for backend PaymentDto
+          amount: pm.amount,
+          paymentMethod: pm.paymentMethod,
           paymentDate: pm.paymentDate || new Date().toISOString(),
           reference: pm.reference || "",
           notes: pm.notes || "",
           transactionId: pm.transactionId || "",
         })),
-        // --- DELIVERY INTEGRATION START ---
         delivery: formData.deliveryRequired
           ? {
               deliveryAddress: formData.deliveryAddress,
@@ -378,7 +382,6 @@ const Sales = () => {
               deliveryNotes: formData.deliveryNotes,
             }
           : null,
-                // --- DELIVERY INTEGRATION END ---
       };
       const saleResponse = await createSale(saleData);
       const totalPaid = paymentDetails.reduce((sum, pm) => sum + (pm.amount || 0), 0);
@@ -456,12 +459,15 @@ const Sales = () => {
               uniqueSizes={uniqueSizes}
               uniqueDesigns={uniqueDesigns}
               uniqueCategory={uniqueCategory}
+              uniqueFabrics={uniqueFabrics}
+              uniqueSeasons={uniqueSeasons}
+              uniqueFits={uniqueFits}
               searchParams={searchParams}
               handleVariantSelect={handleVariantSelect}
               handleSearchParamChange={handleSearchParamChange}
               handleAddItem={handleAddItem}
-              error={snackbar.open && snackbar.severity === 'error' ? snackbar.message : ''}
-              setError={msg => setSnackbar({ open: true, message: msg, severity: 'error' })}
+              error={itemError}
+              setError={setItemError}
               editIndex={editIndex}
             />
             <SalesSummary
@@ -470,7 +476,6 @@ const Sales = () => {
               handleEditItem={handleEditItem}
               handleProceedToReview={handleProceedToReview}
               loading={loading}
-              error={snackbar.open && snackbar.severity === 'error' ? snackbar.message : ''}
               setFormData={setFormData}
               selectedCustomer={selectedCustomer}
               selectedVariant={selectedVariant}
@@ -480,6 +485,7 @@ const Sales = () => {
               setSearchParams={setSearchParams}
               item={item}
               editIndex={editIndex}
+              proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
             />
           </>
         ) : (

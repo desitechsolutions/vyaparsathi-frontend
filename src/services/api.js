@@ -127,6 +127,7 @@ export const createItem = (data) => API.post(endpoints.items, data);
 export const fetchItems = () => API.get(endpoints.items);
 export const getItemById = (id) => API.get(endpoints.getItemById(id));
 export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
+export const fetchCategories = () => API.get(endpoints.fetchCategories);
 
 
 // Item Variant APIs
@@ -134,6 +135,10 @@ export const createItemVariant = (data) => API.post(endpoints.createItemVariant,
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
+};
+export const fetchItemVariantById = async (id) => {
+  const response = await API.get(`/api/item-variants/${id}`);
+  return response.data;
 };
 
 // Add & Fetch Stock
@@ -166,6 +171,43 @@ export const fetchAllSales = (from, to) => {
   return API.get(endpoints.sales);
 };
 
+// Delivery related APIs
+export const createDelivery = (data) => API.post(endpoints.createDelivery, data);
+
+export const getDelivery = (id) => API.get(endpoints.deliveryById(id));
+
+export const fetchDeliveries = (saleId) => 
+  saleId 
+    ? API.get(`/api/deliveries?saleId=${saleId}`) 
+    : API.get("/api/deliveries");
+
+export const updateDeliveryDetails = (id, data) => 
+  API.patch(`/api/deliveries/${id}/details`, data);
+
+export const assignDeliveryPerson = (id, person) => 
+  API.patch(`/api/deliveries/${id}/person`, { deliveryPerson: person });
+
+export const updateDeliveryStatus = (id, status, changedBy) => 
+  API.patch(`/api/deliveries/${id}/status?status=${status}&changedBy=${changedBy}`);
+
+export const fetchDeliveryHistory = (id) => 
+  API.get(`/api/deliveries/${id}/history`);
+
+export const deleteDelivery = (id) => API.delete(`/api/deliveries/${id}`);
+
+// Delivery Person related APIs
+export const createDeliveryPerson = (data) => 
+  API.post("/api/delivery-persons", data);
+
+export const fetchDeliveryPersons = () => 
+  API.get("/api/delivery-persons");
+
+export const getDeliveryPerson = (id) => 
+  API.get(`/api/delivery-persons/${id}`);
+
+export const deleteDeliveryPerson = (id) => 
+  API.delete(`/api/delivery-persons/${id}`);
+
 // Reports related APIs
 
 // Daily Report
@@ -178,6 +220,8 @@ export const fetchSalesSummary = (from, to) => {
   }
   return API.get(endpoints.reports.salesSummary()); // no params
 };
+
+export const fetchLowStockAlerts = () => API.get('/api/stock/low-stock-alerts');
 // GST Summary
 export const fetchGstSummary = (from, to) =>
   API.get(endpoints.reports.gstSummary(from, to));

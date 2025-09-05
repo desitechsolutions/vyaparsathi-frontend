@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Typography, Box, Snackbar, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ShoppingBag as ShoppingBagIcon, Add as AddIcon } from '@mui/icons-material';
 
@@ -28,6 +28,7 @@ const PurchaseOrders = () => {
   } = usePurchaseOrders();
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('view');
@@ -35,6 +36,28 @@ const PurchaseOrders = () => {
   const [submitDialog, setSubmitDialog] = useState(false);
   const [poToSubmit, setPoToSubmit] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const variantId = searchParams.get('variantId');
+    const supplierId = searchParams.get('supplierId');
+
+    if (variantId) {
+      // We have a variantId, so open the create modal
+      // We pass the IDs to the selectedPo state, which will then be passed to the modal
+      setSelectedPo({
+        initialVariantId: variantId,
+        initialSupplierId: supplierId || null,
+      });
+      setModalMode('create');
+      setModalOpen(true);
+
+      // Clean up the URL so it doesn't trigger again on refresh
+      searchParams.delete('variantId');
+      searchParams.delete('supplierId');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on component mount
 
   const handleOpenModal = (mode, po = null) => {
     setModalMode(mode);

@@ -67,7 +67,7 @@ const Sidebar = () => {
       ],
     },
     { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics' },
-    { text: 'lowStockAlerts', icon: <InventoryIcon />, path: '/stock-alerts' },
+    { text: 'lowStockAlerts', icon: <InventoryIcon />, path: '/low-stock-alerts' },
     {
       text: 'reports',
       icon: <AssessmentIcon />,

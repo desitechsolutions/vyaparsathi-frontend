@@ -17,15 +17,20 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Badge,
+  keyframes,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../context/AuthContext';
+import { useAlerts } from '../../context/AlertContext';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import SupportIcon from '@mui/icons-material/Support';
 import LanguageIcon from '@mui/icons-material/Language';
+import NotificationsIcon from '@mui/icons-material/Notifications'; 
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
 
@@ -46,8 +51,15 @@ const AppBranding = () => {
   );
 };
 
+// Define the keyframes for the pulsing animation
+const pulse = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+`;
 const Header = () => {
   const { user, logout } = useAuthContext();
+   const { alertCount, criticalCount } = useAlerts();
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const navigate = useNavigate();
@@ -83,6 +95,20 @@ const Header = () => {
     localStorage.setItem('language', lng);
   };
 
+    // --- START: ALERT LOGIC ---
+  const lowCount = alertCount - criticalCount;
+  let tooltipMessage = '';
+
+
+  console.log('Alert counts - Critical:', criticalCount, 'Low:', lowCount);
+  if (criticalCount > 0 && lowCount > 0) {
+    tooltipMessage = `${criticalCount} critical and ${lowCount} low stock items need attention.`;
+  } else if (criticalCount > 0) {
+    tooltipMessage = `${criticalCount} critical item${criticalCount > 1 ? 's' : ''} need immediate attention.`;
+  } else if (lowCount > 0) {
+    tooltipMessage = `${lowCount} low stock item${lowCount > 1 ? 's' : ''} need attention.`;
+  }
+  // --- END: ALERT NEW LOGIC ---
   return (
     <AppBar
       position="fixed"
@@ -107,6 +133,27 @@ const Header = () => {
                   {username}
                 </Typography>
               )}
+              {/* START: Alert Icon Logic */}
+              {alertCount > 0 && (
+                <Tooltip title={tooltipMessage} placement="bottom">
+                  <IconButton
+                    size="medium"
+                    color="inherit"
+                    onClick={() => navigate('/low-stock-alerts')}
+                    sx={{ 
+                      marginRight: 1, 
+                      '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                      // Apply animation only if there are critical alerts
+                      animation: criticalCount > 0 ? `${pulse} 1.5s ease-in-out infinite` : 'none',
+                    }}
+                  >
+                    <Badge badgeContent={alertCount} color={criticalCount > 0 ? "error" : "warning"}>
+                      {criticalCount > 0 ? <ReportProblemOutlinedIcon /> : <NotificationsIcon />}
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+              )}
+              {/* END: Alert Icon Logic */}
               <Tooltip title={t('header.getSupport')} placement="bottom">
                 <IconButton
                   size="medium"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   DataGrid,
   GridToolbarContainer,
@@ -20,9 +20,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  IconButton
+  IconButton,
+  InputAdornment,
+  Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { fetchStock, addStock, fetchItemVariants } from '../services/api';
 
 // Reusable toolbar with a quick search box and a title
@@ -54,7 +57,8 @@ const CustomToolbar = ({ onAddClick }) => {
   );
 };
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '' };
+// 1. Add costPerUnit to the initial form state
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '' };
 
 const Stock = () => {
   const [stock, setStock] = useState([]);
@@ -87,7 +91,7 @@ const Stock = () => {
   // Load item variants for dropdown
   const loadItemVariants = async () => {
     try {
-      const res = await fetchItemVariants(); // Should return id, itemName, sku, color, size, unit
+      const res = await fetchItemVariants();
       setItemVariants(res.data);
     } catch (err) {
       console.error('Failed to load item variants', err);
@@ -101,15 +105,18 @@ const Stock = () => {
 
   // Submit add stock
   const handleSubmit = async () => {
-    if (!formData.itemVariantId || !formData.quantity) {
-      setError('Please select item and enter quantity.');
+    // 2. Add validation for costPerUnit
+    if (!formData.itemVariantId || !formData.quantity || !formData.costPerUnit) {
+      setError('Please select an item and enter both Quantity and Cost Per Unit.');
       return;
     }
     setIsSubmitting(true);
     try {
+      // 3. Send the complete DTO including costPerUnit
       await addStock({
         itemVariantId: formData.itemVariantId,
         quantity: parseFloat(formData.quantity),
+        costPerUnit: parseFloat(formData.costPerUnit),
         batch: formData.batch || null,
       });
       setOpen(false);
@@ -118,22 +125,28 @@ const Stock = () => {
       setError(null);
     } catch (err) {
       console.error(err);
-      setError('Failed to add stock.');
+      setError('Failed to add stock. Please check the values and try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 4. Memoize the selected variant to avoid re-calculating on every render
+  const selectedVariant = useMemo(() => {
+    return itemVariants.find(v => v.id === formData.itemVariantId);
+  }, [formData.itemVariantId, itemVariants]);
+
   const columns = [
-    { field: 'itemName', headerName: 'Item Name', width: 180 },
-    { field: 'sku', headerName: 'SKU', width: 120 },
-    { field: 'unit', headerName: 'Unit', width: 80 },
-    { field: 'color', headerName: 'Color', width: 100 },
-    { field: 'size', headerName: 'Size', width: 100 },
-    { field: 'design', headerName: 'Design', width: 120 },
-    { field: 'totalQuantity', headerName: 'Total Qty', width: 100 },
-    { field: 'batch', headerName: 'Batch', width: 120 },
-    { field: 'pricePerUnit', headerName: 'Price/Unit', width: 120 },
+    { field: 'itemName', headerName: 'Item Name', flex: 1.5, minWidth: 200 },
+    { field: 'sku', headerName: 'SKU', flex: 1, minWidth: 120 },
+    { field: 'color', headerName: 'Color', flex: 0.8, minWidth: 100 },
+    { field: 'size', headerName: 'Size', flex: 0.8, minWidth: 100 },
+    { field: 'totalQuantity', headerName: 'Total Qty', flex: 0.8, minWidth: 100, type: 'number' },
+    { field: 'unit', headerName: 'Unit', flex: 0.7, minWidth: 80 },
+    { field: 'pricePerUnit', headerName: 'Selling Price', flex: 1, minWidth: 120, type: 'number',
+      valueFormatter: (params) => `₹${params.value.toFixed(2)}`
+    },
+    { field: 'batch', headerName: 'Last Batch', flex: 1, minWidth: 120 },
   ];
 
   return (
@@ -162,30 +175,65 @@ const Stock = () => {
             disableSelectionOnClick
             slots={{ toolbar: CustomToolbar }}
             slotProps={{ toolbar: { onAddClick: () => setOpen(true) } }}
+            sx={{ border: 0 }}
           />
         </Box>
       )}
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add Stock</DialogTitle>
+        <DialogTitle>Add New Stock</DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            <FormControl fullWidth>
+          <Box component="form" sx={{ display: 'grid', gap: 3, pt: 1 }}>
+            <FormControl fullWidth required>
               <InputLabel>Item Variant</InputLabel>
               <Select
                 value={formData.itemVariantId}
                 onChange={(e) =>
                   setFormData({ ...formData, itemVariantId: e.target.value })
                 }
-                required
               >
                 {itemVariants.map((variant) => (
                   <MenuItem key={variant.id} value={variant.id}>
-                    {variant.itemName} | {variant.sku} | {variant.color} | {variant.size} | {variant.unit}
+                    {`${variant.itemName} (${variant.color}, ${variant.size}) - SKU: ${variant.sku}`}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+
+            {/* 5. UX Improvement: Show the selling price for context */}
+            {selectedVariant && (
+              <TextField
+                label="Current Selling Price"
+                value={selectedVariant.pricePerUnit.toFixed(2)}
+                InputProps={{
+                  readOnly: true,
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="This is the current selling price for this item, for your reference.">
+                        <InfoOutlinedIcon color="action" />
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
+                variant="filled"
+                fullWidth
+              />
+            )}
+
+            {/* 6. Add the Cost Per Unit text field */}
+            <TextField
+              label="Cost Per Unit (Purchase Price)"
+              type="number"
+              value={formData.costPerUnit}
+              onChange={(e) => setFormData({ ...formData, costPerUnit: e.target.value })}
+              required
+              fullWidth
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                inputProps: { min: 0 }
+              }}
+            />
 
             <TextField
               label="Quantity"
@@ -193,16 +241,19 @@ const Stock = () => {
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
               required
+              fullWidth
+              InputProps={{ inputProps: { min: 0 } }}
             />
 
             <TextField
-              label="Batch"
+              label="Batch / Lot Number (Optional)"
               value={formData.batch}
               onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+              fullWidth
             />
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
           <Button
             onClick={handleSubmit}
@@ -211,7 +262,7 @@ const Stock = () => {
             disabled={isSubmitting}
             startIcon={isSubmitting && <CircularProgress size={20} />}
           >
-            {isSubmitting ? 'Saving...' : 'Save'}
+            {isSubmitting ? 'Saving...' : 'Save Stock'}
           </Button>
         </DialogActions>
       </Dialog>

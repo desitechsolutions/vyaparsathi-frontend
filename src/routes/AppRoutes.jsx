@@ -23,9 +23,12 @@ import Suppliers from '../pages/Suppliers';
 import PublicLayout from '../components/layout/PublicLayout'; 
 import ReceivingPage from '../pages/ReceivingPage';
 import DeliveryManagement from '../pages/DeliveryManagement';
+import LowStockAlerts from '../pages/LowStockAlerts';
+import { AlertProvider } from '../context/AlertContext';
 
 function AppRoutes() {
   return (
+     <AlertProvider>
     <Routes>
       {/* Public routes wrapped by PublicLayout */}
       <Route element={<PublicLayout />}>
@@ -52,6 +55,7 @@ function AppRoutes() {
          <Route path="delivery" element={<DeliveryManagement />} />
         <Route path="reports" element={<Reports />} />
         <Route path="expenses" element={<Expenses />} />
+        <Route path="low-stock-alerts" element={<LowStockAlerts />} />
         <Route path="backup" element={<Backup />} />
         <Route path="products" element={<ProductOverview />} />
         <Route path="customer-payments" element={<CustomerPaymentPage />} />
@@ -69,6 +73,7 @@ function AppRoutes() {
         <Route path="*" element={<div>Page Not Found</div>} />
       </Route>
     </Routes>
+    </AlertProvider>
   );
 }
 
