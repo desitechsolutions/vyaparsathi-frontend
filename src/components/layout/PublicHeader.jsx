@@ -151,7 +151,7 @@ const PublicHeader = () => {
             />
             <Box>
               <Typography variant={isMobile ? "h6" : "h5"} sx={{ color: 'primary.main', fontWeight: 900, letterSpacing: 1 }}>
-                {t('publicHeader.companyName', "DesiTech Innovations Pvt Ltd.")}
+                {t('publicHeader.companyName', "Tech Birendra Innovations Pvt Ltd.")}
               </Typography>
               <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 400 }}>
                 {t('publicHeader.companyTagline', "Empowering Bharat's Businesses & Homes Digitally")}

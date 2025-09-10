@@ -17,10 +17,25 @@ import {
   Chip,
   Grid,
 } from '@mui/material';
-import { fetchCustomerDues, fetchCustomer } from '../services/api';
+import { fetchCustomerDues } from '../services/api';
 
 const formatAmount = (amount) =>
   `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+const extractCustomerFromDues = (duesData) => {
+  // Use first sale record for customer details if available
+  if (duesData && duesData.length > 0) {
+    const first = duesData[0];
+    return {
+      name: first.customerName,
+      addressLine1: first.addressLine1,
+      city: first.city,
+      state: first.state,
+      postalCode: first.postalCode,
+    };
+  }
+  return null;
+};
 
 const CustomerDetails = () => {
   const { id } = useParams();
@@ -34,68 +49,44 @@ const CustomerDetails = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
+    let controller = new AbortController();
+    let signal = controller.signal;
 
     const loadData = async () => {
       setLoading(true);
-      let customerData = null;
       let duesData = [];
       let errorText = '';
 
       try {
-        const [customerResponse, duesResponse] = await Promise.allSettled([
-          fetchCustomer(id, { signal }),
-          fetchCustomerDues(id, { signal })
-        ]);
-
-        // Ignore canceled requests (StrictMode/dev double fetch)
-        if (customerResponse.status === 'fulfilled' && customerResponse.value?.data) {
-          customerData = customerResponse.value.data;
-        } else if (
-          customerResponse.status === 'rejected' &&
-          customerResponse.reason?.name === 'CanceledError'
-        ) {
-          // Ignore abort/cancel errors in dev
-        } else {
-          errorText += 'Failed to load customer details. ';
-        }
-
-        if (duesResponse.status === 'fulfilled') {
-          duesData = duesResponse.value?.data?.content || duesResponse.value?.data || [];
-        } else if (
-          duesResponse.status === 'rejected' &&
-          duesResponse.reason?.name === 'CanceledError'
-        ) {
-          // Ignore abort/cancel errors in dev
-        } else {
-          errorText += 'Failed to load sales/dues. ';
-        }
-
-        setCustomer(customerData);
+        const response = await fetchCustomerDues(id, { signal });
+        duesData = response?.data?.content || response?.data || [];
         setDues(duesData);
+        setCustomer(extractCustomerFromDues(duesData));
         setTotalDues(duesData.reduce((sum, due) => sum + (due.dueAmount || 0), 0));
         setTotalSales(duesData.reduce((sum, due) => sum + (due.totalAmount || 0), 0));
         setTotalPaid(duesData.reduce((sum, due) => sum + ((due.totalAmount || 0) - (due.dueAmount || 0)), 0));
 
-        if (errorText) {
-          setSnackbar({ open: true, message: errorText.trim(), severity: 'error' });
+        if (!duesData.length) {
+          errorText = 'No sales/dues found for this customer.';
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
-          setSnackbar({ open: true, message: 'Unexpected error loading customer details.', severity: 'error' });
+          errorText = 'Failed to load customer dues. Please try again.';
         }
       } finally {
+        if (errorText) {
+          setSnackbar({ open: true, message: errorText.trim(), severity: 'error' });
+        }
         setLoading(false);
       }
     };
-    loadData();
+    if (id) loadData();
     return () => { controller.abort(); };
   }, [id]);
 
   const handleCloseSnackbar = (event, reason) => {
     if (reason === 'clickaway') return;
-    setSnackbar({ ...snackbar, open: false });
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   if (loading) {
@@ -145,6 +136,7 @@ const CustomerDetails = () => {
         {customer?.addressLine1}
         {customer?.city && `, ${customer.city}`}
         {customer?.state && `, ${customer.state}`}
+        {customer?.postalCode && `, ${customer.postalCode}`}
       </Typography>
       <Grid container spacing={2} sx={{ my: 2 }}>
         <Grid item xs={12} sm={4}>

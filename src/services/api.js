@@ -1,7 +1,7 @@
 import axios from 'axios';
 import endpoints from './endpoints';
+import { signalApiActivity } from '../utils/auth';
 import 'react-toastify/dist/ReactToastify.css';
-// REMOVED: import { setToken } from '../utils/auth';
 
 const API = axios.create({
   baseURL: 'http://localhost:8080',
@@ -21,14 +21,20 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+// Axios request interceptor: attach token, handle activity
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Only signal activity for foreground requests
+  if (!config.meta?.background) {
+    signalApiActivity();
+  }
   return config;
 });
 
+// Axios response interceptor: handle token refresh
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -54,7 +60,7 @@ API.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
-          // No refresh token, force logout
+          window.dispatchEvent(new CustomEvent('appSessionExpired', { detail: { reason: 'No refresh token available.' } }));
           window.location.href = '/login';
           return Promise.reject(new Error("No refresh token available."));
         }
@@ -63,28 +69,19 @@ API.interceptors.response.use(
         const newToken = res.data.token;
         const newRefreshToken = res.data.refreshToken;
 
-        // --- FIX IS HERE ---
-        // 1. Replace setToken with direct localStorage operations
         localStorage.setItem('token', newToken);
         localStorage.setItem('refreshToken', newRefreshToken);
 
-        // 2. Update the axios instance default header for subsequent requests
         API.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        
-        // 3. Update the header of the original failed request
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-        
-        // 4. Process the queue of failed requests with the new token
         processQueue(null, newToken);
-        
-        // 5. Retry the original request
         return API(originalRequest);
 
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // If refresh fails, clear storage and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
+        window.dispatchEvent(new CustomEvent('appSessionExpired', { detail: { reason: 'Session expired or refresh failed.' } }));
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
@@ -95,11 +92,14 @@ API.interceptors.response.use(
   }
 );
 
-// --- ALL EXPORTED API FUNCTIONS REMAIN THE SAME ---
+// --- API exports ---
 
 //Login API
+export const login = (payload) =>
+  API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
 export const forgotPin = (data) => API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
 export const resetPin = (data) => API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
+export const changePin = (data) => API.post(endpoints.auth.changePin, data);
 // API functions
 export const setupShop = (data) => API.post(endpoints.shop, data);
 export const refreshToken = (refreshToken) =>
@@ -126,8 +126,8 @@ export const deletePurchaseOrder = (id) =>
 export const receivePurchaseOrder = (id) =>
   API.post(endpoints.receivePurchaseOrder(id)).then((r) => r.data);
 
-  export const submitPurchaseOrder = (id) =>
-    API.post(endpoints.submitPurchaseOrder(id)).then((r) => r.data);
+export const submitPurchaseOrder = (id) =>
+  API.post(endpoints.submitPurchaseOrder(id)).then((r) => r.data);
 
 // Supplier APIs
 export const getSuppliers = () =>
@@ -145,14 +145,12 @@ export const deleteSupplier = (id) =>
 export const getSupplierById = (id) =>
   API.get(endpoints.supplierById(id)).then((r) => r.data);
 
-
 // Item related APIs
 export const createItem = (data) => API.post(endpoints.items, data);
 export const fetchItems = () => API.get(endpoints.items);
 export const getItemById = (id) => API.get(endpoints.getItemById(id));
 export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
 export const fetchCategories = () => API.get(endpoints.fetchCategories);
-
 
 // Item Variant APIs
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
@@ -174,7 +172,6 @@ export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
 export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
-
 
 //Sales related APIs
 export const createSale = (data) => {
@@ -232,6 +229,10 @@ export const getDeliveryPerson = (id) =>
 export const deleteDeliveryPerson = (id) => 
   API.delete(`/api/delivery-persons/${id}`);
 
+//Notifications API
+export const fetchNotifications = (recipient) => API.get(`/api/notifications?recipient=${recipient}`);
+export const markNotificationAsRead = (id) => API.patch(`/api/notifications/${id}/read`);
+
 // Reports related APIs
 
 // Daily Report
@@ -244,8 +245,9 @@ export const fetchSalesSummary = (from, to) => {
   }
   return API.get(endpoints.reports.salesSummary()); // no params
 };
-
-export const fetchLowStockAlerts = () => API.get('/api/stock/low-stock-alerts');
+// --- IMPORTANT: Background polling for low stock alerts ---
+export const fetchLowStockAlerts = () =>
+  API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
 // GST Summary
 export const fetchGstSummary = (from, to) =>
   API.get(endpoints.reports.gstSummary(from, to));
@@ -300,12 +302,20 @@ export const fetchExpenses = () => API.get(endpoints.expenses);
 export const updateExpense = (id, data) => API.put(`${endpoints.expenses}/${id}`, data); // New function
 export const deleteExpense = (id) => API.delete(`${endpoints.expenses}/${id}`);
 
-
 export const exportBackup = () => API.post(endpoints.backup.export, {}, { responseType: 'blob' });
 
 // Payments related APIs
 export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
 export const recordDuePaymentsBatch = (data) => API.post('/api/payments/record-batch', data);
+
+export const fetchPaymentHistory = (customerId, saleId) => {
+  return API.get('/api/payments', {
+    params: {
+      customerId,
+      ...(saleId ? { sourceType: 'SALE', sourceId: saleId } : {})
+    },
+  }).then((r) => r.data || []);
+};
 
 export const fetchProducts = () => API.get(endpoints.products);
 
@@ -362,10 +372,5 @@ export const updateUserStatus = (userId, isActive) =>
 
 export const updateUserRole = (userId, role) =>
   API.patch(endpoints.userRole(userId), { role }).then(r => r.data);
-
-// --- Auth related API ---
-// Use skipAuthRefresh on login to prevent refresh logic on login failure
-export const login = (payload) =>
-  API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
 
 export default API;

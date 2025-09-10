@@ -45,7 +45,6 @@ const Sidebar = () => {
     { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
     { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery' },
-    { text: 'reports', icon: <AssessmentIcon />, path: '/reports' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
   ];
@@ -76,7 +75,8 @@ const Sidebar = () => {
       onClick: () => setOpenReports((prev) => !prev),
       children: [
         { text: 'overview', icon: <AssessmentIcon />, path: '/reports' },
-        { text: 'salesReport', icon: <AssessmentIcon />, path: '/reports/sales' },
+        { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily' },
+        { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary' },
         { text: 'gstSummary', icon: <AssessmentIcon />, path: '/reports/gst-summary' },
         { text: 'gstBreakdown', icon: <AssessmentIcon />, path: '/reports/gst-breakdown' },
         { text: 'itemsSold', icon: <AssessmentIcon />, path: '/reports/items-sold' },

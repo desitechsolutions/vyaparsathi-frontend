@@ -33,6 +33,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
+import SettingsDialog from '../settings/SettingsDialog'; 
 
 const AppBranding = () => {
   const { t } = useTranslation();
@@ -62,6 +63,7 @@ const Header = () => {
    const { alertCount, criticalCount } = useAlerts();
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+  const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -94,7 +96,7 @@ const Header = () => {
   };
   const handleSettings = () => {
     handleClose();
-    // Navigate to settings if implemented
+    setOpenSettingsDialog(true);
   };
   const handleOpenSupport = () => setOpenSupportDialog(true);
   const handleCloseSupport = () => setOpenSupportDialog(false);
@@ -107,7 +109,6 @@ const Header = () => {
     // --- START: ALERT LOGIC ---
   const lowCount = alertCount - criticalCount;
   let tooltipMessage = '';
-
 
   console.log('Alert counts - Critical:', criticalCount, 'Low:', lowCount);
   if (criticalCount > 0 && lowCount > 0) {
@@ -235,6 +236,7 @@ const Header = () => {
                 </Box>
               </Dialog>
               <UserProfile open={openProfileModal} onClose={handleCloseProfileModal} />
+              <SettingsDialog open={openSettingsDialog} onClose={() => setOpenSettingsDialog(false)} />
             </>
           )}
         </Box>
