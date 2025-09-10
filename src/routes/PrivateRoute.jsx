@@ -1,18 +1,30 @@
-import React, { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { isAuthenticated } from '../utils/auth';
-import Sidebar from '../components/layout/Sidebar';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import useShopConfig from '../hooks/useShopConfig';
+import { useAuthContext } from '../context/AuthContext';
 
 function PrivateRoute({ children }) {
-  const auth = isAuthenticated();
+  const { user, loading: authLoading } = useAuthContext();
+  const { shop, loading: shopLoading } = useShopConfig();
+  const location = useLocation();
 
-  useEffect(() => {
-    if (!auth) {
-      window.location.href = '/login'; // Force redirect if token becomes invalid
-    }
-  }, [auth]);
+  if (authLoading || shopLoading) {
+    return <div>Loading...</div>;
+  }
 
-  return auth ? <Sidebar>{children}</Sidebar> : <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!shop && location.pathname !== '/setup-shop') {
+    return <Navigate to="/setup-shop" replace />;
+  }
+
+  if (shop && location.pathname === '/setup-shop') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 export default PrivateRoute;

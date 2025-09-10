@@ -25,7 +25,7 @@ import {
   fetchSalesSummary,
   fetchGstSummary,
   fetchGstBreakdown,
-} from '../services/api';
+} from '../../services/api';
 
 // Helper function to format date to YYYY-MM-DD
 const formatDate = (date) => date.toISOString().split('T')[0];

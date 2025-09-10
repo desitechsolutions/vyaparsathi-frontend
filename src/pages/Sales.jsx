@@ -1,135 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Button,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Alert,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Box,
-  CircularProgress,
-  Divider,
-  IconButton,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { Document, Page } from 'react-pdf';
-import Select from 'react-select';
-import { createSale, fetchCustomers, createCustomer, fetchItemVariants } from '../services/api';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
+import SalesTabs from '../components/Sales/SalesTabs';
+import CustomerSection from '../components/Sales/CustomerSection';
+import ItemSection from '../components/Sales/ItemSection';
+import SalesSummary from '../components/Sales/SalesSummary';
+import InvoiceModal from '../components/Sales/InvoiceModal';
+import SalesHistory from '../components/Sales/SalesHistory';
+import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
+import { fetchCustomers, createSale, fetchItemVariants, createCustomer } from '../services/api';
+import { pdfjs } from 'react-pdf';
+import { useSearchParams } from 'react-router-dom';
 
-// TabPanel definition
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
+// Utility: debounce
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+const initialItem = {
+  id: '',
+  sku: '',
+  qty: '', // allow string for better input UX
+  unitPrice: 0,
+  itemName: '',
+  description: '',
+  color: '',
+  size: '',
+  brand: '',
+  design: '',
+  currentStock: 0,
 };
 
-const customStyles = {
-  control: (provided) => ({
-    ...provided,
-    fontSize: { xs: '0.75rem', md: '0.85rem' },
-    marginBottom: '1rem',
-  }),
-  menu: (provided) => ({
-    ...provided,
-    zIndex: 9999,
-  }),
-  menuList: (provided) => ({
-    ...provided,
-    maxHeight: 200,
-    overflowY: 'auto',
-  }),
-  option: (provided, state) => ({
-    ...provided,
-    fontSize: { xs: '0.75rem', md: '0.85rem' },
-    color: state.isSelected
-      ? '#fff'
-      : state.data.value === ''
-      ? '#6b7280'
-      : '#111827',
-    backgroundColor: state.isSelected
-      ? '#3b82f6'
-      : state.isFocused
-      ? '#e5e7eb'
-      : 'white',
-  }),
-  singleValue: (provided, state) => ({
-    ...provided,
-    color: state.data.value === '' ? '#6b7280' : '#111827',
-  }),
+const initialCustomer = {
+  name: '',
+  phone: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: '',
+  gstNumber: '',
+  panNumber: '',
+  notes: '',
+  creditBalance: 0,
+};
+
+const initialFormData = {
+  customerId: '',
+  items: [],
+  totalAmount: 0,
+  isGstRequired: 'no',
+  discount: 0,
+  paymentMethods: [{ method: 'Cash', amount: 0 }],
+  remaining: 0,
+  paymentStatus: 'Pending',
+  deliveryRequired: false,
+    deliveryAddress: '',
+    deliveryCharge: '',
+    deliveryPaidBy: '',
+    deliveryNotes: '',
+    deliveryStatus: "PACKED",
 };
 
 const Sales = () => {
-  const [formData, setFormData] = useState({
-    customerId: '',
-    items: [],
-    totalAmount: 0,
-    isGstRequired: 'no',
-  });
-  const [item, setItem] = useState({
-    itemVariantId: '',
-    sku: '',
-    qty: 1,
-    unitPrice: 0,
-    itemName: '',
-    description: '',
-    color: '',
-    size: '',
-    design: '',
-    availableQuantity: 0,
-  });
+  // State
+  const [formData, setFormData] = useState(initialFormData);
+  const [item, setItem] = useState(initialItem);
   const [salesHistory, setSalesHistory] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [variants, setVariants] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [openInvoiceModal, setOpenInvoiceModal] = useState(false);
   const [invoicePdf, setInvoicePdf] = useState(null);
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [newCustomerData, setNewCustomerData] = useState({
-    name: '',
-    phone: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: '',
-    gstNumber: '',
-    panNumber: '',
-    notes: '',
-    creditBalance: 0,
-  });
+  const [newCustomerData, setNewCustomerData] = useState(initialCustomer);
   const [searchParams, setSearchParams] = useState({
     name: '',
     sku: '',
@@ -137,89 +93,100 @@ const Sales = () => {
     size: '',
     design: '',
     category: '',
+    fabric: '',
+    season: '',
+    fit: '',
   });
-  const [uniqueNames, setUniqueNames] = useState([]);
-  const [uniqueSkus, setUniqueSkus] = useState([]);
-  const [uniqueColors, setUniqueColors] = useState([]);
-  const [uniqueSizes, setUniqueSizes] = useState([]);
-  const [uniqueDesigns, setUniqueDesigns] = useState([]);
-  const [uniqueCategory, setUniqueCategory] = useState([]);
+  const [showReviewPage, setShowReviewPage] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [editIndex, setEditIndex] = useState(null);
+  const [itemError, setItemError] = useState('');
 
-  useEffect(() => {
-    fetchCustomers().then((res) =>
-      setCustomers(
-        res.data.map((cust) => ({
-          value: cust.id,
-          label: `${cust.name} (Address: ${cust.addressLine1 || 'N/A'}, Phone: ${cust.phone || 'N/A'}, GST: ${cust.gstNumber || 'N/A'})`,
-          addressLine1: cust.addressLine1,
-          phone: cust.phone,
-          gstNumber: cust.gstNumber,
-        }))
-      )
-    );
-  }, []);
-
-  useEffect(() => {
-    const params = Object.fromEntries(
-      Object.entries(searchParams).filter(([key, value]) => value)
-    );
-    fetchItemVariants(params, 'http://localhost:8080/api/item-variants')
+  const loadVariants = useCallback(() => {
+    setLoading(true);
+    fetchItemVariants({}, 'http://localhost:8080/api/item-variants')
       .then((res) => {
-        console.log('Variants API Response:', res.data);
         if (res.data && Array.isArray(res.data)) {
-          const variantOptions = res.data.map((v) => ({
-            value: v.itemVariantId,
-            label: `${v.itemName} (${v.color}, ${v.size}, ${v.design}) - SKU: ${v.sku}`,
-            itemVariantId: v.itemVariantId,
-            sku: v.sku,
-            unitPrice: v.pricePerUnit,
-            availableQuantity: v.availableQuantity || 0,
-            itemName: v.itemName,
-            description: v.description || '',
-            color: v.color || '',
-            size: v.size || '',
-            design: v.design || '',
-          }));
-          setVariants(variantOptions);
-
-          const names = [...new Set(res.data.map(v => v.itemName).filter(Boolean))];
-          const skus = [...new Set(res.data.map(v => v.sku).filter(Boolean))];
-          const colors = [...new Set(res.data.map(v => v.color).filter(Boolean))];
-          const sizes = [...new Set(res.data.map(v => v.size).filter(Boolean))];
-          const designs = [...new Set(res.data.map(v => v.design).filter(Boolean))];
-          const categories = [...new Set(res.data.map(v => v.category).filter(Boolean))];
-
-          setUniqueNames([{ value: '', label: 'All Names' }, ...names.map(n => ({ value: n, label: n }))]);
-          setUniqueSkus([{ value: '', label: 'All SKUs' }, ...skus.map(s => ({ value: s, label: s }))]);
-          setUniqueColors([{ value: '', label: 'All Colors' }, ...colors.map(c => ({ value: c, label: c }))]);
-          setUniqueSizes([{ value: '', label: 'All Sizes' }, ...sizes.map(s => ({ value: s, label: s }))]);
-          setUniqueDesigns([{ value: '', label: 'All Designs' }, ...designs.map(d => ({ value: d, label: d }))]);
-          setUniqueCategory([{ value: '', label: 'All Categories' }, ...categories.map(c => ({ value: c, label: c }))]);
+          setVariants(res.data.map((v) => ({
+            value: v.id,
+            label: `${v.itemName} (${v.color}, ${v.size}, ${v.brand ? v.brand + ', ' : ''}${v.design}) - SKU: ${v.sku}`,
+            ...v,
+          })));
         } else {
           setVariants([]);
-          setUniqueNames([{ value: '', label: 'All Names' }]);
-          setUniqueSkus([{ value: '', label: 'All SKUs' }]);
-          setUniqueColors([{ value: '', label: 'All Colors' }]);
-          setUniqueSizes([{ value: '', label: 'All Sizes' }]);
-          setUniqueDesigns([{ value: '', label: 'All Designs' }]);
-          setUniqueCategory([{ value: '', label: 'All Categories' }]);
         }
       })
-      .catch((err) => {
-        console.error('Error fetching variants:', err);
-        setVariants([]);
-        setUniqueNames([{ value: '', label: 'All Names' }]);
-        setUniqueSkus([{ value: '', label: 'All SKUs' }]);
-        setUniqueColors([{ value: '', label: 'All Colors' }]);
-        setUniqueSizes([{ value: '', label: 'All Sizes' }]);
-        setUniqueDesigns([{ value: '', label: 'All Designs' }]);
-        setUniqueCategory([{ value: '', label: 'All Categories' }]);
-      });
-  }, [searchParams]);
+      .catch(() => setSnackbar({ open: true, message: 'Failed to load items.', severity: 'error' }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const [urlParams] = useSearchParams();
+
+  useEffect(() => {
+    const tab = urlParams.get('tab');
+    if (tab === 'history') {
+      setTabValue(1);
+    } else {
+      setTabValue(0);
+    }
+  }, [urlParams]);
+
+  useEffect(() => {
+    loadVariants();
+    setLoadingCustomers(true);
+    fetchCustomers()
+      .then((res) => {
+        setCustomers(
+          res.data.map((cust) => ({
+            value: cust.id,
+            label: `${cust.name} (Address: ${cust.addressLine1 || 'N/A'}, Phone: ${cust.phone || 'N/A'}, GST: ${cust.gstNumber || 'N/A'})`,
+            ...cust,
+          }))
+        );
+      })
+      .catch(() => setSnackbar({ open: true, message: 'Failed to load customers.', severity: 'error' }))
+      .finally(() => setLoadingCustomers(false));
+  }, [loadVariants]);
+
+  const handleCloseInvoiceModal = () => {
+    setOpenInvoiceModal(false);
+    loadVariants();
+  };
+
+  // Unique filter options (memoized)
+  const uniqueNames = useMemo(() => [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))], [variants]);
+  const uniqueSkus = useMemo(() => [{ value: '', label: 'All SKUs' }, ...[...new Set(variants.map(v => v.sku).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
+  const uniqueColors = useMemo(() => [{ value: '', label: 'All Colors' }, ...[...new Set(variants.map(v => v.color).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
+  const uniqueSizes = useMemo(() => [{ value: '', label: 'All Sizes' }, ...[...new Set(variants.map(v => v.size).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
+  const uniqueDesigns = useMemo(() => [{ value: '', label: 'All Designs' }, ...[...new Set(variants.map(v => v.design).filter(Boolean))].map(d => ({ value: d, label: d }))], [variants]);
+  const uniqueCategory = useMemo(() => [{ value: '', label: 'All Categories' }, ...[...new Set(variants.map(v => v.categoryName).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
+  const uniqueFabrics = useMemo(() => [{ value: '', label: 'All Fabrics' }, ...[...new Set(variants.map(v => v.fabric).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
+  const uniqueSeasons = useMemo(() => [{ value: '', label: 'All Seasons' }, ...[...new Set(variants.map(v => v.season).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
+  const uniqueFits = useMemo(() => [{ value: '', label: 'All Fits' }, ...[...new Set(variants.map(v => v.fit).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
+
+  // Filtered variants (client-side filtering)
+  const filteredVariants = useMemo(() => {
+    return variants.filter(v =>
+      (!searchParams.name || v.itemName === searchParams.name) &&
+      (!searchParams.sku || v.sku === searchParams.sku) &&
+      (!searchParams.color || v.color === searchParams.color) &&
+      (!searchParams.size || v.size === searchParams.size) &&
+      (!searchParams.design || v.design === searchParams.design) &&
+      (!searchParams.category || v.categoryName === searchParams.category) &&
+      (!searchParams.fabric || v.fabric === searchParams.fabric) &&
+      (!searchParams.season || v.season === searchParams.season) &&
+      (!searchParams.fit || v.fit === searchParams.fit)
+    );
+  }, [variants, searchParams]);
+
+  const debouncedSetSearchParams = useMemo(
+    () => debounce((field, value) => setSearchParams(prev => ({ ...prev, [field]: value })), 300),
+    []
+  );
 
   useEffect(() => {
     const newTotal = formData.items.reduce(
-      (sum, currentItem) => sum + currentItem.qty * currentItem.unitPrice,
+      (sum, currentItem) => sum + Number(currentItem.qty) * currentItem.unitPrice,
       0
     );
     setFormData((prevData) => ({
@@ -228,68 +195,118 @@ const Sales = () => {
     }));
   }, [formData.items]);
 
+  // Handlers
   const handleAddItem = () => {
-    if (!item.itemVariantId || !item.qty || !item.unitPrice || item.qty > item.availableQuantity) {
-      setError('Please select an item, specify quantity, and ensure stock is available.');
+    setItemError('');
+    const quantity = Number(item.qty);
+    if (!item.id || !item.unitPrice) {
+      setItemError('Please select an item.');
       return;
     }
-    setFormData({
-      ...formData,
-      items: [...formData.items, item],
-    });
-    setItem({
-      itemVariantId: '',
-      sku: '',
-      qty: 1,
-      unitPrice: 0,
-      itemName: '',
-      description: '',
-      color: '',
-      size: '',
-      design: '',
-      availableQuantity: 0,
-    });
+    if (isNaN(quantity) || quantity <= 0) {
+      setItemError('Please specify a valid quantity greater than 0.');
+      return;
+    }
+
+    const uniqueKey = (it) => [it.id, it.size, it.color, it.brand, it.design].join('_');
+    const key = uniqueKey(item);
+
+    let existingQty = 0;
+    if (editIndex === null) {
+      existingQty = formData.items
+        .filter(it => uniqueKey(it) === key)
+        .reduce((sum, it) => sum + Number(it.qty), 0);
+    } else {
+      existingQty = formData.items
+        .filter((it, idx) => uniqueKey(it) === key && idx !== editIndex)
+        .reduce((sum, it) => sum + Number(it.qty), 0);
+    }
+    const intendedQty = existingQty + quantity;
+
+    let availableStock = item.currentStock;
+    if (!availableStock || isNaN(availableStock)) {
+      const foundVariant = variants.find(v => v.id === item.id);
+      availableStock = foundVariant ? foundVariant.currentStock : 0;
+    }
+
+    if (intendedQty > availableStock) {
+      setItemError(`Cannot add more than available stock (${availableStock}). You already have ${existingQty} in this sale.`);
+      return;
+    }
+
+    let newItems;
+    if (editIndex !== null) {
+      newItems = [...formData.items];
+      newItems[editIndex] = { ...item, qty: quantity };
+    } else {
+      const existingIndex = formData.items.findIndex(
+        (it) => uniqueKey(it) === key
+      );
+      if (existingIndex !== -1) {
+        newItems = [...formData.items];
+        newItems[existingIndex] = {
+          ...newItems[existingIndex],
+          qty: Number(newItems[existingIndex].qty) + quantity
+        };
+      } else {
+        newItems = [...formData.items, { ...item, qty: quantity }];
+      }
+    }
+    setFormData({ ...formData, items: newItems });
+    setItem(initialItem);
     setSelectedVariant(null);
-    setError('');
+    setEditIndex(null);
+  };
+
+  const handleEditItem = (index) => {
+    const editItem = formData.items[index];
+    setItem({ ...editItem, qty: String(editItem.qty) });
+    setSelectedVariant(
+      variants.find(
+        v =>
+          v.id === editItem.id &&
+          v.size === editItem.size &&
+          v.color === editItem.color &&
+          v.brand === editItem.brand &&
+          v.design === editItem.design
+      ) || null
+    );
+    setEditIndex(index);
+    setItemError('');
   };
 
   const handleRemoveItem = (index) => {
     const updatedItems = formData.items.filter((_, i) => i !== index);
     setFormData({ ...formData, items: updatedItems });
+    if (editIndex === index) {
+      setItem(initialItem);
+      setSelectedVariant(null);
+      setEditIndex(null);
+    }
   };
 
   const handleVariantSelect = (selectedOption) => {
     if (selectedOption) {
       setSelectedVariant(selectedOption);
-      setItem({
-        itemVariantId: selectedOption.itemVariantId,
+      setItem((prevItem) => ({
+        id: selectedOption.id,
         sku: selectedOption.sku,
-        qty: 1,
-        unitPrice: selectedOption.unitPrice,
+        qty: (editIndex !== null && prevItem.id === selectedOption.id) ? prevItem.qty : '1',
+        unitPrice: selectedOption.pricePerUnit,
         itemName: selectedOption.itemName,
         description: selectedOption.description,
         color: selectedOption.color,
         size: selectedOption.size,
+        brand: selectedOption.brand || '',
         design: selectedOption.design,
-        availableQuantity: selectedOption.availableQuantity,
-      });
+        currentStock: selectedOption.currentStock,
+      }));
+      setItemError('');
     } else {
       setSelectedVariant(null);
-      setItem({
-        itemVariantId: '',
-        sku: '',
-        qty: 1,
-        unitPrice: 0,
-        itemName: '',
-        description: '',
-        color: '',
-        size: '',
-        design: '',
-        availableQuantity: 0,
-      });
+      setItem(initialItem);
     }
   };
-
 
   const handleCustomerSelect = (selectedOption) => {
     setSelectedCustomer(selectedOption);
@@ -306,684 +323,206 @@ const Sales = () => {
   };
 
   const handleSearchParamChange = (field, selectedOption) => {
-    setSearchParams((prev) => ({
-      ...prev,
-      [field]: selectedOption?.value || '',
-    }));
+    debouncedSetSearchParams(field, selectedOption?.value || '');
   };
 
   const handleNewCustomer = async () => {
-    const res = await createCustomer(newCustomerData);
-    const newCustomer = {
-      value: res.data.id,
-      label: `${res.data.name} (Address: ${res.data.addressLine1 || 'N/A'}, Phone: ${res.data.phone || 'N/A'}, GST: ${res.data.gstNumber || 'N/A'})`,
-      addressLine1: res.data.addressLine1,
-      phone: res.data.phone,
-      gstNumber: res.data.gstNumber,
-    };
-    setCustomers([...customers, newCustomer]);
-    setSelectedCustomer(newCustomer);
-    setFormData((prevData) => ({ ...prevData, customerId: res.data.id }));
-    setOpenCustomerModal(false);
-    setNewCustomerData({
-      name: '',
-      phone: '',
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      postalCode: '',
-      country: '',
-      gstNumber: '',
-      panNumber: '',
-      notes: '',
-      creditBalance: 0,
-    });
+    try {
+      const res = await createCustomer(newCustomerData);
+      const newCustomer = {
+        value: res.data.id,
+        label: `${res.data.name} (Address: ${res.data.addressLine1 || 'N/A'}, Phone: ${res.data.phone || 'N/A'}, GST: ${res.data.gstNumber || 'N/A'})`,
+        ...res.data,
+      };
+      setCustomers([...customers, newCustomer]);
+      setSelectedCustomer(newCustomer);
+      setFormData((prevData) => ({ ...prevData, customerId: res.data.id }));
+      setOpenCustomerModal(false);
+      setNewCustomerData(initialCustomer);
+      setSnackbar({ open: true, message: 'Customer added successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to add customer.', severity: 'error' });
+    }
   };
 
-  const handleSubmit = async () => {
+  const handleProceedToReview = () => {
     if (!formData.customerId || formData.items.length === 0) {
-      setError('Please provide a customer and add at least one item.');
+      setSnackbar({ open: true, message: 'Please provide a customer and add at least one item.', severity: 'error' });
       return;
     }
+    setShowReviewPage(true);
+  };
+
+  const handleSubmitSale = async (payload, discount, sendInvoice) => {
     setLoading(true);
-    setError('');
     try {
+      const { sale, paymentDetails = [] } = payload;
       const saleData = {
-        customerId: formData.customerId,
-        items: formData.items,
-        paymentMethod: 'Cash',
-        isGstRequired: formData.isGstRequired === 'yes',
+        customerId: sale.customerId,
+        items: sale.items,
+        totalAmount: parseFloat(sale.totalAmount),
+        roundOff: 0,
+        date: new Date().toISOString(),
+        isGstRequired: sale.isGstRequired,
+        discount: discount,
+        paymentDetails: paymentDetails.map(pm => ({
+          amount: pm.amount,
+          paymentMethod: pm.paymentMethod,
+          paymentDate: pm.paymentDate || new Date().toISOString(),
+          reference: pm.reference || "",
+          notes: pm.notes || "",
+          transactionId: pm.transactionId || "",
+        })),
+        delivery: formData.deliveryRequired
+          ? {
+              deliveryAddress: formData.deliveryAddress,
+              deliveryCharge: formData.deliveryCharge ? parseFloat(formData.deliveryCharge) : 0,
+              deliveryPaidBy: formData.deliveryPaidBy,
+              deliveryStatus: "PACKED",
+              deliveryNotes: formData.deliveryNotes,
+            }
+          : null,
       };
-      const response = await createSale(saleData);
-      setSalesHistory([...salesHistory, formData]);
-      setFormData({
-        customerId: '',
-        items: [],
-        totalAmount: 0,
-        isGstRequired: 'no',
-      });
+      const saleResponse = await createSale(saleData);
+      const totalPaid = paymentDetails.reduce((sum, pm) => sum + (pm.amount || 0), 0);
+      const remaining = parseFloat(sale.totalAmount) - totalPaid;
+      const paymentStatus = remaining > 0 ? 'PARTIALLY_PAID' : 'PAID';
+      setSalesHistory([...salesHistory, { ...saleData, paymentDetails, remaining: remaining.toFixed(2), paymentStatus }]);
+      setFormData(initialFormData);
       setSelectedCustomer(null);
       setSelectedVariant(null);
-      setItem({
-        itemVariantId: '',
-        sku: '',
-        qty: 1,
-        unitPrice: 0,
-        itemName: '',
-        description: '',
-        color: '',
-        size: '',
-        design: '',
-        availableQuantity: 0,
-      });
-      setInvoicePdf(response.data);
+      setItem(initialItem);
+      setEditIndex(null);
+      if (saleResponse.data && saleResponse.data instanceof Uint8Array) {
+        setInvoicePdf(saleResponse.data);
+        if (sendInvoice) {
+          // Optionally send invoice to customer
+        }
+      } else {
+        setInvoicePdf(null);
+      }
+      setShowReviewPage(false);
       setOpenInvoiceModal(true);
-    } catch (err) {
-      setError('Failed to create sale.');
+      setSnackbar({ open: true, message: 'Sale created successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to create sale.', severity: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
+  const handleSaveDraft = () => {
+    setSalesHistory([...salesHistory, { ...formData, status: 'Draft' }]);
+    setShowReviewPage(false);
+    setFormData(initialFormData);
+    setSelectedCustomer(null);
+    setSelectedVariant(null);
+    setItem(initialItem);
+    setEditIndex(null);
+    setSnackbar({ open: true, message: 'Draft saved.', severity: 'info' });
   };
+
+  const onDocumentLoadSuccess = ({ numPages }) => setNumPages(numPages);
+
+  const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f5f5f8', minHeight: '100vh' }}>
-      <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} centered>
-        <Tab label="Create Sale" />
-        <Tab label="Sales History" />
-      </Tabs>
-
-      <TabPanel value={tabValue} index={0}>
-        <Typography
-          variant="h4"
-          gutterBottom
-          align="center"
-          sx={{ fontWeight: 'bold', mb: 4, color: '#1976d2', fontSize: { xs: '1.5rem', md: '2rem' } }}
-        >
-          Create New Sale
-        </Typography>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card raised sx={{ p: 2, boxShadow: 3 }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-                >
-                  Customer Details
-                </Typography>
-                <Select
-                  options={customers}
-                  onChange={handleCustomerSelect}
-                  placeholder="Select Customer"
-                  isSearchable
-                  isClearable
-                  value={selectedCustomer}
-                  styles={{
-                    container: (provided) => ({ ...provided, marginBottom: '1rem' }),
-                    menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                  }}
-                />
-                <Button
-                  variant="outlined"
-                  onClick={() => setOpenCustomerModal(true)}
-                  sx={{ mb: 2, fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                >
-                  Add New Customer
-                </Button>
-                <RadioGroup
-                  row
-                  value={formData.isGstRequired}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, isGstRequired: e.target.value }))}
-                  sx={{ mb: 2 }}
-                >
-                  <FormControlLabel value="no" control={<Radio />} label="No GST" />
-                  <FormControlLabel value="yes" control={<Radio />} label="Require GST Invoice" />
-                </RadioGroup>
-                <TextField
-                  label="Total Amount"
-                  fullWidth
-                  variant="outlined"
-                  value={formData.totalAmount}
-                  disabled
-                  sx={{ mb: 2, fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Card raised sx={{ p: 2, boxShadow: 3 }}>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-                >
-                  Add Items to Sale
-                </Typography>
-                <Card sx={{ p: 2, mb: 2, bgcolor: '#fff' }}>
-                  <Typography
-                    variant="subtitle1"
-                    gutterBottom
-                    sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }}
-                  >
-                    Search Filters
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Category
-                      </Typography>
-                      <Select
-                        options={uniqueCategory}
-                        value={uniqueCategory.find((option) => option.value === searchParams.category) || null}
-                        onChange={(option) => handleSearchParamChange('category', option)}
-                        isSearchable
-                        placeholder="All Categories"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No categories found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Name
-                      </Typography>
-                      <Select
-                        options={uniqueNames}
-                        value={uniqueNames.find((option) => option.value === searchParams.name) || null}
-                        onChange={(option) => handleSearchParamChange('name', option)}
-                        isSearchable
-                        placeholder="All Names"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No names found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        SKU
-                      </Typography>
-                      <Select
-                        options={uniqueSkus}
-                        value={uniqueSkus.find((option) => option.value === searchParams.sku) || null}
-                        onChange={(option) => handleSearchParamChange('sku', option)}
-                        isSearchable
-                        placeholder="All SKUs"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No SKUs found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Color
-                      </Typography>
-                      <Select
-                        options={uniqueColors}
-                        value={uniqueColors.find((option) => option.value === searchParams.color) || null}
-                        onChange={(option) => handleSearchParamChange('color', option)}
-                        isSearchable
-                        placeholder="All Colors"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No colors found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Size
-                      </Typography>
-                      <Select
-                        options={uniqueSizes}
-                        value={uniqueSizes.find((option) => option.value === searchParams.size) || null}
-                        onChange={(option) => handleSearchParamChange('size', option)}
-                        isSearchable
-                        placeholder="All Sizes"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No sizes found"}
-                        isClearable
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontSize: { xs: '0.75rem', md: '0.85rem' } }}>
-                        Design
-                      </Typography>
-                      <Select
-                        options={uniqueDesigns}
-                        value={uniqueDesigns.find((option) => option.value === searchParams.design) || null}
-                        onChange={(option) => handleSearchParamChange('design', option)}
-                        isSearchable
-                        placeholder="All Designs"
-                        styles={customStyles}
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        noOptionsMessage={() => "No designs found"}
-                        isClearable
-                      />
-                    </Grid>
-                  </Grid>
-                </Card>
-                <Select
-                  options={variants}
-                  onChange={handleVariantSelect}
-                  placeholder="Select Variant"
-                  isClearable
-                  value={selectedVariant}
-                  styles={{
-                    container: (provided) => ({ ...provided, margin: '1rem 0', fontSize: { xs: '0.75rem', md: '0.85rem' } }),
-                    menu: (provided) => ({ ...provided, zIndex: 9999 }),
-                  }}
-                />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="SKU"
-                      fullWidth
-                      variant="outlined"
-                      value={item.sku}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Item Name"
-                      fullWidth
-                      variant="outlined"
-                      value={item.itemName}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Description"
-                      fullWidth
-                      variant="outlined"
-                      value={item.description}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Color"
-                      fullWidth
-                      variant="outlined"
-                      value={item.color}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Size"
-                      fullWidth
-                      variant="outlined"
-                      value={item.size}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Design"
-                      fullWidth
-                      variant="outlined"
-                      value={item.design}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Unit Price"
-                      fullWidth
-                      variant="outlined"
-                      value={item.unitPrice}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Available Quantity"
-                      fullWidth
-                      variant="outlined"
-                      value={item.availableQuantity}
-                      disabled
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
-                    <TextField
-                      label="Quantity"
-                      fullWidth
-                      variant="outlined"
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) => setItem({ ...item, qty: parseInt(e.target.value) || 1 })}
-                      sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-                    />
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleAddItem}
-                    sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-                  >
-                    Add Item
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Box sx={{ mt: 4 }}>
-          <Card raised sx={{ boxShadow: 3 }}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                gutterBottom
-                sx={{ fontWeight: 'medium', fontSize: { xs: '1.1rem', md: '1.25rem' } }}
-              >
-                Items in Sale ({formData.items.length})
-              </Typography>
-              {formData.items.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No items added yet.
-                </Typography>
-              ) : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Item Name</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Qty</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Unit Price
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Total
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        Actions
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {formData.items.map((saleItem, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{saleItem.itemName}</TableCell>
-                        <TableCell>{saleItem.qty}</TableCell>
-                        <TableCell align="right">₹{saleItem.unitPrice}</TableCell>
-                        <TableCell align="right">
-                          ₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            color="error"
-                            size="small"
-                            onClick={() => handleRemoveItem(index)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-            <Divider />
-            <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-              {error && <Alert severity="error" sx={{ mr: 2 }}>{error}</Alert>}
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setFormData({ customerId: '', items: [], totalAmount: 0, isGstRequired: 'no' });
-                  setSelectedCustomer(null);
-                  setSelectedVariant(null);
-                  setItem({
-                    itemVariantId: '',
-                    sku: '',
-                    qty: 1,
-                    unitPrice: 0,
-                    itemName: '',
-                    description: '',
-                    color: '',
-                    size: '',
-                    design: '',
-                    availableQuantity: 0,
-                  });
-                  setSearchParams({
-                    name: '',
-                    sku: '',
-                    color: '',
-                    size: '',
-                    design: '',
-                    category: '',
-                  });
-                }}
-                sx={{ mr: 2, textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-              >
-                Clear Form
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmit}
-                disabled={loading || formData.items.length === 0}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
-                sx={{ textTransform: 'none', fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-              >
-                {loading ? 'Submitting...' : 'Submit Sale'}
-              </Button>
-            </CardActions>
-          </Card>
-        </Box>
-
-        {/* New Customer Modal */}
-        <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)}>
-          <DialogTitle>Add New Customer</DialogTitle>
-          <DialogContent>
-            <TextField
-              label="Name"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.name}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
+      <SalesTabs value={tabValue} onChange={setTabValue} />
+      <SalesTabs.Panel value={tabValue} index={0}>
+        {(loading || loadingCustomers) ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+            <CircularProgress />
+          </Box>
+        ) : !showReviewPage ? (
+          <>
+            <CustomerSection
+              customers={customers}
+              selectedCustomer={selectedCustomer}
+              formData={formData}
+              setFormData={setFormData}
+              newCustomerData={newCustomerData}
+              setNewCustomerData={setNewCustomerData}
+              handleCustomerSelect={handleCustomerSelect}
+              handleNewCustomer={handleNewCustomer}
+              openCustomerModal={openCustomerModal}
+              setOpenCustomerModal={setOpenCustomerModal}
             />
-            <TextField
-              label="Phone"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.phone}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
+            <ItemSection
+              variants={filteredVariants}
+              selectedVariant={selectedVariant}
+              item={item}
+              setItem={setItem}
+              uniqueNames={uniqueNames}
+              uniqueSkus={uniqueSkus}
+              uniqueColors={uniqueColors}
+              uniqueSizes={uniqueSizes}
+              uniqueDesigns={uniqueDesigns}
+              uniqueCategory={uniqueCategory}
+              uniqueFabrics={uniqueFabrics}
+              uniqueSeasons={uniqueSeasons}
+              uniqueFits={uniqueFits}
+              searchParams={searchParams}
+              handleVariantSelect={handleVariantSelect}
+              handleSearchParamChange={handleSearchParamChange}
+              handleAddItem={handleAddItem}
+              error={itemError}
+              setError={setItemError}
+              editIndex={editIndex}
             />
-            <TextField
-              label="Address Line 1"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.addressLine1}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
+            <SalesSummary
+              formData={formData}
+              handleRemoveItem={handleRemoveItem}
+              handleEditItem={handleEditItem}
+              handleProceedToReview={handleProceedToReview}
+              loading={loading}
+              setFormData={setFormData}
+              selectedCustomer={selectedCustomer}
+              selectedVariant={selectedVariant}
+              setSelectedCustomer={setSelectedCustomer}
+              setSelectedVariant={setSelectedVariant}
+              setItem={setItem}
+              setSearchParams={setSearchParams}
+              item={item}
+              editIndex={editIndex}
+              proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
             />
-            <TextField
-              label="Address Line 2"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.addressLine2}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine2: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="City"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.city}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="State"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.state}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, state: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Postal Code"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.postalCode}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, postalCode: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Country"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.country}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, country: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="GST Number"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.gstNumber}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="PAN Number"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.panNumber}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, panNumber: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Notes"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.notes}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-            <TextField
-              label="Credit Balance"
-              fullWidth
-              margin="dense"
-              value={newCustomerData.creditBalance}
-              onChange={(e) => setNewCustomerData({ ...newCustomerData, creditBalance: e.target.value })}
-              sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenCustomerModal(false)} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Cancel
-            </Button>
-            <Button onClick={handleNewCustomer} color="primary" sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Save
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Invoice Preview Modal */}
-        <Dialog open={openInvoiceModal} onClose={() => setOpenInvoiceModal(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Invoice Preview</DialogTitle>
-          <DialogContent>
-            <Document
-              file={`data:application/pdf;base64,${btoa(String.fromCharCode(...new Uint8Array(invoicePdf)))}`}
-              onLoadSuccess={onDocumentLoadSuccess}
-            >
-              <Page pageNumber={pageNumber} />
-            </Document>
-            <Typography>Page {pageNumber} of {numPages}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPageNumber(Math.max(1, pageNumber - 1))} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Previous
-            </Button>
-            <Button onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Next
-            </Button>
-            <Button onClick={() => setOpenInvoiceModal(false)} sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
-              Close
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => window.open(`data:application/pdf;base64,${btoa(String.fromCharCode(...new Uint8Array(invoicePdf)))}`)}
-              sx={{ fontSize: { xs: '0.8rem', md: '0.9rem' } }}
-            >
-              Download
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <Typography
-          variant="h5"
-          gutterBottom
-          align="center"
-          sx={{ fontWeight: 'bold', mb: 4, color: '#1976d2', fontSize: { xs: '1.3rem', md: '1.5rem' } }}
-        >
-          Sales History
-        </Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Customer ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Total Amount</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {salesHistory.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center">
-                  No sales recorded yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              salesHistory.map((sale, index) => (
-                <TableRow key={index}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{sale.customerId}</TableCell>
-                  <TableCell>₹{sale.totalAmount}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TabPanel>
+          </>
+        ) : (
+          <ReviewPaymentPage
+            formData={formData}
+            selectedCustomer={selectedCustomer}
+            onConfirm={handleSubmitSale}
+            onSaveDraft={handleSaveDraft}
+            onCancel={() => setShowReviewPage(false)}
+            setError={msg => setSnackbar({ open: true, message: msg, severity: 'error' })}
+            loading={loading}
+          />
+        )}
+        <InvoiceModal
+          open={openInvoiceModal}
+          setOpen={setOpenInvoiceModal}
+          invoicePdf={invoicePdf}
+          pageNumber={pageNumber}
+          setPageNumber={setPageNumber}
+          numPages={numPages}
+          onDocumentLoadSuccess={onDocumentLoadSuccess}
+          onClose={handleCloseInvoiceModal}
+        />
+      </SalesTabs.Panel>
+      <SalesTabs.Panel value={tabValue} index={1}>
+        <SalesHistory salesHistory={salesHistory} />
+      </SalesTabs.Panel>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
