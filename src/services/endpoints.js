@@ -24,6 +24,7 @@ const endpoints = {
 
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
+  pendingPurchaseOrder: `${API_BASE}/purchase-orders/pending`,
   receivePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/receive`,
   submitPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/submit`,
 
@@ -102,6 +103,7 @@ const endpoints = {
 receiving: `${API_BASE}/receiving`,
 receivingById: (id) => `${API_BASE}/receiving/${id}`,
 receivingByPoId: (poId) => `${API_BASE}/receiving/by-po/${poId}`,
+receivingByPoNumber: (poNumber) => `${API_BASE}/receiving/by-po-number/${poNumber}`,
 receivingTickets: `${API_BASE}/receiving/tickets`,
 receivingTicketById: (id) => `${API_BASE}/receiving/tickets/${id}`,
 receiveGoods: `${API_BASE}/receiving/receive-goods`,

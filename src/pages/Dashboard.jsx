@@ -249,7 +249,7 @@ const Dashboard = () => {
           <Grid container spacing={2} sx={{ mt: 4 }}>
             <Grid item xs={12} md={6}>
               <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff", height: 340 }}>
-                <Typography variant="h6" gutterBottom align="center">Sales by Category</Typography>
+                <Typography variant="h6" gutterBottom align="center">{t("dashboardPage.salesByCategory")}</Typography>
                 {dashboardData.categorySales.length > 0 ? (
                   <ResponsiveContainer width="100%" height="90%">
                     <PieChart>
@@ -275,7 +275,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff", height: 340 }}>
-                <Typography variant="h6" gutterBottom align="center">Sales by Item</Typography>
+                <Typography variant="h6" gutterBottom align="center">{t("dashboardPage.salesByItem")}</Typography>
                 {dashboardData.itemSales.length > 0 ? (
                   <ResponsiveContainer width="100%" height="90%">
                     <PieChart>
@@ -304,7 +304,7 @@ const Dashboard = () => {
           <Grid container spacing={2} sx={{ mt: 4 }}>
             <Grid item xs={12}>
               <Paper elevation={3} sx={{ p: 3, borderRadius: "12px", bgcolor: "#fff" }}>
-                <Typography variant="h6" gutterBottom>Sales Trend</Typography>
+                <Typography variant="h6" gutterBottom>{t("dashboardPage.salesTrend")}</Typography>
                 {dashboardData.salesTimeSeries.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={dashboardData.salesTimeSeries}>

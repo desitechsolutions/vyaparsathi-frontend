@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
   GridToolbarContainer,
@@ -107,30 +108,33 @@ const initialVariantState = {
   fit: '',
 };
 
-const CustomToolbar = ({ onAddItemClick }) => (
-  <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <Box>
-      <GridToolbarFilterButton />
-      <GridToolbarColumnsButton />
-      <GridToolbarDensitySelector />
-    </Box>
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <GridToolbarQuickFilter
-        variant="outlined"
-        size="small"
-        placeholder="Search items..."
-        debounceMs={300}
-      />
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onAddItemClick}
-      >
-        Add New Item
-      </Button>
-    </Box>
-  </GridToolbarContainer>
-);
+const CustomToolbar = ({ onAddItemClick }) => {
+  const { t } = useTranslation();
+  return (
+    <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box>
+        <GridToolbarFilterButton />
+        <GridToolbarColumnsButton />
+        <GridToolbarDensitySelector />
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <GridToolbarQuickFilter
+          variant="outlined"
+          size="small"
+          placeholder={t('itemsPage.searchPlaceholder')}
+          debounceMs={300}
+        />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={onAddItemClick}
+        >
+          {t('itemsPage.addItem')}
+        </Button>
+      </Box>
+    </GridToolbarContainer>
+  );
+};
 
 const VariantDetailDisplay = ({ item, stockData, onDeleteVariant }) => {
   const stockLookup = useMemo(() => {
@@ -461,13 +465,14 @@ const Items = () => {
     setOpenViewVariantsDialog(true);
   };
 
+  const { t } = useTranslation();
   const columns = [
-    { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 200 },
-    { field: 'categoryName', headerName: 'Category', flex: 1, minWidth: 150 },
-    { field: 'brandName', headerName: 'Brand', flex: 1, minWidth: 150 },
+    { field: 'name', headerName: t('itemsPage.columns.name'), flex: 1.5, minWidth: 200 },
+    { field: 'categoryName', headerName: t('itemsPage.columns.category'), flex: 1, minWidth: 150 },
+    { field: 'brandName', headerName: t('itemsPage.columns.brand'), flex: 1, minWidth: 150 },
     { 
       field: 'variants', 
-      headerName: 'Variants', 
+      headerName: t('itemsPage.columns.variants', 'Variants'), 
       width: 100,
       align: 'center',
       headerAlign: 'center',
@@ -475,7 +480,7 @@ const Items = () => {
     },
     {
       field: 'actions',
-      headerName: 'Actions',
+      headerName: t('itemsPage.columns.actions'),
       width: 120,
       sortable: false,
       filterable: false,
@@ -483,12 +488,12 @@ const Items = () => {
       headerAlign: 'center',
       renderCell: (params) => (
         <Box>
-          <Tooltip title="View Variants">
+          <Tooltip title={t('itemsPage.variant.reviewTitle', 'View Variants')}>
             <IconButton color="default" onClick={() => handleViewVariants(params.row)}>
               <VisibilityIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Manage Item & Variants">
+          <Tooltip title={t('itemsPage.editDialogTitle', 'Manage Item & Variants')}>
             <IconButton color="primary" onClick={() => handleManageItem(params.row.id)}>
               <SettingsIcon />
             </IconButton>
@@ -510,25 +515,25 @@ const Items = () => {
     setSelectedItemId(null);
   };
 
-  const steps = ['Item Details', 'Manage Variants', 'Review & Save'];
+  const steps = [t('itemsPage.stepper.itemDetails'), t('itemsPage.stepper.addVariants'), t('itemsPage.stepper.reviewAndSave')];
 
   const getVariantFormFields = () => (
     <Grid container spacing={2}>
-      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingSizes)} value={currentVariant.size || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, size: newValue || '' })} renderInput={(params) => <TextField {...params} label="Size" variant="outlined" />} /></Grid>
-      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingColors} value={currentVariant.color || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, color: newValue || '' })} renderInput={(params) => <TextField {...params} label="Color" variant="outlined" />} /></Grid>
-      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingDesigns)} value={currentVariant.design || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, design: newValue || '' })} renderInput={(params) => <TextField {...params} label="Design" variant="outlined" />} /></Grid>
-      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFits} value={currentVariant.fit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, fit: newValue || '' })} renderInput={(params) => <TextField {...params} label="Fit" variant="outlined" />} /></Grid>
-      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingUnits} value={currentVariant.unit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, unit: newValue || '' })} renderInput={(params) => <TextField {...params} label="Unit" required variant="outlined" />} /></Grid>
-      <Grid item xs={12} sm={6}><TextField label="Price per Unit" name="pricePerUnit" type="number" value={currentVariant.pricePerUnit || ''} onChange={handleCurrentVariantChange} required fullWidth variant="outlined" /></Grid>
-      <Grid item xs={12} sm={6}><TextField label="GST Rate (%)" name="gstRate" type="number" value={currentVariant.gstRate || ''} onChange={handleCurrentVariantChange} fullWidth variant="outlined" /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingSizes)} value={currentVariant.size || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, size: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.size')} variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingColors} value={currentVariant.color || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, color: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.color')} variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={flattenOptions(clothingDesigns)} value={currentVariant.design || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, design: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.design')} variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFits} value={currentVariant.fit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, fit: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.fit', 'Fit')} variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingUnits} value={currentVariant.unit || ''} onChange={(e, newValue) => setCurrentVariant({ ...currentVariant, unit: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.unit')} required variant="outlined" />} /></Grid>
+      <Grid item xs={12} sm={6}><TextField label={t('itemsPage.form.pricePerUnit')} name="pricePerUnit" type="number" value={currentVariant.pricePerUnit || ''} onChange={handleCurrentVariantChange} required fullWidth variant="outlined" /></Grid>
+      <Grid item xs={12} sm={6}><TextField label={t('itemsPage.form.gstRate')} name="gstRate" type="number" value={currentVariant.gstRate || ''} onChange={handleCurrentVariantChange} fullWidth variant="outlined" /></Grid>
       <Grid item xs={12} sm={6}>
-        <Tooltip title="Set a minimum stock level. You'll be alerted when stock falls below this value." placement="top" arrow>
-          <TextField label="Low Stock Threshold" name="lowStockThreshold" type="number" value={currentVariant.lowStockThreshold || ''} onChange={handleCurrentVariantChange} fullWidth variant="outlined" InputProps={{ inputProps: { min: 0 } }} />
+        <Tooltip title={t('itemsPage.form.lowStockHelper')} placement="top" arrow>
+          <TextField label={t('itemsPage.form.lowStockThreshold')} name="lowStockThreshold" type="number" value={currentVariant.lowStockThreshold || ''} onChange={handleCurrentVariantChange} fullWidth variant="outlined" InputProps={{ inputProps: { min: 0 } }} />
         </Tooltip>
       </Grid>
       <Grid item xs={12}>
         <Button component="label" variant="outlined" startIcon={<CloudUploadIcon />} fullWidth>
-          Upload Photo
+          {t('itemsPage.form.uploadPhoto')}
           <VisuallyHiddenInput type="file" accept="image/*" onChange={handleCurrentVariantFileChange} />
         </Button>
         {(currentVariant.photoPreviewUrl || currentVariant.photoUrl) && (
@@ -546,20 +551,20 @@ const Items = () => {
         {dialogError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError(null)}>{dialogError}</Alert>}
         {step === 0 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}><TextField label="Name" name="name" value={itemFormData.name} onChange={handleItemFormChange} required fullWidth variant="outlined" /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('itemsPage.form.name')} name="name" value={itemFormData.name} onChange={handleItemFormChange} required fullWidth variant="outlined" /></Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 options={apiCategories}
                 getOptionLabel={(option) => option.name || ''}
                 value={apiCategories.find(cat => cat.id === itemFormData.categoryId) || null}
                 onChange={(e, newValue) => setItemFormData(prev => ({ ...prev, categoryId: newValue ? newValue.id : '' }))}
-                renderInput={(params) => <TextField {...params} label="Category" required variant="outlined" />}
+                renderInput={(params) => <TextField {...params} label={t('itemsPage.form.category')} required variant="outlined" />}
               />
             </Grid>
-            <Grid item xs={12} sm={6}><TextField label="Brand Name" name="brandName" value={itemFormData.brandName} onChange={handleItemFormChange} fullWidth variant="outlined" /></Grid>
-            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFabrics} value={itemFormData.fabric || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, fabric: newValue || '' })} renderInput={(params) => <TextField {...params} label="Fabric" variant="outlined" />} /></Grid>
-            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingSeasons} value={itemFormData.season || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, season: newValue || '' })} renderInput={(params) => <TextField {...params} label="Season" variant="outlined" />} /></Grid>
-            <Grid item xs={12}><TextField label="Description" name="description" value={itemFormData.description} onChange={handleItemFormChange} fullWidth multiline rows={2} variant="outlined" /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('itemsPage.form.brandName')} name="brandName" value={itemFormData.brandName} onChange={handleItemFormChange} fullWidth variant="outlined" /></Grid>
+            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingFabrics} value={itemFormData.fabric || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, fabric: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.fabric', 'Fabric')} variant="outlined" />} /></Grid>
+            <Grid item xs={12} sm={6}><Autocomplete freeSolo options={clothingSeasons} value={itemFormData.season || ''} onChange={(e, newValue) => setItemFormData({ ...itemFormData, season: newValue || '' })} renderInput={(params) => <TextField {...params} label={t('itemsPage.form.season', 'Season')} variant="outlined" />} /></Grid>
+            <Grid item xs={12}><TextField label={t('itemsPage.form.description')} name="description" value={itemFormData.description} onChange={handleItemFormChange} fullWidth multiline rows={2} variant="outlined" /></Grid>
           </Grid>
         )}
         {step === 1 && (
@@ -662,9 +667,8 @@ const Items = () => {
   return (
     <Box sx={{ width: '100%' }}>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Item Catalog
+        {t('itemsPage.title')}
       </Typography>
-      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -675,7 +679,6 @@ const Items = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
       ) : (
@@ -684,7 +687,7 @@ const Items = () => {
             <Accordion sx={{ mb: 2 }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <InventoryIcon color="action" /> Items Awaiting Variants <Chip label={itemsWithoutVariants.length} color="warning" size="small" />
+                  <InventoryIcon color="action" /> {t('itemsPage.awaitingVariants', 'Items Awaiting Variants')} <Chip label={itemsWithoutVariants.length} color="warning" size="small" />
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
@@ -694,13 +697,13 @@ const Items = () => {
                       <ListItem
                         secondaryAction={
                           <Button variant="outlined" size="small" onClick={() => handleManageItem(item.id)}>
-                            Manage
+                            {t('itemsPage.actions.manage', 'Manage')}
                           </Button>
                         }
                       >
                         <ListItemText
                           primary={item.name}
-                          secondary={`Category: ${item.categoryName || 'N/A'} | Brand: ${item.brandName || 'N/A'}`}
+                          secondary={`${t('itemsPage.columns.category', 'Category')}: ${item.categoryName || t('itemsPage.notAvailable', 'N/A')} | ${t('itemsPage.columns.brand', 'Brand')}: ${item.brandName || t('itemsPage.notAvailable', 'N/A')}`}
                         />
                       </ListItem>
                       {index < itemsWithoutVariants.length - 1 && <Divider />}
@@ -710,7 +713,6 @@ const Items = () => {
               </AccordionDetails>
             </Accordion>
           )}
-
           <Paper elevation={2} sx={{ width: '100%', height: 'auto' }}>
             <DataGrid
               rows={itemsWithVariants}
@@ -729,45 +731,42 @@ const Items = () => {
           </Paper>
         </>
       )}
-
       <Dialog open={openAddDialog || openEditDialog} onClose={handleDialogClose} fullWidth maxWidth="md">
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          {openAddDialog ? 'Add New Item' : 'Manage Item'}
+          {openAddDialog ? t('itemsPage.addDialogTitle') : t('itemsPage.editDialogTitle', 'Manage Item')}
         </DialogTitle>
         <DialogContent sx={{ pt: '20px !important' }}>
           <Stepper activeStep={step} sx={{ mb: 3 }}>
-            {steps.map((label) => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
+            {Object.values(t('itemsPage.stepper', { returnObjects: true }))?.map((label, idx) => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
           </Stepper>
           {getStepContent(step)}
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={handleDialogClose} disabled={isSubmitting}>Cancel</Button>
+          <Button onClick={handleDialogClose} disabled={isSubmitting}>{t('itemsPage.actions.cancel')}</Button>
           <Box sx={{ flexGrow: 1 }} />
-          <Button disabled={step === 0 || isSubmitting} onClick={handleBack}>Back</Button>
+          <Button disabled={step === 0 || isSubmitting} onClick={handleBack}>{t('itemsPage.actions.back')}</Button>
           <Button variant="contained" onClick={step === steps.length - 1 ? (openAddDialog ? handleMultiStepSubmit : handleMultiStepUpdate) : handleNext} disabled={isSubmitting}>
-            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : (step === steps.length - 1 ? (openAddDialog ? 'Save Item' : 'Update Item') : 'Next')}
+            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : (step === steps.length - 1 ? (openAddDialog ? t('itemsPage.actions.save', 'Save Item') : t('itemsPage.actions.update', 'Update Item')) : t('itemsPage.actions.next', 'Next'))}
           </Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent><DialogContentText>Are you sure you want to delete this variant? It has no stock.</DialogContentText></DialogContent>
+        <DialogTitle>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
+        <DialogContent><DialogContentText>{t('itemsPage.deleteDialogText')}</DialogContentText></DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDeleteConfirm(false)}>Cancel</Button>
-          <Button onClick={confirmDeleteVariant} color="error" variant="contained">Delete</Button>
+          <Button onClick={() => setOpenDeleteConfirm(false)}>{t('itemsPage.actions.cancel')}</Button>
+          <Button onClick={confirmDeleteVariant} color="error" variant="contained">{t('itemsPage.actions.delete')}</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={openViewVariantsDialog} onClose={() => setOpenViewVariantsDialog(false)} fullWidth maxWidth="md">
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          Variants for {variantsToView.name}
+          {t('itemsPage.variant.reviewTitle', 'Variants for')} {variantsToView.name}
         </DialogTitle>
         <DialogContent sx={{ pt: '20px !important' }}>
           <VariantDetailDisplay item={variantsToView} stockData={stockData} onDeleteVariant={handleDeleteVariant} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenViewVariantsDialog(false)}>Close</Button>
+          <Button onClick={() => setOpenViewVariantsDialog(false)}>{t('itemsPage.actions.cancel', 'Close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

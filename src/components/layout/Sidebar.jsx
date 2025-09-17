@@ -47,6 +47,7 @@ const Sidebar = () => {
     { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
+    { text: 'receiving', icon: <InventoryIcon />, path: '/receivings' },
   ];
 
   // For ADMIN and OWNER only (with some nested groups)

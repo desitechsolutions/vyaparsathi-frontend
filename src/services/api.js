@@ -113,6 +113,8 @@ export const getPurchaseOrders = () =>
 
 export const getPurchaseOrderById = (id) =>
   API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
+export const pendingPurchaseOrders  = () =>
+  API.get(endpoints.pendingPurchaseOrder).then((r) => r.data);
 
 export const createPurchaseOrder = (data) =>
   API.post(endpoints.purchaseOrders, data).then((r) => r.data);
@@ -339,6 +341,9 @@ export const fetchReceivingById = (id) =>
 export const fetchReceivingByPoId = (poId) =>
   API.get(endpoints.receivingByPoId(poId)).then(r => r.data);
 
+export const fetchReceivingByPoNumber = (poNumber) =>
+  API.get(endpoints.receivingByPoNumber(poNumber)).then(r => r.data);
+
 export const createReceiving = (data) =>
   API.post(endpoints.receiving, data).then(r => r.data);
 
@@ -356,6 +361,13 @@ export const fetchReceivingTicketById = (id) =>
 
 export const initiateReceivingFromPO = (data) =>
   API.post(endpoints.receiveGoods, data).then(r => r.data);
+export const addAttachmentToTicket = (data) =>
+  API.post('{/tickets/${id}/attachments');
+export const updateReceivingTicket = (data) =>
+  API.put('{/tickets/${id}');
+export const deleteReceivingTicket = (data) =>
+  API.delete('{/tickets/${id}');
+
 
 // --- User Management API ---
 export const fetchUsers = () =>

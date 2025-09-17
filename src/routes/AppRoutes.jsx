@@ -37,6 +37,7 @@ import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
 import UserManagementPage from '../pages/UserManagementPage';
 import Notifications from '../pages/Notifications';
+import Receiving from '../pages/Receiving';
 
 function AppRoutes() {
   return (
@@ -88,6 +89,7 @@ function AppRoutes() {
           <Route path="reports/customer-sales" element={<CustomerSales />} />
           <Route path="reports/expenses-summary" element={<ExpensesSummary />} />
           <Route path="reports/payments-summary" element={<PaymentsSummary />} />
+          <Route path="receivings" element={<Receiving />} />
 
         {/* Notifications route */}
         <Route path="notifications" element={<Notifications />} />

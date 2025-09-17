@@ -61,7 +61,6 @@ export const AuthProvider = ({ children }) => {
         }
         return prevUser;
       });
-  toast.success("Session extended due to activity.", { position: 'top-center', autoClose: 3000 }); // No onClose
     } catch (err) {
       logout('Session expired. Please log in again.');
     } finally {
@@ -183,7 +182,6 @@ export const AuthProvider = ({ children }) => {
         console.log('[AuthContext] Navigating to / after login');
         navigate('/', { replace: true });
       }
-  toast.success("Login successful!", { position: 'top-center', autoClose: 3000, closeOnClick: true }); // No onClose
     } catch (error) {
       console.log('[AuthContext] Invalid token in login, calling logout');
       logout('Invalid token');
