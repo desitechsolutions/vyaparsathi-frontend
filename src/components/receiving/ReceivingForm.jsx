@@ -8,48 +8,44 @@ import {
   MenuItem,
   Typography,
   Paper,
-  Snackbar,
   Alert,
   CircularProgress,
   Divider,
   Link,
   Fade,
-  FormHelperText, // Fixed: Added import
+  FormHelperText,
 } from '@mui/material';
 import {
-  PersonOutline, // Fixed: Correct icon
-  Inventory, // Fixed: Correct icon
-  AssignmentTurnedIn, // Fixed: Alternative for StatusOutlinedIcon
-  CalendarToday, // Fixed: Correct icon
-} from '@mui/icons-material'; // Fixed: Import from @mui/icons-material
+  PersonOutline, 
+  Inventory, 
+  AssignmentTurnedIn,
+  CalendarToday,
+} from '@mui/icons-material';
 import Header from './Header';
 
 const statusColor = (status) => {
   switch (status) {
     case 'SUBMITTED':
-      return '#f57c00'; // Orange
+      return '#f57c00';
     case 'PARTIALLY_RECEIVED':
-      return '#0288d1'; // Blue
+      return '#0288d1';
     case 'RECEIVED':
     case 'COMPLETED':
-      return '#388e3c'; // Green
+      return '#388e3c';
     default:
-      return '#333'; // Default
+      return '#333';
   }
 };
 
-const ReceivingForm = ({ initialData, onSubmit, onCancel, title, pendingPOs, loading }) => {
-  const [formData, setFormData] = useState(
-    initialData || {
-      purchaseOrderId: '',
-      supplier: {},
-      totalItems: '',
-      status: '',
-      date: '',
-    }
-  );
+const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
+  const [formData, setFormData] = useState({
+    purchaseOrderId: '',
+    supplier: {},
+    totalItems: '',
+    status: '',
+    date: '',
+  });
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [touched, setTouched] = useState({});
 
   // Validate only purchaseOrderId
@@ -62,23 +58,13 @@ const ReceivingForm = ({ initialData, onSubmit, onCancel, title, pendingPOs, loa
 
   const handlePOChange = (e) => {
     const poId = e.target.value;
-    setFormData((prev) => {
-      const po = pendingPOs.find((po) => po.id === poId || po.id === Number(poId));
-      return po
-        ? {
-            purchaseOrderId: po.id,
-            supplier: po.supplier || {},
-            totalItems: po.items?.length || 0,
-            status: po.status || '',
-            date: po.orderDate ? po.orderDate.split('T')[0] : '',
-          }
-        : {
-            purchaseOrderId: poId,
-            supplier: {},
-            totalItems: '',
-            status: '',
-            date: '',
-          };
+    const po = pendingPOs.find((po) => po.id === poId || po.id === Number(poId));
+    setFormData({
+      purchaseOrderId: po?.id || '',
+      supplier: po?.supplier || {},
+      totalItems: po?.items?.length || 0,
+      status: po?.status || '',
+      date: po?.orderDate ? po.orderDate.split('T')[0] : '',
     });
     setTouched((prev) => ({ ...prev, purchaseOrderId: true }));
   };
@@ -90,9 +76,10 @@ const ReceivingForm = ({ initialData, onSubmit, onCancel, title, pendingPOs, loa
       return;
     }
     setError('');
-    onSubmit(formData);
-    setSuccessMsg('Receiving saved successfully!');
-    setTimeout(() => setSuccessMsg(''), 1500);
+    onSubmit({
+      purchaseOrderId: formData.purchaseOrderId,
+      receivedDate: new Date().toISOString(),
+    });
   };
 
   const noPendingPO =
@@ -101,36 +88,15 @@ const ReceivingForm = ({ initialData, onSubmit, onCancel, title, pendingPOs, loa
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: { xs: 2, sm: 4 } }}>
       <Header title={title} onBack={onCancel} />
-      <Snackbar
-        open={!!error}
-        autoHideDuration={3000}
-        onClose={() => setError('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        TransitionComponent={Fade}
-      >
+      {error && (
         <Alert
           severity="error"
           onClose={() => setError('')}
-          sx={{ borderRadius: 2, boxShadow: 1, bgcolor: 'error.light' }}
+          sx={{ borderRadius: 2, boxShadow: 1, bgcolor: 'error.light', mb: 2 }}
         >
           {error}
         </Alert>
-      </Snackbar>
-      <Snackbar
-        open={!!successMsg}
-        autoHideDuration={2000}
-        onClose={() => setSuccessMsg('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        TransitionComponent={Fade}
-      >
-        <Alert
-          severity="success"
-          onClose={() => setSuccessMsg('')}
-          sx={{ borderRadius: 2, boxShadow: 1, bgcolor: 'success.light' }}
-        >
-          {successMsg}
-        </Alert>
-      </Snackbar>
+      )}
       <Paper
         sx={{
           p: { xs: 3, sm: 4 },

@@ -6,7 +6,7 @@ const PrintableDelivery = React.forwardRef((props, ref) => {
   const { delivery } = props;
 
   return (
-    <Box ref={ref} sx={{ p: 4, color: 'black', minHeight: 200 }}>
+    <Box component="div" ref={ref} sx={{ p: 4 , color: 'black', minHeight: 200 }}>
       {delivery ? (
         <>
           <Typography variant="h5" gutterBottom>

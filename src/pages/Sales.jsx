@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -8,10 +8,7 @@ import InvoiceModal from '../components/Sales/InvoiceModal';
 import SalesHistory from '../components/Sales/SalesHistory';
 import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { fetchCustomers, createSale, fetchItemVariants, createCustomer } from '../services/api';
-import { pdfjs } from 'react-pdf';
 import { useSearchParams } from 'react-router-dom';
-
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // Utility: debounce
 function debounce(fn, delay) {
@@ -82,10 +79,12 @@ const Sales = () => {
   const [tabValue, setTabValue] = useState(0);
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [openInvoiceModal, setOpenInvoiceModal] = useState(false);
-  const [invoicePdf, setInvoicePdf] = useState(null);
-  const [numPages, setNumPages] = useState(null);
-  const [pageNumber, setPageNumber] = useState(1);
   const [newCustomerData, setNewCustomerData] = useState(initialCustomer);
+  const [lastSaleId, setLastSaleId] = useState(null);
+  const [lastInvoiceNo, setLastInvoiceNo] = useState(null);
+  const [signedInvoiceUrl, setSignedInvoiceUrl] = useState(null);
+  const hasShownMissingUrlWarning = useRef(false);
+
   const [searchParams, setSearchParams] = useState({
     name: '',
     sku: '',
@@ -132,6 +131,17 @@ const Sales = () => {
   }, [urlParams]);
 
   useEffect(() => {
+  if (openInvoiceModal && !signedInvoiceUrl && !hasShownMissingUrlWarning.current) {
+    setSnackbar({
+      open: true,
+      message: 'Signed invoice URL not available. Please try creating the sale again.',
+      severity: 'warning'
+    });
+    hasShownMissingUrlWarning.current = true;
+  }
+}, [openInvoiceModal, signedInvoiceUrl]);
+
+  useEffect(() => {
     loadVariants();
     setLoadingCustomers(true);
     fetchCustomers()
@@ -150,6 +160,7 @@ const Sales = () => {
 
   const handleCloseInvoiceModal = () => {
     setOpenInvoiceModal(false);
+    setSignedInvoiceUrl(null);
     loadVariants();
   };
 
@@ -384,6 +395,21 @@ const Sales = () => {
           : null,
       };
       const saleResponse = await createSale(saleData);
+      const { id: saleId, invoiceNo, signedInvoiceUrl } = saleResponse?.data || {};
+      console.log('Signed Invoice URL received:', signedInvoiceUrl);
+      if (!signedInvoiceUrl) {
+      setSnackbar({
+        open: true,
+        message: 'Warning: Signed invoice URL not returned from server.',
+        severity: 'warning'
+      });
+    }
+      setLastSaleId(saleId);
+      setLastInvoiceNo(invoiceNo);
+      setSignedInvoiceUrl(signedInvoiceUrl);
+      setTimeout(() => {
+      setOpenInvoiceModal(true);
+      }, 0);
       const totalPaid = paymentDetails.reduce((sum, pm) => sum + (pm.amount || 0), 0);
       const remaining = parseFloat(sale.totalAmount) - totalPaid;
       const paymentStatus = remaining > 0 ? 'PARTIALLY_PAID' : 'PAID';
@@ -393,17 +419,14 @@ const Sales = () => {
       setSelectedVariant(null);
       setItem(initialItem);
       setEditIndex(null);
-      if (saleResponse.data && saleResponse.data instanceof Uint8Array) {
-        setInvoicePdf(saleResponse.data);
-        if (sendInvoice) {
-          // Optionally send invoice to customer
-        }
-      } else {
-        setInvoicePdf(null);
-      }
+      
       setShowReviewPage(false);
       setOpenInvoiceModal(true);
-      setSnackbar({ open: true, message: 'Sale created successfully!', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: `Sale created successfully! Invoice #${invoiceNo || '—'}`,
+        severity: 'success'
+      });
     } catch {
       setSnackbar({ open: true, message: 'Failed to create sale.', severity: 'error' });
     } finally {
@@ -421,8 +444,6 @@ const Sales = () => {
     setEditIndex(null);
     setSnackbar({ open: true, message: 'Draft saved.', severity: 'info' });
   };
-
-  const onDocumentLoadSuccess = ({ numPages }) => setNumPages(numPages);
 
   const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
 
@@ -502,11 +523,9 @@ const Sales = () => {
         <InvoiceModal
           open={openInvoiceModal}
           setOpen={setOpenInvoiceModal}
-          invoicePdf={invoicePdf}
-          pageNumber={pageNumber}
-          setPageNumber={setPageNumber}
-          numPages={numPages}
-          onDocumentLoadSuccess={onDocumentLoadSuccess}
+          saleId={lastSaleId}
+          invoiceNo={lastInvoiceNo}
+          signedInvoiceUrl={signedInvoiceUrl}
           onClose={handleCloseInvoiceModal}
         />
       </SalesTabs.Panel>

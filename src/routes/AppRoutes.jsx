@@ -38,6 +38,7 @@ import { AlertProvider } from '../context/AlertContext';
 import UserManagementPage from '../pages/UserManagementPage';
 import Notifications from '../pages/Notifications';
 import Receiving from '../pages/Receiving';
+import ShopGuard from '../components/guards/ShopGuard';
 
 function AppRoutes() {
   return (
@@ -54,7 +55,9 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
-            <Layout />
+             <ShopGuard>
+               <Layout />
+             </ShopGuard>          
           </PrivateRoute>
         }
       >
@@ -93,12 +96,10 @@ function AppRoutes() {
 
         {/* Notifications route */}
         <Route path="notifications" element={<Notifications />} />
-
-        {/* SetupShop should be inside PrivateRoute but not Layout */}
-        <Route path="setup-shop" element={<SetupShop />} />
-
+        
         {/* Catch-all route for 404 */}
         <Route path="*" element={<div>Page Not Found</div>} />
+        <Route path="setup-shop" element={<SetupShop />} />
       </Route>
     </Routes>
     </AlertProvider>

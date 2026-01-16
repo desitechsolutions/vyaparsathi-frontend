@@ -55,7 +55,12 @@ const DeliveryManagement = () => {
     setLoading(true);
     try {
       const [deliveriesRes, personsRes] = await Promise.all([fetchDeliveries(), fetchDeliveryPersons()]);
-      setDeliveries(deliveriesRes.data);
+      // Normalize id field
+    const normalizedDeliveries = deliveriesRes.data.map(d => ({
+      ...d,
+      deliveryId: d.deliveryId || d.id
+    }));
+      setDeliveries(normalizedDeliveries);
       setDeliveryPersons(personsRes.data);
     } catch (error) {
       console.error("Failed to fetch delivery data:", error);
@@ -98,9 +103,14 @@ const DeliveryManagement = () => {
   }, [deliveries, filterStatus, search, dateRange, sortConfig]);
 
   // --- Print and Export Setup ---
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-  });
+ const handlePrint = useReactToPrint({
+  contentRef: printRef,
+  documentTitle: selectedDelivery
+    ? `Delivery_${selectedDelivery.invoiceNumber}`
+    : 'Delivery',
+  onAfterPrint: () => showSnackbar("Print completed!", "success"),
+});
+
 
   const csvHeaders = [
     { label: "Delivery ID", key: "deliveryId" },

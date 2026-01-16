@@ -97,11 +97,14 @@ API.interceptors.response.use(
 //Login API
 export const login = (payload) =>
   API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
+export const register = async (data) => {
+  return API.post(endpoints.auth.register, data);
+};
 export const forgotPin = (data) => API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
 export const resetPin = (data) => API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
 export const changePin = (data) => API.post(endpoints.auth.changePin, data);
 // API functions
-export const setupShop = (data) => API.post(endpoints.shop, data);
+export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
 export const refreshToken = (refreshToken) =>
   API.post(endpoints.auth.refresh, { refreshToken });
 // GET SHOP
@@ -177,12 +180,7 @@ export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}
 
 //Sales related APIs
 export const createSale = (data) => {
-  return API.post(endpoints.sales, data, {
-    responseType: 'arraybuffer', // Handle binary PDF response
-  }).then((response) => {
-    console.log('Raw Response Data:', response.data); // Debug log
-    return { data: new Uint8Array(response.data) }; // Convert ArrayBuffer to Uint8Array
-  });
+  return API.post(endpoints.sales, data);
 };
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);

@@ -14,6 +14,7 @@ import {
 import { styled } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
 import { setupShop } from '../services/api';
+import useShopConfig from '../hooks/useShopConfig';
 
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
@@ -73,6 +74,7 @@ const SetupShop = () => {
   const [touched, setTouched] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { refetchShop } = useShopConfig();
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -122,6 +124,7 @@ const SetupShop = () => {
     setIsLoading(true);
     try {
       await setupShop(form);
+      await refetchShop();
       setSuccess('Shop setup complete! Redirecting to dashboard...');
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {

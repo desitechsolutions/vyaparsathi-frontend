@@ -126,7 +126,7 @@ const Receiving = () => {
     setLoading(true);
     setError('');
     try {
-      const newRec = await api.createReceiving(dto);
+      const newRec = await api.receiveGoods(dto);
       setReceivings(prev => [...prev, newRec]);
       setView('list');
       setSnackbarMsg('Receiving created successfully.');
@@ -276,15 +276,6 @@ const Receiving = () => {
             onCancel={() => setView('list')}
             title="Create New Receiving"
             pendingPOs={pendingPOs}
-          />
-        );
-      case 'edit':
-        return (
-          <ReceivingForm
-            initialData={currentReceiving}
-            onSubmit={(dto) => handleUpdate(currentReceiving.id, dto)}
-            onCancel={() => setView('list')}
-            title="Edit Receiving"
           />
         );
       case 'edit_receive_goods':

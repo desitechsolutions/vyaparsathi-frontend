@@ -12,6 +12,7 @@ const endpoints = {
     changePin: `${API_BASE}/auth/change-pin`,
   },
   shop: `${API_BASE}/shop`,
+  shopOnboard: `${API_BASE}/shop/onboarding`,
 
   // User Management
   users: `${API_BASE}/admin/users`,

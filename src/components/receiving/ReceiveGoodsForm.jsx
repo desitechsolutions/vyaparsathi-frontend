@@ -163,10 +163,10 @@ const ReceiveGoodsForm = ({
     setError('');
     try {
       const payload = {
-        receivingId: receiving.id,
-        purchaseOrderId: receiving.purchaseOrderId,
-        shopId: receiving.shopId,
-        receivingItems: receiveData.map((item) => ({
+          receivingId: receiving.id,
+          purchaseOrderId: receiving.purchaseOrderId,
+          shopId: receiving.shopId,
+          receivingItems: receiveData.map((item) => ({
           id: item.id,
           purchaseOrderItemId: item.purchaseOrderItemId,
           expectedQty: item.expectedQty,

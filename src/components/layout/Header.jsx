@@ -224,7 +224,7 @@ const Header = () => {
                     <DialogContentText sx={{ textAlign: 'center', mb: 2 }}>
                       {t('header.supportText')}
                     </DialogContentText>
-                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportEmail')}</strong> support@vyaparsathi.com</Typography>
+                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportEmail')}</strong> info@desitechsolutions.com</Typography>
                     <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportPhone')}</strong> +91-950-815-6282</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
                       {t('header.supportClosing')}
