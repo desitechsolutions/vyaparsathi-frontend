@@ -123,10 +123,11 @@ const SetupShop = () => {
 
     setIsLoading(true);
     try {
-      await setupShop(form);
+      const response = await setupShop(form);  // get the response
+      console.log("Shop created:", response);   // debug
       await refetchShop();
       setSuccess('Shop setup complete! Redirecting to dashboard...');
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/dashboard', { replace: true }));
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to setup shop. Please try again.');
     } finally {

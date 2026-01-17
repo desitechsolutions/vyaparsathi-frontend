@@ -108,7 +108,31 @@ export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
 export const refreshToken = (refreshToken) =>
   API.post(endpoints.auth.refresh, { refreshToken });
 // GET SHOP
-export const fetchShop = () => API.get(endpoints.shop);
+export const fetchShop = async () => {
+  try {
+    const res = await API.get(endpoints.shop);
+    
+    // If 204 No Content or 404 → treat as no shop (return null data)
+    if (res.status === 204 || res.status === 404) {
+      return { data: null, status: res.status };
+    }
+
+    return res;  // full response with .data = ShopDto
+
+  } catch (err) {
+    // Handle errors that mean "no shop"
+    if (err.response?.status === 204 || 
+        err.response?.status === 404 ||
+        err?.response?.data?.message?.includes('No active shop') ||
+        err?.response?.data?.message?.includes('No shop context')) {
+      return { data: null, status: err.response?.status || 404 };
+    }
+
+    // Real errors → re-throw so Promise.allSettled sees rejection
+    console.error("fetchShop failed:", err);
+    throw err;
+  }
+};
 
 // --- Purchase Orders ---
 export const getPurchaseOrders = () =>
