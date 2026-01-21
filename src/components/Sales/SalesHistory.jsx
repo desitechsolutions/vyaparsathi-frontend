@@ -2,271 +2,249 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer, Paper,
   Typography, TextField, InputAdornment, IconButton, Chip, TablePagination,
-  Collapse, Box, Button, Tooltip, Divider, CircularProgress
+  Collapse, Box, Button, Tooltip, Divider, CircularProgress, Stack
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PrintIcon from '@mui/icons-material/Print';
-import { fetchSalesWithDue, fetchShop } from '../../services/api'; // Remove generateInvoice
-import { useNavigate } from 'react-router-dom';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'; // Icon for Resume
 import DownloadIcon from '@mui/icons-material/Download';
+import HistoryIcon from '@mui/icons-material/History';
+import { fetchSalesWithDue, fetchShop } from '../../services/api'; 
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const statusColors = {
+// Updated Status Configuration
+const statusConfig = {
+  COMPLETED: { label: 'Completed', color: 'success' },
+  DRAFT: { label: 'Draft', color: 'warning' },
+  CANCELLED: { label: 'Cancelled', color: 'error' },
+};
+
+const paymentStatusColors = {
   PAID: 'success',
   PARTIALLY_PAID: 'warning',
   DUE: 'error',
 };
 
 function formatAmount(amount) {
-  return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  return `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 }
 
-function getStatus(dueAmount) {
-  if (Number(dueAmount) === 0) return 'PAID';
-  if (Number(dueAmount) > 0) return 'DUE';
-  return 'PARTIALLY_PAID';
+// Logic to determine Payment Status (only for Completed sales)
+function getPaymentStatus(dueAmount) {
+  const due = Number(dueAmount);
+  if (due <= 0) return 'PAID';
+  return 'DUE'; // Simplify for history view
 }
 
 const SalesHistory = () => {
   const [salesHistory, setSalesHistory] = useState([]);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [signedUrls, setSignedUrls] = useState({}); // Cache signed URLs by saleId
-
-  // Search/filter state
+  const [signedUrls, setSignedUrls] = useState({});
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedRow, setExpandedRow] = useState(null);
 
   const navigate = useNavigate();
-
-  const handlePrintInvoice = async (sale) => {
-  const saleId = sale.saleId || sale.id;
-
-  // Return cached URL if available
-  if (signedUrls[saleId]) {
-    const fullUrl = getFullSignedUrl(signedUrls[saleId]);
-    window.open(fullUrl, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  try {
-    const response = await axios.get(`http://localhost:8080/api/sales/${saleId}/signed-url`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    const signedUrl = response.data;
-    setSignedUrls(prev => ({ ...prev, [saleId]: signedUrl }));
-
-    // Convert to absolute before opening
-    const fullUrl = getFullSignedUrl(signedUrl);
-    window.open(fullUrl, '_blank', 'noopener,noreferrer');
-  } catch (err) {
-    console.error('Failed to fetch signed invoice URL:', err);
-    alert('Failed to load invoice. Please try again.');
-  }
-};
-
-// Helper function (add this at the top of the file, same as in InvoiceModal)
-const API_BASE_URL = 'http://localhost:8080';
-
-const getFullSignedUrl = (url) => {
-  if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
-};
+  const API_BASE_URL = 'http://localhost:8080';
 
   useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
     setLoading(true);
     Promise.all([fetchSalesWithDue(), fetchShop()])
       .then(([salesRes, shopRes]) => {
         setSalesHistory(salesRes.data || []);
         setShop(shopRes.data || null);
       })
-      .catch(() => {
-        setSalesHistory([]);
-        setShop(null);
-      })
+      .catch((err) => console.error("Load Error:", err))
       .finally(() => setLoading(false));
-  }, []);
-
-  // Filtered and sorted sales
-  const filteredSales = useMemo(() => {
-    return salesHistory
-      .filter(sale =>
-        (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-        (sale.invoiceNo || '').toLowerCase().includes(search.toLowerCase()) ||
-        (sale.city || '').toLowerCase().includes(search.toLowerCase()) ||
-        (sale.state || '').toLowerCase().includes(search.toLowerCase()) ||
-        (sale.postalCode || '').toLowerCase().includes(search.toLowerCase())
-      )
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [salesHistory, search]);
-
-  // Pagination
-  const paginatedSales = useMemo(
-    () => filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filteredSales, page, rowsPerPage]
-  );
-
-  // Export as CSV
-  const handleExportCSV = () => {
-    // ... your existing export logic remains unchanged ...
   };
+
+  const getFullSignedUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const handlePrintInvoice = async (sale) => {
+    const saleId = sale.saleId || sale.id;
+    if (signedUrls[saleId]) {
+      window.open(getFullSignedUrl(signedUrls[saleId]), '_blank');
+      return;
+    }
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/sales/${saleId}/signed-url`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setSignedUrls(prev => ({ ...prev, [saleId]: res.data }));
+      window.open(getFullSignedUrl(res.data), '_blank');
+    } catch (err) {
+      alert('Failed to load invoice.');
+    }
+  };
+
+const handleResumeDraft = (sale) => {
+  const id = sale.saleId || sale.id;
+  // Ensure the path matches exactly what is defined in your App.js/Routes
+  // If your sales page is at /sales, use that. 
+  // We also add a state or ensure the query param is clean.
+  navigate(`/sales?resumeId=${id}`, { replace: true });
+  
+  // Optional: If Sales is already open in the background, 
+  // some developers prefer switching the tab manually via state, 
+  // but the URL listener in Sales.jsx should handle this.
+};
 
   const handlePay = (sale) => {
     navigate(`/customer-payments?saleId=${sale.saleId}`);
   };
 
+  const filteredSales = useMemo(() => {
+    return salesHistory
+      .filter(sale =>
+        (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (sale.invoiceNo || '').toLowerCase().includes(search.toLowerCase())
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [salesHistory, search]);
+
+  const paginatedSales = useMemo(
+    () => filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredSales, page, rowsPerPage]
+  );
+
   return (
-    <Box>
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', md: 'row' },
-        alignItems: { md: 'center' }, justifyContent: 'space-between', mb: 2, gap: 2
-      }}>
-        <Typography
-          variant="h5"
-          sx={{ fontWeight: 'bold', color: '#1976d2', fontSize: { xs: '1.3rem', md: '1.5rem' } }}
-        >
-          Sales History
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    <Box sx={{ p: 1 }}>
+      {/* HEADER SECTION */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <HistoryIcon color="primary" sx={{ fontSize: 32 }} />
+            <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>Sales History</Typography>
+                <Typography variant="body2" color="textSecondary">Manage finalized invoices and drafts</Typography>
+            </Box>
+        </Box>
+        
+        <Stack direction="row" spacing={2} sx={{ width: { xs: '100%', md: 'auto' } }}>
           <TextField
             size="small"
-            placeholder="Search by customer, invoice, city, state..."
+            placeholder="Search invoice or customer..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="primary" />
-                </InputAdornment>
-              ),
+              startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
             }}
-            sx={{ minWidth: 220 }}
+            sx={{ bgcolor: 'white', borderRadius: 1, width: { md: 300 } }}
           />
-          <Tooltip title="Export as CSV">
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportCSV}
-              sx={{ whiteSpace: 'nowrap' }}
-            >
-              Export CSV
-            </Button>
-          </Tooltip>
-        </Box>
-      </Box>
+          <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+            Export
+          </Button>
+        </Stack>
+      </Stack>
 
-      <Paper elevation={2}>
+      {/* TABLE SECTION */}
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
         <TableContainer>
           <Table size="small">
-            <TableHead>
+            <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell />
-                <TableCell sx={{ fontWeight: 'bold' }}>Invoice No</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Paid</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Due</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Address</TableCell>
+                <TableCell width={50} />
+                <TableCell sx={{ fontWeight: 700 }}>Invoice / Draft #</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Customer</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Total Amt</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Record Type</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Payment</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <CircularProgress size={24} />
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 10 }}><CircularProgress /></TableCell></TableRow>
               ) : paginatedSales.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    No sales found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedSales.map((sale, idx) => {
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 10 }}>No records found</TableCell></TableRow>
+              ) : paginatedSales.map((sale, idx) => {
                   const isExpanded = expandedRow === idx;
+                  const isDraft = sale.status === 'DRAFT';
+                  const currentStatus = statusConfig[sale.status] || statusConfig.COMPLETED;
+                  const payStatus = getPaymentStatus(sale.dueAmount);
+
                   return (
                     <React.Fragment key={sale.saleId || idx}>
-                      <TableRow hover>
+                      <TableRow hover sx={{ '& > *': { borderBottom: 'unset' } }}>
                         <TableCell>
-                          <IconButton
-                            size="small"
-                            onClick={() => setExpandedRow(isExpanded ? null : idx)}
-                            aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                          >
+                          <IconButton size="small" onClick={() => setExpandedRow(isExpanded ? null : idx)}>
                             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                         </TableCell>
-                        <TableCell>{sale.invoiceNo || sale.saleId || idx + 1}</TableCell>
-                        <TableCell>{sale.customerName || sale.customerId}</TableCell>
-                        <TableCell>
-                          {sale.date ? new Date(sale.date).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                          }) : ''}
+                        <TableCell sx={{ fontWeight: 600 }}>{sale.invoiceNo}</TableCell>
+                        <TableCell>{sale.customerName || 'Walk-in Customer'}</TableCell>
+                        <TableCell sx={{ color: 'text.secondary' }}>
+                          {new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </TableCell>
-                        <TableCell>{formatAmount(sale.totalAmount)}</TableCell>
-                        <TableCell>{formatAmount(sale.paidAmount)}</TableCell>
-                        <TableCell>{formatAmount(sale.dueAmount)}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</TableCell>
                         <TableCell>
-                          <Chip
-                            label={getStatus(sale.dueAmount)}
-                            color={statusColors[getStatus(sale.dueAmount)] || 'default'}
-                            size="small"
-                          />
+                          <Chip label={currentStatus.label} color={currentStatus.color} size="small" variant="outlined" sx={{ fontWeight: 700 }} />
                         </TableCell>
                         <TableCell>
-                          {[sale.addressLine1, sale.city, sale.state, sale.postalCode]
-                            .filter(Boolean)
-                            .join(', ')}
+                          {!isDraft && (
+                            <Chip 
+                                label={payStatus} 
+                                size="small" 
+                                color={paymentStatusColors[payStatus]} 
+                                sx={{ fontSize: '0.65rem', height: 20 }}
+                            />
+                          )}
                         </TableCell>
                       </TableRow>
 
                       <TableRow>
-                        <TableCell colSpan={9} sx={{ p: 0, border: 0 }}>
+                        <TableCell colSpan={7} sx={{ p: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ bgcolor: '#f9f9fb', p: 2, borderBottom: '1px solid #eee' }}>
-                              <Typography variant="subtitle2" sx={{ mb: 1, color: '#1976d2' }}>
-                                Sale Details
-                              </Typography>
+                            <Box sx={{ p: 3, bgcolor: '#f1f5f9', mx: 2, mb: 2, borderRadius: 2 }}>
+                              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 800 }}>Quick Actions</Typography>
                               <Divider sx={{ mb: 2 }} />
-
-                              <Box sx={{
-                                display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                                gap: 2
-                              }}>
-                                {/* ... your existing detail fields ... */}
-                              </Box>
-
-                              <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-                                <Button
-                                  variant="contained"
-                                  color="primary"
-                                  startIcon={<PrintIcon />}
-                                  onClick={() => handlePrintInvoice(sale)}
-                                >
-                                  Print Invoice
-                                </Button>
-
-                                {getStatus(sale.dueAmount) === 'DUE' && (
-                                  <Button
-                                    variant="contained"
-                                    color="success"
-                                    onClick={() => handlePay(sale)}
-                                  >
-                                    Pay
-                                  </Button>
+                              
+                              <Stack direction="row" spacing={2}>
+                                {isDraft ? (
+                                    <Button
+                                      variant="contained"
+                                      color="warning"
+                                      startIcon={<PlayArrowIcon />}
+                                      onClick={() => handleResumeDraft(sale)}
+                                      sx={{ fontWeight: 700 }}
+                                    >
+                                      Resume & Finalize
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<PrintIcon />}
+                                            onClick={() => handlePrintInvoice(sale)}
+                                            sx={{ bgcolor: '#0f172a' }}
+                                        >
+                                            Print Invoice
+                                        </Button>
+                                        {Number(sale.dueAmount) > 0 && (
+                                            <Button variant="contained" color="success" onClick={() => handlePay(sale)}>
+                                                Receive Payment
+                                            </Button>
+                                        )}
+                                    </>
                                 )}
+                              </Stack>
+
+                              <Box sx={{ mt: 2 }}>
+                                 <Typography variant="caption" color="textSecondary">
+                                     Address: {[sale.addressLine1, sale.city].filter(Boolean).join(', ') || 'N/A'}
+                                 </Typography>
                               </Box>
                             </Box>
                           </Collapse>
@@ -275,7 +253,7 @@ const getFullSignedUrl = (url) => {
                     </React.Fragment>
                   );
                 })
-              )}
+              }
             </TableBody>
           </Table>
         </TableContainer>
@@ -286,11 +264,7 @@ const getFullSignedUrl = (url) => {
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={e => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
+          onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
         />
       </Paper>
     </Box>

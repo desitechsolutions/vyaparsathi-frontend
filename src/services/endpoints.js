@@ -47,10 +47,12 @@ const endpoints = {
 
   customers: `${API_BASE}/customers`,
   sales: `${API_BASE}/sales`,
+  draftSale : `${API_BASE}/sales/drafts`,
   salesByDateRange: (from, to) => `${API_BASE}/sales?from=${from}&to=${to}`,
   payments: `${API_BASE}/payments`,
   salesWithDue: `${API_BASE}/sales/with-due`,
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
+  getSaleById: (id) => `${API_BASE}/sales/${id}`,
   recordDuePayment: `${API_BASE}/payments/record`,
   products: `${API_BASE}/products`,
   generateInvoice: ({ saleId, invoiceNo }) =>

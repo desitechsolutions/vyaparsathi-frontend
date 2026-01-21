@@ -206,6 +206,14 @@ export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}
 export const createSale = (data) => {
   return API.post(endpoints.sales, data);
 };
+export const draftSale = (data) =>{
+  return API.post(endpoints.draftSale, data)
+}
+
+export const completeDraftSale = async (id, data) => {
+  return await API.put(`api/sales/${id}/complete`, data);
+};
+
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
@@ -215,7 +223,7 @@ export const fetchAllSales = (from, to) => {
   }
   return API.get(endpoints.sales);
 };
-
+export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 // Delivery related APIs
 export const createDelivery = (data) => API.post(endpoints.createDelivery, data);
 

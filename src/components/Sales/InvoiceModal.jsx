@@ -77,9 +77,15 @@ const InvoiceModal = ({
     setLoading(false);
   };
 
-  const handleClose = () => {
-    if (onClose) onClose();
-    setOpen(false);
+const handleClose = () => {
+    // 1. Check if the parent provided an onClose function (like handleCloseInvoiceModal)
+    if (onClose) {
+      onClose();
+    } 
+    // 2. ONLY call setOpen if it was actually passed as a prop
+    else if (setOpen) {
+      setOpen(false);
+    }
     setError(null);
   };
 
