@@ -1,53 +1,38 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Card,
-  CardContent,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Button,
-  Alert,
-  IconButton,
-  Divider,
-  CardActions,
-  Box,
-  TextField,
-  CircularProgress,
-  Tooltip,
-  Paper
+  Card, CardContent, Typography, Table, TableBody, TableCell, TableHead,
+  TableRow, Button, Alert, IconButton, Divider, CardActions, Box, TextField,
+  CircularProgress, Tooltip, Stack
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
+import SaveAsIcon from '@mui/icons-material/SaveAs'; // Added icon
 
 const SalesSummary = ({
   formData,
   handleRemoveItem,
-  setShowReviewPage, // Corrected prop name from handleProceedToReview
+  setShowReviewPage,
   loading,
   error,
   setFormData,
   selectedCustomer,
-  handleCustomerSelect, // Corrected prop name
+  handleCustomerSelect,
   setSelectedVariant,
   setItem,
   setSearchParams,
   handleEditItem,
+  handleSaveDraft, // New Prop added
   proceedDisabledTooltip,
 }) => {
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
 
-  // Sync internal discount state if formData updates from parent (e.g. Load Draft)
   useEffect(() => {
     setDiscount(Number(formData.discount) || 0);
   }, [formData.discount]);
 
   const handleClearForm = () => {
-    // Reset to initial structure
     setFormData({
       id: null,
       customerId: '',
@@ -64,7 +49,7 @@ const SalesSummary = ({
       id: '', sku: '', qty: '', unitPrice: 0, itemName: '',
       description: '', color: '', size: '', brand: '', design: '', currentStock: 0,
     });
-    setSearchParams({}); // Clear URL params
+    setSearchParams({}); 
     setDiscount(0);
   };
 
@@ -75,7 +60,6 @@ const SalesSummary = ({
 
   const netTotal = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
 
-  // Update parent state whenever discount changes
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -84,7 +68,7 @@ const SalesSummary = ({
     }));
   }, [discount, netTotal, setFormData]);
 
-  const isButtonDisabled = loading || formData.items.length === 0 || !selectedCustomer;
+  const isActionDisabled = loading || formData.items.length === 0 || !selectedCustomer;
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -119,38 +103,19 @@ const SalesSummary = ({
                   {formData.items.map((saleItem, index) => (
                     <TableRow key={index} hover>
                       <TableCell>
-                        <Tooltip
-                          title={
-                            <Box sx={{ p: 0.5 }}>
-                              <Typography variant="caption" display="block">SKU: {saleItem.sku}</Typography>
-                              <Typography variant="caption" display="block">Brand: {saleItem.brand}</Typography>
-                              <Typography variant="caption" display="block">Design: {saleItem.design}</Typography>
-                            </Box>
-                          }
-                          arrow
-                        >
+                        <Tooltip title={<Box sx={{ p: 0.5 }}>SKU: {saleItem.sku}</Box>} arrow>
                           <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {saleItem.itemName}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {saleItem.color} / {saleItem.size}
-                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{saleItem.itemName}</Typography>
+                            <Typography variant="caption" color="text.secondary">{saleItem.color} / {saleItem.size}</Typography>
                           </Box>
                         </Tooltip>
                       </TableCell>
                       <TableCell align="center">{saleItem.qty}</TableCell>
                       <TableCell align="right">₹{Number(saleItem.unitPrice).toFixed(2)}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        ₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}
-                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}</TableCell>
                       <TableCell align="center">
-                        <IconButton color="primary" size="small" onClick={() => handleEditItem(index)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton color="error" size="small" onClick={() => handleRemoveItem(index)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        <IconButton color="primary" size="small" onClick={() => handleEditItem(index)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton color="error" size="small" onClick={() => handleRemoveItem(index)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -159,72 +124,50 @@ const SalesSummary = ({
             </Box>
           )}
 
-          {/* Pricing Summary Section */}
           <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', bgcolor: '#f8fafc' }}>
             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">Subtotal:</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</Typography>
               </Box>
-              
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">Discount:</Typography>
                 <TextField
-                  type="number"
-                  variant="standard"
-                  value={discount}
+                  type="number" variant="standard" value={discount}
                   onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
                   inputProps={{ style: { textAlign: 'right', fontWeight: 600, fontSize: '0.875rem' } }}
                   sx={{ width: 80 }}
                 />
               </Box>
-
               <Divider sx={{ my: 1 }} />
-              
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Grand Total:</Typography>
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 800 }}>
-                  ₹{netTotal.toFixed(2)}
-                </Typography>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 800 }}>₹{netTotal.toFixed(2)}</Typography>
               </Box>
             </Box>
           </Box>
         </CardContent>
 
         <CardActions sx={{ justifyContent: 'space-between', p: 2, bgcolor: '#fff' }}>
-          <Button
-            variant="text"
-            color="inherit"
-            startIcon={<ClearAllIcon />}
-            onClick={handleClearForm}
-            sx={{ fontWeight: 600 }}
-          >
+          <Button variant="text" color="inherit" startIcon={<ClearAllIcon />} onClick={handleClearForm} sx={{ fontWeight: 600 }}>
             Clear All
           </Button>
 
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {error && <Alert severity="error" size="small" sx={{ mr: 2, py: 0 }}>{error}</Alert>}
-            
-            <Tooltip title={isButtonDisabled ? proceedDisabledTooltip : ""}>
-              <span>
-                <Button
-                  variant="contained"
-                  size="large"
-                  disabled={isButtonDisabled}
-                  onClick={() => setShowReviewPage(true)}
-                  sx={{ 
-                    borderRadius: 2, 
-                    px: 4, 
-                    fontWeight: 700,
-                    textTransform: 'none',
-                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)'
-                  }}
-                >
-                  {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Review & Checkout'}
-                </Button>
-              </span>
-            </Tooltip>
-          </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
+            {/* NEW SAVE DRAFT BUTTON */}
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<SaveAsIcon />}
+              onClick={handleSaveDraft}
+              disabled={isActionDisabled}
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+            >
+              Save Draft
+            </Button>
+
+            {error && <Alert severity="error" size="small" sx={{ py: 0 }}>{error}</Alert>}
+          </Stack>
         </CardActions>
       </Card>
     </Box>

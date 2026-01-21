@@ -210,6 +210,14 @@ const Sales = () => {
     setFormData(prev => ({ ...prev, totalAmount: newTotal.toFixed(2) }));
   }, [formData.items]);
 
+  const handleResetFilters = () => {
+    setSearchParams({}); // Reset the URL/State params
+    setSelectedVariant(null); // Reset the final select dropdown
+    setItem({
+      id: '', sku: '', qty: '', unitPrice: 0, itemName: '',
+      description: '', color: '', size: '', brand: '', design: '', currentStock: 0,
+    });
+  };
   const handleAddItem = () => {
     setItemError('');
     const quantity = Number(item.qty);
@@ -373,6 +381,7 @@ const handleSubmitSale = async () => {
                 uniqueColors={uniqueColors} uniqueSizes={uniqueSizes} uniqueDesigns={uniqueDesigns}
                 uniqueCategory={uniqueCategory} uniqueFabrics={uniqueFabrics}
                 uniqueSeasons={uniqueSeasons} uniqueFits={uniqueFits}
+                handleResetFilters={handleResetFilters}
                 searchParams={searchParams} handleVariantSelect={handleVariantSelect}
                 handleSearchParamChange={handleSearchParamChange} handleAddItem={handleAddItem}
                 error={itemError} editIndex={editIndex}
@@ -382,6 +391,7 @@ const handleSubmitSale = async () => {
 
             <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e4e8' }}>
               <SalesSummary
+                handleSaveDraft={handleSaveDraft}
                 formData={formData} 
                 handleRemoveItem={handleRemoveItem}
                 handleEditItem={handleEditItem} 
