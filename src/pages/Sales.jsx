@@ -122,7 +122,8 @@ const Sales = () => {
         deliveryRequired: !!draft.delivery,
         deliveryAddress: draft.delivery?.deliveryAddress || '',
         deliveryCharge: draft.delivery?.deliveryCharge || '',
-        deliveryStatus: draft.delivery?.deliveryStatus || 'PACKED'
+        deliveryStatus: draft.delivery?.deliveryStatus || 'PACKED',
+        deliveryPaidBy : draft.delivery?.deliveryPaidBy || ''
       }));
 
       setTabValue(0);
