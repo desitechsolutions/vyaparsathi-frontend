@@ -114,12 +114,13 @@ receiveGoods: `${API_BASE}/receiving/receive-goods`,
   //Analytics endpoint
   analytics: {
     itemDemand: `${API_BASE}/analytics/item-demand`,
-    exportItemDemand: `${API_BASE}/analytics/export/item-demand`,
     customerTrends: `${API_BASE}/analytics/customer-trends`,
     futurePurchaseOrders: `${API_BASE}/analytics/future-purchase-orders`,
     topItems: `${API_BASE}/analytics/top-items`,
     seasonalTrends: `${API_BASE}/analytics/seasonal-trends`,
     churnPrediction: `${API_BASE}/analytics/churn-prediction`,
+    exportProcurementPlan: `${API_BASE}/analytics/export/procurement-plan`,
+    revenueLeakage: `${API_BASE}/analytics/revenue-leakage`,
   },
 };
 

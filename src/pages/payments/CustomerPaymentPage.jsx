@@ -1,353 +1,327 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Button, Tabs, Tab, Snackbar, Alert } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box, Button, Tabs, Tab, Snackbar, Alert, Container
+} from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { fetchSalesWithDue, fetchCustomers, recordDuePaymentsBatch, fetchPaymentHistory } from '../../services/api';
+import {
+  fetchSalesWithDue,
+  fetchCustomers,
+  recordDuePaymentsBatch,
+  fetchPaymentHistory
+} from '../../services/api';
 import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentForm from './PaymentForm';
 import PaymentHistory from './PaymentHistory';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-// Utility functions
 const paymentMethodOptions = [
   { value: 'CASH', label: 'Cash' },
   { value: 'CARD', label: 'Card' },
   { value: 'UPI', label: 'UPI' },
   { value: 'NET_BANKING', label: 'Net Banking' },
   { value: 'CHEQUE', label: 'Cheque' },
-  { value: 'OTHER', label: 'Other' },
 ];
+
 const needsTransactionId = (method) =>
-  ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE', 'OTHER'].includes(method);
-const transactionIdMandatory = (method) =>
   ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
-function formatAmount(amount) {
-  return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-}
+
+const emptyMethod = {
+  paymentMethod: 'CASH',
+  amount: '',
+  transactionId: '',
+  reference: '',
+  notes: '',
+};
 
 const CustomerPaymentPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSaleId = searchParams.get('saleId');
-  const initialSaleIdRef = useRef(initialSaleId);
 
-  // UI State
   const [tab, setTab] = useState(0);
-  // Data State
+
   const [customers, setCustomers] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [allSales, setAllSales] = useState([]);
   const [customerSales, setCustomerSales] = useState([]);
-  const [selectedSale, setSelectedSale] = useState('');
-  const [selectedSaleObj, setSelectedSaleObj] = useState(null);
-  // Payment Form State
-  const [paymentMethods, setPaymentMethods] = useState([
-    { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' },
-  ]);
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 16));
+
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedSale, setSelectedSale] = useState(null);
+
+  const [paymentMethods, setPaymentMethods] = useState([emptyMethod]);
+  const [globalNotes, setGlobalNotes] = useState('');
+  const [paymentDate, setPaymentDate] = useState(
+    () => new Date().toISOString().slice(0, 16)
+  );
+
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  // History Data
+
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  // Amounts & Totals
-  const [dueAmount, setDueAmount] = useState(0);
+
   const [totalDue, setTotalDue] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
-  // Snackbar
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({
+    open: false, message: '', severity: 'success'
+  });
 
-  // Data Fetching
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([fetchCustomers(), fetchSalesWithDue()])
-      .then(([custRes, salesRes]) => {
-        const custs = custRes.data || [];
-        const sales = salesRes.data || [];
-        setCustomers(custs);
-        let selSale = null, selCustomer = null;
-        if (initialSaleId && sales.length > 0) {
-          selSale = sales.find(s => String(s.saleId) === String(initialSaleId));
-          if (selSale) {
-            selCustomer = custs.find(c => String(c.id) === String(selSale.customerId));
-          }
-        }
-        setSelectedCustomer(selCustomer || null);
-        if (selCustomer) {
-          const custSales = sales.filter(s => String(s.customerId) === String(selCustomer.id));
-          setCustomerSales(custSales);
-          if (selSale) {
-            setSelectedSale(selSale.saleId);
-            setSelectedSaleObj(selSale);
-            setDueAmount(selSale.dueAmount || 0);
-            setTotalAmount(selSale.totalAmount || 0);
-            setPaidAmount(selSale.paidAmount || 0);
-            fetchPaymentHistoryCallback(selSale.customerId, selSale.saleId);
-          }
-        } else {
-          setCustomerSales([]);
-          setSelectedSale('');
-          setSelectedSaleObj(null);
-          setDueAmount(0);
-          setTotalAmount(0);
-          setPaidAmount(0);
-          setPaymentHistory([]);
-        }
-        setTotalDue(sales.reduce((sum, sale) => sum + (sale.dueAmount || 0), 0));
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line
-  }, [initialSaleId]);
+  const formatAmount = (amount) =>
+    `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
-  useEffect(() => {
-    if (selectedCustomer) {
-      fetchSalesWithDue().then(res => {
-        const sales = res.data || [];
-        const custSales = sales.filter(s => String(s.customerId) === String(selectedCustomer.id));
-        setCustomerSales(custSales);
-        if (
-          !selectedSale ||
-          !custSales.some(s => String(s.saleId) === String(selectedSale))
-        ) {
-          if (initialSaleIdRef.current && custSales.some(s => String(s.saleId) === String(initialSaleIdRef.current))) {
-            setSelectedSale(initialSaleIdRef.current);
-            const selSale = custSales.find(s => String(s.saleId) === String(initialSaleIdRef.current));
-            setSelectedSaleObj(selSale);
-            setDueAmount(selSale?.dueAmount || 0);
-            setTotalAmount(selSale?.totalAmount || 0);
-            setPaidAmount(selSale?.paidAmount || 0);
-            fetchPaymentHistoryCallback(selSale.customerId, selSale.saleId);
-            initialSaleIdRef.current = null;
-          } else {
-            setSelectedSale('');
-            setSelectedSaleObj(null);
-            setDueAmount(0);
-            setTotalAmount(0);
-            setPaidAmount(0);
-            setPaymentHistory([]);
-          }
-        }
-      });
-    }
-    // eslint-disable-next-line
-  }, [selectedCustomer]);
+  // ────────────────────────────────────────────────
+  // Derived calculations
+  // ────────────────────────────────────────────────
+  const currentSale = customerSales.find(s => s.saleId === selectedSale);
+  const maxAllowed = currentSale?.dueAmount || 0;
 
-  useEffect(() => {
-    if (selectedSale && customerSales.length > 0) {
-      const sale = customerSales.find(s => String(s.saleId) === String(selectedSale));
-      setSelectedSaleObj(sale || null);
-      setDueAmount(sale?.dueAmount || 0);
-      setTotalAmount(sale?.totalAmount || 0);
-      setPaidAmount(sale?.paidAmount || 0);
-      if (sale) fetchPaymentHistoryCallback(sale.customerId, sale.saleId);
-      else setPaymentHistory([]);
-    } else {
-      setSelectedSaleObj(null);
-      setDueAmount(0);
-      setTotalAmount(0);
-      setPaidAmount(0);
-      setPaymentHistory([]);
-    }
-    // eslint-disable-next-line
-  }, [selectedSale, customerSales]);
-
-  const fetchPaymentHistoryCallback = useCallback((customerId, saleId) => {
-    if (!customerId) {
-      setPaymentHistory([]);
-      return;
-    }
-    setHistoryLoading(true);
-    fetchPaymentHistory(customerId, saleId)
-      .then((data) => {
-        setPaymentHistory(data || []);
-      })
-      .finally(() => setHistoryLoading(false));
-  }, []);
-
-  // Payment Form Handlers
-  const handleAddMethod = () => {
-    setPaymentMethods([
-      ...paymentMethods,
-      { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' },
-    ]);
-  };
-  const handleRemoveMethod = (idx) => {
-    setPaymentMethods(paymentMethods.filter((_, i) => i !== idx));
-  };
-  const handleMethodChange = (idx, field, value) => {
-    setPaymentMethods((prev) =>
-      prev.map((pm, i) =>
-        i === idx
-          ? {
-              ...pm,
-              [field]: field === 'amount' ? value.replace(/^0+/, '') : value,
-              ...(field === 'paymentMethod' && value === 'CASH' ? { transactionId: '' } : {}),
-            }
-          : pm
-      )
-    );
-  };
-  const handlePaymentDateChange = (value) => setPaymentDate(value);
-  const handleCustomerChange = (newValue) => setSelectedCustomer(newValue);
-  const handleSaleChange = (value) => setSelectedSale(value);
-
-  // Total payment calculation
-  const totalPayment = paymentMethods.reduce(
-    (sum, pm) => sum + (parseFloat(pm.amount) || 0),
+  const totalEntered = paymentMethods.reduce(
+    (sum, p) => sum + (parseFloat(p.amount) || 0),
     0
   );
 
-  // Form submission
+  const remainingBalance = maxAllowed - totalEntered;
+  const isOverpaid = remainingBalance < 0;
+
+  // ────────────────────────────────────────────────
+  // Initial load (ONCE)
+  // ────────────────────────────────────────────────
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [custRes, salesRes] = await Promise.all([
+        fetchCustomers(),
+        fetchSalesWithDue()
+      ]);
+
+      setCustomers(custRes.data || []);
+      setAllSales(salesRes.data || []);
+
+      if (initialSaleId) {
+        const sale = (salesRes.data || [])
+          .find(s => String(s.saleId) === String(initialSaleId));
+
+        if (sale) {
+          const customer = (custRes.data || [])
+            .find(c => String(c.id) === String(sale.customerId));
+
+          setSelectedCustomer(customer || null);
+          setSelectedSale(sale.saleId);
+          setPaymentMethods([{
+            ...emptyMethod,
+            amount: sale.dueAmount?.toString() || ''
+          }]);
+        }
+      }
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Failed to load data', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [initialSaleId]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // ────────────────────────────────────────────────
+  // Derive customer sales + total due
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    const businessTotalDue = allSales.reduce(
+      (sum, s) => sum + (s.dueAmount || 0),
+      0
+    );
+    if (!selectedCustomer) {
+      setCustomerSales([]);
+      setTotalDue(businessTotalDue);
+      return;
+    }
+
+    const custSales = allSales.filter(
+      s => String(s.customerId) === String(selectedCustomer.id)
+    );
+
+    setCustomerSales(custSales);
+    setTotalDue(
+      custSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0)
+    );
+  }, [selectedCustomer, allSales]);
+
+  // ────────────────────────────────────────────────
+  // Reset form on customer change
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    setSelectedSale(null);
+    setPaymentMethods([emptyMethod]);
+    setGlobalNotes('');
+  }, [selectedCustomer]);
+
+  // ────────────────────────────────────────────────
+  // Payment history
+  // ────────────────────────────────────────────────
+  const fetchHistory = useCallback((custId, saleId) => {
+    if (!custId) return;
+    setHistoryLoading(true);
+    fetchPaymentHistory(custId, saleId)
+      .then(data => setPaymentHistory(data || []))
+      .catch(() =>
+        setSnackbar({ open: true, message: 'Failed to load history', severity: 'error' })
+      )
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (selectedCustomer && tab === 1) {
+      fetchHistory(selectedCustomer.id, selectedSale);
+    }
+  }, [selectedCustomer, selectedSale, tab, fetchHistory]);
+
+  // ────────────────────────────────────────────────
+  // Submit
+  // ────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setFormErrors({});
-    let errors = {};
-    if (!selectedSale) errors.selectedSale = 'Please select a sale.';
+
+    const errors = {};
     paymentMethods.forEach((pm, idx) => {
-      if (!pm.amount || isNaN(parseFloat(pm.amount)) || parseFloat(pm.amount) <= 0) {
-        errors[`amount${idx}`] = 'Enter valid amount';
-      } else if (parseFloat(pm.amount) > dueAmount) {
-        errors[`amount${idx}`] = 'Amount exceeds due';
+      if (!pm.amount || parseFloat(pm.amount) <= 0) {
+        errors[`amount${idx}`] = 'Enter a valid amount';
       }
-      if (
-        needsTransactionId(pm.paymentMethod) &&
-        transactionIdMandatory(pm.paymentMethod) &&
-        (!pm.transactionId || pm.transactionId.trim() === '')
-      ) {
-        errors[`transactionId${idx}`] = 'Transaction ID required';
+      if (needsTransactionId(pm.paymentMethod) && !pm.transactionId?.trim()) {
+        errors[`transactionId${idx}`] = 'Transaction ID is required';
       }
     });
-    if (totalPayment > dueAmount) errors.total = 'Total payment cannot exceed due amount.';
-    if (dueAmount === 0) errors.due = 'This sale is already fully paid.';
-    if (Object.keys(errors).length > 0) {
+
+    if (totalEntered > maxAllowed) {
+      setSnackbar({
+        open: true,
+        message: `Total entered (${formatAmount(totalEntered)}) exceeds due (${formatAmount(maxAllowed)})`,
+        severity: 'error'
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    if (Object.keys(errors).length) {
       setFormErrors(errors);
       setSubmitting(false);
       return;
     }
-    const sale = selectedSaleObj;
-    const customerId = sale?.customerId;
-    const payload = paymentMethods
-      .filter((pm) => parseFloat(pm.amount) > 0)
-      .map((pm) => ({
-        sourceId: sale.saleId,
-        sourceType: 'SALE',
-        amount: parseFloat(pm.amount),
-        paymentMethod: pm.paymentMethod,
-        paymentDate: paymentDate.length === 10 ? paymentDate + 'T00:00:00' : paymentDate,
-        customerId,
-        supplierId: null,
-        transactionId: needsTransactionId(pm.paymentMethod) ? pm.transactionId || '' : undefined,
-        reference: pm.reference || undefined,
-        notes: pm.notes || undefined,
-      }));
+
+    const payload = paymentMethods.map(pm => ({
+      sourceId: selectedSale,
+      sourceType: 'SALE',
+      amount: parseFloat(pm.amount),
+      paymentMethod: pm.paymentMethod,
+      paymentDate,
+      customerId: selectedCustomer.id,
+      transactionId: pm.transactionId?.trim() || null,
+      reference: pm.reference?.trim() || null,
+      notes: globalNotes.trim() || null,
+    }));
+
     try {
       await recordDuePaymentsBatch(payload);
+
+      // Optimistic UI update
+      setAllSales(prev =>
+        prev.map(s =>
+          s.saleId === selectedSale
+            ? { ...s, dueAmount: s.dueAmount - totalEntered }
+            : s
+        )
+      );
+
+      setSnackbar({ open: true, message: 'Payment recorded successfully', severity: 'success' });
+      setPaymentMethods([emptyMethod]);
+      setGlobalNotes('');
+      setPaymentDate(new Date().toISOString().slice(0, 16));
+
+      if (tab === 1) {
+        fetchHistory(selectedCustomer.id, selectedSale);
+      }
+    } catch (e) {
       setSnackbar({
         open: true,
-        message: 'Payment(s) recorded successfully!',
-        severity: 'success',
-      });
-      setPaymentMethods([
-        { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' },
-      ]);
-      const salesRes = await fetchSalesWithDue();
-      const salesList = salesRes.data || [];
-      const custSales = salesList.filter(s => String(s.customerId) === String(selectedCustomer.id));
-      setCustomerSales(custSales);
-      const updatedSale = custSales.find(s => String(s.saleId) === String(selectedSale));
-      setSelectedSaleObj(updatedSale);
-      setDueAmount(updatedSale?.dueAmount || 0);
-      setTotalAmount(updatedSale?.totalAmount || 0);
-      setPaidAmount(updatedSale?.paidAmount || 0);
-      if (updatedSale) fetchPaymentHistoryCallback(updatedSale.customerId, updatedSale.saleId);
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: 'Error recording payment(s).',
-        severity: 'error',
+        message: e.response?.data?.message || 'Error recording payment',
+        severity: 'error'
       });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCloseSnackbar = () => setSnackbar((s) => ({ ...s, open: false }));
-
-  // UI
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, bgcolor: '#eef2f7', minHeight: '100vh' }}>
-      <Button variant="outlined" sx={{ mb: 2 }} onClick={() => navigate('/customers')}>
-        &larr; Back to Customers
-      </Button>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
-        <Tab label="Record Payment" />
-        <Tab label="Payment History" />
-      </Tabs>
-      <PaymentSummaryCards
-        totalDue={totalDue}
-        selectedSaleObj={selectedSaleObj}
-        totalAmount={totalAmount}
-        paidAmount={paidAmount}
-        dueAmount={dueAmount}
-        formatAmount={formatAmount}
-      />
-      {tab === 0 && (
-        <PaymentForm
-          customers={customers}
-          customerSales={customerSales}
-          selectedCustomer={selectedCustomer}
-          selectedSale={selectedSale}
-          selectedSaleObj={selectedSaleObj}
-          paymentMethods={paymentMethods}
-          paymentDate={paymentDate}
-          formErrors={formErrors}
-          submitting={submitting}
-          dueAmount={dueAmount}
-          disablePaymentFields={dueAmount === 0 || !selectedSaleObj}
-          onCustomerChange={handleCustomerChange}
-          onSaleChange={handleSaleChange}
-          onMethodChange={handleMethodChange}
-          onAddMethod={handleAddMethod}
-          onRemoveMethod={handleRemoveMethod}
-          onPaymentDateChange={handlePaymentDateChange}
-          onSubmit={handleSubmit}
-          paymentMethodOptions={paymentMethodOptions}
-          needsTransactionId={needsTransactionId}
-          transactionIdMandatory={transactionIdMandatory}
+    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f4f7f9', minHeight: '100vh' }}>
+      <Container maxWidth="lg">
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/customers')} sx={{ mb: 3 }}>
+          Back to Customers
+        </Button>
+
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 4 }}>
+          <Tab label="New Payment" />
+          <Tab label="Payment History" />
+        </Tabs>
+
+        <PaymentSummaryCards
+          totalDue={totalDue}
+          selectedCustomer={selectedCustomer} 
+          selectedSaleObj={currentSale}
           formatAmount={formatAmount}
+          remainingBalance={remainingBalance}
+          isOverpaid={isOverpaid}
         />
-      )}
-      {tab === 1 && (
-        <PaymentHistory
-          loading={historyLoading}
-          paymentHistory={paymentHistory}
-          customers={customers}
-          customerSales={customerSales}
-          selectedCustomer={selectedCustomer}
-          selectedSale={selectedSale}
-          onCustomerChange={setSelectedCustomer}
-          onSaleChange={setSelectedSale}
-          onRefresh={() => {
-            if (selectedCustomer) {
-              if (selectedSale) {
-                fetchPaymentHistoryCallback(selectedCustomer.id, selectedSale);
-              } else {
-                fetchPaymentHistoryCallback(selectedCustomer.id);
-              }
-            }
-          }}
-          formatAmount={formatAmount}
-          setTab={setTab}
-          setSelectedSale={setSelectedSale}
-        />
-      )}
+
+        {tab === 0 ? (
+          <PaymentForm
+            customers={customers}
+            customerSales={customerSales}
+            selectedCustomer={selectedCustomer}
+            selectedSale={selectedSale}
+            paymentMethods={paymentMethods}
+            paymentDate={paymentDate}
+            formErrors={formErrors}
+            submitting={submitting}
+            onCustomerChange={setSelectedCustomer}
+            onSaleChange={setSelectedSale}
+            onMethodChange={(i, f, v) => {
+              const copy = [...paymentMethods];
+              copy[i][f] = v;
+              setPaymentMethods(copy);
+            }}
+            onAddMethod={() => setPaymentMethods([...paymentMethods, emptyMethod])}
+            onRemoveMethod={(i) => setPaymentMethods(paymentMethods.filter((_, idx) => idx !== i))}
+            onPaymentDateChange={setPaymentDate}
+            onSubmit={handleSubmit}
+            paymentMethodOptions={paymentMethodOptions}
+            needsTransactionId={needsTransactionId}
+            formatAmount={formatAmount}
+            remainingBalance={remainingBalance}
+            isOverpaid={isOverpaid}
+            globalNotes={globalNotes}
+            setGlobalNotes={setGlobalNotes}
+          />
+        ) : (
+          <PaymentHistory
+            loading={historyLoading}
+            paymentHistory={paymentHistory}
+            customers={customers}
+            selectedCustomer={selectedCustomer}
+            onCustomerChange={setSelectedCustomer}
+            onRefresh={() => fetchHistory(selectedCustomer?.id, selectedSale)}
+            formatAmount={formatAmount}
+          />
+        )}
+      </Container>
+
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>
       </Snackbar>

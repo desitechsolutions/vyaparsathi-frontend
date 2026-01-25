@@ -310,47 +310,39 @@ const Sales = () => {
   }
 };
 
-const handleSubmitSale = async () => {
-    setLoading(true);
-    try {
-      const payload = buildSalePayload(
-        formData,
-        selectedCustomer,
-        formData.paymentMethods,
-        "COMPLETED"
-      );
+const handleSubmitSale = async (payload) => {
+  setLoading(true);
+  try {
+    const res = payload.id
+      ? await completeDraftSale(payload.id, payload)
+      : await createSale(payload);
 
-      const res = formData.id
-        ? await completeDraftSale(formData.id, payload)
-        : await createSale(payload);
+    setLastSaleId(res.data.id);
+    setLastInvoiceNo(res.data.invoiceNo);
+    setSignedInvoiceUrl(res.data.signedInvoiceUrl);
 
-      setLastSaleId(res.data.id);
-      setLastInvoiceNo(res.data.invoiceNo);
-      setSignedInvoiceUrl(res.data.signedInvoiceUrl);
-      
-      // Cleanup (your original behavior preserved)
-      setFormData(initialFormData);
-      setSelectedCustomer(null);
-      setShowReviewPage(false);
-      setOpenInvoiceModal(true);
-      setUrlParams({}); 
+    setFormData(initialFormData);
+    setSelectedCustomer(null);
+    setShowReviewPage(false);
+    setOpenInvoiceModal(true);
+    setUrlParams({});
 
-      setSnackbar({ 
-        open: true, 
-        message: `Sale #${res.data.invoiceNo} completed!`, 
-        severity: 'success' 
-      });
+    setSnackbar({
+      open: true,
+      message: `Sale #${res.data.invoiceNo} completed!`,
+      severity: 'success'
+    });
+  } catch (err) {
+    setSnackbar({
+      open: true,
+      message: err.response?.data?.message || 'Error processing sale.',
+      severity: 'error'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
-    } catch (err) {
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.message || 'Error processing sale.', 
-        severity: 'error' 
-      });
-    } finally { 
-      setLoading(false); 
-    }
-  };
 
   return (
     <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f4f6f8', minHeight: '100vh', pb: 12 }}>

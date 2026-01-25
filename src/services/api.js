@@ -352,14 +352,15 @@ export const fetchPaymentHistory = (customerId, saleId) => {
 export const fetchProducts = () => API.get(endpoints.products);
 
 // Analytics APIs
+export const fetchRevenueLeakage = () => API.get(endpoints.analytics.revenueLeakage);
 export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);
-export const exportItemDemand = (format = 'xlsx') =>
-  API.get(`${endpoints.analytics.exportItemDemand}?format=${format}`, { responseType: 'blob' });
 export const fetchCustomerTrends = () => API.get(endpoints.analytics.customerTrends);
 export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futurePurchaseOrders);
 export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
+export const exportProcurementPlan = (format = 'xlsx') => 
+  API.get(`${endpoints.analytics.exportProcurementPlan}?format=${format}`, { responseType: 'blob' });
 
 // Receiving APIs
 export const fetchReceiving = () =>

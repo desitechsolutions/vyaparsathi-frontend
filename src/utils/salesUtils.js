@@ -37,15 +37,19 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     // Only attach payments when completing sale
     paymentDetails:
-      status === "COMPLETED"
-        ? (paymentMethods || [])
-            .filter(pm => pm.amount > 0)
-            .map(pm => ({
-              paymentMethod: pm.paymentMethod,
-              amount: parseFloat(pm.amount),
-              transactionId: pm.transactionId || pm.reference,
-              paymentDate: new Date().toISOString(),
-            }))
-        : []
+    status === "COMPLETED"
+    ? (paymentMethods || [])
+        .filter(pm => Number(pm.amount) && Number(pm.amount) > 0)
+        .map(pm => ({
+          amount: Number(pm.amount),
+          paymentMethod: pm.paymentMethod,
+          transactionId: pm.transactionId || null,
+          reference: pm.reference || null,
+          notes: pm.notes || null,
+          paymentDate: new Date().toISOString(),
+          sourceType: "SALE"
+        }))
+    : []
+
   };
 };
