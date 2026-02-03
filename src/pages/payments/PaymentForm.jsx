@@ -5,15 +5,27 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import Alert from '@mui/material/Alert';
 
-const PaymentForm = ({ customers, customerSales, selectedCustomer, selectedSale, paymentMethods, paymentDate, formErrors, submitting, onCustomerChange, onSaleChange, onMethodChange, onAddMethod, onRemoveMethod, onPaymentDateChange, onSubmit, paymentMethodOptions, needsTransactionId, formatAmount }) => {
+const PaymentForm = ({ 
+  customers, customerSales, selectedCustomer, selectedSale, 
+  paymentMethods, paymentDate, formErrors, submitting, 
+  onCustomerChange, onSaleChange, onMethodChange, 
+  onAddMethod, onRemoveMethod, onPaymentDateChange, 
+  onSubmit, paymentMethodOptions, needsTransactionId, formatAmount,
+  globalNotes, setGlobalNotes
+}) => {
   const selectedSaleObj = customerSales.find(s => String(s.saleId) === String(selectedSale));
   const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-  const remainingBalance = (selectedSaleObj?.dueAmount || 0) - totalEntered;
-  const isOverpaid = remainingBalance < 0;
   
+  // Logic for UI validation
+  const isBulk = selectedSale === 'BULK';
+  const remainingBalance = isBulk ? 0 : (selectedSaleObj?.dueAmount || 0) - totalEntered;
+  const isOverpaid = !isBulk && remainingBalance < 0;
+
   return (
     <Paper elevation={3} sx={{ p: 4, borderRadius: 3, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>Record Transaction</Typography>
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>
+        {isBulk ? "Bulk Payment / Advance Receipt" : "Invoice Payment"}
+      </Typography>
       <form onSubmit={onSubmit}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
@@ -28,7 +40,11 @@ const PaymentForm = ({ customers, customerSales, selectedCustomer, selectedSale,
           <Grid item xs={12} md={6}>
             <FormControl fullWidth required disabled={!selectedCustomer}>
               <InputLabel>Select Invoice / Sale</InputLabel>
-              <Select value={selectedSale} label="Select Invoice / Sale" onChange={e => onSaleChange(e.target.value)}>
+              <Select value={selectedSale || ''} label="Select Invoice / Sale" onChange={e => onSaleChange(e.target.value)}>
+                <MenuItem value="BULK" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                  ⭐ All Pending Invoices (Bulk / Advance)
+                </MenuItem>
+                <Divider />
                 {customerSales.map(s => (
                   <MenuItem key={s.saleId} value={s.saleId}>
                     {s.invoiceNo} — Due: {formatAmount(s.dueAmount)}
@@ -38,7 +54,7 @@ const PaymentForm = ({ customers, customerSales, selectedCustomer, selectedSale,
             </FormControl>
           </Grid>
 
-          <Grid item xs={12}><Divider sx={{ my: 1 }}>Payment Details</Divider></Grid>
+          <Grid item xs={12}><Divider>Payment Details</Divider></Grid>
 
           {paymentMethods.map((pm, idx) => (
             <React.Fragment key={idx}>
@@ -52,32 +68,21 @@ const PaymentForm = ({ customers, customerSales, selectedCustomer, selectedSale,
               </Grid>
               <Grid item xs={12} sm={3}>
                 <TextField
-                  fullWidth
-                  label="Amount"
-                  type="number"
-                  value={pm.amount}
-                  // Change color to red if overpaid
+                  fullWidth label="Amount" type="number" value={pm.amount}
                   error={!!formErrors[`amount${idx}`] || isOverpaid}
-                  helperText={isOverpaid ? "Exceeds Due Amount" : formErrors[`amount${idx}`]}
+                  helperText={isOverpaid ? "Exceeds Invoice Due" : formErrors[`amount${idx}`]}
                   onChange={e => onMethodChange(idx, 'amount', e.target.value)}
-                  InputProps={{
-                    sx: { color: isOverpaid ? 'error.main' : 'inherit' }
-                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={5}>
-                {needsTransactionId(pm.paymentMethod) ? (
-                  <TextField
-                    fullWidth
-                    label="Ref/Transaction ID"
-                    value={pm.transactionId}
-                    error={!!formErrors[`transactionId${idx}`]}
-                    onChange={e => onMethodChange(idx, 'transactionId', e.target.value)}
-                    required
-                  />
-                ) : (
-                  <TextField fullWidth label="Reference (Optional)" value={pm.reference} onChange={e => onMethodChange(idx, 'reference', e.target.value)} />
-                )}
+                <TextField
+                  fullWidth 
+                  label={needsTransactionId(pm.paymentMethod) ? "Transaction ID" : "Reference"}
+                  value={pm.transactionId || pm.reference}
+                  error={!!formErrors[`transactionId${idx}`]}
+                  onChange={e => onMethodChange(idx, needsTransactionId(pm.paymentMethod) ? 'transactionId' : 'reference', e.target.value)}
+                  required={needsTransactionId(pm.paymentMethod)}
+                />
               </Grid>
               <Grid item xs={12} sm={1} sx={{ display: 'flex', alignItems: 'center' }}>
                 {paymentMethods.length > 1 && (
@@ -87,31 +92,35 @@ const PaymentForm = ({ customers, customerSales, selectedCustomer, selectedSale,
             </React.Fragment>
           ))}
 
-          <Grid item xs={12}>
-            <Button startIcon={<AddCircleOutlineIcon />} onClick={onAddMethod} variant="text">Add Multi-Mode Payment</Button>
-          </Grid>
+          {!isBulk && (
+             <Grid item xs={12}>
+                <Button startIcon={<AddCircleOutlineIcon />} onClick={onAddMethod} variant="text">Add Multi-Mode Payment</Button>
+             </Grid>
+          )}
 
           <Grid item xs={12} md={6}>
             <TextField fullWidth label="Payment Date" type="datetime-local" InputLabelProps={{ shrink: true }} value={paymentDate} onChange={e => onPaymentDateChange(e.target.value)} />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Internal Notes" multiline rows={1} value={paymentMethods[0].notes} onChange={e => onMethodChange(0, 'notes', e.target.value)} />
+            <TextField fullWidth label="Notes" multiline rows={1} value={globalNotes} onChange={e => setGlobalNotes(e.target.value)} />
           </Grid>
 
           <Grid item xs={12}>
             {totalEntered > 0 && (
-              <Alert 
-                severity={isOverpaid ? "error" : "info"} 
-                sx={{ mt: 2, fontWeight: 600 }}
-              >
-                {isOverpaid 
-                  ? `Excess amount: ${formatAmount(Math.abs(remainingBalance))}. Please adjust.`
-                  : `Remaining Balance after this payment: ${formatAmount(remainingBalance)}`
+              <Alert severity={isOverpaid ? "warning" : "success"} sx={{ mt: 2 }}>
+                {isBulk 
+                  ? `Processing ${formatAmount(totalEntered)} across all dues. Excess will be saved as Advance.`
+                  : isOverpaid 
+                    ? `Warning: Excess ${formatAmount(Math.abs(remainingBalance))} will not be allocated. Switch to BULK mode to save as advance.`
+                    : `Remaining Balance for this invoice: ${formatAmount(remainingBalance)}`
                 }
               </Alert>
             )}
-            <Button fullWidth variant="contained" type="submit" size="large" disabled={submitting || !selectedSale} sx={{ py: 1.5, mt: 2 }}>
-              {submitting ? <CircularProgress size={24} /> : `Confirm ${formatAmount(paymentMethods.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0))} Payment`}
+            <Button 
+                fullWidth variant="contained" type="submit" size="large" 
+                disabled={submitting || !selectedSale} sx={{ py: 1.5, mt: 2 }}
+            >
+              {submitting ? <CircularProgress size={24} /> : `Confirm ${formatAmount(totalEntered)} Payment`}
             </Button>
           </Grid>
         </Grid>

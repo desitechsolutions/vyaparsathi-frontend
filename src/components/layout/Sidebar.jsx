@@ -22,6 +22,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import VerifiedUser from '@mui/icons-material/VerifiedUser';
 
 const drawerWidth = 240;
 
@@ -85,6 +86,7 @@ const Sidebar = () => {
         { text: 'customerSales', icon: <AssessmentIcon />, path: '/reports/customer-sales' },
         { text: 'expensesSummary', icon: <AssessmentIcon />, path: '/reports/expenses-summary' },
         { text: 'paymentsSummary', icon: <AssessmentIcon />, path: '/reports/payments-summary' },
+        { text: 'taxCompliance', icon: <VerifiedUser />, path: '/compliance/hub' },
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },

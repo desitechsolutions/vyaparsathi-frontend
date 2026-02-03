@@ -52,7 +52,10 @@ const Sales = () => {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
-  const [tabValue, setTabValue] = useState(0);
+const [urlParams, setUrlParams] = useSearchParams();
+const tabParam = urlParams.get("tab");
+const tabValue = tabParam === "history" ? 1 : 0;
+
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [openInvoiceModal, setOpenInvoiceModal] = useState(false);
   const [newCustomerData, setNewCustomerData] = useState(initialCustomer);
@@ -60,8 +63,6 @@ const Sales = () => {
   const [lastInvoiceNo, setLastInvoiceNo] = useState(null);
   const [signedInvoiceUrl, setSignedInvoiceUrl] = useState(null);
   const hasShownMissingUrlWarning = useRef(false);
-  
-  const [urlParams, setUrlParams] = useSearchParams();
   const resumeId = urlParams.get('resumeId');
 
   const [searchParams, setSearchParams] = useState({
@@ -126,7 +127,6 @@ const Sales = () => {
         deliveryPaidBy : draft.delivery?.deliveryPaidBy || ''
       }));
 
-      setTabValue(0);
       setShowReviewPage(false);
       setUrlParams({}); 
       setSnackbar({ open: true, message: `Draft ${draft.invoiceNo || 'Loaded'} successfully!`, severity: 'success' });
@@ -143,6 +143,11 @@ const Sales = () => {
     if (resumeId) handleLoadDraft(resumeId);
   }, [resumeId, handleLoadDraft]);
 
+  useEffect(() => {
+  if (!urlParams.get("tab")) {
+    setUrlParams({ tab: "sale" }, { replace: true });
+  }
+}, []);
   const loadVariants = useCallback(() => {
     setLoading(true);
     fetchItemVariants({})
@@ -346,7 +351,12 @@ const handleSubmitSale = async (payload) => {
 
   return (
     <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f4f6f8', minHeight: '100vh', pb: 12 }}>
-      <SalesTabs value={tabValue} onChange={setTabValue} />
+      <SalesTabs
+        value={tabValue}
+        onChange={(newValue) => {
+          setUrlParams({ tab: newValue === 1 ? "history" : "sale" });
+        }}
+      />
       
       <SalesTabs.Panel value={tabValue} index={0}>
         {(loading || loadingCustomers) && !showReviewPage ? (

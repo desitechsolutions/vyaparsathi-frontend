@@ -1,64 +1,38 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  DataGrid,
-  GridToolbarContainer,
-  GridToolbarColumnsButton,
-  GridToolbarFilterButton,
-  GridToolbarDensitySelector,
-  GridToolbarQuickFilter,
+  DataGrid, GridToolbarContainer, GridToolbarColumnsButton,
+  GridToolbarFilterButton, GridToolbarDensitySelector, GridToolbarQuickFilter,
 } from '@mui/x-data-grid';
 import {
-  Button,
-  TextField,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  CircularProgress,
-  Box,
-  Typography,
-  Snackbar,
-  Alert,
-  Paper,
-  IconButton,
-  Tooltip,
+  Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
+  CircularProgress, Box, Typography, Snackbar, Alert, Paper, IconButton,
+  Tooltip, Avatar, Stack, Card, Grid, Divider
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import {
+  Add as AddIcon, Edit as EditIcon, ReceiptLong as StatementIcon,
+  Visibility as ViewIcon, AccountCircle as AccountIcon, 
+  TrendingUp as TrendingUpIcon, WhatsApp as WhatsAppIcon
+} from '@mui/icons-material';
 import { fetchCustomers, createCustomer, updateCustomer } from '../services/api';
 
-// Toolbar that matches the Items.jsx layout
 const CustomToolbar = ({ onAddCustomerClick }) => (
-  <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <Box>
+  <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}>
+    <Box sx={{ display: 'flex', gap: 1 }}>
+      <GridToolbarQuickFilter variant="outlined" size="small" sx={{ width: 250 }} />
       <GridToolbarFilterButton />
       <GridToolbarColumnsButton />
-      <GridToolbarDensitySelector />
     </Box>
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <GridToolbarQuickFilter
-        variant="outlined"
-        size="small"
-        placeholder="Search customers..."
-        debounceMs={300}
-      />
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onAddCustomerClick}
-      >
-        Add New Customer
-      </Button>
-    </Box>
+    <Button variant="contained" startIcon={<AddIcon />} onClick={onAddCustomerClick}>
+      Add New Customer
+    </Button>
   </GridToolbarContainer>
 );
 
 const initialFormState = {
-  id: '', name: '', phone: '', email: '', addressLine1: '', addressLine2: '',
-  city: '', state: '', postalCode: '', country: '', gstNumber: '',
-  panNumber: '', notes: '', creditBalance: '',
+  name: '', phone: '', email: '', addressLine1: '', addressLine2: '',
+  city: '', state: '', postalCode: '', country: 'India', gstNumber: '',
+  panNumber: '', notes: '', creditBalance: 0,
 };
 
 const Customers = () => {
@@ -66,22 +40,10 @@ const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Unified dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [formData, setFormData] = useState(initialFormState);
-
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  const showSnackbar = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleSnackbarClose = (event, reason) => {
-    if (reason === 'clickaway') return;
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -89,189 +51,157 @@ const Customers = () => {
       const res = await fetchCustomers();
       setCustomers(res.data.map(c => ({ ...c, outstanding: c.creditBalance || 0 })));
     } catch (err) {
-      showSnackbar('Failed to load customers.', 'error');
+      setSnackbar({ open: true, message: 'Failed to load customers.', severity: 'error' });
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadCustomers();
-  }, [loadCustomers]);
+  useEffect(() => { loadCustomers(); }, [loadCustomers]);
+
+  const stats = useMemo(() => {
+    const total = customers.length;
+    const totalAmount = customers.reduce((sum, c) => sum + (c.outstanding || 0), 0);
+    return { total, totalAmount };
+  }, [customers]);
 
   const handleFormChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingCustomer(null);
-    setFormData(initialFormState);
-  };
-
-  const handleAddClick = () => {
-    setEditingCustomer(null);
-    setFormData(initialFormState);
-    setIsDialogOpen(true);
-  };
-
-  const handleEditClick = (customer) => {
-    setEditingCustomer(customer);
-    setFormData({
-      id: customer.id,
-      name: customer.name || '',
-      phone: customer.phone || '',
-      email: customer.email || '',
-      addressLine1: customer.addressLine1 || '',
-      addressLine2: customer.addressLine2 || '',
-      city: customer.city || '',
-      state: customer.state || '',
-      postalCode: customer.postalCode || '',
-      country: customer.country || '',
-      gstNumber: customer.gstNumber || '',
-      panNumber: customer.panNumber || '',
-      notes: customer.notes || '',
-      creditBalance: customer.creditBalance || 0,
-    });
-    setIsDialogOpen(true);
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       if (editingCustomer) {
-        // In edit mode, we don't send creditBalance
-        const { creditBalance, ...updateData } = formData;
+        const { outstanding, creditBalance, ...updateData } = formData;
         await updateCustomer(editingCustomer.id, updateData);
-        showSnackbar('Customer updated successfully!', 'success');
       } else {
         await createCustomer(formData);
-        showSnackbar('Customer added successfully!', 'success');
       }
-      handleDialogClose();
+      setSnackbar({ open: true, message: 'Customer saved successfully!', severity: 'success' });
+      setIsDialogOpen(false);
       loadCustomers();
     } catch (err) {
-      showSnackbar(`Failed to ${editingCustomer ? 'update' : 'add'} customer.`, 'error');
+      setSnackbar({ open: true, message: 'Operation failed.', severity: 'error' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleViewDetailsClick = (customer) => {
-    navigate(`/customer-details/${customer.id}/dues`);
-  };
-
   const columns = [
-    { field: 'name', headerName: 'Name', flex: 1, minWidth: 180 },
-    { field: 'phone', headerName: 'Phone', width: 150 },
-    { field: 'email', headerName: 'Email', flex: 1, minWidth: 200 },
-    { field: 'city', headerName: 'City', width: 120 },
-    { field: 'state', headerName: 'State', width: 120 },
+    {
+      field: 'name',
+      headerName: 'Customer Name',
+      flex: 1.5,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light', fontSize: '14px' }}>
+            {params.value ? params.value[0].toUpperCase() : 'C'}
+          </Avatar>
+          <Typography variant="body2" fontWeight={600}>{params.value}</Typography>
+        </Stack>
+      ),
+    },
+    { field: 'phone', headerName: 'Phone', flex: 1 },
+    { field: 'gstNumber', headerName: 'GSTIN', flex: 1, valueFormatter: ({ value }) => value || 'N/A' },
     {
       field: 'outstanding',
       headerName: 'Outstanding',
-      width: 150,
+      flex: 1,
       type: 'number',
-      valueFormatter: ({ value }) => `₹${Number(value || 0).toFixed(2)}`,
+      renderCell: (params) => (
+        <Typography color={params.value > 0 ? 'error.main' : 'success.main'} fontWeight={700}>
+          ₹{Number(params.value).toLocaleString('en-IN')}
+        </Typography>
+      ),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 120,
+      width: 200,
       sortable: false,
-      filterable: false,
-      align: 'center',
-      headerAlign: 'center',
       renderCell: (params) => (
-        <Box>
-          <Tooltip title="View Details">
-            <IconButton color="default" onClick={() => handleViewDetailsClick(params.row)}>
-              <ReceiptLongIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Edit Customer">
-            <IconButton color="primary" onClick={() => handleEditClick(params.row)}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="View Dues"><IconButton size="small" color="info" onClick={() => navigate(`/customer-details/${params.row.id}/dues`)}><StatementIcon /></IconButton></Tooltip>
+          <Tooltip title="View/Edit Profile"><IconButton size="small" color="primary" onClick={() => { setEditingCustomer(params.row); setFormData(params.row); setIsDialogOpen(true); }}><EditIcon /></IconButton></Tooltip>
+          <Tooltip title="WhatsApp"><IconButton size="small" color="success" onClick={() => window.open(`https://wa.me/91${params.row.phone}`, '_blank')}><WhatsAppIcon /></IconButton></Tooltip>
+        </Stack>
       ),
     },
   ];
 
   return (
-    <Box sx={{ width: '100%', p: { xs: 1, sm: 2, md: 3 } }}>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Customers
-      </Typography>
+    <Box sx={{ p: 4, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      <Typography variant="h4" sx={{ fontWeight: 800, mb: 3 }}>Customer Management</Typography>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }} variant="filled">
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar sx={{ bgcolor: '#e0f2fe', color: '#0369a1' }}><AccountIcon /></Avatar>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>TOTAL CUSTOMERS</Typography>
+                <Typography variant="h5" fontWeight={800}>{stats.total}</Typography>
+              </Box>
+            </Stack>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar sx={{ bgcolor: '#fef2f2', color: '#dc2626' }}><TrendingUpIcon /></Avatar>
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>TOTAL RECEIVABLE</Typography>
+                <Typography variant="h5" fontWeight={800} color="error.main">₹{stats.totalAmount.toLocaleString('en-IN')}</Typography>
+              </Box>
+            </Stack>
+          </Card>
+        </Grid>
+      </Grid>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
-      ) : (
-        <Paper elevation={2} sx={{ width: '100%', height: 'auto' }}>
-          <DataGrid
-            rows={customers}
-            columns={columns}
-            autoHeight
-            getRowId={(row) => row.id}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
-              columns: {
-                columnVisibilityModel: {
-                  id: false, addressLine1: false, addressLine2: false, postalCode: false,
-                  country: false, gstNumber: false, panNumber: false,
-                },
-              },
-            }}
-            pageSizeOptions={[10, 25, 50]}
-            disableRowSelectionOnClick
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{ toolbar: { onAddCustomerClick: handleAddClick } }}
-            sx={{ border: 0, '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': { outline: 'none' } }}
-          />
-        </Paper>
-      )}
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <DataGrid
+          rows={customers}
+          columns={columns}
+          loading={loading}
+          autoHeight
+          disableRowSelectionOnClick
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{ toolbar: { onAddCustomerClick: () => { setEditingCustomer(null); setFormData(initialFormState); setIsDialogOpen(true); } } }}
+          sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f1f5f9' } }}
+        />
+      </Paper>
 
-      {/* Add/Edit Customer Dialog */}
-      <Dialog open={isDialogOpen} onClose={handleDialogClose} fullWidth maxWidth="md">
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
-        </DialogTitle>
-        <DialogContent sx={{ pt: '20px !important' }}>
-          <Box component="form" sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-            <TextField label="Name" name="name" value={formData.name} onChange={handleFormChange} required />
-            <TextField label="Phone" name="phone" value={formData.phone} onChange={handleFormChange} />
-            <TextField label="Email" name="email" value={formData.email} onChange={handleFormChange} />
-            <TextField label="GSTIN" name="gstNumber" value={formData.gstNumber} onChange={handleFormChange} />
-            <TextField label="PAN Number" name="panNumber" value={formData.panNumber} onChange={handleFormChange} />
-            <TextField label="Credit Balance" name="creditBalance" type="number" value={formData.creditBalance} onChange={handleFormChange} disabled={!!editingCustomer} helperText={editingCustomer ? "Cannot edit balance directly." : "Initial credit balance."} />
-            <TextField label="Address Line 1" name="addressLine1" value={formData.addressLine1} onChange={handleFormChange} />
-            <TextField label="Address Line 2" name="addressLine2" value={formData.addressLine2} onChange={handleFormChange} />
-            <TextField label="City" name="city" value={formData.city} onChange={handleFormChange} />
-            <TextField label="State" name="state" value={formData.state} onChange={handleFormChange} />
-            <TextField label="Postal Code" name="postalCode" value={formData.postalCode} onChange={handleFormChange} />
-            <TextField label="Country" name="country" value={formData.country} onChange={handleFormChange} />
-            <TextField label="Notes" name="notes" value={formData.notes} onChange={handleFormChange} multiline rows={2} sx={{ gridColumn: '1 / -1' }} />
-          </Box>
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle sx={{ fontWeight: 800 }}>{editingCustomer ? 'Update Customer Profile' : 'Register New Customer'}</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}><TextField label="Full Name" name="name" fullWidth value={formData.name} onChange={handleFormChange} required /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Phone Number" name="phone" fullWidth value={formData.phone} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Email Address" name="email" fullWidth value={formData.email} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="GSTIN" name="gstNumber" fullWidth value={formData.gstNumber} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="PAN Number" name="panNumber" fullWidth value={formData.panNumber} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Opening Balance" name="creditBalance" type="number" fullWidth value={formData.creditBalance} onChange={handleFormChange} disabled={!!editingCustomer} helperText="Initial debt at the time of registration." /></Grid>
+            
+            <Grid item xs={12}><Divider sx={{ my: 1 }}>Address Details</Divider></Grid>
+            
+            <Grid item xs={12} sm={6}><TextField label="Address Line 1" name="addressLine1" fullWidth value={formData.addressLine1} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Address Line 2" name="addressLine2" fullWidth value={formData.addressLine2} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={4}><TextField label="City" name="city" fullWidth value={formData.city} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={4}><TextField label="State" name="state" fullWidth value={formData.state} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={4}><TextField label="Postal Code" name="postalCode" fullWidth value={formData.postalCode} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12}><TextField label="Internal Notes" name="notes" fullWidth multiline rows={2} value={formData.notes} onChange={handleFormChange} /></Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Button onClick={handleDialogClose} disabled={isSubmitting}>Cancel</Button>
-          <Button onClick={handleSubmit} color="primary" variant="contained" disabled={isSubmitting}>
-            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Save'}
-          </Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setIsDialogOpen(false)} color="inherit">Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" disabled={isSubmitting}>{isSubmitting ? <CircularProgress size={20} /> : 'Save Changes'}</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({...snackbar, open: false})} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+      </Snackbar>
     </Box>
   );
 };

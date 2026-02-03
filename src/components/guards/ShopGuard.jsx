@@ -1,51 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material'; // Use MUI components
 import useShopConfig from '../../hooks/useShopConfig';
 
 export default function ShopGuard({ children }) {
-  const { shop, loading, refetchShop } = useShopConfig();
+  const { shop, loading } = useShopConfig();
   const location = useLocation();
 
-  // Local state to prevent redirect loops during async refetch
-  const [redirectReady, setRedirectReady] = useState(false);
-
-  // Small delay to let refetchShop from onboarding settle
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setRedirectReady(true);
-    }, 300); // 300ms buffer – enough for state to update
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Optional: auto-refetch once on mount (helps if token was updated)
-  useEffect(() => {
-    if (!loading && shop === null) {
-      refetchShop().catch(err => console.error("Auto-refetch failed:", err));
-    }
-  }, [loading, shop, refetchShop]);
-
+  // Handle Loading state with a standard MUI Spinner
   if (loading) {
-    return <div>Loading shop configuration...</div>;
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        height: '100vh', 
+        width: '100vw', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        bgcolor: '#f8fafc' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // Wait for redirect-ready buffer to avoid premature redirect
-  if (!redirectReady) {
-    return <div>Verifying shop status...</div>;
-  }
-
-  // No shop detected → go to setup (except if already there)
+  // 1. If no shop, and NOT already on setup page -> Redirect to setup
   if (shop === null && location.pathname !== '/setup-shop') {
-    console.log("ShopGuard: No shop → redirecting to /setup-shop");
     return <Navigate to="/setup-shop" replace />;
   }
 
-  // Has shop but still on setup page → go to dashboard
+  // 2. If shop exists, and TRYING to go to setup -> Redirect to dashboard
   if (shop !== null && location.pathname === '/setup-shop') {
-    console.log("ShopGuard: Shop exists → redirecting to dashboard");
     return <Navigate to="/" replace />;
   }
 
-  // All good → render children
+  // 3. Otherwise, render the dashboard (children)
   return children;
 }

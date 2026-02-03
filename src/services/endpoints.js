@@ -51,6 +51,7 @@ const endpoints = {
   salesByDateRange: (from, to) => `${API_BASE}/sales?from=${from}&to=${to}`,
   payments: `${API_BASE}/payments`,
   salesWithDue: `${API_BASE}/sales/with-due`,
+  salesHistory: `${API_BASE}/sales/history`,
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
   getSaleById: (id) => `${API_BASE}/sales/${id}`,
   recordDuePayment: `${API_BASE}/payments/record`,

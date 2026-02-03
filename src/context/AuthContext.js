@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     delete API.defaults.headers.common['Authorization'];
     setUser(null);
     setWarningActive(false);
+    hasNavigatedRef.current = false;
 
     if (!hasNavigatedRef.current) {
       hasNavigatedRef.current = true;

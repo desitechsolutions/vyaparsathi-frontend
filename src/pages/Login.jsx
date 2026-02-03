@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   TextField,
   Button,
-  Container,
   Typography,
   Alert,
   Box,
@@ -12,6 +11,7 @@ import {
   IconButton,
   Stack,
   Avatar,
+  Grid,
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
@@ -19,11 +19,11 @@ import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { login as loginApi, register as registerApi, forgotPin } from '../services/api'; // Make sure register is exported
+import { login as loginApi, register as registerApi, forgotPin } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const APP_NAME = "VyaparSathi";
-const COMPANY_NAME = "DesiTech Innovations Pvt Ltd.";
+const COMPANY_NAME = "Aapki Mehnat, Hamara Saath";
 
 const Login = () => {
   const { login, user } = useAuthContext();
@@ -108,12 +108,12 @@ const Login = () => {
           email: email || null,
           username,
           pin,
-          role: 'PENDING_OWNER', // Only self-registration as OWNER
+          role: 'PENDING_OWNER',
         };
 
         await registerApi(payload);
 
-        // Auto-login immediately after registration
+        // Auto-login after registration
         const loginRes = await loginApi({ username, pin });
         login(loginRes.data.token, loginRes.data.refreshToken);
 
@@ -140,22 +140,24 @@ const Login = () => {
     switch (view) {
       case 'login':
         return (
-          <>
-            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
-              <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light' }}>
-                <PersonOutlineIcon sx={{ fontSize: 38, color: 'primary.main' }} />
+          <Stack spacing={2.5} sx={{ width: '100%' }}>
+            <Stack alignItems="center" spacing={1}>
+              <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.light' }}>
+                <PersonOutlineIcon sx={{ fontSize: 32, color: 'primary.main' }} />
               </Avatar>
-              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+              <Typography variant="h6" fontWeight="bold">{APP_NAME}</Typography>
+              <Typography variant="caption" color="text.secondary">{COMPANY_NAME}</Typography>
             </Stack>
-            <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
+
+            <Typography variant="h6" component="h1" align="center" fontWeight="bold">
               {t('login.signIn')}
             </Typography>
-            <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
+
+            <Box component="form" onSubmit={handleSubmit} noValidate>
               <TextField
                 label={t('login.username')}
                 fullWidth
-                margin="normal"
+                margin="dense"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
@@ -163,20 +165,20 @@ const Login = () => {
                 }}
                 disabled={isSubmitting}
                 required
-                InputLabelProps={{ shrink: !!username }}
                 inputRef={usernameRef}
+                size="small"
               />
               <TextField
                 label={t('login.pin')}
                 type="password"
                 fullWidth
-                margin="normal"
+                margin="dense"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 disabled={isSubmitting}
                 required
-                InputLabelProps={{ shrink: !!pin }}
                 inputRef={pinRef}
+                size="small"
               />
               <Button
                 variant="contained"
@@ -184,158 +186,179 @@ const Login = () => {
                 type="submit"
                 fullWidth
                 disabled={isSubmitting}
-                sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
+                sx={{ mt: 2.5, py: 1.2, fontWeight: 'bold' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.signIn')}
+                {isSubmitting ? <CircularProgress size={22} color="inherit" /> : t('login.signIn')}
               </Button>
             </Box>
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', width: '100%' }}>
+
+            <Stack direction="row" justifyContent="center" spacing={3} sx={{ mt: 1.5 }}>
               <Link
                 component="button"
-                variant="body2"
+                variant="caption"
                 onClick={() => { setView('forgotPin'); setError(''); setSuccessMessage(''); }}
-                sx={{ textDecoration: 'none', color: 'primary.main' }}
+                sx={{ color: 'primary.main', textDecoration: 'none' }}
               >
                 {t('login.forgotPin')}
               </Link>
-            </Box>
-            <Box sx={{ mt: 1, textAlign: 'center' }}>
-              <Typography variant="body2">
+              <Typography variant="caption" color="text.secondary">
                 {t('login.noAccount')}{' '}
                 <Link
                   component="button"
-                  variant="body2"
+                  variant="caption"
                   onClick={() => { setView('register'); setError(''); setSuccessMessage(''); }}
-                  sx={{ textDecoration: 'none', fontWeight: 'bold' }}
+                  sx={{ fontWeight: 'bold', textDecoration: 'none' }}
                 >
                   {t('login.signUp')}
                 </Link>
               </Typography>
-            </Box>
-          </>
+            </Stack>
+          </Stack>
         );
 
       case 'register':
         return (
-          <>
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <IconButton onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
-                <ArrowBackIcon />
+          <Stack spacing={2.5} sx={{ width: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <IconButton size="small" onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
+                <ArrowBackIcon fontSize="small" />
               </IconButton>
             </Box>
-            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
-              <Avatar sx={{ width: 56, height: 56, bgcolor: 'secondary.light' }}>
-                <PersonAddAltOutlinedIcon sx={{ fontSize: 38, color: 'secondary.main' }} />
+
+            <Stack alignItems="center" spacing={1}>
+              <Avatar sx={{ width: 48, height: 48, bgcolor: 'secondary.light' }}>
+                <PersonAddAltOutlinedIcon sx={{ fontSize: 32, color: 'secondary.main' }} />
               </Avatar>
-              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+              <Typography variant="h6" fontWeight="bold">{APP_NAME}</Typography>
+              <Typography variant="caption" color="text.secondary">{COMPANY_NAME}</Typography>
             </Stack>
-            <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
+
+            <Typography variant="h6" component="h1" align="center" fontWeight="bold">
               {t('login.signUp')}
             </Typography>
-            <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
-              <TextField
-                label={t('login.firstName')}
-                fullWidth
-                margin="normal"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-              <TextField
-                label={t('login.lastName')}
-                fullWidth
-                margin="normal"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                disabled={isSubmitting}
-              />
-              <TextField
-                label={t('login.email')}
-                type="email"
-                fullWidth
-                margin="normal"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
-              />
-              <TextField
-                label={t('login.username')}
-                fullWidth
-                margin="normal"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-              <TextField
-                label={t('login.createPin')}
-                type="password"
-                fullWidth
-                margin="normal"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-              <TextField
-                label={t('login.confirmPin')}
-                type="password"
-                fullWidth
-                margin="normal"
-                value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value)}
-                disabled={isSubmitting}
-                required
-                error={pin !== confirmPin && confirmPin.length > 0}
-                helperText={pin !== confirmPin && confirmPin.length > 0 ? t('login.errorPinsDontMatch') : ''}
-              />
+
+            <Box component="form" onSubmit={handleSubmit} noValidate>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('login.firstName')}
+                    fullWidth
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('login.lastName')}
+                    fullWidth
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={isSubmitting}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label={t('login.email')}
+                    type="email"
+                    fullWidth
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isSubmitting}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label={t('login.username')}
+                    fullWidth
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('login.createPin')}
+                    type="password"
+                    fullWidth
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('login.confirmPin')}
+                    type="password"
+                    fullWidth
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    error={pin !== confirmPin && confirmPin.length > 0}
+                    helperText={pin !== confirmPin && confirmPin.length > 0 ? t('login.errorPinsDontMatch') : ''}
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+
               <Button
                 variant="contained"
                 color="secondary"
                 type="submit"
                 fullWidth
                 disabled={isSubmitting || pin !== confirmPin}
-                sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
+                sx={{ mt: 2.5, py: 1.2, fontWeight: 'bold' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.register')}
+                {isSubmitting ? <CircularProgress size={22} color="inherit" /> : t('login.register')}
               </Button>
             </Box>
-          </>
+          </Stack>
         );
 
       case 'forgotPin':
         return (
-          <>
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <IconButton onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
-                <ArrowBackIcon />
+          <Stack spacing={2.5} sx={{ width: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <IconButton size="small" onClick={() => setView('login')} aria-label={t('login.backToLogin')}>
+                <ArrowBackIcon fontSize="small" />
               </IconButton>
             </Box>
-            <Stack alignItems="center" spacing={1} sx={{ width: '100%' }}>
-              <Avatar sx={{ width: 56, height: 56, bgcolor: 'error.light' }}>
-                <VpnKeyOutlinedIcon sx={{ fontSize: 38, color: 'error.main' }} />
+
+            <Stack alignItems="center" spacing={1}>
+              <Avatar sx={{ width: 48, height: 48, bgcolor: 'error.light' }}>
+                <VpnKeyOutlinedIcon sx={{ fontSize: 32, color: 'error.main' }} />
               </Avatar>
-              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>{APP_NAME}</Typography>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>{COMPANY_NAME}</Typography>
+              <Typography variant="h6" fontWeight="bold">{APP_NAME}</Typography>
+              <Typography variant="caption" color="text.secondary">{COMPANY_NAME}</Typography>
             </Stack>
-            <Typography variant="h5" component="h1" align="center" gutterBottom sx={{ fontWeight: 'bold' }}>
+
+            <Typography variant="h6" component="h1" align="center" fontWeight="bold">
               {t('login.forgotPinTitle')}
             </Typography>
-            <Typography variant="body2" align="center" sx={{ mb: 2, color: 'text.secondary' }}>
+
+            <Typography variant="caption" align="center" color="text.secondary" sx={{ mb: 2 }}>
               {t('login.forgotPinPrompt')}
             </Typography>
-            <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
+
+            <Box component="form" onSubmit={handleSubmit} noValidate>
               <TextField
                 label={t('login.username')}
                 fullWidth
-                margin="normal"
+                margin="dense"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isSubmitting}
                 required
-                InputLabelProps={{ shrink: !!username }}
+                size="small"
               />
               <Button
                 variant="contained"
@@ -343,12 +366,12 @@ const Login = () => {
                 type="submit"
                 fullWidth
                 disabled={isSubmitting}
-                sx={{ mt: 3, height: '50px', fontWeight: 'bold', letterSpacing: '1px' }}
+                sx={{ mt: 2.5, py: 1.2, fontWeight: 'bold' }}
               >
-                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : t('login.sendResetLink')}
+                {isSubmitting ? <CircularProgress size={22} color="inherit" /> : t('login.sendResetLink')}
               </Button>
             </Box>
-          </>
+          </Stack>
         );
 
       default:
@@ -356,42 +379,46 @@ const Login = () => {
     }
   };
 
-  return (
-    <Container
-      maxWidth="sm"
-      sx={{
+return (
+    <Box 
+      sx={{ 
+        width: '100%',
+        minHeight: '100vh', // Ensures it takes full height of the parent
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'center', // Centers vertically in the right panel
         alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        px: 2,
-        backgroundColor: '#f0f2f5',
-        fontFamily: 'Inter, sans-serif',
+        p: { xs: 2, sm: 4 },
+        background: 'transparent', // Let the PublicLayout handle the background
       }}
     >
-      <Paper
-        elevation={6}
+      {/* Removed absolute elevation for a cleaner "Integrated" look.
+         If you prefer the card look, keep the Paper but reduce elevation.
+      */}
+      <Box
         sx={{
-          padding: { xs: 3, md: 5 },
-          borderRadius: 3,
+          p: { xs: 2, sm: 3 },
           width: '100%',
+          maxWidth: 400, // Standard width for login forms
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          gap: 3,
-          transition: 'transform 0.3s, box-shadow 0.3s',
-          '&:hover': {
-            transform: 'translateY(-5px)',
-            boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-          },
+          gap: 2
         }}
       >
-        {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-        {successMessage && <Alert severity="success" sx={{ width: '100%' }}>{successMessage}</Alert>}
+        {error && (
+          <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {successMessage && (
+          <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+            {successMessage}
+          </Alert>
+        )}
+
         {renderForm()}
-      </Paper>
-    </Container>
+      </Box>
+    </Box>
   );
 };
 

@@ -12,8 +12,9 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
 import DateRangeIcon from '@mui/icons-material/DateRange';
-import { fetchSalesWithDue, fetchShop } from '../../services/api'; 
-import { useNavigate } from 'react-router-dom';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Added Icon
+import { fetchSalesHistory } from '../../services/api'; 
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const statusConfig = {
@@ -39,7 +40,6 @@ function getPaymentStatus(dueAmount) {
 const SalesHistory = () => {
   const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [signedUrls, setSignedUrls] = useState({});
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -48,26 +48,35 @@ const SalesHistory = () => {
   const [expandedRow, setExpandedRow] = useState(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const API_BASE_URL = 'http://localhost:8080';
+
+  // Check if we are in "Filtered Mode" from Customer Details
+  const params = new URLSearchParams(location.search);
+  const isFilteredView = params.get('search');
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const invoiceQuery = params.get('search');
+    if (invoiceQuery) {
+      setSearch(invoiceQuery);
+      setExpandedRow(0);
+    }
+  }, [location.search]);
+
   const loadData = () => {
     setLoading(true);
-    fetchSalesWithDue()
+    fetchSalesHistory()
       .then((res) => setSalesHistory(res.data || []))
       .catch((err) => console.error("Load Error:", err))
       .finally(() => setLoading(false));
   };
 
-  // =======================
-  // EXPORT LOGIC
-  // =======================
   const handleExportCSV = () => {
     if (filteredSales.length === 0) return;
-
     const headers = ["Invoice No,Customer,Date,Total Amount,Status,Due Amount\n"];
     const rows = filteredSales.map(sale => [
       sale.invoiceNo,
@@ -81,7 +90,7 @@ const SalesHistory = () => {
     const blob = new Blob([headers.concat(rows).join("\n")], { type: 'text/csv' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Sales_Report_${startDate || 'All'}_to_${endDate || 'Today'}.csv`;
+    link.download = `Sales_Report.csv`;
     link.click();
   };
 
@@ -99,9 +108,6 @@ const SalesHistory = () => {
     navigate(`/sales?resumeId=${sale.saleId || sale.id}`, { replace: true });
   };
 
-  // =======================
-  // FILTER LOGIC
-  // =======================
   const filteredSales = useMemo(() => {
     return salesHistory
       .filter(sale => {
@@ -113,7 +119,6 @@ const SalesHistory = () => {
         const end = endDate ? new Date(endDate).setHours(23,59,59,999) : null;
 
         const matchesDate = (!start || saleDate >= start) && (!end || saleDate <= end);
-        
         return matchesSearch && matchesDate;
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -126,26 +131,34 @@ const SalesHistory = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* HEADER & FILTERS */}
       <Stack spacing={3} sx={{ mb: 4 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <HistoryIcon color="primary" sx={{ fontSize: 32 }} />
+                {/* Condition: Show back button ONLY if coming from Customer Details */}
+                {isFilteredView ? (
+                  <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: '#f1f5f9', mr: 1 }}>
+                    <ArrowBackIcon />
+                  </IconButton>
+                ) : (
+                  <HistoryIcon color="primary" sx={{ fontSize: 32 }} />
+                )}
                 <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 800 }}>Sales History</Typography>
-                    <Typography variant="body2" color="textSecondary">Manage invoices and export reports</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                      {isFilteredView ? 'Invoice Lookup' : 'Sales History'}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {isFilteredView ? `Viewing details for ${search}` : 'Manage invoices and export reports'}
+                    </Typography>
                 </Box>
             </Box>
-            <Tooltip title="Download CSV for current filters">
-                <Button 
-                    variant="contained" 
-                    startIcon={<DownloadIcon />} 
-                    onClick={handleExportCSV}
-                    sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}
-                >
-                    Export CSV
-                </Button>
-            </Tooltip>
+            <Button 
+                variant="contained" 
+                startIcon={<DownloadIcon />} 
+                onClick={handleExportCSV}
+                sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}
+            >
+                Export CSV
+            </Button>
         </Stack>
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', bgcolor: '#f8fafc' }}>
@@ -154,7 +167,13 @@ const SalesHistory = () => {
                 placeholder="Search name/invoice..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'action.active' }} /> }}
+                InputProps={{ 
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" sx={{ color: 'action.active' }} />
+                    </InputAdornment>
+                  )
+                }}
                 sx={{ bgcolor: 'white', minWidth: 250 }}
             />
             <Divider orientation="vertical" flexItem />
@@ -162,14 +181,11 @@ const SalesHistory = () => {
                 <DateRangeIcon fontSize="small" color="action" />
                 <TextField type="date" size="small" label="From" InputLabelProps={{ shrink: true }} value={startDate} onChange={e => setStartDate(e.target.value)} sx={{ bgcolor: 'white' }} />
                 <TextField type="date" size="small" label="To" InputLabelProps={{ shrink: true }} value={endDate} onChange={e => setEndDate(e.target.value)} sx={{ bgcolor: 'white' }} />
-                {(startDate || endDate) && (
-                    <Button size="small" onClick={() => { setStartDate(''); setEndDate(''); }}>Clear</Button>
-                )}
+                {(startDate || endDate) && <Button size="small" onClick={() => { setStartDate(''); setEndDate(''); }}>Clear</Button>}
             </Stack>
         </Paper>
       </Stack>
 
-      {/* TABLE */}
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small">
@@ -187,6 +203,8 @@ const SalesHistory = () => {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={7} align="center" sx={{ py: 10 }}><CircularProgress /></TableCell></TableRow>
+              ) : paginatedSales.length === 0 ? (
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>No sales found.</TableCell></TableRow>
               ) : paginatedSales.map((sale, idx) => {
                   const isExpanded = expandedRow === idx;
                   const payStatus = getPaymentStatus(sale.dueAmount);
@@ -223,12 +241,6 @@ const SalesHistory = () => {
                                     </>
                                 )}
                               </Stack>
-
-                              <Box sx={{ mt: 2 }}>
-                                 <Typography variant="caption" color="textSecondary">
-                                     Address: {[sale.addressLine1, sale.city].filter(Boolean).join(', ') || 'N/A'}
-                                 </Typography>
-                              </Box>
                             </Box>
                           </Collapse>
                         </TableCell>

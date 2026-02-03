@@ -201,6 +201,11 @@ export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
 export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
+//export const fetchCustomerLedger = (customerId) => API.get(`/api/customers/${customerId}/ledger`);
+export const fetchCustomerLedger = (id, params = {}) => {
+  // params could include { startDate: '2026-01-01T00:00:00', endDate: '...' }
+  return API.get(`/api/customers/${id}/ledger`, { params });
+};
 
 //Sales related APIs
 export const createSale = (data) => {
@@ -215,6 +220,7 @@ export const completeDraftSale = async (id, data) => {
 };
 
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
+export const fetchSalesHistory = () => API.get(endpoints.salesHistory);
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
 export const fetchAllSales = (from, to) => {
@@ -348,6 +354,8 @@ export const fetchPaymentHistory = (customerId, saleId) => {
     },
   }).then((r) => r.data || []);
 };
+export const recordBulkPayment = (data) => API.post('/api/payments/bulk', data);
+export const fetchCustomerAdvanceBalance = (customerId) => API.get(`/api/payments/customer/${customerId}/advance-balance`);
 
 export const fetchProducts = () => API.get(endpoints.products);
 
