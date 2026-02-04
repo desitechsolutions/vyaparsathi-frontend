@@ -68,19 +68,25 @@ const PublicHeader = () => {
               <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', lg: 'block' }, height: 40, my: 'auto' }} />
               <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
                 <Typography variant="subtitle2" fontWeight={900} color="primary" sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                  Empowering India's Digital Future
+                  {t('publicHeader.companyTagline')}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                  Biruma Technology Solutions Pvt. Ltd.
+                  {t('publicHeader.birumaTechnology')}
                 </Typography>
               </Box>
             </Stack>
 
             {/* NAVIGATION ACTIONS */}
             <Stack direction="row" spacing={{ xs: 0.5, md: 1.5 }} alignItems="center">
-              <Button onClick={() => setServicesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>Services</Button>
-              <Button onClick={() => setAboutOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>About Us</Button>
-              <Button onClick={() => setContactOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>Contact</Button>
+              <Button onClick={() => setServicesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.services')}
+              </Button>
+              <Button onClick={() => setAboutOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.aboutUs')}
+              </Button>
+              <Button onClick={() => setContactOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.contact')}
+              </Button>
               
               <Button onClick={toggleLanguage} sx={{ fontWeight: 800, minWidth: 50, color: 'primary.main' }}>
                 {i18n.language === 'en' ? 'हिन्दी' : 'EN'}
@@ -93,7 +99,7 @@ const PublicHeader = () => {
                 onClick={() => window.open('https://wa.me/919508156282', '_blank')}
                 sx={{ borderRadius: 2, bgcolor: '#10b981', fontWeight: 800, display: { xs: 'none', md: 'flex' } }}
               >
-                Connect
+                {t('publicHeader.connect')}
               </Button>
             </Stack>
           </Toolbar>
@@ -103,13 +109,13 @@ const PublicHeader = () => {
       {/* MODAL: SERVICES */}
       <Dialog open={servicesOpen} onClose={() => setServicesOpen(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
         <DialogTitle sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5" fontWeight={900}>Our Expertise</Typography>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.expertise')}</Typography>
           <IconButton onClick={() => setServicesOpen(false)}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent sx={{ pb: 4 }}>
           <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-            <Tab label="Engineering" sx={{ fontWeight: 800 }} />
-            <Tab label={<span>DesiFix <Chip label="Coming Soon" size="small" variant="outlined" sx={{ ml: 1, height: 20 }} /></span>} sx={{ fontWeight: 800 }} />
+            <Tab label={t('publicHeader.engineering')} sx={{ fontWeight: 800 }} />
+            <Tab label={<span>{t('publicHeader.desiFix')} <Chip label={t('publicHeader.comingSoon')} size="small" variant="outlined" sx={{ ml: 1, height: 20 }} /></span>} sx={{ fontWeight: 800 }} />
           </Tabs>
           {tab === 0 ? (
             <Grid container spacing={2}>
@@ -129,7 +135,7 @@ const PublicHeader = () => {
           ) : (
             <Box sx={{ py: 8, textAlign: 'center' }}>
               <ConstructionIcon sx={{ fontSize: 50, color: 'divider', mb: 2 }} />
-              <Typography variant="h6" fontWeight={800}>Product Ongoing</Typography>
+              <Typography variant="h6" fontWeight={800}>{t('publicHeader.productOngoing')}</Typography>
             </Box>
           )}
         </DialogContent>
@@ -138,54 +144,52 @@ const PublicHeader = () => {
       {/* MODAL: ABOUT US */}
       <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
         <DialogTitle sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="h5" fontWeight={900}>About DesiTech</Typography>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.aboutDesiTech')}</Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center', pb: 4 }}>
           <RocketLaunchIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
           <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8 }}>
-            <strong>DesiTech Solutions</strong> is a unit of <strong>Biruma Technology Solutions Pvt. Ltd.</strong> 
-            We are dedicated to building high-quality software that bridges the gap between complex technology 
-            and everyday Indian businesses. From scalable cloud architectures to intuitive mobile apps, 
-            we engineer the future of Bharat.
+            <strong>{t('publicHeader.companyName')}</strong> {t('publicHeader.isAUnitOf')} <strong>{t('publicHeader.birumaTechnology')}</strong> 
+            {t('publicHeader.aboutText')}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
-          <Button onClick={() => setAboutOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 800 }}>Close</Button>
+          <Button onClick={() => setAboutOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 800 }}>{t('publicHeader.close')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* MODAL: CONTACT US */}
       <Dialog open={contactOpen} onClose={() => setContactOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
         <DialogTitle sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="h5" fontWeight={900}>Get in Touch</Typography>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.getInTouch')}</Typography>
         </DialogTitle>
         <DialogContent sx={{ pb: 4 }}>
           <Stack spacing={3}>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
               <EmailIcon color="primary" />
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={700}>Email Us</Typography>
-                <Typography variant="body2" fontWeight={800}>info@desitechsolutions.com</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.emailUs')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.emailAddress')}</Typography>
               </Box>
             </Paper>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
               <WhatsAppIcon sx={{ color: '#10b981' }} />
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={700}>WhatsApp Support</Typography>
-                <Typography variant="body2" fontWeight={800}>+91 9508156282</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.whatsappSupport')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.whatsappNumber')}</Typography>
               </Box>
             </Paper>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
               <LocationOnIcon sx={{ color: '#f43f5e' }} />
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={700}>Office</Typography>
-                <Typography variant="body2" fontWeight={800}>Haryana, India</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.office')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.officeLocation')}</Typography>
               </Box>
             </Paper>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button fullWidth onClick={() => setContactOpen(false)} variant="contained" sx={{ borderRadius: 2, py: 1.5, fontWeight: 800 }}>Close</Button>
+          <Button fullWidth onClick={() => setContactOpen(false)} variant="contained" sx={{ borderRadius: 2, py: 1.5, fontWeight: 800 }}>{t('publicHeader.close')}</Button>
         </DialogActions>
       </Dialog>
     </>

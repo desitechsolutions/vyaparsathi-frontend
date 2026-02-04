@@ -8,6 +8,7 @@ import {
   Box, Typography, Container, CircularProgress, Alert,
   Paper, Chip, Stack, IconButton, Tooltip, Avatar
 } from '@mui/material';
+import { useSearchParams } from 'react-router-dom'; 
 import { Refresh as RefreshIcon, Category as CategoryIcon, Layers } from '@mui/icons-material';
 import { fetchProducts } from '../services/api';
 
@@ -47,6 +48,15 @@ const ProductOverview = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlSearchValue = searchParams.get('search');
+
+  useEffect(() => {
+        if (urlSearchValue) {
+            setSearchQuery(urlSearchValue); 
+        }
+    }, [urlSearchValue]);
 
   const loadProducts = async () => {
     setLoading(true);

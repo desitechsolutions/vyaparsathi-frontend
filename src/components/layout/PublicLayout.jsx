@@ -5,8 +5,10 @@ import {
   Paper, Fade, Chip, CircularProgress 
 } from '@mui/material';
 import PublicHeader from './PublicHeader';
+import { useTranslation } from 'react-i18next';
 
 const PublicLayout = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -60,7 +62,7 @@ const PublicLayout = () => {
                         textTransform: 'uppercase' 
                       }}
                     >
-                      Namaste
+                      {t('publicLayout.namaste')}
                     </Typography>
                   </Stack>
 
@@ -74,7 +76,7 @@ const PublicLayout = () => {
                       letterSpacing: '-0.5px'
                     }}
                   >
-                    Welcome to <br />
+                    {t('publicLayout.welcomeTo')} <br />
                     <Box 
                       component="span" 
                       sx={{ 
@@ -98,16 +100,15 @@ const PublicLayout = () => {
                       fontSize: '1.15rem'
                     }}
                   >
-                    Built for every Indian shopkeeper, trader, and entrepreneur — 
-                    powerful tools that feel simple, fast, and truly made for Bharat.
+                    {t('publicLayout.builtForEveryIndian')}
                   </Typography>
 
                   {/* Trust Stats */}
                   <Grid container spacing={2} sx={{ mt: 2 }}>
                     {[
-                      { icon: '🏪', label: 'Businesses', value: '1,200+' },
-                      { icon: '⚡', label: 'Uptime', value: '99.9%' },
-                      { icon: '🇮🇳', label: 'Made in', value: 'Bharat' }
+                      { icon: '🏪', label: t('publicLayout.businesses'), value: '1,200+' },
+                      { icon: '⚡', label: t('publicLayout.uptime'), value: '99.9%' },
+                      { icon: '🇮🇳', label: t('publicLayout.madeIn'), value: t('publicLayout.bharat') }
                     ].map((stat, i) => (
                       <Grid item xs={4} key={i}>
                         <Paper 
@@ -138,7 +139,7 @@ const PublicLayout = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
                     <Box sx={{ width: 10, height: 10, bgcolor: '#10b981', borderRadius: '50%', boxShadow: '0 0 10px #10b98180' }} />
                     <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                      All systems operational • Proudly built in India
+                      {t('publicLayout.allSystemsOperational')} • {t('publicLayout.proudlyBuiltInIndia')}
                     </Typography>
                   </Box>
                 </Stack>
@@ -217,17 +218,17 @@ const PublicLayout = () => {
       >
         <Stack spacing={1}>
           <Typography variant="body1" fontWeight={700} color="text.primary">
-            DesiTech Solutions <Box component="span" sx={{ mx: 1.5, color: 'divider' }}>•</Box> 
-            Biruma Technology Solutions Pvt. Ltd.
+            {t('publicLayout.companyName')} <Box component="span" sx={{ mx: 1.5, color: 'divider' }}>•</Box> 
+            {t('publicLayout.birumaTechnology')}
           </Typography>
           
           <Typography variant="body2" color="text.secondary">
             CIN: U62010HR2025PTC139151 <Box component="span" sx={{ mx: 1 }}>•</Box> 
-            Made with ❤️ in India
+            {t('publicLayout.madeWithLoveInIndia')}
           </Typography>
 
           <Typography variant="caption" color="text.disabled" sx={{ mt: 1 }}>
-            © {new Date().getFullYear()} VyaparSathi — All rights reserved
+            © {new Date().getFullYear()} {t('appName')} — {t('publicLayout.allRightsReserved')}
           </Typography>
         </Stack>
       </Box>

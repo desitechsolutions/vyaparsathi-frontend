@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Button, CircularProgress, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, TextField, Modal } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Box, Typography, Paper, Button, CircularProgress, TableContainer, 
+  Table, TableHead, TableRow, TableCell, TableBody, TextField, 
+  Modal, Divider, Stack, Chip, Alert, Tooltip, IconButton
+} from '@mui/material';
 import Header from './Header';
 import OverageConfirmationModal from './OverageConfirmationModal';
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HistoryIcon from '@mui/icons-material/History';
 
 const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => {
   const [loading, setLoading] = useState(true);
@@ -14,6 +19,7 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
   const [showOverageModal, setShowOverageModal] = useState(false);
   const [totalOverages, setTotalOverages] = useState(0);
 
+  // 1. Initialize Combined Data (PO vs Receiving Record)
   useEffect(() => {
     const fetchCombinedData = async () => {
       setLoading(true);
@@ -23,249 +29,243 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
         const receivingItems = receiving.receivingItems || [];
 
         const combinedItems = poItems.map(poItem => {
-          const matchingReceivedItem = receivingItems.find(recItem => recItem.purchaseOrderItemId === poItem.id);
+          const match = receivingItems.find(recItem => recItem.purchaseOrderItemId === poItem.id);
           return {
-            id: matchingReceivedItem?.id || null,
+            id: match?.id || null,
             purchaseOrderItemId: poItem.id,
             itemName: poItem.name,
+            sku: poItem.sku || 'N/A',
             orderedQty: poItem.quantity,
-            expectedQty: poItem.quantity,
-            receivedQty: matchingReceivedItem?.receivedQty || 0,
-            damagedQty: matchingReceivedItem?.damagedQty || 0,
-            damageReason: matchingReceivedItem?.damageReason || '',
-            notes: matchingReceivedItem?.notes || '',
-            putAwayStatus: matchingReceivedItem?.putAwayStatus || null,
-            rejectedQty: matchingReceivedItem?.rejectedQty || 0,
-            rejectReason: matchingReceivedItem?.rejectReason || '',
-            putawayQty: matchingReceivedItem?.putawayQty || 0,
-            previouslyReceived: matchingReceivedItem?.receivedQty || 0,
-            previouslyRejected: matchingReceivedItem?.rejectedQty || 0,
-            previouslyDamaged: matchingReceivedItem?.damagedQty || 0,
+            // Historical totals from the database
+            previouslyReceived: match?.receivedQty || 0,
+            previouslyRejected: match?.rejectedQty || 0,
+            previouslyDamaged: match?.damagedQty || 0,
+            // Current Session inputs
             newReceivedQty: 0,
             newRejectedQty: 0,
             newDamagedQty: 0,
-            newRejectionReason: '',
+            note: ''
           };
         });
         setEditData(combinedItems);
       } catch (err) {
-        setError('Failed to load item details for this PO.');
+        setError('Critical: Could not sync PO items. Please refresh.');
       } finally {
         setLoading(false);
       }
     };
     fetchCombinedData();
-  }, [receiving]);
+  }, [receiving, getPoItems]);
 
-  const validateInput = (index) => {
-    const item = editData[index];
-    const totalNew = (item.newReceivedQty || 0) + (item.newRejectedQty || 0) + (item.newDamagedQty || 0);
-    const totalPreviously = (item.previouslyReceived || 0) + (item.previouslyRejected || 0) + (item.previouslyDamaged || 0);
-    const totalCombined = totalNew + totalPreviously;
-    const ordered = item.orderedQty;
+  // 2. Real-time Session Calculations
+  const stats = useMemo(() => {
+    return editData.reduce((acc, item) => ({
+      rec: acc.rec + (item.newReceivedQty || 0),
+      rej: acc.rej + (item.newRejectedQty || 0),
+      dam: acc.dam + (item.newDamagedQty || 0),
+    }), { rec: 0, rej: 0, dam: 0 });
+  }, [editData]);
 
-    const newErrors = { ...validationErrors };
-    if (totalCombined > ordered) {
-      newErrors[index] = `Total combined quantity (${totalCombined}) exceeds ordered quantity (${ordered}).`;
-    } else if (totalNew < 0) {
-      newErrors[index] = 'Quantities cannot be negative.';
-    } else {
-      delete newErrors[index];
-    }
-    setValidationErrors(newErrors);
-  };
-
+  // 3. Logic: Input Handling & Validation
   const handleQtyChange = (index, field, value) => {
-    const sanitizedValue = Math.max(0, parseInt(value, 10) || 0);
-    const newEditData = [...editData];
-    newEditData[index][field] = sanitizedValue;
-    setEditData(newEditData);
-    validateInput(index);
+    const val = Math.max(0, parseInt(value, 10) || 0);
+    const updated = [...editData];
+    updated[index][field] = val;
+
+    const item = updated[index];
+    const totalCurrent = item.newReceivedQty + item.newRejectedQty + item.newDamagedQty;
+    const totalHistorical = item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged;
+    
+    const errors = { ...validationErrors };
+    if ((totalCurrent + totalHistorical) > item.orderedQty) {
+      errors[index] = `Total (${totalCurrent + totalHistorical}) exceeds PO limit of ${item.orderedQty}`;
+    } else {
+      delete errors[index];
+    }
+
+    setValidationErrors(errors);
+    setEditData(updated);
   };
 
-  const handleTextChange = (index, field, value) => {
-    const newEditData = [...editData];
-    newEditData[index][field] = value;
-    setEditData(newEditData);
-  };
-
+  // 4. Final Submission Logic
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
 
-    const overagesFound = Object.keys(validationErrors).length > 0;
-    if (overagesFound) {
-      const overageCount = Object.values(validationErrors).reduce((sum, err, index) => {
-        const match = err.match(/exceeds ordered quantity \((\d+)\)\./);
-        if (match) {
-          const ordered = parseInt(match[1], 10);
-          const totalCombined = (editData[index].newReceivedQty || 0) + (editData[index].newRejectedQty || 0) + (editData[index].newDamagedQty || 0) + (editData[index].previouslyReceived || 0) + (editData[index].previouslyRejected || 0) + (editData[index].previouslyDamaged || 0);
-          return sum + (totalCombined - ordered);
-        }
-        return sum;
+    const hasOverages = Object.keys(validationErrors).length > 0;
+    
+    if (hasOverages) {
+      // Calculate total units over PO for the modal
+      const overageSum = Object.keys(validationErrors).reduce((sum, idx) => {
+        const item = editData[idx];
+        const total = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+        return sum + (total - item.orderedQty);
       }, 0);
-      setTotalOverages(overageCount);
+      setTotalOverages(overageSum);
       setShowOverageModal(true);
       return;
     }
 
-    const itemsToUpdate = editData.map(item => ({
-      id: item.id || null,
-      purchaseOrderItemId: item.purchaseOrderItemId,
-      expectedQty: item.orderedQty,
-      receivedQty: item.newReceivedQty || 0,
-      damagedQty: item.newDamagedQty || 0,
-      damageReason: item.damageReason || '',
-      notes: item.newRejectionReason || '',
-      putAwayStatus: item.putAwayStatus || null,
-      rejectedQty: item.newRejectedQty || 0,
-      rejectReason: item.rejectReason || '',
-      putawayQty: item.putawayQty || 0,
-      isOveraged: false,
-      isShortage: (((item.newReceivedQty || 0) + (item.newRejectedQty || 0) + (item.newDamagedQty || 0) + (item.previouslyReceived || 0) + (item.previouslyRejected || 0) + (item.previouslyDamaged || 0)) < item.orderedQty),
-    }));
-    onSubmit(receiving.id, itemsToUpdate);
+    // Direct submit if no overages
+    finalizeSubmission(null);
   };
 
-  const handleConfirmOverage = (overageData) => {
-    setShowOverageModal(false);
-    const itemsToUpdate = editData.map(item => {
-      const totalCombined = (item.newReceivedQty || 0) + (item.newRejectedQty || 0) + (item.newDamagedQty || 0) + (item.previouslyReceived || 0) + (item.previouslyRejected || 0) + (item.previouslyDamaged || 0);
+  const finalizeSubmission = (overageAudit) => {
+    const payload = editData.map(item => {
+      const totalCombined = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+      const isOver = totalCombined > item.orderedQty;
+
       return {
-        itemName: item.itemName,
-        variants: item.variants,
-        orderedQty: item.orderedQty,
-        receivedQty: (item.newReceivedQty || 0),
-        rejectedQty: (item.newRejectedQty || 0),
-        damagedQty: (item.newDamagedQty || 0),
-        rejectionReason: item.newRejectionReason,
-        isOveraged: totalCombined > item.orderedQty,
-        isShortage: totalCombined < item.orderedQty,
+        id: item.id,
+        purchaseOrderItemId: item.purchaseOrderItemId,
+        receivedQty: item.newReceivedQty,
+        damagedQty: item.newDamagedQty,
+        rejectedQty: item.newRejectedQty,
+        // Audit data for overages
+        isOveraged: isOver,
+        overageReason: isOver ? overageAudit?.overageReason : null,
+        overageNotes: isOver ? overageAudit?.overageNotes : null,
+        isShortage: totalCombined < item.orderedQty
       };
     });
-    onSubmit(receiving.id, itemsToUpdate);
+
+    onSubmit(receiving.id, payload);
   };
 
-  const totalReceivedThisSession = editData.reduce((sum, item) => sum + (item.newReceivedQty || 0), 0);
-  const totalRejectedThisSession = editData.reduce((sum, item) => sum + (item.newRejectedQty || 0), 0);
-  const totalDamagedThisSession = editData.reduce((sum, item) => sum + (item.newDamagedQty || 0), 0);
+  if (loading) return (
+    <Box sx={{ textAlign: 'center', py: 10 }}>
+      <CircularProgress />
+      <Typography sx={{ mt: 2, color: 'text.secondary' }}>Preparing inventory worksheet...</Typography>
+    </Box>
+  );
 
   return (
     <Box>
-      <Header title={`Edit Receiving for PO #${receiving.poNumber}`} onBack={onCancel} />
-      {loading && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 5, color: 'grey.500' }}>
-          <CircularProgress color="inherit" size={40} sx={{ mb: 2 }} />
-          <Typography>Loading PO details...</Typography>
-        </Box>
-      )}
-      {error && <Typography color="error" sx={{ bgcolor: 'error.light', p: 1, borderRadius: 1 }}>{error}</Typography>}
-      {!loading && editData.length > 0 && (
-        <Box component="form" onSubmit={handleSubmit}>
-          <Paper sx={{ display: 'flex', justifyContent: 'space-between', p: 2, mb: 3, borderRadius: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 'medium', color: 'success.main' }}>
-              Received This Session: {totalReceivedThisSession}
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 'medium', color: 'error.main' }}>
-              Rejected This Session: {totalRejectedThisSession}
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 'medium', color: 'warning.main' }}>
-              Damaged This Session: {totalDamagedThisSession}
-            </Typography>
-          </Paper>
-          <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 1 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'grey.100' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Item Name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Ordered Qty</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Previously Rec'd</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Rec'd Now</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Rejected Now</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Damaged Now</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {editData.map((item, index) => (
-                  <TableRow key={index} hover>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 'medium' }}>{item.itemName}</Typography>
-                      {item.variants && Object.entries(item.variants).map(([key, value]) => (
-                        <Typography key={key} variant="body2" color="text.secondary">
-                          {key}: {value}
-                        </Typography>
-                      ))}
-                    </TableCell>
-                    <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 'medium' }}>{item.orderedQty}</TableCell>
-                    <TableCell align="center" sx={{ color: 'success.main', fontWeight: 'medium' }}>{item.previouslyReceived}</TableCell>
-                    <TableCell>
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={item.newReceivedQty}
-                        onChange={(e) => handleQtyChange(index, 'newReceivedQty', e.target.value)}
-                        inputProps={{ min: 0 }}
-                        sx={{ width: 80 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={item.newRejectedQty}
-                        onChange={(e) => handleQtyChange(index, 'newRejectedQty', e.target.value)}
-                        inputProps={{ min: 0 }}
-                        sx={{ width: 80 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={item.newDamagedQty}
-                        onChange={(e) => handleQtyChange(index, 'newDamagedQty', e.target.value)}
-                        inputProps={{ min: 0 }}
-                        sx={{ width: 80 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                        {validationErrors[index] ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', color: 'error.main' }}>
-                                <CancelOutlinedIcon fontSize="small" sx={{ mr: 0.5 }} />
-                                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Invalid</Typography>
-                            </Box>
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', color: 'success.main' }}>
-                                <CheckCircleOutlineOutlinedIcon fontSize="small" sx={{ mr: 0.5 }} />
-                                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>OK</Typography>
-                            </Box>
-                        )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-            <Button onClick={onCancel} variant="outlined">
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" color="success">
-              Update Receiving
-            </Button>
-          </Box>
-        </Box>
-      )}
+      <Header title={`Edit Receiving: PO #${receiving.poNumber}`} onBack={onCancel} />
 
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+      {/* Dashboard Summary Section */}
+      <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
+        {[
+          { label: 'RECEIVING NOW', val: stats.rec, color: 'success.main' },
+          { label: 'REJECTING NOW', val: stats.rej, color: 'error.main' },
+          { label: 'DAMAGED NOW', val: stats.dam, color: 'warning.main' }
+        ].map((s, i) => (
+          <Paper key={i} sx={{ p: 2, flex: 1, textAlign: 'center', borderRadius: 3, border: '1px solid #e0e0e0' }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>{s.label}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: s.color }}>{s.val}</Typography>
+          </Paper>
+        ))}
+      </Stack>
+
+      <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <Table size="small">
+          <TableHead sx={{ bgcolor: 'grey.50' }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>Product Item</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>PO Qty</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Historical</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>Received</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>Rejected</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'warning.main' }}>Damaged</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {editData.map((item, index) => {
+              const currentTotal = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+              const isOver = currentTotal > item.orderedQty;
+              const isMatch = currentTotal === item.orderedQty;
+
+              return (
+                <TableRow key={index} hover>
+                  <TableCell>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{item.itemName}</Typography>
+                    <Typography variant="caption" color="text.secondary">SKU: {item.sku}</Typography>
+                  </TableCell>
+
+                  <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: 'rgba(0,0,0,0.01)' }}>
+                    {item.orderedQty}
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <Tooltip title={`Prev Rec: ${item.previouslyReceived} | Prev Rej: ${item.previouslyRejected}`}>
+                      <IconButton size="small">
+                        <HistoryIcon fontSize="inherit" color="action" />
+                        <Typography variant="body2" sx={{ ml: 0.5 }}>{item.previouslyReceived}</Typography>
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <TextField type="number" size="small" variant="standard"
+                      value={item.newReceivedQty} sx={{ width: 50 }}
+                      onChange={(e) => handleQtyChange(index, 'newReceivedQty', e.target.value)}
+                    />
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <TextField type="number" size="small" variant="standard"
+                      value={item.newRejectedQty} sx={{ width: 50 }}
+                      onChange={(e) => handleQtyChange(index, 'newRejectedQty', e.target.value)}
+                    />
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <TextField type="number" size="small" variant="standard"
+                      value={item.newDamagedQty} sx={{ width: 50 }}
+                      onChange={(e) => handleQtyChange(index, 'newDamagedQty', e.target.value)}
+                    />
+                  </TableCell>
+
+                  <TableCell align="center">
+                    {validationErrors[index] ? (
+                      <Tooltip title={validationErrors[index]}>
+                        <CancelOutlinedIcon color="error" />
+                      </Tooltip>
+                    ) : (
+                      <Chip 
+                        label={isOver ? 'Overage' : isMatch ? 'Match' : 'Partial'} 
+                        color={isMatch ? 'success' : isOver ? 'warning' : 'default'}
+                        size="small"
+                        variant={isMatch ? 'filled' : 'outlined'}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 5 }}>
+        <Button onClick={onCancel} variant="outlined" color="inherit">
+          Discard Changes
+        </Button>
+        <Button 
+          variant="contained" 
+          color="success" 
+          onClick={handleSubmit}
+          sx={{ px: 4, fontWeight: 'bold', borderRadius: 2 }}
+        >
+          Update Inventory
+        </Button>
+      </Box>
+
+      {/* 5. Enhanced Overage Justification Modal */}
       <Modal open={showOverageModal} onClose={() => setShowOverageModal(false)}>
-        <OverageConfirmationModal
-          onConfirm={handleConfirmOverage}
-          onCancel={() => setShowOverageModal(false)}
-          errors={validationErrors}
-          totalOverages={totalOverages}
-        />
+        <Box sx={{ outline: 'none' }}>
+           <OverageConfirmationModal
+            onConfirm={(auditData) => finalizeSubmission(auditData)}
+            onCancel={() => setShowOverageModal(false)}
+            errors={validationErrors}
+            totalOverages={totalOverages}
+          />
+        </Box>
       </Modal>
     </Box>
   );
 };
+
 export default EditReceiveGoodsForm;

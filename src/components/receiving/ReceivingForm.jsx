@@ -1,39 +1,21 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-  Paper,
-  Alert,
-  CircularProgress,
-  Divider,
-  Link,
-  Fade,
-  FormHelperText,
+  Box, Button, FormControl, InputLabel, Select, MenuItem, Typography, Paper,
+  Alert, CircularProgress, Divider, Link, Fade, FormHelperText, Grid, Stack, Chip
 } from '@mui/material';
 import {
-  PersonOutline, 
-  Inventory, 
-  AssignmentTurnedIn,
-  CalendarToday,
+  PersonOutline, Inventory, AssignmentTurnedIn, CalendarToday,
+  BusinessCenter, LocalPhone, Email, LocationOn, ArrowForward
 } from '@mui/icons-material';
 import Header from './Header';
 
-const statusColor = (status) => {
-  switch (status) {
-    case 'SUBMITTED':
-      return '#f57c00';
-    case 'PARTIALLY_RECEIVED':
-      return '#0288d1';
-    case 'RECEIVED':
-    case 'COMPLETED':
-      return '#388e3c';
-    default:
-      return '#333';
+// Enhanced status styling to match the rest of your app
+const getStatusConfig = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'SUBMITTED': return { color: 'warning', label: 'Awaiting Delivery' };
+    case 'PARTIALLY_RECEIVED': return { color: 'info', label: 'Partial Receipt' };
+    case 'PENDING': return { color: 'default', label: 'Pending' };
+    default: return { color: 'default', label: status };
   }
 };
 
@@ -44,27 +26,29 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
     totalItems: '',
     status: '',
     date: '',
+    poNumber: ''
   });
   const [error, setError] = useState('');
   const [touched, setTouched] = useState({});
 
-  // Validate only purchaseOrderId
   const validate = () => {
     const errors = {};
-    if (!formData.purchaseOrderId) errors.purchaseOrderId = 'Please select a Purchase Order to proceed.';
+    if (!formData.purchaseOrderId) errors.purchaseOrderId = 'A Purchase Order must be selected to begin receiving.';
     return errors;
   };
+  
   const validationErrors = validate();
 
   const handlePOChange = (e) => {
     const poId = e.target.value;
-    const po = pendingPOs.find((po) => po.id === poId || po.id === Number(poId));
+    const po = pendingPOs.find((p) => p.id === poId || p.id === Number(poId));
     setFormData({
       purchaseOrderId: po?.id || '',
       supplier: po?.supplier || {},
-      totalItems: po?.items?.length || 0,
+      totalItems: po?.items?.length || po?.receivingItems?.length || 0,
       status: po?.status || '',
       date: po?.orderDate ? po.orderDate.split('T')[0] : '',
+      poNumber: po?.poNumber || ''
     });
     setTouched((prev) => ({ ...prev, purchaseOrderId: true }));
   };
@@ -72,7 +56,7 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (Object.keys(validationErrors).length > 0) {
-      setError(validationErrors.purchaseOrderId || 'Please fill all required fields.');
+      setError(validationErrors.purchaseOrderId);
       return;
     }
     setError('');
@@ -82,278 +66,151 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
     });
   };
 
-  const noPendingPO =
-    !pendingPOs || pendingPOs.filter((po) => !['RECEIVED', 'COMPLETED'].includes(po.status)).length === 0;
+  const activePOs = pendingPOs?.filter((po) => !['RECEIVED', 'COMPLETED'].includes(po.status)) || [];
+  const noPendingPO = !loading && activePOs.length === 0;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: { xs: 2, sm: 4 } }}>
       <Header title={title} onBack={onCancel} />
-      {error && (
-        <Alert
-          severity="error"
-          onClose={() => setError('')}
-          sx={{ borderRadius: 2, boxShadow: 1, bgcolor: 'error.light', mb: 2 }}
-        >
-          {error}
-        </Alert>
-      )}
-      <Paper
-        sx={{
-          p: { xs: 3, sm: 4 },
-          maxWidth: 600,
-          mx: 'auto',
-          mt: 4,
-          borderRadius: 4,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-          bgcolor: 'background.paper',
-          transition: 'transform 0.2s ease-in-out',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-          },
-        }}
-      >
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 700,
-              letterSpacing: 0.5,
-              color: 'primary.main',
-              textAlign: 'center',
-            }}
-          >
-            Create Receiving
-          </Typography>
+      
+      <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
+        {error && (
+          <Alert severity="error" variant="filled" onClose={() => setError('')} sx={{ mb: 3, borderRadius: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Paper sx={{ p: { xs: 3, sm: 5 }, borderRadius: 4, boxShadow: '0 10px 40px rgba(0,0,0,0.04)', border: '1px solid #eef2f6' }}>
+          <Stack spacing={1} sx={{ mb: 4, textAlign: 'center' }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
+              Initiate Receiving
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Step 1: Link physical delivery to an existing Purchase Order
+            </Typography>
+          </Stack>
+
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4, bgcolor: 'grey.100', borderRadius: 2 }}>
-              <CircularProgress size={30} color="primary" />
-              <Typography sx={{ ml: 2, fontWeight: 500, color: 'text.secondary' }}>
-                Loading pending POs...
-              </Typography>
-            </Box>
+            <Stack alignItems="center" spacing={2} sx={{ py: 6 }}>
+              <CircularProgress size={40} thickness={4} />
+              <Typography color="text.secondary" sx={{ fontWeight: 500 }}>Syncing with inventory...</Typography>
+            </Stack>
           ) : noPendingPO ? (
-            <Box
-              sx={{
-                textAlign: 'center',
-                py: 3,
-                bgcolor: 'warning.light',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'warning.main',
-              }}
-            >
-              <Typography sx={{ fontWeight: 500, color: 'warning.dark' }}>
-                No pending Purchase Orders available.
-              </Typography>
-              <Link href="/purchase-orders/new" underline="hover" sx={{ mt: 1, display: 'block', color: 'primary.main' }}>
-                Create a new PO
-              </Link>
-            </Box>
+            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: 'amber.50', borderColor: 'amber.200', borderRadius: 3 }}>
+              <AssignmentTurnedIn sx={{ fontSize: 48, color: 'amber.600', mb: 1 }} />
+              <Typography variant="h6" sx={{ color: 'amber.900', fontWeight: 700 }}>No Pending POs</Typography>
+              <Typography variant="body2" sx={{ color: 'amber.800', mb: 2 }}>All purchase orders have been fully processed.</Typography>
+              <Button component={Link} href="/purchase-orders/new" variant="contained" color="warning" sx={{ borderRadius: 2 }}>
+                Create New Order
+              </Button>
+            </Paper>
           ) : (
-            <Fade in={!loading && !noPendingPO}>
-              <FormControl
-                fullWidth
-                required
-                error={!!(touched.purchaseOrderId && validationErrors.purchaseOrderId)}
-                variant="outlined"
-              >
-                <InputLabel id="po-select-label">Select Pending PO</InputLabel>
+            <Box component="form" onSubmit={handleSubmit}>
+              <FormControl fullWidth error={!!(touched.purchaseOrderId && validationErrors.purchaseOrderId)} sx={{ mb: 4 }}>
+                <InputLabel>Select Active Purchase Order</InputLabel>
                 <Select
-                  labelId="po-select-label"
                   value={formData.purchaseOrderId}
-                  label="Select Pending PO"
+                  label="Select Active Purchase Order"
                   onChange={handlePOChange}
-                  name="purchaseOrderId"
-                  onBlur={() => setTouched((prev) => ({ ...prev, purchaseOrderId: true }))}
-                  sx={{
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                  }}
-                  aria-label="Select Purchase Order"
+                  sx={{ borderRadius: 3, bgcolor: 'background.paper' }}
                 >
-                  {pendingPOs
-                    .filter((po) => !['RECEIVED', 'COMPLETED'].includes(po.status))
-                    .map((po) => (
-                      <MenuItem key={po.id} value={po.id}>
-                        {po.poNumber} - {po.supplier?.name || 'Unknown Supplier'}
-                      </MenuItem>
-                    ))}
+                  {activePOs.map((po) => (
+                    <MenuItem key={po.id} value={po.id}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography sx={{ fontWeight: 600 }}>#{po.poNumber}</Typography>
+                        <Typography color="text.secondary">|</Typography>
+                        <Typography>{po.supplier?.name}</Typography>
+                      </Stack>
+                    </MenuItem>
+                  ))}
                 </Select>
                 {touched.purchaseOrderId && validationErrors.purchaseOrderId && (
-                  <FormHelperText error sx={{ mt: 1 }}>
-                    {validationErrors.purchaseOrderId}
-                  </FormHelperText>
+                  <FormHelperText sx={{ fontWeight: 500 }}>{validationErrors.purchaseOrderId}</FormHelperText>
                 )}
               </FormControl>
-            </Fade>
+
+              {formData.purchaseOrderId && (
+                <Fade in={true}>
+                  <Box sx={{ bgcolor: '#f8fafc', p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Order Preview
+                      </Typography>
+                      <Chip 
+                        label={getStatusConfig(formData.status).label} 
+                        color={getStatusConfig(formData.status).color} 
+                        size="small" 
+                        sx={{ fontWeight: 700 }} 
+                      />
+                    </Stack>
+
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6}>
+                        <InfoItem icon={<BusinessCenter />} label="Supplier" value={formData.supplier?.name} />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <InfoItem icon={<CalendarToday />} label="Order Date" value={formData.date} />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <InfoItem icon={<Inventory />} label="Expected Lines" value={`${formData.totalItems} Items`} />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <InfoItem icon={<LocalPhone />} label="Contact" value={formData.supplier?.phone || 'N/A'} />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <InfoItem icon={<LocationOn />} label="Destination" value={formData.supplier?.address || 'Main Warehouse'} />
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Fade>
+              )}
+
+              <Divider sx={{ my: 4 }} />
+
+              <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Button onClick={onCancel} variant="text" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={!formData.purchaseOrderId}
+                  endIcon={<ArrowForward />}
+                  sx={{
+                    borderRadius: 3,
+                    px: 4,
+                    py: 1.2,
+                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                    textTransform: 'none',
+                    fontWeight: 700
+                  }}
+                >
+                  Confirm & Start Unloading
+                </Button>
+              </Stack>
+            </Box>
           )}
-
-          {/* Supplier and PO Details */}
-          {formData.purchaseOrderId && (
-            <Fade in={!!formData.purchaseOrderId}>
-              <Box
-                sx={{
-                  bgcolor: 'grey.100',
-                  borderRadius: 2,
-                  p: 3,
-                  mt: 2,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                }}
-              >
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
-                  Selected PO Information
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <PersonOutline sx={{ color: 'action.active', fontSize: 20 }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                      Supplier Name
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                      {formData.supplier?.name || '-'}
-                    </Typography>
-                  </Box>
-                </Box>
-                {formData.supplier?.phone && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <PersonOutline sx={{ color: 'action.active', fontSize: 20 }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                        Phone
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        {formData.supplier.phone}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-                {formData.supplier?.email && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <PersonOutline sx={{ color: 'action.active', fontSize: 20 }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                        Email
-                      </Typography>
-                      <Link
-                        href={`mailto:${formData.supplier.email}`}
-                        underline="hover"
-                        sx={{ color: 'primary.main', fontWeight: 600 }}
-                      >
-                        {formData.supplier.email}
-                      </Link>
-                    </Box>
-                  </Box>
-                )}
-                {formData.supplier?.address && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <PersonOutline sx={{ color: 'action.active', fontSize: 20 }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                        Address
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        {formData.supplier.address}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-                <Divider sx={{ my: 2, borderColor: 'grey.200' }} />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Inventory sx={{ color: 'action.active', fontSize: 20 }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                      Total Items
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
-                      {formData.totalItems || '-'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <AssignmentTurnedIn sx={{ color: 'action.active', fontSize: 20 }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                      Status
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: statusColor(formData.status) }}>
-                      {formData.status || '-'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <CalendarToday sx={{ color: 'action.active', fontSize: 20 }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                      Date
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                      {formData.date || '-'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </Fade>
-          )}
-
-          <Divider sx={{ my: 3, borderColor: 'grey.200' }} />
-
-          <Typography
-            variant="caption"
-            sx={{ color: 'text.secondary', textAlign: 'center', display: 'block', mb: 2 }}
-          >
-            This will create an initial receiving record. Update item-level quantities in the next step.
-          </Typography>
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-            <Button
-              onClick={onCancel}
-              variant="outlined"
-              sx={{
-                borderRadius: 2,
-                px: 4,
-                color: 'text.secondary',
-                borderColor: 'grey.400',
-                '&:hover': {
-                  borderColor: 'grey.600',
-                  bgcolor: 'grey.100',
-                },
-              }}
-              aria-label="Cancel form"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                borderRadius: 2,
-                px: 4,
-                bgcolor: 'primary.main',
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-                '&:disabled': {
-                  bgcolor: 'grey.400',
-                  color: 'grey.700',
-                },
-              }}
-              disabled={noPendingPO || Object.keys(validationErrors).length > 0}
-              aria-label="Save receiving"
-            >
-              Save
-            </Button>
-          </Box>
-        </Box>
-      </Paper>
+        </Paper>
+      </Box>
     </Box>
   );
 };
+
+// Helper component for the info grid
+const InfoItem = ({ icon, label, value }) => (
+  <Stack direction="row" spacing={1.5} alignItems="flex-start">
+    <Box sx={{ mt: 0.5, color: 'primary.light' }}>
+      {React.cloneElement(icon, { fontSize: 'small' })}
+    </Box>
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mt: 0.5 }}>
+        {value || '-'}
+      </Typography>
+    </Box>
+  </Stack>
+);
 
 export default ReceivingForm;

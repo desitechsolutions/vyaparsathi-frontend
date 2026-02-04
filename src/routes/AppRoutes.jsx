@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
 import Layout from '../components/layout/Layout'; // Import Layout
 import Dashboard from '../pages/Dashboard';
-import Items from '../pages/Items';
+import ItemsPage from '../pages/ItemsPage';
 // ... other page imports
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
@@ -67,7 +67,7 @@ function AppRoutes() {
           {/* All these routes will only render if ShopGuard passes */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="items" element={<Items />} />
+          <Route path="items" element={<ItemsPage />} />
           <Route path="stock" element={<Stock />} />
           <Route path="customers" element={<Customers />} />
           <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
@@ -81,7 +81,6 @@ function AppRoutes() {
           <Route path="about-us" element={<AboutUs />} />
           <Route path="analytics" element={<AnalyticsDashboard />} />
           <Route path="purchase-orders" element={<PurchaseOrders />} />
-          <Route path='receiving' element={<ReceivingPage />} />
           <Route path="receiving/:poId" element={<ReceivingPage />} />
           <Route path="suppliers" element={<Suppliers />} />
           <Route path="admin/users" element={<UserManagementPage />} />
@@ -100,7 +99,7 @@ function AppRoutes() {
           <Route path="receivings" element={<Receiving />} />
           
           {/* Compliance Routes */}
-          <Route path="compliance/hub" element={<TaxComplianceHub />} />
+          <Route path="reports/tax-compliance" element={<TaxComplianceHub />} />
           <Route path="compliance/hsn" element={<HsnSummary />} />
           <Route path="audit" element={<AuditLogs />} />
           <Route path="notifications" element={<Notifications />} />

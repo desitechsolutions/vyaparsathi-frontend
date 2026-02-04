@@ -1,461 +1,312 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
-  Divider,
-  Chip,
-  Stack,
-  Grid,
-  Snackbar,
-  Alert,
+  Box, Typography, Paper, Button, CircularProgress, FormControl,
+  InputLabel, Select, MenuItem, TextField, Divider, Chip, Stack,
+  Grid, Snackbar, Alert, Card, CardContent, InputAdornment, 
+  Stepper, Step, StepLabel, Modal
 } from '@mui/material';
+
+// Components
 import Header from './Header';
+import OverageConfirmationModal from './OverageConfirmationModal';
+
+// Icons
+import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import HistoryIcon from '@mui/icons-material/History';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 const statusChipColor = (status) => {
   switch (status) {
-    case 'RECEIVED':
-      return 'success';
-    case 'DAMAGED':
-      return 'error';
-    case 'REJECTED':
-      return 'warning';
-    case 'PARTIALLY_RECEIVED':
-      return 'info';
-    case 'PENDING':
-      return 'default';
-    default:
-      return 'default';
+    case 'RECEIVED': return 'success';
+    case 'DAMAGED': return 'error';
+    case 'REJECTED': return 'warning';
+    case 'PARTIALLY_RECEIVED': return 'info';
+    default: return 'default';
   }
 };
 
-const ReceiveGoodsForm = ({
-  onSubmit,
-  onCancel,
-  getReceivings,
-  getReceivingById,
-  getPoItems,
-}) => {
-  const [step, setStep] = useState(1);
+const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById, getPoItems }) => {
+  const [activeStep, setActiveStep] = useState(0);
   const [receivingOptions, setReceivingOptions] = useState([]);
   const [selectedReceivingId, setSelectedReceivingId] = useState('');
   const [receiving, setReceiving] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [receiveData, setReceiveData] = useState([]);
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Overage State
+  const [showOverageModal, setShowOverageModal] = useState(false);
+  const [totalOveragesCount, setTotalOveragesCount] = useState(0);
+
+  // 1. Fetch Options on Load
   useEffect(() => {
-    if (step !== 1) return;
     const fetchOptions = async () => {
       setLoading(true);
-      setLoadingMsg('Fetching receivings...');
-      setError('');
       try {
-        const allReceivings = await getReceivings();
-        const filtered = allReceivings.filter((r) =>
-          ['PENDING', 'PARTIALLY_RECEIVED'].includes(r.status)
-        );
-        setReceivingOptions(filtered);
+        const all = await getReceivings();
+        setReceivingOptions(all.filter(r => ['PENDING', 'PARTIALLY_RECEIVED'].includes(r.status)));
       } catch (err) {
-        setError('Failed to load receivings.');
+        setError('Failed to load pending receivings.');
       } finally {
         setLoading(false);
-        setLoadingMsg('');
       }
     };
     fetchOptions();
-  }, [step, getReceivings]);
+  }, [getReceivings]);
 
+  // 2. Transition to Step 2 & Prepare Data
   const handleReceivingSelect = async (e) => {
     const id = e.target.value;
     setSelectedReceivingId(id);
     setLoading(true);
-    setLoadingMsg('Loading PO details...');
-    setError('');
     try {
       const details = await getReceivingById(id);
-      setReceiving(details);
-
-      // Fetch PO items for this PO
       const poItems = await getPoItems(details.purchaseOrderId);
-      const poItemMap = {};
-      poItems.forEach((poItem) => {
-        poItemMap[poItem.id] = poItem;
+      
+      const prepared = details.receivingItems.map(item => {
+        const poItem = poItems.find(p => p.id === item.purchaseOrderItemId) || {};
+        const prevTotal = (item.receivedQty || 0) + (item.damagedQty || 0) + (item.rejectedQty || 0);
+        
+        return {
+          ...item,
+          itemName: poItem.name || 'Unknown Item',
+          sku: poItem.sku || 'N/A',
+          unitCost: poItem.unitCost || 0,
+          previouslyTotal: prevTotal,
+          allowedQty: Math.max(0, item.expectedQty - prevTotal),
+          // Current Session Fields
+          sessionReceived: 0,
+          sessionDamaged: 0,
+          sessionRejected: 0,
+          sessionNotes: ''
+        };
       });
 
-      // Prepare item data for cards
-      setReceiveData(
-        details.receivingItems.map((item) => {
-          const poItem = poItemMap[item.purchaseOrderItemId] || {};
-          const previouslyReceived = item.previouslyReceived ?? item.receivedQty ?? 0;
-          const previouslyRejected = item.previouslyRejected ?? item.rejectedQty ?? 0;
-          const previouslyDamaged = item.previouslyDamaged ?? item.damagedQty ?? 0;
-          const allowedQty =
-            item.expectedQty -
-            (previouslyReceived + previouslyRejected + previouslyDamaged);
-          return {
-            ...item,
-            itemName: poItem.name || '',
-            sku: poItem.sku || '',
-            pricePerUnit: poItem.unitCost || '',
-            previouslyReceived,
-            previouslyRejected,
-            previouslyDamaged,
-            allowedQty,
-            receivedQty: 0,
-            rejectedQty: 0,
-            damagedQty: 0,
-          };
-        })
-      );
-      setStep(2);
+      setReceiving(details);
+      setReceiveData(prepared);
+      setActiveStep(1);
     } catch (err) {
-      setError('Failed to load receiving details.');
-      setReceiving(null);
-      setReceiveData([]);
+      setError('Error syncing Purchase Order data.');
     } finally {
       setLoading(false);
-      setLoadingMsg('');
     }
   };
 
+  // 3. Qty Change & Overage Detection
   const handleQtyChange = (itemId, field, value) => {
-    const sanitizedValue = Math.max(0, parseInt(value, 10) || 0);
-    const newReceiveData = receiveData.map((item) =>
-      item.id === itemId ? { ...item, [field]: sanitizedValue } : item
-    );
-
-    // Validate
-    const changedItem = newReceiveData.find((item) => item.id === itemId);
-    const total =
-      (changedItem.receivedQty || 0) +
-      (changedItem.rejectedQty || 0) +
-      (changedItem.damagedQty || 0);
-    const allowed = changedItem.allowedQty;
-    const newErrors = { ...validationErrors };
-    if (total > allowed) {
-      newErrors[itemId] = `Total entered (${total}) exceeds allowed (${allowed}).`;
-    } else {
-      delete newErrors[itemId];
-    }
-    setValidationErrors(newErrors);
-    setReceiveData(newReceiveData);
+    const val = Math.max(0, parseInt(value, 10) || 0);
+    const updated = receiveData.map(item => {
+      if (item.id === itemId) {
+        const newItem = { ...item, [field]: val };
+        const sessionTotal = newItem.sessionReceived + newItem.sessionDamaged + newItem.sessionRejected;
+        
+        const errors = { ...validationErrors };
+        if (sessionTotal > item.allowedQty) {
+          errors[itemId] = `Overage: +${sessionTotal - item.allowedQty} units`;
+        } else {
+          delete errors[itemId];
+        }
+        setValidationErrors(errors);
+        return newItem;
+      }
+      return item;
+    });
+    setReceiveData(updated);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // 4. Submission Logic
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    
     if (Object.keys(validationErrors).length > 0) {
-      setError('Please fix validation errors before submitting.');
+      const totalOver = Object.values(validationErrors).reduce((acc, msg) => {
+        const num = parseInt(msg.match(/\d+/)) || 0;
+        return acc + num;
+      }, 0);
+      setTotalOveragesCount(totalOver);
+      setShowOverageModal(true);
       return;
     }
-    setLoading(true);
-    setLoadingMsg('Saving...');
-    setError('');
-    try {
-      const payload = {
-          receivingId: receiving.id,
-          purchaseOrderId: receiving.purchaseOrderId,
-          shopId: receiving.shopId,
-          receivingItems: receiveData.map((item) => ({
-          id: item.id,
-          purchaseOrderItemId: item.purchaseOrderItemId,
-          expectedQty: item.expectedQty,
-          receivedQty: item.receivedQty,
-          damagedQty: item.damagedQty,
-          damageReason: item.damageReason,
-          notes: item.notes,
-          putAwayStatus: item.putAwayStatus,
-          rejectedQty: item.rejectedQty,
-          rejectReason: item.rejectReason,
-          putawayQty: item.putawayQty,
-          status: item.status,
-        })),
-        notes: receiving.notes || '',
-      };
-      await onSubmit(payload);
-      setSuccessMsg('Receiving saved successfully!');
-      setTimeout(() => {
-        setSuccessMsg('');
-        onCancel();
-      }, 1200);
-    } catch (err) {
-      setError('Failed to save receiving.');
-    } finally {
-      setLoading(false);
-      setLoadingMsg('');
-    }
+    
+    finalizeSubmission(null);
   };
 
-  const handleBackToStep1 = () => {
-    setStep(1);
-    setSelectedReceivingId('');
-    setReceiving(null);
-    setReceiveData([]);
-    setError('');
-    setValidationErrors({});
+  const finalizeSubmission = async (overageAudit) => {
+    setLoading(true);
+    try {
+      const payload = {
+        receivingId: receiving.id,
+        purchaseOrderId: receiving.purchaseOrderId,
+        shopId: receiving.shopId,
+        notes: receiving.notes,
+        receivingItems: receiveData.map(item => {
+          const isOver = (item.sessionReceived + item.sessionDamaged + item.sessionRejected) > item.allowedQty;
+          return {
+            id: item.id,
+            purchaseOrderItemId: item.purchaseOrderItemId,
+            receivedQty: item.sessionReceived,
+            damagedQty: item.sessionDamaged,
+            rejectedQty: item.sessionRejected,
+            notes: item.sessionNotes,
+            isOveraged: isOver,
+            overageReason: isOver ? overageAudit?.overageReason : null,
+            overageNotes: isOver ? overageAudit?.overageNotes : null
+          };
+        })
+      };
+
+      await onSubmit(payload);
+      setSuccessMsg('Inventory updated successfully!');
+      setTimeout(onCancel, 1200);
+    } catch (err) {
+      setError('Failed to finalize transaction.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Box>
-      <Header
-        title={
-          step === 1
-            ? 'Receive Goods - Step 1'
-            : `Receive Goods for PO #${receiving?.poNumber || ''}`
-        }
-        onBack={step === 1 ? onCancel : handleBackToStep1}
+      <Header 
+        title={activeStep === 0 ? "Log New Receipt" : `Receiving PO #${receiving?.poNumber}`} 
+        onBack={activeStep === 0 ? onCancel : () => setActiveStep(0)}
       />
 
-      {/* Loading State */}
-      {loading && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            py: 5,
-            color: 'grey.500',
-          }}
-        >
-          <CircularProgress color="inherit" size={40} sx={{ mb: 2 }} />
-          <Typography>{loadingMsg || 'Loading...'}</Typography>
-        </Box>
-      )}
+      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+        <Step><StepLabel>Identify PO</StepLabel></Step>
+        <Step><StepLabel>Verify Contents</StepLabel></Step>
+        <Step><StepLabel>Success</StepLabel></Step>
+      </Stepper>
 
-      {/* Error Snackbar */}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={4000}
-        onClose={() => setError('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="error" onClose={() => setError('')}>
-          {error}
-        </Alert>
-      </Snackbar>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={!!successMsg}
-        autoHideDuration={2000}
-        onClose={() => setSuccessMsg('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setSuccessMsg('')}>
-          {successMsg}
-        </Alert>
-      </Snackbar>
-
-      {/* Step 1: Select Receiving */}
-      {!loading && step === 1 && (
-        <>
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel id="receiving-select-label">Select Receiving</InputLabel>
-            <Select
-              labelId="receiving-select-label"
-              value={selectedReceivingId}
-              label="Select Receiving"
-              onChange={handleReceivingSelect}
-              disabled={loading}
-            >
-              {receivingOptions.map((r) => (
+      {/* STEP 1: SELECTOR */}
+      {activeStep === 0 && !loading && (
+        <Paper variant="outlined" sx={{ p: 4, maxWidth: 600, mx: 'auto', borderRadius: 3, textAlign: 'center' }}>
+          <ShoppingBagOutlinedIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Select Purchase Order</Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Search Pending POs</InputLabel>
+            <Select value={selectedReceivingId} label="Search Pending POs" onChange={handleReceivingSelect}>
+              {receivingOptions.map(r => (
                 <MenuItem key={r.id} value={r.id}>
-                  PO #{r.poNumber} - {r.supplier?.name} ({r.status})
+                  PO #{r.poNumber} — {r.supplier?.name}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button onClick={onCancel} variant="outlined">
-              Cancel
-            </Button>
-          </Box>
-        </>
+        </Paper>
       )}
 
-      {/* Step 2: Item Cards */}
-      {!loading && step === 2 && (
-        <>
-          {receiving && (
-            <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                Supplier: {receiving.supplier?.name}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {receiving.supplier?.address}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Contact: {receiving.supplier?.contactPerson} |{' '}
-                {receiving.supplier?.phone}
-              </Typography>
-            </Paper>
-          )}
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-            <Grid container spacing={3}>
-              {receiveData.map((item) => (
-                <Grid item xs={12} md={6} key={item.id}>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 2,
-                      borderLeft: '5px solid #388e3c',
-                      bgcolor: 'grey.50',
-                      mb: 2,
-                    }}
-                  >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                      <Box flex={1}>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                          {item.itemName}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          SKU: {item.sku || '-'}
-                          {item.expectedQty
-                            ? ` | Ordered: ${item.expectedQty}`
-                            : ''}
-                          {typeof item.previouslyReceived === 'number'
-                            ? ` | Previously Received: ${item.previouslyReceived}`
-                            : ''}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Chip
-                          label={item.status}
-                          color={statusChipColor(item.status)}
-                          size="small"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: 14,
-                            textTransform: 'capitalize',
-                            letterSpacing: 0.5,
-                          }}
-                        />
-                      </Box>
-                    </Stack>
-                    <Divider sx={{ my: 1 }} />
-                    <Grid container spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                      <Grid item xs={4}>
-                        <TextField
-                          label="Received Qty"
-                          type="number"
-                          size="small"
-                          value={item.receivedQty}
-                          onChange={(e) =>
-                            handleQtyChange(item.id, 'receivedQty', e.target.value)
-                          }
-                          inputProps={{
-                            min: 0,
-                            max: item.allowedQty,
-                          }}
-                          error={!!validationErrors[item.id]}
-                          helperText={validationErrors[item.id] && ' '}
-                          fullWidth
-                        />
-                      </Grid>
-                      <Grid item xs={4}>
-                        <TextField
-                          label="Damaged Qty"
-                          type="number"
-                          size="small"
-                          value={item.damagedQty}
-                          onChange={(e) =>
-                            handleQtyChange(item.id, 'damagedQty', e.target.value)
-                          }
-                          inputProps={{
-                            min: 0,
-                            max: item.allowedQty,
-                          }}
-                          error={!!validationErrors[item.id]}
-                          helperText={validationErrors[item.id] && ' '}
-                          fullWidth
-                        />
-                      </Grid>
-                      <Grid item xs={4}>
-                        <TextField
-                          label="Rejected Qty"
-                          type="number"
-                          size="small"
-                          value={item.rejectedQty}
-                          onChange={(e) =>
-                            handleQtyChange(item.id, 'rejectedQty', e.target.value)
-                          }
-                          inputProps={{
-                            min: 0,
-                            max: item.allowedQty,
-                          }}
-                          error={!!validationErrors[item.id]}
-                          helperText={validationErrors[item.id] && validationErrors[item.id]}
-                          fullWidth
-                        />
-                      </Grid>
+      {/* STEP 2: WORKSHEET */}
+      {activeStep === 1 && (
+        <Grid container spacing={3}>
+          {receiveData.map((item) => (
+            <Grid item xs={12} md={6} key={item.id}>
+              <Card variant="outlined" sx={{ 
+                borderRadius: 3, 
+                borderLeft: '6px solid', 
+                borderColor: validationErrors[item.id] ? 'warning.main' : 'success.main',
+                bgcolor: 'background.paper'
+              }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{item.itemName}</Typography>
+                      <Typography variant="caption" color="text.secondary">SKU: {item.sku} | PO Qty: {item.expectedQty}</Typography>
+                    </Box>
+                    <Chip label={item.status} color={statusChipColor(item.status)} size="small" />
+                  </Stack>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <TextField label="Received" size="small" type="number" fullWidth
+                        value={item.sessionReceived}
+                        onChange={(e) => handleQtyChange(item.id, 'sessionReceived', e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><InventoryIcon fontSize="inherit" color="success"/></InputAdornment> }}
+                      />
                     </Grid>
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <span style={{ color: '#388e3c', fontWeight: 500 }}>
-                        Received: {item.receivedQty}
-                      </span>
-                      {' | '}
-                      <span style={{ color: '#d32f2f', fontWeight: 500 }}>
-                        Damaged: {item.damagedQty}
-                      </span>
-                      {' | '}
-                      <span style={{ color: '#f57c00', fontWeight: 500 }}>
-                        Rejected: {item.rejectedQty}
-                      </span>
-                      {' | '}
-                      <span style={{ color: '#1976d2', fontWeight: 500 }}>
-                        Remaining: {item.allowedQty -
-                          ((item.receivedQty || 0) +
-                            (item.damagedQty || 0) +
-                            (item.rejectedQty || 0))}
-                      </span>
+                    <Grid item xs={4}>
+                      <TextField label="Damaged" size="small" type="number" fullWidth
+                        value={item.sessionDamaged}
+                        onChange={(e) => handleQtyChange(item.id, 'sessionDamaged', e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><WarningAmberIcon fontSize="inherit" color="warning"/></InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <TextField label="Rejected" size="small" type="number" fullWidth
+                        value={item.sessionRejected}
+                        onChange={(e) => handleQtyChange(item.id, 'sessionRejected', e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><CancelOutlinedIcon fontSize="inherit" color="error"/></InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField placeholder="Line item notes..." size="small" fullWidth multiline rows={1}
+                        value={item.sessionNotes}
+                        onChange={(e) => {
+                          const updated = receiveData.map(i => i.id === item.id ? { ...i, sessionNotes: e.target.value } : i);
+                          setReceiveData(updated);
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1, display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                      Allowed: <span style={{ color: '#2e7d32' }}>{item.allowedQty}</span>
                     </Typography>
-                    <TextField
-                      label="Notes"
-                      size="small"
-                      value={item.notes || ''}
-                      onChange={(e) => {
-                        const newReceiveData = receiveData.map((itm) =>
-                          itm.id === item.id
-                            ? { ...itm, notes: e.target.value }
-                            : itm
-                        );
-                        setReceiveData(newReceiveData);
-                      }}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      sx={{ mb: 1 }}
-                    />
-                  </Paper>
-                </Grid>
-              ))}
+                    {validationErrors[item.id] && (
+                      <Typography variant="caption" color="error" sx={{ fontWeight: 'bold' }}>
+                        {validationErrors[item.id]}
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-              <Button onClick={onCancel} variant="outlined">
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                color="success"
-                disabled={Object.keys(validationErrors).length > 0}
-              >
-                Finalize Receiving
+          ))}
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2, mb: 5 }}>
+              <Button onClick={() => setActiveStep(0)} variant="outlined">Back</Button>
+              <Button onClick={handleSubmit} variant="contained" color="success" startIcon={<CheckCircleOutlineIcon />}>
+                Finalize Receipt
               </Button>
             </Box>
-          </Box>
-        </>
+          </Grid>
+        </Grid>
       )}
+
+      {/* MODALS & LOADERS */}
+      <Modal open={showOverageModal} onClose={() => setShowOverageModal(false)}>
+        <Box sx={{ outline: 'none' }}>
+          <OverageConfirmationModal 
+            totalOverages={totalOveragesCount}
+            errors={validationErrors}
+            onCancel={() => setShowOverageModal(false)}
+            onConfirm={(audit) => {
+              setShowOverageModal(false);
+              finalizeSubmission(audit);
+            }}
+          />
+        </Box>
+      </Modal>
+
+      {loading && (
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(255,255,255,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={60} />
+          <Typography sx={{ mt: 2, fontWeight: 'bold' }}>Processing Inbound Goods...</Typography>
+        </Box>
+      )}
+
+      <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError('')}>
+        <Alert severity="error" variant="filled">{error}</Alert>
+      </Snackbar>
+      <Snackbar open={!!successMsg} autoHideDuration={3000}>
+        <Alert severity="success" variant="filled">{successMsg}</Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -33,7 +33,7 @@ import {
   ShoppingCart as ShoppingCartIcon,
   AccountBalanceWallet as AccountBalanceWalletIcon,
   TrendingUp as TrendingUpIcon,
-  Storefront ,
+  Storefront,
   NorthEast as NorthEastIcon,
   Warning as WarningIcon,
   WhatsApp as WhatsAppIcon,
@@ -62,6 +62,7 @@ import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { useAlerts } from "../context/AlertContext";
+import { useTranslation } from "react-i18next";
 
 dayjs.extend(isBetween);
 
@@ -137,6 +138,7 @@ const StatCard = ({ title, value, icon, color = "#1e40af", onClick, trend }) => 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { alerts: lowStockAlerts, alertCount: stockAlertCount, criticalCount } = useAlerts();
+  const { t } = useTranslation();
 
   const [shop, setShop] = useState(null);
   const [dashboardData, setDashboardData] = useState({
@@ -241,12 +243,12 @@ const Dashboard = () => {
         setLastUpdated(new Date());
       } catch (e) {
         console.error("Dashboard fetch error:", e);
-        setError("Failed to load dashboard data. Please try again.");
+        setError(t('dashboardPage.errorLoad'));
       } finally {
         setIsLoading(false);
       }
     },
-    [shop]
+    [shop, t]
   );
 
   useEffect(() => {
@@ -260,7 +262,7 @@ const Dashboard = () => {
   }, [dashboardData.summaryStats]);
 
   const sendWhatsAppReminder = (customer) => {
-    const message = `Hello ${customer.name}, this is a reminder from ${shop?.name || "our shop"} regarding a pending balance of ₹${customer.creditBalance}. Please let us know when you can clear this. Thank you!`;
+    const message = `${t('dashboardPage.hello')} ${customer.name}, ${t('dashboardPage.reminderFrom')} ${shop?.name || t('dashboardPage.ourShop')} ${t('dashboardPage.pendingBalance')} ₹${customer.creditBalance}. ${t('dashboardPage.pleaseClear')}`;
     const url = `https://wa.me/91${customer.phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
@@ -303,7 +305,7 @@ const Dashboard = () => {
               </Typography>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Typography variant="caption" color="text.secondary">
-                  Last updated: {dayjs(lastUpdated).format("hh:mm A")}
+                  {t('dashboardPage.lastUpdated')}: {dayjs(lastUpdated).format("hh:mm A")}
                 </Typography>
                 <IconButton size="small" onClick={() => fetchDashboardData(range.from, range.to)} sx={{ color: "#64748b" }}>
                   <RefreshIcon fontSize="small" />
@@ -331,24 +333,24 @@ const Dashboard = () => {
         >
           <ButtonGroup variant="outlined" size="small" color="primary">
             <Button onClick={() => setRange({ from: dayjs().format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
-              Today
+              {t('dashboardPage.today')}
             </Button>
             <Button
               onClick={() => setRange({ from: dayjs().subtract(6, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}
             >
-              7 Days
+              {t('dashboardPage.7Days')}
             </Button>
             <Button
               onClick={() => setRange({ from: dayjs().subtract(29, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}
             >
-              30 Days
+              {t('dashboardPage.30Days')}
             </Button>
           </ButtonGroup>
           <Divider orientation="vertical" flexItem />
           <TextField
             type="date"
             size="small"
-            label="From"
+            label={t('dashboardPage.from')}
             value={range.from}
             onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))}
             InputLabelProps={{ shrink: true }}
@@ -357,7 +359,7 @@ const Dashboard = () => {
           <TextField
             type="date"
             size="small"
-            label="To"
+            label={t('dashboardPage.to')}
             value={range.to}
             onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))}
             InputLabelProps={{ shrink: true }}
@@ -367,10 +369,10 @@ const Dashboard = () => {
 
         <Stack direction="row" spacing={1.5} flexWrap="wrap">
           <Button variant="contained" startIcon={<ShoppingCartIcon />} onClick={() => navigate("/sales")} sx={{ borderRadius: 2.5, px: 3, fontWeight: 600 }}>
-            New Sale
+            {t('dashboardPage.newSale')}
           </Button>
           <Button variant="outlined" onClick={() => navigate("/sales?tab=history")} sx={{ borderRadius: 2.5 }}>
-            History
+            {t('dashboardPage.viewSalesHistory')}
           </Button>
         </Stack>
       </Box>
@@ -389,7 +391,7 @@ const Dashboard = () => {
           <Grid container spacing={2.5} sx={{ mb: 4 }}>
             <Grid item xs={6} sm={4} md={2.4}>
               <StatCard
-                title="Today's Sales"
+                title={t('dashboardPage.todaysSales')}
                 value={formatCurrency(dashboardData.todayStats.sales)}
                 icon={<CurrencyRupeeIcon />}
                 color="#2563eb"
@@ -398,11 +400,11 @@ const Dashboard = () => {
               />
             </Grid>
             <Grid item xs={6} sm={4} md={2.4}>
-              <StatCard title="Customers" value={dashboardData.totalCustomers} icon={<PeopleIcon />} color="#7c3aed" />
+              <StatCard title={t('dashboardPage.totalCustomers')} value={dashboardData.totalCustomers} icon={<PeopleIcon />} color="#7c3aed" />
             </Grid>
             <Grid item xs={6} sm={4} md={2.4}>
               <StatCard
-                title="Items Sold"
+                title={t('dashboardPage.totalItemsSold')}
                 value={dashboardData.itemSales.reduce((s, i) => s + (i.totalSold || 0), 0)}
                 icon={<InventoryIcon />}
                 color="#ea580c"
@@ -411,7 +413,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={6} sm={4} md={2.4}>
               <StatCard
-                title="Due Amount"
+                title={t('dashboardPage.outstandingDues')}
                 value={formatCurrency(dashboardData.summaryStats.outstandingReceivable)}
                 icon={<AccountBalanceWalletIcon />}
                 color="#dc2626"
@@ -419,7 +421,7 @@ const Dashboard = () => {
             </Grid>
             <Grid item xs={6} sm={4} md={2.4}>
               <StatCard
-                title="Net Profit"
+                title={t('dashboardPage.netProfit')}
                 value={formatCurrency(dashboardData.summaryStats.netProfit)}
                 icon={<TrendingUpIcon />}
                 color="#16a34a"
@@ -434,10 +436,10 @@ const Dashboard = () => {
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0" }} elevation={0}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                   <Typography variant="h6" fontWeight={700} color="#1e293b">
-                    Revenue Trend
+                    {t('dashboardPage.revenueTrend')}
                   </Typography>
                   {salesGrowth !== 0 && (
-                    <MuiTooltip title="Growth vs previous equivalent period">
+                    <MuiTooltip title={t('dashboardPage.growthVsPrevious')}>
                       <Chip
                         icon={<NorthEastIcon sx={{ fontSize: 14 }} />}
                         label={`Period: ${salesGrowth > 0 ? "+" : ""}${salesGrowth}%`}
@@ -463,7 +465,7 @@ const Dashboard = () => {
                       <Line
                         type="monotone"
                         dataKey="totalSales"
-                        name="Sales"
+                        name={t('dashboardPage.chartSales')}
                         stroke="#3b82f6"
                         strokeWidth={3}
                         dot={{ r: 5, strokeWidth: 2 }}
@@ -479,7 +481,7 @@ const Dashboard = () => {
             <Grid item xs={12} lg={4}>
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0", height: "100%" }} elevation={0}>
                 <Typography variant="h6" fontWeight={700} mb={2.5} color="#1e293b">
-                  Quick Insights
+                  {t('dashboardPage.quickInsights')}
                 </Typography>
 
                 {/* Critical Alert Banner */}
@@ -495,19 +497,19 @@ const Dashboard = () => {
                         sx={{ fontWeight: 600, whiteSpace: "nowrap" }}
                         onClick={() => navigate("/low-stock-alerts")}
                       >
-                        Review Now
+                        {t('dashboardPage.reviewNow')}
                       </Button>
                     }
                     sx={{ mb: 3, borderRadius: 2, fontWeight: 500 }}
                   >
-                    {criticalCount} critical low stock items — restock urgently!
+                    {criticalCount} {t('dashboardPage.criticalLowStockItems')} — {t('dashboardPage.restockUrgently')}
                   </Alert>
                 )}
 
                 {/* Inventory Alerts Card */}
                 <Box sx={{ mb: 3.5 }}>
                   <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.5} sx={{ textTransform: "uppercase", letterSpacing: "0.6px" }}>
-                    Inventory Status
+                    {t('dashboardPage.inventoryStatus')}
                   </Typography>
 
                   <Paper
@@ -537,13 +539,13 @@ const Dashboard = () => {
                           color={stockAlertCount > 0 ? (criticalCount > 0 ? "#b91c1c" : "#c2410c") : "#15803d"}
                         >
                           {criticalCount > 0
-                            ? `${criticalCount} Critical`
+                            ? `${criticalCount} ${t('dashboardPage.critical')}`
                             : stockAlertCount > 0
-                            ? `${stockAlertCount} Low Stock`
-                            : "Healthy Stock"}
+                            ? `${stockAlertCount} ${t('dashboardPage.lowStock')}`
+                            : t('dashboardPage.healthyStock')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {stockAlertCount > 0 ? "Click to view & restock" : "No alerts at this time"}
+                          {stockAlertCount > 0 ? t('dashboardPage.clickToViewRestock') : t('dashboardPage.noAlerts')}
                         </Typography>
                       </Box>
                     </Stack>
@@ -553,7 +555,7 @@ const Dashboard = () => {
                 {/* Top Debtors */}
                 <Box>
                   <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.5} sx={{ textTransform: "uppercase", letterSpacing: "0.6px" }}>
-                    Top Outstanding
+                    {t('dashboardPage.topOutstanding')}
                   </Typography>
                   {dashboardData.topCustomers.length > 0 ? (
                     dashboardData.topCustomers.map((cust, i) => (
@@ -576,7 +578,7 @@ const Dashboard = () => {
                             {formatCurrency(cust.creditBalance)}
                           </Typography>
                         </Box>
-                        <MuiTooltip title="Send WhatsApp Reminder">
+                        <MuiTooltip title={t('dashboardPage.sendWhatsAppReminder')}>
                           <IconButton
                             size="small"
                             onClick={() => sendWhatsAppReminder(cust)}
@@ -589,7 +591,7 @@ const Dashboard = () => {
                     ))
                   ) : (
                     <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                      No pending receivables
+                      {t('dashboardPage.noPendingReceivables')}
                     </Typography>
                   )}
                 </Box>
@@ -602,7 +604,7 @@ const Dashboard = () => {
       {/* Today's Sales Modal */}
       <Dialog open={todayModalOpen} onClose={() => setTodayModalOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: "16px" } }}>
         <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
-          Today's Transactions
+          {t('dashboardPage.todaysTransactions')}
           <IconButton onClick={() => setTodayModalOpen(false)} sx={{ position: "absolute", right: 16, top: 16 }}>
             <CloseIcon />
           </IconButton>
@@ -611,10 +613,10 @@ const Dashboard = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "#f8fafc" }}>
-                <TableCell>Invoice</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell align="right">Status</TableCell>
+                <TableCell>{t('dashboardPage.invoice')}</TableCell>
+                <TableCell>{t('dashboardPage.customer')}</TableCell>
+                <TableCell align="right">{t('dashboardPage.amount')}</TableCell>
+                <TableCell align="right">{t('dashboardPage.status')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -624,13 +626,13 @@ const Dashboard = () => {
                     <TableCell>
                       <b>{s.invoiceNo}</b>
                     </TableCell>
-                    <TableCell>{s.customer?.name || "Walk-in"}</TableCell>
+                    <TableCell>{s.customer?.name || t('dashboardPage.walkIn')}</TableCell>
                     <TableCell align="right">
                       <b>{formatCurrency(s.totalAmount)}</b>
                     </TableCell>
                     <TableCell align="right">
                       <Chip
-                        label={s.dueAmount > 0 ? "Due" : "Paid"}
+                        label={s.dueAmount > 0 ? t('dashboardPage.due') : t('dashboardPage.paid')}
                         color={s.dueAmount > 0 ? "error" : "success"}
                         size="small"
                         sx={{ fontWeight: "bold" }}
@@ -641,7 +643,7 @@ const Dashboard = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
-                    <Typography color="text.secondary">No transactions recorded today.</Typography>
+                    <Typography color="text.secondary">{t('dashboardPage.noTransactionsToday')}</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -652,14 +654,14 @@ const Dashboard = () => {
 
       {/* Items Sold Modal */}
       <Dialog open={itemModalOpen} onClose={() => setItemModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: "16px" } }}>
-        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Product Performance</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{t('dashboardPage.productPerformance')}</DialogTitle>
         <DialogContent dividers>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "#f8fafc" }}>
-                <TableCell>Item</TableCell>
-                <TableCell align="right">Qty Sold</TableCell>
-                <TableCell align="right">Revenue</TableCell>
+                <TableCell>{t('dashboardPage.item')}</TableCell>
+                <TableCell align="right">{t('dashboardPage.qtySold')}</TableCell>
+                <TableCell align="right">{t('dashboardPage.revenue')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -676,7 +678,7 @@ const Dashboard = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={3} align="center" sx={{ py: 6 }}>
-                    <Typography color="text.secondary">No items sold in selected period.</Typography>
+                    <Typography color="text.secondary">{t('dashboardPage.noItemsSold')}</Typography>
                   </TableCell>
                 </TableRow>
               )}

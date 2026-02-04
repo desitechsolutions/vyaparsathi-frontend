@@ -55,7 +55,6 @@ const Sidebar = () => {
   const adminOwnerMenuItems = [
     { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers' },
     { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders' },
-    { text: 'receiving', icon: <InventoryIcon />, path: '/receiving' },
     {
       text: 'payments',
       icon: <PaymentIcon />,
@@ -86,7 +85,7 @@ const Sidebar = () => {
         { text: 'customerSales', icon: <AssessmentIcon />, path: '/reports/customer-sales' },
         { text: 'expensesSummary', icon: <AssessmentIcon />, path: '/reports/expenses-summary' },
         { text: 'paymentsSummary', icon: <AssessmentIcon />, path: '/reports/payments-summary' },
-        { text: 'taxCompliance', icon: <VerifiedUser />, path: '/compliance/hub' },
+        { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance' },
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },

@@ -1,170 +1,109 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Snackbar from '@mui/material/Snackbar';
-import MuiAlert from '@mui/material/Alert';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  Box, Typography, Button, Paper, Snackbar, Alert, Dialog,
+  DialogTitle, DialogContent, DialogActions, Backdrop, CircularProgress
+} from '@mui/material';
+
+// Components
 import ReceivingList from '../components/receiving/ReceivingList';
 import ReceivingForm from '../components/receiving/ReceivingForm';
 import ReceivingDetails from '../components/receiving/ReceivingDetails';
 import ReceiveGoodsForm from '../components/receiving/ReceiveGoodsForm';
 import EditReceiveGoodsForm from '../components/receiving/EditReceiveGoodsForm';
 import ReceivingTicketForm from '../components/receiving/ReceivingTicketForm';
+import ReceivingTicketList from '../components/receiving/ReceivingTicketList'; // Added tracker
 
-
+// API Services
 import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-} from '@mui/material';
-import {
-  getPurchaseOrderById,initiateReceivingFromPO, fetchReceiving, createReceiving, updateReceiving, createReceivingTicket, addAttachmentToTicket,
-  deleteReceiving, fetchReceivingByPoId, fetchReceivingByPoNumber, fetchReceivingTicketById,
-  fetchReceivingById, updateReceivingTicket, deleteReceivingTicket, pendingPurchaseOrders
+  getPurchaseOrderById, initiateReceivingFromPO, fetchReceiving, 
+  createReceiving, updateReceiving, createReceivingTicket, 
+  addAttachmentToTicket, deleteReceiving, fetchReceivingByPoId, 
+  fetchReceivingByPoNumber, fetchReceivingTicketById,
+  fetchReceivingById, pendingPurchaseOrders, fetchAllTickets // Added fetchAllTickets (assumed API)
 } from '../services/api';
 
-const getPendingPurchaseOrders = async () => {
-  return await pendingPurchaseOrders();
-}
-
-const api = {
-  getReceivings: async () => {
-    const response = await fetchReceiving();
-    return Array.isArray(response?.content) ? response.content : (Array.isArray(response) ? response : []);
-  },
-  getReceivingById: async (id) => await fetchReceivingById(id),
-  getReceivingByPurchaseOrderId: async (poId) => await fetchReceivingByPoId(poId),
-  getReceivingByPoNumber: async (poNumber) => await fetchReceivingByPoNumber(poNumber),
-  getPoItems: async (poId) => {
-    const po = await getPurchaseOrderById(poId);
-    if (!po || !po.items) {
-      throw new Error("No items found for this PO ID.");
-    }
-    return po.items;
-  },
-  createReceiving: async (dto) => await createReceiving(dto),
-  updateReceiving: async (id, dto) => await updateReceiving(id, dto),
-  deleteReceiving: async (id) => await deleteReceiving(id),
-  createReceivingTicket: async (dto) => await createReceivingTicket(dto),
-  getReceivingTicketById: async (id) => await fetchReceivingTicketById(id),
-  updateReceivingTicket: async (id, dto) => await updateReceivingTicket(id, dto), // Assume you have this import or add it
-  deleteReceivingTicket: async (id) => await deleteReceivingTicket(id), // Assume you have this import or add it
-  receiveGoods: async (dto) => await initiateReceivingFromPO(dto), // Align with real
-  updateReceivedGoods: async (receivingId, payload) => await updateReceiving(receivingId, payload),
-  addAttachmentToTicket: async (id, file) => await addAttachmentToTicket(id, file),
-  getPendingPOs: async () => await getPendingPurchaseOrders(),
-};
-
 const Receiving = () => {
-  const [view, setView] = useState('list');
+  // View State
+  const [view, setView] = useState('list'); // 'list', 'create', 'details', 'receive_goods', 'edit_receive_goods', 'ticket_form', 'ticket_list'
   const [receivings, setReceivings] = useState([]);
+  const [tickets, setTickets] = useState([]); // State to hold support tickets
   const [currentReceiving, setCurrentReceiving] = useState(null);
-  const [currentTicket, setCurrentTicket] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [pendingPOs, setPendingPOs] = useState([]);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMsg, setSnackbarMsg] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState('error');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [sort, setSort] = useState({ field: '', direction: 'asc' });
   const [poItems, setPoItems] = useState([]);
+  const [pendingPOs, setPendingPOs] = useState([]);
 
-  const [filters, setFilters] = useState({
-    poNumber: '',
-    status: '',
-    supplier: '',
-    dateFrom: '',
-    dateTo: '',
-    // Add more fields as needed
-  });
+  // UI Feedback State
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, msg: '', severity: 'info' });
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
+  
+  // Table state managed here for persistence across view swaps
+  const [filters, setFilters] = useState({ poNumber: '', status: '', supplier: '', dateFrom: '', dateTo: '' });
+  const [sort, setSort] = useState({ field: 'receivedAt', direction: 'desc' });
 
-  const fetchData = useCallback(async (action) => {
+  // Notification Helper
+  const showMessage = (msg, severity = 'success') => {
+    setSnackbar({ open: true, msg, severity });
+  };
+
+  // API Wrapper
+  const api = useMemo(() => ({
+    getReceivings: async () => {
+      const res = await fetchReceiving();
+      return res?.content || (Array.isArray(res) ? res : []);
+    },
+    getPoItems: async (poId) => {
+      const po = await getPurchaseOrderById(poId);
+      if (!po?.items) throw new Error("PO Items not found");
+      return po.items;
+    },
+    getTickets: async () => {
+      // Logic for fetching tickets - assuming API exists
+      try {
+        const res = await fetchAllTickets(); 
+        return Array.isArray(res) ? res : [];
+      } catch (e) { return []; }
+    }
+  }), []);
+
+  // Data Fetching
+  const refreshData = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
-      if (action === 'all') {
-        const result = await api.getReceivings();
-        setReceivings(Array.isArray(result) ? result : []);
-      }
-      else if (action === 'pendingPOs') {
-        const result = await api.getPendingPOs();
-        setPendingPOs(Array.isArray(result) ? result : []);
-      }
+      const [list, pos, ticketList] = await Promise.all([
+        api.getReceivings(),
+        pendingPurchaseOrders(),
+        api.getTickets()
+      ]);
+      setReceivings(list);
+      setPendingPOs(pos || []);
+      setTickets(ticketList || []);
     } catch (err) {
-      setSnackbarMsg('Failed to fetch data. Please try again.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
+      showMessage('Failed to sync with server', 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
-  useEffect(() => {
-    fetchData('all');
-    fetchData('pendingPOs');
-  }, [fetchData]);
+  useEffect(() => { refreshData(); }, [refreshData]);
 
+  // Handler: View Details
   const handleViewDetails = async (rec) => {
-  setCurrentReceiving(rec);
-  setLoading(true);
-  try {
-    const items = await api.getPoItems(rec.purchaseOrderId);
-    setPoItems(items);
-  } catch (err) {
-    setPoItems([]);
-  }
-  setLoading(false);
-  setView('details');
-  };
-
-  const handleCreate = async (dto) => {
     setLoading(true);
-    setError('');
     try {
-      const newRec = await api.receiveGoods(dto);
-      setReceivings(prev => [...prev, newRec]);
-      setView('list');
-      setSnackbarMsg('Receiving created successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      const items = await api.getPoItems(rec.purchaseOrderId);
+      setPoItems(items);
+      setCurrentReceiving(rec);
+      setView('details');
     } catch (err) {
-      setSnackbarMsg('Failed to create receiving.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
+      showMessage('Error loading PO items', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdate = async (id, dto) => {
-    setLoading(true);
-    setError('');
-    try {
-      const updatedRec = await api.updateReceiving(id, dto);
-      setReceivings(prev => prev.map(rec => rec.id === id ? updatedRec : rec));
-      setView('list');
-      setSnackbarMsg('Receiving updated successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (err) {
-      setSnackbarMsg('Failed to update receiving.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Handler: Save / Update Received Goods
   const handleUpdateReceivedGoods = async (receivingId, items) => {
     setLoading(true);
-    setError('');
     try {
       const receiving = receivings.find(r => r.id === receivingId);
       const payload = {
@@ -173,200 +112,149 @@ const Receiving = () => {
         shopId: receiving.shopId,
         receivingItems: items,
       };
-      const updatedRec = await api.updateReceivedGoods(receivingId, payload);
-      setReceivings(prev => prev.map(rec => rec.id === receivingId ? updatedRec : rec));
+      const updated = await updateReceiving(receivingId, payload);
+      setReceivings(prev => prev.map(r => r.id === receivingId ? updated : r));
       setView('list');
-      setSnackbarMsg('Received goods updated successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      showMessage('Inventory updated successfully');
     } catch (err) {
-      setSnackbarMsg('Failed to update received goods.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
+      showMessage(err.response?.data?.message || 'Update failed', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteRequest = (id) => {
-    setDeleteId(id);
-    setDeleteDialogOpen(true);
-  };
+  // Handler: Delete
   const handleDeleteConfirm = async () => {
-    setDeleteDialogOpen(false);
+    const id = deleteConfirm.id;
+    setDeleteConfirm({ open: false, id: null });
     setLoading(true);
-    setError('');
     try {
-      await api.deleteReceiving(deleteId);
-      setReceivings(prev => prev.filter(rec => rec.id !== deleteId));
-      setSnackbarMsg('Receiving deleted successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      await deleteReceiving(id);
+      setReceivings(prev => prev.filter(r => r.id !== id));
+      showMessage('Record deleted');
     } catch (err) {
-      setSnackbarMsg('Failed to delete receiving.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
-    } finally {
-      setLoading(false);
-      setDeleteId(null);
-    }
-  };
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setDeleteId(null);
-  };
-
-  const handleReceiveGoods = async (dto) => {
-    setLoading(true);
-    setError('');
-    try {
-      const newRec = await api.receiveGoods(dto);
-      setReceivings(prev => [...prev, newRec]);
-      setView('list');
-      setSnackbarMsg('Goods received successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (err) {
-      setSnackbarMsg('Failed to receive goods.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
+      showMessage('Cannot delete record', 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCreateTicket = async (dto) => {
-    setLoading(true);
-    setError('');
-    try {
-      await api.createReceivingTicket(dto);
-      setView('list');
-      setSnackbarMsg('Ticket created successfully.');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (err) {
-     setSnackbarMsg('Failed to create receiving ticket.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-      setError('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePrintReceiving = (receiving) => {
-    const printContent = document.getElementById(`print-receiving-${receiving.id}`);
-    const printWindow = window.open('', '', 'height=500, width=800');
-    printWindow.document.write('<html><head><title>Receiving Report</title></head><body>');
-    printWindow.document.write(printContent.innerHTML);
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
-    printWindow.print();
   };
 
   const renderView = () => {
+    const commonProps = { onCancel: () => setView('list') };
+
     switch (view) {
       case 'create':
-        return (
-          <ReceivingForm
-            onSubmit={handleCreate}
-            onCancel={() => setView('list')}
-            title="Create New Receiving"
-            pendingPOs={pendingPOs}
-          />
-        );
+        return <ReceivingForm {...commonProps} pendingPOs={pendingPOs} 
+                  onSubmit={async (dto) => {
+                    setLoading(true);
+                    try {
+                      const res = await initiateReceivingFromPO(dto);
+                      setReceivings(p => [res, ...p]);
+                      setView('list');
+                      showMessage('Draft created');
+                    } catch(e) { showMessage('Creation failed', 'error'); }
+                    setLoading(false);
+                  }} />;
+      
       case 'edit_receive_goods':
-        return (
-          <EditReceiveGoodsForm
-            receiving={currentReceiving}
-            onSubmit={handleUpdateReceivedGoods}
-            onCancel={() => setView('list')}
-            getPoItems={api.getPoItems}
-          />
-        );
+        return <EditReceiveGoodsForm {...commonProps} receiving={currentReceiving} 
+                  onSubmit={handleUpdateReceivedGoods} getPoItems={api.getPoItems} />;
+      
       case 'details':
-        return (
-          <ReceivingDetails
-            receiving={currentReceiving}
-            poItems={poItems}
-            onBack={() => setView('list')}
-          />
-        );
+        return <ReceivingDetails {...commonProps} receiving={currentReceiving} poItems={poItems} onBack={commonProps.onCancel} />;
+      
       case 'receive_goods':
-        return (
-          <ReceiveGoodsForm
-            onSubmit={handleReceiveGoods}
-            onCancel={() => setView('list')}
-            getReceivings={api.getReceivings}
-            getReceivingById={api.getReceivingById}
-            getPoItems={api.getPoItems}
-          />
-        );
+        return <ReceiveGoodsForm {...commonProps} 
+                  getReceivings={api.getReceivings} 
+                  getReceivingById={fetchReceivingById}
+                  getPoItems={api.getPoItems}
+                  onSubmit={async (dto) => {
+                    setLoading(true);
+                    try {
+                       const res = await initiateReceivingFromPO(dto);
+                       setReceivings(p => p.map(r => r.id === res.id ? res : r));
+                       setView('list');
+                       showMessage('Goods processed successfully');
+                    } catch(e) { showMessage('Processing failed', 'error'); }
+                    setLoading(false);
+                  }} />;
+
       case 'ticket_form':
-        return (
-          <ReceivingTicketForm
-            onSubmit={handleCreateTicket}
-            onCancel={() => setView('list')}
-            title="Create Receiving Ticket"
-            addAttachmentToTicket={api.addAttachmentToTicket}
-          />
-        );
+        return <ReceivingTicketForm {...commonProps} title="New Support Ticket" 
+                  addAttachmentToTicket={addAttachmentToTicket}
+                  onSubmit={async (dto) => {
+                    setLoading(true);
+                    try {
+                      const ticket = await createReceivingTicket(dto);
+                      // If there's an attachment logic in the ticket form, it's handled there
+                      setView('ticket_list'); // Switch to tracker to see results
+                      refreshData(); // Refresh to show new ticket
+                      showMessage('Ticket raised');
+                    } catch(e) { showMessage('Ticket error', 'error'); }
+                    setLoading(false);
+                  }} />;
+
+      case 'ticket_list':
+        return <ReceivingTicketList 
+                  tickets={tickets} 
+                  onBack={() => setView('list')} 
+                  onViewDetails={(ticket) => showMessage(`Viewing ticket ${ticket.id} details (Feature Coming Soon)`)} 
+               />;
+
       default:
         return (
           <ReceivingList
             receivings={receivings}
             loading={loading}
-            error={error}
             filters={filters}
             setFilters={setFilters}
             sort={sort}
             setSort={setSort}
-            onViewDetails={handleViewDetails} 
+            onViewDetails={handleViewDetails}
             onEdit={(rec) => { setCurrentReceiving(rec); setView('edit_receive_goods'); }}
-            onDelete={handleDeleteRequest}
+            onDelete={(id) => setDeleteConfirm({ open: true, id })}
             onReceiveGoods={() => setView('receive_goods')}
             onCreateNew={() => setView('create')}
             onCreateTicket={() => setView('ticket_form')}
+            onViewTickets={() => setView('ticket_list')} // Added this prop
           />
         );
     }
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 4 }}>
-      <Paper sx={{ maxWidth: 1100, mx: 'auto', p: 4, borderRadius: 2, boxShadow: 3 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', p: { xs: 2, md: 4 } }}>
+      <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={loading}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
+
+      <Paper sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 1, md: 3 }, borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {renderView()}
       </Paper>
-    <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <MuiAlert
-          elevation={6}
-          variant="filled"
-          onClose={() => setSnackbarOpen(false)}
-          severity={snackbarSeverity}
-          sx={{ width: '100%' }}
-        >
-          {snackbarMsg}
-        </MuiAlert>
+        <Alert variant="filled" severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.msg}
+        </Alert>
       </Snackbar>
-    <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
-        <DialogTitle>Delete Receiving</DialogTitle>
+
+      <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, id: null })}>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Confirm Deletion</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete this receiving record?</Typography>
+          <Typography>This will remove the receiving record. Inventory changes already committed will not be reversed automatically. Continue?</Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} variant="outlined">Cancel</Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">Delete</Button>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setDeleteConfirm({ open: false, id: null })} variant="outlined">Cancel</Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">Confirm Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 };
+
 export default Receiving;

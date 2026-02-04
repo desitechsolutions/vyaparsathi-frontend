@@ -107,6 +107,12 @@ export const changePin = (data) => API.post(endpoints.auth.changePin, data);
 export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
 export const refreshToken = (refreshToken) =>
   API.post(endpoints.auth.refresh, { refreshToken });
+
+export const searchGlobalData = (query) => {
+    return API.get(`/api/v1/search`, {
+        params: { q: query }
+    });
+};
 // GET SHOP
 export const fetchShop = async () => {
   try {
@@ -398,6 +404,9 @@ export const createReceivingTicket = (data) =>
 export const fetchReceivingTicketById = (id) =>
   API.get(endpoints.receivingTicketById(id)).then(r => r.data);
 
+export const fetchAllTickets = () =>
+  API.get(endpoints.fetchAllTicket).then(r => r.data);
+
 export const initiateReceivingFromPO = (data) =>
   API.post(endpoints.receiveGoods, data).then(r => r.data);
 export const addAttachmentToTicket = (data) =>
@@ -406,6 +415,7 @@ export const updateReceivingTicket = (data) =>
   API.put('{/tickets/${id}');
 export const deleteReceivingTicket = (data) =>
   API.delete('{/tickets/${id}');
+
 
 
 // --- User Management API ---

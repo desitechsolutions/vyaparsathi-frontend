@@ -105,6 +105,7 @@ const endpoints = {
 
    // Receiving endpoints
 receiving: `${API_BASE}/receiving`,
+fetchAllTicket: `${API_BASE}/receiving/tickets`,
 receivingById: (id) => `${API_BASE}/receiving/${id}`,
 receivingByPoId: (poId) => `${API_BASE}/receiving/by-po/${poId}`,
 receivingByPoNumber: (poNumber) => `${API_BASE}/receiving/by-po-number/${poNumber}`,

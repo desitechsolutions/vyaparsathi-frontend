@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  TextField, Button, Paper, Typography, Box, Alert, MenuItem,
+  TextField, Button, Typography, Box, Alert, MenuItem,
   CircularProgress, Grid, InputAdornment, Fade, Stepper, Step, 
-  StepLabel, IconButton, Tooltip, Stack, Avatar
+  StepLabel, IconButton, Tooltip, Stack, Avatar, Paper
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { setupShop } from '../services/api';
@@ -15,7 +15,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import PlaceIcon from '@mui/icons-material/Place';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import NumbersIcon from '@mui/icons-material/Numbers';
-import LanguageIcon from '@mui/icons-material/Language';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -135,294 +134,134 @@ const SetupShop = () => {
   };
 
   return (
-    <Fade in timeout={600}>
-      <Paper
-        elevation={4}
-        sx={{
-          p: { xs: 3, sm: 4 },
-          borderRadius: 3,
-          maxWidth: 680,
-          mx: 'auto',
-          mt: { xs: 3, md: 5 },
-          mb: 6,
-          bgcolor: 'background.paper',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+    <Fade in timeout={800}>
+      <Box 
+        sx={{ 
+          width: '100%', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          py: { xs: 2, md: 4 },
+          px: { xs: 2, md: 6 }
         }}
       >
-        {/* Header with Logout */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h5" fontWeight={800} color="primary.main">
-              Shop Onboarding
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Let's get your business set up quickly
-            </Typography>
+        <Box sx={{ width: '100%', maxWidth: 600 }}>
+          {/* Header Section */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
+            <Box>
+              <Typography variant="h4" fontWeight={900} color="primary.main" gutterBottom sx={{ letterSpacing: '-0.5px' }}>
+                Shop Onboarding
+              </Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                Let's get your business set up quickly
+              </Typography>
+            </Box>
+
+            <Tooltip title="Sign Out and return to login" arrow>
+              <IconButton 
+                onClick={() => logout()} 
+                sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+              >
+                <LogoutIcon fontSize="small" color="action" />
+              </IconButton>
+            </Tooltip>
           </Box>
 
-          <Tooltip title="Sign out and return to login" arrow placement="left">
-            <IconButton 
-              size="small" 
-              color="inherit" 
-              onClick={() => logout()}
-            >
-              <LogoutIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {/* Integrated Stepper */}
+          <Stepper 
+            activeStep={activeStep} 
+            alternativeLabel 
+            sx={{ mb: 3, '& .MuiStepLabel-label': { fontWeight: 700, fontSize: '0.75rem' } }}
+          >
+            {steps.map(label => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {setupComplete ? (
+            <Paper variant="outlined" sx={{ textAlign: 'center', py: 8, borderRadius: 4, bgcolor: 'rgba(76, 175, 80, 0.04)', borderColor: 'success.light' }}>
+              <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              <Typography variant="h5" fontWeight={800} gutterBottom>Ready to go!</Typography>
+              <Typography variant="body2" color="text.secondary">Your shop has been configured successfully.</Typography>
+              <CircularProgress size={24} sx={{ mt: 4 }} />
+            </Paper>
+          ) : (
+            <Box component="form" onSubmit={handleSubmit} noValidate>
+              {errors.submit && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{errors.submit}</Alert>}
+
+              {/* Step 1: Basics */}
+              {activeStep === 0 && (
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12}>
+                    <TextField label="Shop Name" name="name" value={form.name} onChange={handleChange} fullWidth required error={!!errors.name} helperText={errors.name} InputProps={{ startAdornment: <InputAdornment position="start"><StorefrontIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Shop Code" name="code" value={form.code} onChange={handleChange} fullWidth required error={!!errors.code} helperText={errors.code || "Unique store ID"} InputProps={{ startAdornment: <InputAdornment position="start"><NumbersIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Owner Name" name="ownerName" value={form.ownerName} onChange={handleChange} fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                    <Button variant="contained" size="large" onClick={handleNext} disabled={!form.name.trim() || !form.code.trim()} endIcon={<ChevronRightIcon />} sx={{ borderRadius: 2, px: 4, fontWeight: 700 }}>Next Step</Button>
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Step 2: Branding */}
+              {activeStep === 1 && (
+                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed', borderWidth: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={800} gutterBottom>Upload Store Logo</Typography>
+                  <Stack alignItems="center" spacing={3} sx={{ mt: 2 }}>
+                    <Avatar src={logoPreview} sx={{ width: 100, height: 100, border: '3px solid', borderColor: 'primary.light', bgcolor: 'grey.50' }}>
+                      {!logoPreview && <StorefrontIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
+                    </Avatar>
+                    <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleLogoChange} />
+                    <Stack direction="row" spacing={2}>
+                      <Button variant="outlined" startIcon={<CloudUploadIcon />} onClick={() => fileInputRef.current?.click()} sx={{ fontWeight: 700 }}>{logoPreview ? 'Change Logo' : 'Choose Logo'}</Button>
+                      {logoPreview && <Button variant="text" color="error" onClick={removeLogo} sx={{ fontWeight: 700 }}>Remove</Button>}
+                    </Stack>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%', pt: 4 }}>
+                      <Button variant="text" color="inherit" onClick={handleBack} startIcon={<ChevronLeftIcon />} sx={{ fontWeight: 700 }}>Back</Button>
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Button variant="contained" size="large" onClick={handleNext} sx={{ borderRadius: 2, px: 4, fontWeight: 700 }}>Continue</Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              )}
+
+              {/* Step 3: Details */}
+              {activeStep === 2 && (
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="GSTIN (Optional)" name="gstin" value={form.gstin} onChange={handleChange} fullWidth placeholder="22AAAAA0000A1Z5" InputProps={{ startAdornment: <InputAdornment position="start"><FingerprintIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField select label="State" name="state" value={form.state} onChange={handleChange} fullWidth required error={!!errors.state} helperText={errors.state}>
+                      {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField label="Shop Address" name="address" value={form.address} onChange={handleChange} fullWidth multiline rows={2} InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField select label="System Language" name="locale" value={form.locale} onChange={handleChange} fullWidth>
+                      {LOCALES.map(l => <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                    <Button variant="text" color="inherit" onClick={handleBack} startIcon={<ChevronLeftIcon />} sx={{ fontWeight: 700 }}>Back</Button>
+                    <Button type="submit" variant="contained" size="large" disabled={isLoading || !form.state} sx={{ borderRadius: 2, px: 6, fontWeight: 700, minWidth: 160 }}>
+                      {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Complete Setup'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+          )}
         </Box>
-
-        {/* Compact Stepper */}
-        <Stepper 
-          activeStep={activeStep} 
-          alternativeLabel 
-          sx={{ mb: 3 }}
-        >
-          {steps.map(label => (
-            <Step key={label}>
-              <StepLabel sx={{ '& .MuiStepLabel-label': { fontSize: '0.85rem', fontWeight: 600 } }}>
-                {label}
-              </StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {setupComplete ? (
-          <Box sx={{ textAlign: 'center', py: 6 }}>
-            <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
-            <Typography variant="h6" fontWeight={700} color="success.main">
-              Setup Complete!
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Taking you to the dashboard...
-            </Typography>
-            <CircularProgress size={32} sx={{ mt: 3 }} />
-          </Box>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            {errors.submit && (
-              <Alert severity="error" sx={{ mb: 3, borderRadius: 2, fontSize: '0.9rem' }}>
-                {errors.submit}
-              </Alert>
-            )}
-
-            {/* Step 1 */}
-            {activeStep === 0 && (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    size="small"
-                    label="Shop Name"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                    error={!!errors.name}
-                    helperText={errors.name}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><StorefrontIcon fontSize="small" color="primary" /></InputAdornment>,
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    size="small"
-                    label="Shop Code"
-                    name="code"
-                    value={form.code}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                    error={!!errors.code}
-                    helperText={errors.code || "Used for identification"}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><NumbersIcon fontSize="small" color="primary" /></InputAdornment>,
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    size="small"
-                    label="Owner Name"
-                    name="ownerName"
-                    value={form.ownerName}
-                    onChange={handleChange}
-                    fullWidth
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" color="primary" /></InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="contained"
-                    size="medium"
-                    onClick={handleNext}
-                    disabled={!form.name.trim() || !form.code.trim()}
-                    endIcon={<ChevronRightIcon />}
-                  >
-                    Next
-                  </Button>
-                </Grid>
-              </Grid>
-            )}
-
-            {/* Step 2 - Branding */}
-            {activeStep === 1 && (
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                  Shop Logo (Optional)
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-                  Will appear on bills & dashboard
-                </Typography>
-
-                <Stack alignItems="center" spacing={2}>
-                  <Avatar
-                    src={logoPreview}
-                    sx={{
-                      width: 90,
-                      height: 90,
-                      border: '2px solid',
-                      borderColor: logoPreview ? 'primary.main' : 'grey.300',
-                      bgcolor: 'grey.100',
-                    }}
-                  >
-                    {!logoPreview && <StorefrontIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
-                  </Avatar>
-
-                  <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleLogoChange} />
-
-                  <Stack direction="row" spacing={2}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<CloudUploadIcon fontSize="small" />}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {logoPreview ? 'Change' : 'Upload'}
-                    </Button>
-
-                    {logoPreview && (
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        size="small"
-                        startIcon={<DeleteIcon fontSize="small" />}
-                        onClick={removeLogo}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </Stack>
-
-                  <Stack direction="row" spacing={3} sx={{ mt: 3, width: '100%', justifyContent: 'space-between' }}>
-                    <Button variant="outlined" size="medium" onClick={handleBack} startIcon={<ChevronLeftIcon />}>
-                      Back
-                    </Button>
-                    <Button variant="contained" size="medium" onClick={handleNext}>
-                      Continue
-                    </Button>
-                  </Stack>
-                </Stack>
-              </Box>
-            )}
-
-            {/* Step 3 */}
-            {activeStep === 2 && (
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    size="small"
-                    label="GSTIN (Optional)"
-                    name="gstin"
-                    value={form.gstin}
-                    onChange={handleChange}
-                    fullWidth
-                    placeholder="22AAAAA0000A1Z5"
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><FingerprintIcon fontSize="small" color="primary" /></InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    size="small"
-                    select
-                    label="State"
-                    name="state"
-                    value={form.state}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                    error={!!errors.state}
-                    helperText={errors.state}
-                  >
-                    {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                  </TextField>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    size="small"
-                    label="Shop Address"
-                    name="address"
-                    value={form.address}
-                    onChange={handleChange}
-                    fullWidth
-                    multiline
-                    rows={2}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><PlaceIcon fontSize="small" color="primary" /></InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    size="small"
-                    select
-                    label="Language"
-                    name="locale"
-                    value={form.locale}
-                    onChange={handleChange}
-                    fullWidth
-                    helperText="App default language"
-                  >
-                    {LOCALES.map(l => (
-                      <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={2} justifyContent="space-between" sx={{ mt: 3 }}>
-                    <Button
-                      variant="outlined"
-                      size="medium"
-                      onClick={handleBack}
-                      startIcon={<ChevronLeftIcon />}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      size="medium"
-                      disabled={isLoading || !form.state}
-                      sx={{ minWidth: 140 }}
-                    >
-                      {isLoading ? <CircularProgress size={22} /> : 'Finish Setup'}
-                    </Button>
-                  </Stack>
-                </Grid>
-              </Grid>
-            )}
-          </form>
-        )}
-      </Paper>
+      </Box>
     </Fade>
   );
 };
