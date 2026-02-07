@@ -1,228 +1,271 @@
 import React from 'react';
-import {
-  Box,
-  Paper,
-  Grid,
-  Autocomplete,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-  Alert,
-  Button,
-  IconButton,
-  Tooltip,
-  Stack,
-  CircularProgress,
+import { 
+  Box, Paper, Grid, Autocomplete, TextField, FormControl, 
+  InputLabel, Select, MenuItem, Typography, Button, 
+  IconButton, Tooltip, Stack, CircularProgress, Divider, 
+  Alert, alpha, InputAdornment 
 } from '@mui/material';
-import PaymentIcon from '@mui/icons-material/Payment';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
+import {
+  AddCircleOutline as AddIcon,
+  DeleteOutline as DeleteIcon,
+  Payments as PaymentsIcon,
+  Event as EventIcon,
+  Description as NoteIcon,
+  AccountCircle as UserIcon,
+  Receipt as InvoiceIcon
+} from '@mui/icons-material';
 
-const PaymentForm = ({
-  customers,
-  customerSales,
-  selectedCustomer,
-  selectedSale,
-  selectedSaleObj,
-  paymentMethods,
-  paymentDate,
-  formErrors,
-  submitting,
-  dueAmount,
-  disablePaymentFields,
-  onCustomerChange,
-  onSaleChange,
-  onMethodChange,
-  onAddMethod,
-  onRemoveMethod,
-  onPaymentDateChange,
-  onSubmit,
-  paymentMethodOptions,
-  needsTransactionId,
-  transactionIdMandatory,
-  formatAmount,
+const PaymentForm = ({ 
+  customers, customerSales, selectedCustomer, selectedSale, 
+  paymentMethods, paymentDate, formErrors, submitting, 
+  onCustomerChange, onSaleChange, onMethodChange, 
+  onAddMethod, onRemoveMethod, onPaymentDateChange, 
+  onSubmit, paymentMethodOptions, needsTransactionId, formatAmount,
+  globalNotes, setGlobalNotes
 }) => {
-  const isPaid = dueAmount === 0;
+  const selectedSaleObj = customerSales.find(s => String(s.saleId) === String(selectedSale));
+  const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  
+  const isBulk = selectedSale === 'BULK';
+  const remainingBalance = isBulk ? 0 : (selectedSaleObj?.dueAmount || 0) - totalEntered;
+  const isOverpaid = !isBulk && remainingBalance < 0;
+
+  // Aesthetic input styles matching the Management Dashboard theme
+  const inputSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2,
+      bgcolor: '#fcfdfe',
+      '& fieldset': { borderColor: '#e2e8f0' },
+      '&:hover fieldset': { borderColor: '#cbd5e1' },
+    },
+  };
 
   return (
-    <Paper sx={{ maxWidth: 650, mx: 'auto', mt: 2, p: 2 }}>
-      <form onSubmit={onSubmit}>
-        <Box sx={{ mb: 2 }}>
-          <Autocomplete
-            options={customers}
-            getOptionLabel={option => option.name || ""}
-            value={selectedCustomer}
-            onChange={(_, newValue) => onCustomerChange(newValue)}
-            renderInput={(params) => (
-              <TextField {...params} label="Select Customer" fullWidth />
-            )}
-            isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
-            sx={{ mb: 2 }}
-          />
-          <FormControl fullWidth margin="normal" error={!!formErrors.selectedSale} disabled={!selectedCustomer}>
-            <InputLabel id="sale-select-label">Select Sale</InputLabel>
-            <Select
-              labelId="sale-select-label"
-              value={selectedSale}
-              label="Select Sale"
-              onChange={(e) => onSaleChange(e.target.value)}
-            >
-              <MenuItem value="">Select a sale</MenuItem>
-              {customerSales.map((sale) => (
-                <MenuItem key={sale.saleId} value={sale.saleId}>
-                  {sale.invoiceNo} (Due: {formatAmount(sale.dueAmount)})
-                </MenuItem>
-              ))}
-            </Select>
-            {formErrors.selectedSale && (
-              <Typography color="error" variant="caption">
-                {formErrors.selectedSale}
-              </Typography>
-            )}
-          </FormControl>
+    <Paper 
+      elevation={0} 
+      sx={{ 
+        p: 4, 
+        borderRadius: 4, 
+        maxWidth: 900, 
+        mx: 'auto', 
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+      }}
+    >
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 4 }}>
+        <Box sx={{ p: 1, borderRadius: 2, bgcolor: alpha('#6366f1', 0.1), display: 'flex' }}>
+          <PaymentsIcon color="primary" />
         </Box>
-        {selectedSaleObj && (
-          <>
-            {formErrors.due && (
-              <Alert severity="error" sx={{ mt: 1 }}>{formErrors.due}</Alert>
-            )}
-            {formErrors.total && (
-              <Alert severity="error" sx={{ mt: 1 }}>{formErrors.total}</Alert>
-            )}
-            {paymentMethods.map((pm, idx) => (
-              <Grid container spacing={1} key={idx} alignItems="center" sx={{ mt: 2, borderBottom: '1px solid #eee', pb: 2 }}>
-                <Grid item xs={12} sm={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Method</InputLabel>
-                    <Select
-                      value={pm.paymentMethod}
-                      label="Method"
-                      onChange={(e) => onMethodChange(idx, 'paymentMethod', e.target.value)}
-                      disabled={disablePaymentFields}
-                    >
-                      {paymentMethodOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    fullWidth
-                    label="Amount"
-                    value={pm.amount}
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/^0+/, '');
-                      onMethodChange(idx, 'amount', val);
-                      if (
-                        parseFloat(val) > dueAmount &&
-                        !formErrors[`amount${idx}`]
-                      ) {
-                        // error handling left to parent
-                      }
-                    }}
-                    type="number"
-                    error={!!formErrors[`amount${idx}`]}
-                    helperText={formErrors[`amount${idx}`]}
-                    disabled={disablePaymentFields}
-                    inputProps={{ min: 0, max: dueAmount }}
-                  />
-                </Grid>
-                {needsTransactionId(pm.paymentMethod) && (
-                  <Grid item xs={12} sm={3}>
-                    <TextField
-                      fullWidth
-                      label="Transaction ID"
-                      value={pm.transactionId}
-                      onChange={(e) => onMethodChange(idx, 'transactionId', e.target.value)}
-                      required={transactionIdMandatory(pm.paymentMethod)}
-                      error={!!formErrors[`transactionId${idx}`]}
-                      helperText={formErrors[`transactionId${idx}`]}
-                      placeholder={
-                        pm.paymentMethod === 'CHEQUE'
-                          ? 'Cheque No.'
-                          : pm.paymentMethod === 'UPI'
-                          ? 'UPI Ref/UTR'
-                          : pm.paymentMethod === 'NET_BANKING'
-                          ? 'IMPS/NEFT Ref'
-                          : pm.paymentMethod === 'CARD'
-                          ? 'POS Slip Ref'
-                          : 'Transaction Ref'
-                      }
-                      disabled={disablePaymentFields}
-                    />
-                  </Grid>
-                )}
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    fullWidth
-                    label="Reference"
-                    value={pm.reference}
-                    onChange={(e) => onMethodChange(idx, 'reference', e.target.value)}
-                    placeholder="Reference (optional)"
-                    disabled={disablePaymentFields}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={9}>
-                  <TextField
-                    fullWidth
-                    label="Notes"
-                    value={pm.notes}
-                    onChange={(e) => onMethodChange(idx, 'notes', e.target.value)}
-                    placeholder="Notes (optional)"
-                    disabled={disablePaymentFields}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                  <Stack direction="row" spacing={1}>
-                    {paymentMethods.length > 1 && (
-                      <Tooltip title="Remove payment method">
-                        <IconButton color="error" onClick={() => onRemoveMethod(idx)} disabled={disablePaymentFields}>
-                          <RemoveIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {idx === paymentMethods.length - 1 && (
-                      <Tooltip title="Add another payment method">
-                        <IconButton color="primary" onClick={onAddMethod} disabled={disablePaymentFields}>
-                          <AddIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Stack>
-                </Grid>
-              </Grid>
-            ))}
-            <TextField
-              fullWidth
-              sx={{ mt: 2 }}
-              label="Payment Date & Time"
-              type="datetime-local"
-              InputLabelProps={{ shrink: true }}
-              value={paymentDate}
-              onChange={(e) => onPaymentDateChange(e.target.value)}
-              disabled={disablePaymentFields}
+        <Typography variant="h6" fontWeight={900}>
+          {isBulk ? "Bulk Payment / Advance Receipt" : "Invoice-Specific Payment"}
+        </Typography>
+      </Stack>
+
+      <form onSubmit={onSubmit}>
+        <Grid container spacing={3}>
+          {/* Section 1: Entity Selection */}
+          <Grid item xs={12} md={6}>
+            <Autocomplete
+              options={customers}
+              getOptionLabel={o => `${o.name} (${o.phone || 'No Phone'})`}
+              value={selectedCustomer}
+              onChange={(_, v) => onCustomerChange(v)}
+              renderInput={(p) => (
+                <TextField 
+                  {...p} 
+                  label="Customer Name" 
+                  required 
+                  sx={inputSx}
+                  InputProps={{
+                    ...p.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start"><UserIcon fontSize="small" color="action" /></InputAdornment>
+                    ),
+                  }}
+                />
+              )}
             />
-            <Tooltip title={isPaid ? "This sale is already fully paid. Payment not allowed." : ""}>
-              <span>
-                <Button
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth required disabled={!selectedCustomer} sx={inputSx}>
+              <InputLabel>Select Invoice / Sale</InputLabel>
+              <Select 
+                value={selectedSale || ''} 
+                label="Select Invoice / Sale" 
+                onChange={e => onSaleChange(e.target.value)}
+                startAdornment={<InputAdornment position="start"><InvoiceIcon fontSize="small" color="action" /></InputAdornment>}
+              >
+                <MenuItem value="BULK" sx={{ fontWeight: 800, color: 'primary.main', py: 1.5 }}>
+                  ⭐ All Pending Invoices (Bulk / Advance)
+                </MenuItem>
+                <Divider />
+                {customerSales.map(s => (
+                  <MenuItem key={s.saleId} value={s.saleId}>
+                    {s.invoiceNo} — Due: {formatAmount(s.dueAmount)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }}>
+              <Typography variant="overline" color="text.secondary" fontWeight={900}>Payment Breakdown</Typography>
+            </Divider>
+          </Grid>
+
+          {/* Section 2: Multi-Method Splitting */}
+          {paymentMethods.map((pm, idx) => (
+            <React.Fragment key={idx}>
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  select
                   fullWidth
-                  variant="contained"
-                  color="primary"
-                  type="submit"
-                  sx={{ mt: 3, py: 1.5, borderRadius: '8px' }}
-                  disabled={submitting || isPaid}
-                  startIcon={<PaymentIcon />}
+                  label="Method"
+                  value={pm.paymentMethod}
+                  onChange={e => onMethodChange(idx, 'paymentMethod', e.target.value)}
+                  sx={inputSx}
                 >
-                  {submitting ? <CircularProgress size={24} color="inherit" /> : 'Record Payment'}
-                </Button>
-              </span>
-            </Tooltip>
-          </>
-        )}
+                  {paymentMethodOptions.map(opt => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth 
+                  label="Amount" 
+                  type="number" 
+                  value={pm.amount}
+                  error={!!formErrors[`amount${idx}`] || isOverpaid}
+                  onChange={e => onMethodChange(idx, 'amount', e.target.value)}
+                  sx={inputSx}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={5}>
+                <TextField
+                  fullWidth 
+                  label={needsTransactionId(pm.paymentMethod) ? "Transaction / UTR ID" : "Reference"}
+                  value={pm.transactionId || pm.reference || ''}
+                  error={!!formErrors[`transactionId${idx}`]}
+                  onChange={e => onMethodChange(idx, needsTransactionId(pm.paymentMethod) ? 'transactionId' : 'reference', e.target.value)}
+                  required={needsTransactionId(pm.paymentMethod)}
+                  sx={inputSx}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={1} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {paymentMethods.length > 1 && (
+                  <Tooltip title="Remove Method">
+                    <IconButton color="error" onClick={() => onRemoveMethod(idx)} sx={{ bgcolor: alpha('#ef4444', 0.05) }}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Grid>
+            </React.Fragment>
+          ))}
+
+          <Grid item xs={12}>
+             <Button 
+                startIcon={<AddIcon />} 
+                onClick={onAddMethod} 
+                variant="outlined" 
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+              >
+                Add Multi-Mode Split
+              </Button>
+          </Grid>
+
+          {/* Section 3: Metadata */}
+          <Grid item xs={12} md={6}>
+            <TextField 
+              fullWidth 
+              label="Payment Date" 
+              type="datetime-local" 
+              InputLabelProps={{ shrink: true }} 
+              value={paymentDate} 
+              onChange={e => onPaymentDateChange(e.target.value)}
+              sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><EventIcon fontSize="small" color="action" /></InputAdornment>,
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField 
+              fullWidth 
+              label="Global Notes" 
+              multiline 
+              rows={1} 
+              value={globalNotes} 
+              onChange={e => setGlobalNotes(e.target.value)} 
+              sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><NoteIcon fontSize="small" color="action" /></InputAdornment>,
+              }}
+            />
+          </Grid>
+
+          {/* Section 4: Validation & Submission */}
+          <Grid item xs={12}>
+            {totalEntered > 0 && (
+              <Alert 
+                severity={isOverpaid ? "warning" : "success"} 
+                variant="outlined"
+                sx={{ 
+                  borderRadius: 3, 
+                  borderWidth: '1px',
+                  bgcolor: isOverpaid ? alpha('#fff7ed', 0.5) : alpha('#f0fdf4', 0.5),
+                  '& .MuiAlert-message': { width: '100%' }
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" fontWeight={700}>
+                    {isBulk ? "Advance / Bulk Allocation" : "Allocation to Invoice"}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={900}>
+                    Total: {formatAmount(totalEntered)}
+                  </Typography>
+                </Stack>
+                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                  {isBulk 
+                    ? `This payment will be applied to pending dues. Any excess will remain as an advance credit.`
+                    : isOverpaid 
+                      ? `Warning: You are overpaying this invoice by ${formatAmount(Math.abs(remainingBalance))}.`
+                      : `Balance remaining after this payment: ${formatAmount(remainingBalance)}`
+                  }
+                </Typography>
+              </Alert>
+            )}
+
+            <Button 
+                fullWidth 
+                variant="contained" 
+                type="submit" 
+                size="large" 
+                disabled={submitting || !selectedSale || totalEntered <= 0} 
+                sx={{ 
+                  py: 1.8, 
+                  mt: 3, 
+                  borderRadius: 3, 
+                  fontWeight: 900, 
+                  fontSize: '1rem',
+                  textTransform: 'none',
+                  boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)'
+                }}
+            >
+              {submitting ? <CircularProgress size={24} color="inherit" /> : `Post Payment of ${formatAmount(totalEntered)}`}
+            </Button>
+          </Grid>
+        </Grid>
       </form>
     </Paper>
   );

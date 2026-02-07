@@ -22,6 +22,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import VerifiedUser from '@mui/icons-material/VerifiedUser';
 
 const drawerWidth = 240;
 
@@ -47,13 +48,13 @@ const Sidebar = () => {
     { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },
+    { text: 'receiving', icon: <InventoryIcon />, path: '/receivings' },
   ];
 
   // For ADMIN and OWNER only (with some nested groups)
   const adminOwnerMenuItems = [
     { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers' },
     { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders' },
-    { text: 'receiving', icon: <InventoryIcon />, path: '/receiving' },
     {
       text: 'payments',
       icon: <PaymentIcon />,
@@ -84,6 +85,7 @@ const Sidebar = () => {
         { text: 'customerSales', icon: <AssessmentIcon />, path: '/reports/customer-sales' },
         { text: 'expensesSummary', icon: <AssessmentIcon />, path: '/reports/expenses-summary' },
         { text: 'paymentsSummary', icon: <AssessmentIcon />, path: '/reports/payments-summary' },
+        { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance' },
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup' },

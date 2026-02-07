@@ -1,334 +1,344 @@
 import React, { useState, useEffect } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, CartesianGrid
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, AreaChart, Area, BarChart, Bar, Cell
 } from 'recharts';
 import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Grid,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Divider,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Card,
-  CardContent,
+  Box, Typography, Paper, Button, Grid, CircularProgress, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow,
+  MenuItem, Select, FormControl, Card, CardContent,
+  Avatar, Chip, Stack, Divider, Dialog, DialogTitle, DialogContent, 
+  DialogActions, TextField, LinearProgress, Checkbox,Alert
 } from '@mui/material';
+
+// Icons
+import DownloadIcon from '@mui/icons-material/Download';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import GroupIcon from '@mui/icons-material/Group';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import MoneyOffIcon from '@mui/icons-material/MoneyOff';
+import SpeedIcon from '@mui/icons-material/Speed';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+
+// API Services
 import {
-  fetchItemDemand,
-  exportItemDemand,
-  fetchCustomerTrends,
-  fetchFuturePurchaseOrders,
-  fetchTopItems,
-  fetchSeasonalTrends,
-  fetchChurnPrediction,
+  fetchItemDemand, fetchCustomerTrends,
+  fetchFuturePurchaseOrders, fetchTopItems, fetchChurnPrediction,
+  fetchSeasonalTrends, exportProcurementPlan
 } from '../services/api';
 
-const CHART_COLORS = ['#3B82F6', '#6366F1', '#A78BFA', '#E879F9', '#EC4899', '#F472B6'];
+const CHART_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
 const AnalyticsDashboard = () => {
-  const [itemDemand, setItemDemand] = useState([]);
-  const [customerTrends, setCustomerTrends] = useState([]);
-  const [topItems, setTopItems] = useState([]);
-  const [seasonalTrends, setSeasonalTrends] = useState([]);
-  const [churnPrediction, setChurnPrediction] = useState([]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [data, setData] = useState({
+    demand: [], trends: [], topItems: [], churn: [], purchase: [], seasonal: []
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [exportFormat, setExportFormat] = useState('xlsx');
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [orderModal, setOrderModal] = useState({ open: false, item: null });
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [
-          demandRes,
-          trendsRes,
-          topItemsRes,
-          seasonalRes,
-          churnRes,
-          purchaseRes,
-        ] = await Promise.all([
-          fetchItemDemand(),
-          fetchCustomerTrends(),
-          fetchTopItems(),
-          fetchSeasonalTrends(),
-          fetchChurnPrediction(),
-          fetchFuturePurchaseOrders(),
-        ]);
-        setItemDemand(demandRes.data || []);
-        setCustomerTrends(trendsRes.data || []);
-        setTopItems(topItemsRes.data || []);
-        setSeasonalTrends(seasonalRes.data || []);
-        setChurnPrediction(churnRes.data || []);
-        setPurchaseOrders(purchaseRes.data || []);
-      } catch (error) {
-        console.error("Failed to fetch analytics data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    setIsLoading(true);
+    try {
+      const [demand, trends, top, churn, purchase, seasonalRes] = await Promise.all([
+        fetchItemDemand(),
+        fetchCustomerTrends(),
+        fetchTopItems(),
+        fetchChurnPrediction(),
+        fetchFuturePurchaseOrders(),
+        fetchSeasonalTrends()
+      ]);
+
+      // --- DATA TRANSFORMATION FOR SEASONAL TRENDS ---
+      const transformedSeasonal = (seasonalRes.data || []).map((item, index, array) => {
+        const currentSales = parseInt(item.trendDescription.replace(/[^\d]/g, ''), 10) || 0;
+        let growth = 0;
+        
+        if (index > 0) {
+          const prevSales = parseInt(array[index - 1].trendDescription.replace(/[^\d]/g, ''), 10) || 0;
+          if (prevSales > 0) {
+            growth = ((currentSales - prevSales) / prevSales) * 100;
+          } else if (currentSales > 0) {
+            growth = 100; // From 0 to something is 100% growth
+          }
+        }
+
+        return {
+          month: item.season.split('(')[1]?.replace(')', '') || item.season,
+          totalSales: currentSales,
+          growth: growth.toFixed(1),
+          rawSeason: item.season
+        };
+      });
+
+      setData({
+        demand: demand.data || [],
+        trends: trends.data || [],
+        topItems: top.data || [],
+        churn: churn.data || [],
+        purchase: purchase.data || [],
+        seasonal: transformedSeasonal
+      });
+    } catch (error) {
+      console.error("Dashboard Load Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Financial Metrics
+  const totalRevenueAtRisk = data.churn.reduce((sum, item) => sum + (item.revenueAtRisk || 0), 0);
+  const totalInvestmentNeeded = data.purchase.reduce((sum, item) => sum + (item.estimatedCost || 0), 0);
+
+  const handleSelectAll = (e) => {
+    setSelectedItems(e.target.checked ? data.purchase.map(p => p.itemId) : []);
+  };
+
+  const handleSelectItem = (itemId) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+  };
 
   const handleExport = async () => {
     try {
-      const res = await exportItemDemand(exportFormat);
-      let filename = `item-demand-analytics.${exportFormat}`;
-      if (exportFormat === 'excel' || exportFormat === 'xlsx') filename = 'item-demand-analytics.xlsx';
-      if (exportFormat === 'pdf') filename = 'item-demand-analytics.pdf';
-      if (exportFormat === 'csv') filename = 'item-demand-analytics.csv';
-      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
+      const res = await exportProcurementPlan(exportFormat);
+      const blob = new Blob([res.data], { type: res.headers['content-type'] });
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `Procurement_Plan_${new Date().toISOString().split('T')[0]}.${exportFormat}`;
       link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Failed to export item demand analytics.');
+      alert('Export failed.');
     }
   };
 
-  const renderTopItemsChart = () => {
-    if (!topItems || topItems.length === 0) {
-      return <Typography>No top items data available.</Typography>;
-    }
-
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={topItems} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
-          <YAxis stroke="#888" />
-          <Tooltip />
-          <Legend />
-          <Line type="monotone" dataKey="changePercent" name="Change (%)" stroke="#A78BFA" strokeWidth={2} activeDot={{ r: 8 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  const renderItemDemandChart = () => {
-    if (!itemDemand || itemDemand.length === 0) {
-      return <Typography>No item demand data available.</Typography>;
-    }
-
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={itemDemand} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="itemName" stroke="#888" angle={-45} textAnchor="end" height={60} />
-          <YAxis stroke="#888" />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="predictedDemandNextMonth" name="Predicted Demand" fill="#3B82F6" barSize={20} />
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  const renderChurnPredictionChart = () => {
-    if (!churnPrediction || churnPrediction.length === 0) {
-      return <Typography>No churn prediction data available.</Typography>;
-    }
-
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={churnPrediction}
-            dataKey="churnProbability"
-            nameKey="customerName"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            label
-          >
-            {
-              churnPrediction.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-              ))
-            }
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
-    );
-  };
+  const StatCard = ({ title, value, icon, color, subtitle }) => (
+    <Card sx={{ borderRadius: 4, height: '100%', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+      <CardContent>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Avatar sx={{ bgcolor: `${color}.light`, color: `${color}.main`, width: 48, height: 48, opacity: 0.9 }}>
+            {icon}
+          </Avatar>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>{value}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
+              {title}
+            </Typography>
+          </Box>
+        </Stack>
+        {subtitle && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, fontSize: '0.75rem' }}>{subtitle}</Typography>}
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f6fa', p: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-        {/* Header Section */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 5 }}>
-          <Typography variant="h4" fontWeight="bold" color="primary">
-            Business Analytics Dashboard
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControl size="small">
-              <InputLabel id="export-format-label">Format</InputLabel>
-              <Select
-                labelId="export-format-label"
-                value={exportFormat}
-                label="Format"
-                onChange={e => setExportFormat(e.target.value)}
-                sx={{ minWidth: 100 }}
-              >
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: 1600, mx: 'auto' }}>
+        
+        {/* HEADER */}
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 4 }}>
+          <Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+                <AnalyticsIcon color="primary" sx={{ fontSize: 32 }} />
+                <Typography variant="h4" fontWeight={800} sx={{ color: '#0f172a', letterSpacing: '-1px' }}>Vyapar Intelligence</Typography>
+            </Stack>
+            <Typography variant="body1" color="text.secondary">Financial roadmap & behavioral analytics.</Typography>
+          </Box>
+          <Paper elevation={0} sx={{ p: 1, display: 'flex', gap: 1, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
+            <FormControl size="small" variant="standard" sx={{ minWidth: 120, px: 2 }}>
+              <Select value={exportFormat} onChange={e => setExportFormat(e.target.value)} disableUnderline sx={{ fontWeight: 600 }}>
                 <MenuItem value="xlsx">Excel (.xlsx)</MenuItem>
-                <MenuItem value="csv">CSV (.csv)</MenuItem>
-                <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+                <MenuItem value="pdf">PDF Report</MenuItem>
               </Select>
             </FormControl>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleExport}
-              sx={{ borderRadius: 8, px: 4, fontWeight: 'bold' }}
-            >
-              Export Item Demand
-            </Button>
-          </Box>
-        </Box>
+            <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2 }} onClick={handleExport}>Export Plan</Button>
+          </Paper>
+        </Stack>
 
         {isLoading ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: 300, justifyContent: 'center' }}>
-            <CircularProgress size={48} color="primary" />
-            <Typography variant="h6" sx={{ mt: 2 }}>Loading data...</Typography>
-          </Box>
+          <Box sx={{ textAlign: 'center', py: 20 }}><CircularProgress thickness={5} size={60} /></Box>
         ) : (
           <Grid container spacing={3}>
-            {/* Item Demand Analytics Card */}
-            <Grid item xs={12} md={6} lg={4}>
-              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+            
+            {/* KPI ROW */}
+            <Grid item xs={12} sm={6} md={3}><StatCard title="Revenue At Risk" value={`₹${totalRevenueAtRisk.toLocaleString()}`} icon={<TrendingDownIcon />} color="error" subtitle="Potential Churn Leakage" /></Grid>
+            <Grid item xs={12} sm={6} md={3}><StatCard title="VIP Churn" value={data.churn.filter(c => c.churnProbability > 0.7).length} icon={<GroupIcon />} color="warning" subtitle="High-Risk VIP Customers" /></Grid>
+            <Grid item xs={12} sm={6} md={3}><StatCard title="Procurement" value={`₹${totalInvestmentNeeded.toLocaleString()}`} icon={<WarningAmberIcon />} color="primary" subtitle="Investment Required" /></Grid>
+            <Grid item xs={12} sm={6} md={3}><StatCard title="Inventory Health" value="82%" icon={<SpeedIcon />} color="success" subtitle="Stock Optimization Level" /></Grid>
+
+            {/* MAIN CHARTS */}
+            <Grid item xs={12} lg={8}>
+              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', mb: 3, boxShadow: 'none' }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Item Demand Prediction
-                  </Typography>
-                  <Box sx={{ width: '100%', height: 250 }}>
-                    {renderItemDemandChart()}
+                  <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Demand Prediction (Next 30 Days)</Typography>
+                  <Box sx={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={data.demand}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="itemName" hide />
+                        <YAxis axisLine={false} tickLine={false} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="predictedDemandNextMonth" name="Predicted Units" stroke="#3B82F6" strokeWidth={3} fill="#3B82F6" fillOpacity={0.1} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              {/* TRANSFORMED SEASONAL CHART */}
+              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CalendarMonthIcon color="primary" />
+                      <Typography variant="h6" fontWeight={700}>Monthly Sales & Growth</Typography>
+                    </Stack>
+                    <Chip label="Real-time Trends" size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                  </Stack>
+                  <Box sx={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.seasonal}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600}} />
+                        <YAxis axisLine={false} tickLine={false} />
+                        <Tooltip 
+                           cursor={{fill: '#f8fafc'}}
+                           content={({ active, payload }) => {
+                             if (active && payload && payload.length) {
+                               return (
+                                 <Paper sx={{ p: 2, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                                   <Typography variant="caption" display="block" color="text.secondary" fontWeight={700}>{payload[0].payload.rawSeason}</Typography>
+                                   <Typography variant="h6" color="primary.main">Units: {payload[0].value}</Typography>
+                                   <Typography variant="caption" color={payload[0].payload.growth >= 0 ? "success.main" : "error.main"} fontWeight={800}>
+                                     {payload[0].payload.growth >= 0 ? "↑" : "↓"} {Math.abs(payload[0].payload.growth)}% vs Last Month
+                                   </Typography>
+                                 </Paper>
+                               );
+                             }
+                             return null;
+                           }}
+                        />
+                        <Bar dataKey="totalSales" radius={[4, 4, 0, 0]} barSize={40}>
+                          {data.seasonal.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.totalSales > 0 ? '#6366F1' : '#e2e8f0'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </Box>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Top Selling Items Card */}
-            <Grid item xs={12} md={6} lg={4}>
-              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
+            {/* SIDEBAR */}
+            <Grid item xs={12} lg={4}>
+              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', mb: 3, boxShadow: 'none' }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Top Selling Items
-                  </Typography>
-                  <Box sx={{ width: '100%', height: 250 }}>
-                    {renderTopItemsChart()}
+                  <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Financial Leakage</Typography>
+                  <Box sx={{ mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary">Lost Opportunity (Churn Risk)</Typography>
+                      <Typography variant="h5" fontWeight={800} color="error.main">₹{totalRevenueAtRisk.toLocaleString()}</Typography>
+                      <LinearProgress variant="determinate" value={65} color="error" sx={{ height: 8, borderRadius: 5, mt: 1 }} />
+                  </Box>
+                  <Box>
+                      <Typography variant="body2" color="text.secondary">Restocking Capital Needed</Typography>
+                      <Typography variant="h5" fontWeight={800} color="primary.main">₹{totalInvestmentNeeded.toLocaleString()}</Typography>
+                      <LinearProgress variant="determinate" value={40} color="primary" sx={{ height: 8, borderRadius: 5, mt: 1 }} />
                   </Box>
                 </CardContent>
               </Card>
+
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 2, px: 1 }}>Top Buying Behaviors</Typography>
+              <Stack spacing={2}>
+                {data.trends.slice(0, 3).map((trend, i) => (
+                  <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0', transition: '0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar sx={{ bgcolor: CHART_COLORS[i % 6], width: 36, height: 36, fontWeight: 800 }}>{trend.customerName[0]}</Avatar>
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={800}>{trend.customerName}</Typography>
+                        <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>{trend.buyingPattern}</Typography>
+                      </Box>
+                    </Stack>
+                    <Divider sx={{ my: 1.5 }} />
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+                      {trend.frequentlyBoughtItems.map((item, idx) => (
+                        <Chip key={idx} label={item} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, bgcolor: '#f1f5f9' }} />
+                      ))}
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
             </Grid>
 
-            {/* Churn Prediction Card */}
-            <Grid item xs={12} md={6} lg={4}>
-              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Customer Churn Risk
-                  </Typography>
-                  <Box sx={{ width: '100%', height: 250 }}>
-                    {renderChurnPredictionChart()}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Customer Trends Card */}
-            <Grid item xs={12} md={12} lg={8}>
-              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Customer Buying Trends
-                  </Typography>
-                  <Grid container spacing={2}>
-                    {customerTrends.map(trend => (
-                      <Grid item xs={12} md={4} key={trend.customerId}>
-                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc' }}>
-                          <Typography fontWeight="bold">{trend.customerName}</Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
-                            Pattern: {trend.buyingPattern}
-                          </Typography>
-                          <Typography variant="body2">
-                            <b>Freq. Items:</b> {trend.frequentlyBoughtItems.join(', ')}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Seasonal Trends Card */}
-            <Grid item xs={12} md={4} lg={4}>
-              <Card elevation={3} sx={{ borderRadius: 3, height: '100%' }}>
-                <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Seasonal Trends
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-                  {seasonalTrends.map((trend, index) => (
-                    <Box key={index} sx={{ mb: 2 }}>
-                      <Typography fontWeight="bold">{trend.season}</Typography>
-                      <Typography variant="body2" color="text.secondary">{trend.trendDescription}</Typography>
-                    </Box>
-                  ))}
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Future Purchase Orders Card */}
+            {/* PROCUREMENT TABLE */}
             <Grid item xs={12}>
-              <Card elevation={3} sx={{ borderRadius: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom align="center">
-                    Future Purchase Order Suggestions
-                  </Typography>
-                  <TableContainer component={Paper}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell><b>Item ID</b></TableCell>
-                          <TableCell><b>Item Name</b></TableCell>
-                          <TableCell><b>Suggested Quantity</b></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {purchaseOrders.map((order, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{order.itemId}</TableCell>
-                            <TableCell>{order.itemName}</TableCell>
-                            <TableCell>{order.suggestedQuantity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
+                <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                    <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fcfcfc' }}>
+                        <Typography variant="h6" fontWeight={700}>Procurement Roadmap</Typography>
+                        {selectedItems.length > 0 && (
+                          <Button variant="contained" color="primary" startIcon={<ShoppingCartIcon />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                            Create Bulk PO ({selectedItems.length} Items)
+                          </Button>
+                        )}
+                    </Box>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                <TableRow>
+                                    <TableCell padding="checkbox"><Checkbox onChange={handleSelectAll} checked={selectedItems.length === data.purchase.length && data.purchase.length > 0} /></TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }}>ITEM</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800 }}>SUGGESTED QTY</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800 }}>EST. COST</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800 }}>ACTION</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {data.purchase.map((order) => (
+                                    <TableRow key={order.itemId} hover selected={selectedItems.includes(order.itemId)}>
+                                        <TableCell padding="checkbox">
+                                            <Checkbox checked={selectedItems.includes(order.itemId)} onChange={() => handleSelectItem(order.itemId)} />
+                                        </TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{order.itemName}</TableCell>
+                                        <TableCell align="right"><Chip label={order.suggestedQuantity} size="small" variant="outlined" sx={{ fontWeight: 700 }} /></TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: 'primary.main' }}>₹{order.estimatedCost?.toLocaleString()}</TableCell>
+                                        <TableCell align="right">
+                                            <Button size="small" variant="contained" onClick={() => setOrderModal({ open: true, item: order })} sx={{ borderRadius: 1.5, textTransform: 'none' }}>Order</Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Paper>
             </Grid>
           </Grid>
         )}
       </Box>
+
+      {/* PO MODAL */}
+      <Dialog open={orderModal.open} onClose={() => setOrderModal({ open: false, item: null })} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Create Purchase Order</DialogTitle>
+        <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+                <Typography variant="body2">Confirming order for: <b>{orderModal.item?.itemName}</b></Typography>
+                <TextField fullWidth label="Order Quantity" type="number" defaultValue={orderModal.item?.suggestedQuantity} variant="outlined" />
+                <Alert severity="info" sx={{ borderRadius: 2 }}>Estimated Investment: <b>₹{orderModal.item?.estimatedCost?.toLocaleString()}</b></Alert>
+            </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+            <Button onClick={() => setOrderModal({ open: false, item: null })} sx={{ color: 'text.secondary' }}>Cancel</Button>
+            <Button variant="contained" startIcon={<ShoppingCartIcon />} sx={{ borderRadius: 2 }}>Generate PO</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

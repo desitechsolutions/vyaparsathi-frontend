@@ -33,7 +33,7 @@ API.interceptors.request.use((config) => {
   }
   return config;
 });
-
+export const API_BASE_URL='http://localhost:8080'
 // Axios response interceptor: handle token refresh
 API.interceptors.response.use(
   (response) => response,
@@ -97,15 +97,48 @@ API.interceptors.response.use(
 //Login API
 export const login = (payload) =>
   API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
+export const register = async (data) => {
+  return API.post(endpoints.auth.register, data);
+};
 export const forgotPin = (data) => API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
 export const resetPin = (data) => API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
 export const changePin = (data) => API.post(endpoints.auth.changePin, data);
 // API functions
-export const setupShop = (data) => API.post(endpoints.shop, data);
+export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
 export const refreshToken = (refreshToken) =>
   API.post(endpoints.auth.refresh, { refreshToken });
+
+export const searchGlobalData = (query) => {
+    return API.get(`/api/v1/search`, {
+        params: { q: query }
+    });
+};
 // GET SHOP
-export const fetchShop = () => API.get(endpoints.shop);
+export const fetchShop = async () => {
+  try {
+    const res = await API.get(endpoints.shop);
+    
+    // If 204 No Content or 404 → treat as no shop (return null data)
+    if (res.status === 204 || res.status === 404) {
+      return { data: null, status: res.status };
+    }
+
+    return res;  // full response with .data = ShopDto
+
+  } catch (err) {
+    // Handle errors that mean "no shop"
+    if (err.response?.status === 204 || 
+        err.response?.status === 404 ||
+        err?.response?.data?.message?.includes('No active shop') ||
+        err?.response?.data?.message?.includes('No shop context')) {
+      return { data: null, status: err.response?.status || 404 };
+    }
+
+    // Real errors → re-throw so Promise.allSettled sees rejection
+    console.error("fetchShop failed:", err);
+    throw err;
+  }
+};
 
 // --- Purchase Orders ---
 export const getPurchaseOrders = () =>
@@ -113,6 +146,8 @@ export const getPurchaseOrders = () =>
 
 export const getPurchaseOrderById = (id) =>
   API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
+export const pendingPurchaseOrders  = () =>
+  API.get(endpoints.pendingPurchaseOrder).then((r) => r.data);
 
 export const createPurchaseOrder = (data) =>
   API.post(endpoints.purchaseOrders, data).then((r) => r.data);
@@ -172,17 +207,26 @@ export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
 export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
+//export const fetchCustomerLedger = (customerId) => API.get(`/api/customers/${customerId}/ledger`);
+export const fetchCustomerLedger = (id, params = {}) => {
+  // params could include { startDate: '2026-01-01T00:00:00', endDate: '...' }
+  return API.get(`/api/customers/${id}/ledger`, { params });
+};
 
 //Sales related APIs
 export const createSale = (data) => {
-  return API.post(endpoints.sales, data, {
-    responseType: 'arraybuffer', // Handle binary PDF response
-  }).then((response) => {
-    console.log('Raw Response Data:', response.data); // Debug log
-    return { data: new Uint8Array(response.data) }; // Convert ArrayBuffer to Uint8Array
-  });
+  return API.post(endpoints.sales, data);
 };
+export const draftSale = (data) =>{
+  return API.post(endpoints.draftSale, data)
+}
+
+export const completeDraftSale = async (id, data) => {
+  return await API.put(`api/sales/${id}/complete`, data);
+};
+
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
+export const fetchSalesHistory = () => API.get(endpoints.salesHistory);
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
 export const fetchAllSales = (from, to) => {
@@ -191,7 +235,7 @@ export const fetchAllSales = (from, to) => {
   }
   return API.get(endpoints.sales);
 };
-
+export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 // Delivery related APIs
 export const createDelivery = (data) => API.post(endpoints.createDelivery, data);
 
@@ -308,26 +352,53 @@ export const exportBackup = () => API.post(endpoints.backup.export, {}, { respon
 export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
 export const recordDuePaymentsBatch = (data) => API.post('/api/payments/record-batch', data);
 
-export const fetchPaymentHistory = (customerId, saleId) => {
+export const fetchPaymentHistory = (customerId, saleId, page = 0, size = 20) => {
   return API.get('/api/payments', {
     params: {
       customerId,
+      page,
+      size,
       ...(saleId ? { sourceType: 'SALE', sourceId: saleId } : {})
     },
-  }).then((r) => r.data || []);
+  }).then((r) => {
+    // Backend returns a Page object: { content: [], totalElements: X, ... }
+    // We return the whole object so the UI can see totalElements for the pager
+    return r.data; 
+  }).catch(err => {
+    console.error("Payment Fetch Error:", err);
+    return { content: [], totalElements: 0 }; // Return safe default
+  });
 };
+export const recordBulkPayment = (data) => API.post('/api/payments/bulk', data);
+export const fetchCustomerAdvanceBalance = (customerId) => API.get(`/api/payments/customer/${customerId}/advance-balance`);
 
 export const fetchProducts = () => API.get(endpoints.products);
 
+//Audit Log APIs
+// 1. Main Paginated Fetch (Used for the main table)
+export const fetchAuditLogs = (params) => 
+  API.get('/api/audit', { params }).then(res => res.data);
+
+// 2. User-Specific Fetch (Used if you click on a username in the table)
+export const fetchAuditLogsByUser = (username) => 
+  API.get(`/api/audit/user/${username}`).then(res => res.data);
+
+// 3. Export Logic (Used for the download button)
+export const exportAuditLogs = (params) => 
+  API.get('/api/audit/export', { 
+    params, 
+    responseType: 'blob' 
+  });
 // Analytics APIs
+export const fetchRevenueLeakage = () => API.get(endpoints.analytics.revenueLeakage);
 export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);
-export const exportItemDemand = (format = 'xlsx') =>
-  API.get(`${endpoints.analytics.exportItemDemand}?format=${format}`, { responseType: 'blob' });
 export const fetchCustomerTrends = () => API.get(endpoints.analytics.customerTrends);
 export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futurePurchaseOrders);
 export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
+export const exportProcurementPlan = (format = 'xlsx') => 
+  API.get(`${endpoints.analytics.exportProcurementPlan}?format=${format}`, { responseType: 'blob' });
 
 // Receiving APIs
 export const fetchReceiving = () =>
@@ -338,6 +409,9 @@ export const fetchReceivingById = (id) =>
 
 export const fetchReceivingByPoId = (poId) =>
   API.get(endpoints.receivingByPoId(poId)).then(r => r.data);
+
+export const fetchReceivingByPoNumber = (poNumber) =>
+  API.get(endpoints.receivingByPoNumber(poNumber)).then(r => r.data);
 
 export const createReceiving = (data) =>
   API.post(endpoints.receiving, data).then(r => r.data);
@@ -354,8 +428,19 @@ export const createReceivingTicket = (data) =>
 export const fetchReceivingTicketById = (id) =>
   API.get(endpoints.receivingTicketById(id)).then(r => r.data);
 
+export const fetchAllTickets = () =>
+  API.get(endpoints.fetchAllTicket).then(r => r.data);
+
 export const initiateReceivingFromPO = (data) =>
   API.post(endpoints.receiveGoods, data).then(r => r.data);
+export const addAttachmentToTicket = (data) =>
+  API.post('{/tickets/${id}/attachments');
+export const updateReceivingTicket = (data) =>
+  API.put('{/tickets/${id}');
+export const deleteReceivingTicket = (data) =>
+  API.delete('{/tickets/${id}');
+
+
 
 // --- User Management API ---
 export const fetchUsers = () =>

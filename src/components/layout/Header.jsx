@@ -1,28 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
-  Avatar,
-  Box,
-  Menu,
-  MenuItem,
-  useMediaQuery,
-  useTheme,
-  Button,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Badge,
-  keyframes,
+  AppBar, Toolbar, Typography, IconButton, Avatar, Box, Menu, MenuItem,
+  useMediaQuery, useTheme, Button, Tooltip, Dialog, DialogTitle,
+  DialogContent, DialogContentText, DialogActions, Badge, keyframes,
+  InputBase, Divider, ListItemIcon, Paper, CircularProgress, List, ListItemText, ListItemAvatar, Stack
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../context/AuthContext';
 import { useAlerts } from '../../context/AlertContext';
+import { searchGlobalData } from '../../services/api';
+
+// Icons
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
@@ -31,20 +19,34 @@ import SupportIcon from '@mui/icons-material/Support';
 import LanguageIcon from '@mui/icons-material/Language';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import SearchIcon from '@mui/icons-material/Search';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import PersonIcon from '@mui/icons-material/Person';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
-import SettingsDialog from '../settings/SettingsDialog'; 
+import SettingsDialog from '../settings/SettingsDialog';
+
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+`;
 
 const AppBranding = () => {
   const { t } = useTranslation();
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-      <TrendingUpOutlinedIcon sx={{ fontSize: { xs: 30, sm: 40 }, color: 'white', '&:hover': { color: '#fff' } }} />
-      <Box>
-        <Typography variant="h6" component="div" noWrap sx={{ fontWeight: '900', fontSize: { xs: '1.2rem', sm: '1.75rem' }, color: 'white' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}>
+      <TrendingUpOutlinedIcon sx={{ fontSize: { xs: 28, sm: 35 }, color: 'white' }} />
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Typography variant="h6" noWrap sx={{ fontWeight: '900', fontSize: '1.4rem', color: 'white', lineHeight: 1 }}>
           {t('appName')}
         </Typography>
-        <Typography variant="caption" component="div" noWrap sx={{ fontSize: { xs: '0.65rem', sm: '0.8rem' }, color: 'rgba(255, 255, 255, 0.8)', letterSpacing: 0.5, mt: -0.5, fontStyle: 'italic' }}>
+        <Typography variant="caption" noWrap sx={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.7)', letterSpacing: 0.5 }}>
           {t('tagline')}
         </Typography>
       </Box>
@@ -52,128 +54,305 @@ const AppBranding = () => {
   );
 };
 
-// Define the keyframes for the pulsing animation
-const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-`;
 const Header = () => {
   const { user, logout } = useAuthContext();
-   const { alertCount, criticalCount } = useAlerts();
+  // Ensure your context provides the array of alerts. Using 'alerts' as common naming convention.
+  const { alertCount, criticalCount, alerts, lowStockItems } = useAlerts();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+
+  // --- SEARCH STATES ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  // --- UI STATES ---
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [quickActionEl, setQuickActionEl] = useState(null);
+  const [notificationEl, setNotificationEl] = useState(null); // State for Notification Drawer
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
-  const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t, i18n } = useTranslation();
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
 
-  // --- MODIFICATION START ---
-  // Construct the display name, prioritizing first and last name.
-  let displayName = 'User';
-  if (user) {
-    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    // Fallback to username (sub) if full name is not available
-    displayName = fullName || user.sub || user.username || 'User';
-  }
-  // --- MODIFICATION END ---
-
+  const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.sub || 'User' : 'User';
   const isLoggedIn = !!user;
 
-  const handleMenu = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
-  const handleLogout = () => {
-    handleClose();
-    // The logout function from context now handles navigation
-    logout();
-  };
-  const handleProfile = () => {
-    setOpenProfileModal(true);
-    handleClose();
-  };
-  const handleSettings = () => {
-    handleClose();
-    setOpenSettingsDialog(true);
-  };
-  const handleOpenSupport = () => setOpenSupportDialog(true);
-  const handleCloseSupport = () => setOpenSupportDialog(false);
-  const handleCloseProfileModal = () => setOpenProfileModal(false);
-  const changeLanguage = (lng) => {
-    i18n.changeLanguage(lng);
-    localStorage.setItem('language', lng);
+  // Combine fallback for alert data
+  const activeAlerts = alerts || lowStockItems || [];
+
+  // --- SEARCH DEBOUNCE LOGIC ---
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await searchGlobalData(searchQuery);
+        const data = response.data || response;
+        setSearchResults(data);
+        setShowResults(true);
+      } catch (error) {
+        console.error("Global search error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleResultClick = (route) => {
+    setSearchQuery('');
+    setShowResults(false);
+    navigate(route);
   };
 
-    // --- START: ALERT LOGIC ---
+  const handleMenu = (event) => setAnchorEl(event.currentTarget);
+  const handleQuickActionOpen = (event) => setQuickActionEl(event.currentTarget);
+  const handleNotificationOpen = (event) => setNotificationEl(event.currentTarget);
+  
+  const handleClose = () => {
+    setAnchorEl(null);
+    setQuickActionEl(null);
+    setNotificationEl(null);
+  };
+
+  const handleLogout = () => { handleClose(); logout(); };
+  const changeLanguage = (lng) => { i18n.changeLanguage(lng); localStorage.setItem('language', lng); };
+
+  // --- START: ALERT TOOLTIP LOGIC ---
   const lowCount = alertCount - criticalCount;
   let tooltipMessage = '';
 
-  console.log('Alert counts - Critical:', criticalCount, 'Low:', lowCount);
   if (criticalCount > 0 && lowCount > 0) {
-    tooltipMessage = `${criticalCount} critical and ${lowCount} low stock items need attention.`;
+    tooltipMessage = `${criticalCount} ${t('header.critical')} and ${lowCount} ${t('header.lowStock')}`;
   } else if (criticalCount > 0) {
-    tooltipMessage = `${criticalCount} critical item${criticalCount > 1 ? 's' : ''} need immediate attention.`;
+    tooltipMessage = `${criticalCount} ${t('header.critical')} Items`;
   } else if (lowCount > 0) {
-    tooltipMessage = `${lowCount} low stock item${lowCount > 1 ? 's' : ''} need attention.`;
+    tooltipMessage = `${lowCount} Low Stock Items`;
   }
-  // --- END: ALERT NEW LOGIC ---
+  // --- END: ALERT TOOLTIP LOGIC ---
+
   return (
-    <AppBar
-      position="fixed"
-      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
-      color="primary"
-    >
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
-        <AppBranding />
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {!isLoggedIn ? (
-            <Button color="inherit" onClick={() => navigate('/login')} sx={{ textTransform: 'none', fontWeight: 500 }}>
-              {t('header.login')}
-            </Button>
-          ) : (
+    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 60, sm: 70 } }}>
+        
+        {/* LEFT: Branding */}
+        <Box onClick={() => navigate('/')}>
+          <AppBranding />
+        </Box>
+
+        {/* MIDDLE: Global Search (Desktop & Tablet) */}
+        {isLoggedIn && !isMobile && (
+          <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
+            <Box sx={{ 
+              display: 'flex', alignItems: 'center', bgcolor: 'rgba(255,255,255,0.15)', 
+              borderRadius: 2, px: 2, transition: '0.3s',
+              '&:focus-within': { bgcolor: 'rgba(255,255,255,0.25)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+            }}>
+              <SearchIcon sx={{ color: 'rgba(255,255,255,0.8)', mr: 1 }} />
+              <InputBase
+                placeholder={t('header.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+                sx={{ color: 'white', width: '100%', fontSize: '0.95rem', py: 0.8 }}
+              />
+              {isSearching && <CircularProgress size={20} sx={{ color: 'white', ml: 1 }} />}
+            </Box>
+
+            {/* SEARCH RESULTS DROPDOWN */}
+            {showResults && (
+              <Paper 
+                elevation={10}
+                sx={{ 
+                  position: 'absolute', top: '115%', left: 0, right: 0, 
+                  maxHeight: 450, overflowY: 'auto', borderRadius: 2, zIndex: 100,
+                  border: '1px solid', borderColor: 'divider'
+                }}
+              >
+                {searchResults.length > 0 ? (
+                  <List sx={{ py: 0 }}>
+                    {searchResults.map((result, index) => (
+                      <MenuItem 
+                        key={`${result.type}-${result.id}-${index}`} 
+                        onClick={() => handleResultClick(result.route)}
+                        sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ 
+                            bgcolor: result.type === 'CUSTOMER' ? 'primary.main' : 
+                                     result.type === 'SALE' ? 'success.main' : 'warning.main', 
+                            width: 36, height: 36 
+                          }}>
+                            {result.type === 'CUSTOMER' ? <PersonIcon fontSize="small" /> : 
+                             result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText 
+                          primary={<Typography variant="body2" fontWeight={700}>{result.title}</Typography>}
+                          secondary={result.subtitle}
+                        />
+                        <Box sx={{ textAlign: 'right', ml: 2 }}>
+                          <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', fontWeight: 700 }}>
+                            {t(`header.${result.type.toLowerCase()}`)}
+                          </Typography>
+                          <ChevronRightIcon fontSize="small" color="disabled" />
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </List>
+                ) : (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                    
+                      {t('header.noResultsFound', { value: searchQuery })}
+                   
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            )}
+            
+            {/* Click-away overlay to close search results */}
+            {showResults && (
+              <Box 
+                onClick={() => setShowResults(false)} 
+                sx={{ position: 'fixed', inset: 0, zIndex: 90, bgcolor: 'transparent' }} 
+              />
+            )}
+          </Box>
+        )}
+
+        {/* RIGHT: Actions */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
+          {isLoggedIn && (
             <>
-              {!isMobile && (
-                <Typography
-                  variant="body1"
-                  sx={{ color: 'inherit', marginRight: 2, fontWeight: 500, cursor: 'pointer' }}
-                  onClick={handleProfile}
+              {/* QUICK ACTION HUB */}
+              <Tooltip title={t('header.quickAction')}>
+                <IconButton 
+                  onClick={handleQuickActionOpen} 
+                  sx={{ 
+                    bgcolor: 'secondary.main', color: 'white', 
+                    '&:hover': { bgcolor: 'secondary.dark' }, 
+                    width: { xs: 36, sm: 42 }, height: { xs: 36, sm: 42 },
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                  }}
                 >
-                  {displayName}
+                  <AddCircleIcon />
+                </IconButton>
+              </Tooltip>
+
+              <Menu
+                anchorEl={quickActionEl}
+                open={Boolean(quickActionEl)}
+                onClose={handleClose}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                PaperProps={{ sx: { width: 240, mt: 1.5, borderRadius: 2, p: 1 } }}
+              >
+                <Typography variant="overline" sx={{ px: 2, fontWeight: 800, color: 'primary.main' }}>
+                  {t('header.transactionShortcuts')}
                 </Typography>
-              )}
-              {/* START: Alert Icon Logic */}
+                <MenuItem onClick={() => { handleClose(); navigate('/sales'); }}>
+                  <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon> 
+                  {t('header.newSale')}
+                </MenuItem>
+                <MenuItem onClick={() => { handleClose(); navigate('/customer-payments'); }}>
+                  <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon> 
+                  {t('header.advancePayment')}
+                </MenuItem>
+                <Divider sx={{ my: 1 }} />
+                <MenuItem onClick={() => { handleClose(); navigate('/stock'); }}>
+                  <ListItemIcon><InventoryIcon fontSize="small" /></ListItemIcon> 
+                  {t('header.addProduct')}
+                </MenuItem>
+              </Menu>
+
+              {/* ALERTS (PROFESSIONAL DRAWER BEHAVIOR) */}
               {alertCount > 0 && (
-                <Tooltip title={tooltipMessage} placement="bottom">
-                  <IconButton
-                    size="medium"
-                    color="inherit"
-                    onClick={() => navigate('/low-stock-alerts')}
-                    sx={{
-                      marginRight: 1,
-                      '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                      // Apply animation only if there are critical alerts
-                      animation: criticalCount > 0 ? `${pulse} 1.5s ease-in-out infinite` : 'none',
-                    }}
-                  >
+                <Tooltip title={tooltipMessage}>
+                  <IconButton color="inherit" onClick={handleNotificationOpen} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
                     <Badge badgeContent={alertCount} color={criticalCount > 0 ? "error" : "warning"}>
                       {criticalCount > 0 ? <ReportProblemOutlinedIcon /> : <NotificationsIcon />}
                     </Badge>
                   </IconButton>
                 </Tooltip>
               )}
-              {/* END: Alert Icon Logic */}
-              <Tooltip title={t('header.getSupport')} placement="bottom">
-                <IconButton
-                  size="medium"
-                  color="inherit"
-                  onClick={handleOpenSupport}
-                  sx={{ marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
-                >
-                  <SupportIcon sx={{ fontSize: 20, color: 'white' }} />
-                </IconButton>
-              </Tooltip>
+
+              {/* NOTIFICATION DROPDOWN */}
+              <Menu
+                anchorEl={notificationEl}
+                open={Boolean(notificationEl)}
+                onClose={handleClose}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                PaperProps={{ 
+                  sx: { 
+                    width: 320, 
+                    mt: 1.5, 
+                    borderRadius: 3, 
+                    maxHeight: 500,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.15)' 
+                  } 
+                }}
+              >
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    {t('header.notifications')}
+                  </Typography>
+                  <Badge badgeContent={alertCount} color="error" sx={{ mr: 1 }} />
+                </Box>
+                <Divider />
+                <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }}>
+                  {activeAlerts.length > 0 ? (
+                    activeAlerts.map((item) => (
+                      <MenuItem 
+                        key={item.itemVariantId} 
+                        onClick={() => { handleClose(); navigate(`/stock?search=${item.itemName}`); }}
+                        sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: item.alertLevel === 'CRITICAL' ? 'error.main' : 'warning.main' }}>
+                            <InventoryIcon sx={{ color: 'white', fontSize: 20 }} />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText 
+                          primary={<Typography variant="body2" fontWeight={700}>{item.itemName}</Typography>}
+                          secondary={`${t('header.stock')}: ${item.currentStock} / ${item.threshold} ${item.unit}`}
+                        />
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {alertCount > 0 ? "Loading alerts..." : "No low stock alerts"}
+                      </Typography>
+                    </Box>
+                  )}
+                </List>
+                <Divider />
+                <Box sx={{ p: 1.5 }}>
+                  <Button 
+                    fullWidth 
+                    variant="contained" 
+                    size="small" 
+                    onClick={() => { handleClose(); navigate('/low-stock-alerts'); }}
+                    sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                  >
+                    {t('header.viewAllAlerts')}
+                  </Button>
+                </Box>
+              </Menu>
+
               <IconButton
                 size="small"
                 color="inherit"
@@ -182,65 +361,91 @@ const Header = () => {
               >
                 <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
                 <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
-                  {i18n.language === 'en' ? 'हिंदी' : 'English'}
+                  {i18n.language === 'en' ? 'हिंदी' : 'Eng'}
                 </Typography>
               </IconButton>
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-                sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
-              >
-                <Avatar sx={{ bgcolor: 'white', color: theme.palette.primary.main, width: 32, height: 32 }}>
-                  {displayName.charAt(0).toUpperCase()}
-                </Avatar>
-              </IconButton>
+
+              {/* USER PROFILE SECTION */}
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
+                {!isTablet && (
+                  <Typography variant="body2" sx={{ mr: 1.5, fontWeight: 700, color: 'white' }}>
+                    {displayName.split(' ')[0]}
+                  </Typography>
+                )}
+                <IconButton onClick={handleMenu} sx={{ p: 0.5, border: '2px solid rgba(255,255,255,0.4)' }}>
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'white', color: theme.palette.primary.main, fontWeight: 900, fontSize: '0.85rem' }}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </Box>
+
               <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                open={open}
-                onClose={handleClose}
-                PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)', minWidth: 200 } }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                PaperProps={{ sx: { minWidth: 220, mt: 1.5, borderRadius: 2 } }}
               >
-                <MenuItem onClick={handleProfile} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <AccountCircleIcon sx={{ marginRight: 1 }} /> {t('header.profile')}
+                <Box sx={{ px: 2, py: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{displayName}</Typography>
+                  <Typography variant="caption" color="text.secondary">{user?.username || user?.sub}</Typography>
+                </Box>
+                <Divider />
+                <MenuItem onClick={() => { setOpenProfileModal(true); handleClose(); }}>
+                  <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon> 
+                  {t('header.profile')}
                 </MenuItem>
-                <MenuItem onClick={handleSettings} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <SettingsIcon sx={{ marginRight: 1 }} /> {t('header.settings')}
+                <MenuItem onClick={() => { setOpenSettingsDialog(true); handleClose(); }}>
+                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon> 
+                  {t('header.settings')}
                 </MenuItem>
-                <MenuItem onClick={handleLogout} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}>
-                  <ExitToAppIcon sx={{ marginRight: 1 }} /> {t('header.logout')}
+                <MenuItem onClick={() => { setOpenSupportDialog(true); handleClose(); }}>
+                  <ListItemIcon><SupportIcon fontSize="small" /></ListItemIcon> 
+                  {t('header.helpSupport')}
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                  <ListItemIcon><ExitToAppIcon fontSize="small" color="error" /></ListItemIcon> 
+                  {t('header.logout')}
                 </MenuItem>
               </Menu>
-              <Dialog open={openSupportDialog} onClose={handleCloseSupport}>
-                <Box sx={{ p: 2 }}>
-                  <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>{t('header.supportTitle')}</DialogTitle>
-                  <DialogContent>
-                    <DialogContentText sx={{ textAlign: 'center', mb: 2 }}>
-                      {t('header.supportText')}
-                    </DialogContentText>
-                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportEmail')}</strong> support@vyaparsathi.com</Typography>
-                    <Typography variant="body1" sx={{ mt: 1, textAlign: 'center' }}><strong>{t('header.supportPhone')}</strong> +91-950-815-6282</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-                      {t('header.supportClosing')}
-                    </Typography>
-                  </DialogContent>
-                  <DialogActions sx={{ justifyContent: 'center', mt: 2 }}>
-                    <Button onClick={handleCloseSupport} variant="contained" color="primary">{t('header.close')}</Button>
-                  </DialogActions>
-                </Box>
-              </Dialog>
-              <UserProfile open={openProfileModal} onClose={handleCloseProfileModal} />
-              <SettingsDialog open={openSettingsDialog} onClose={() => setOpenSettingsDialog(false)} />
             </>
+          )}
+
+          {!isLoggedIn && (
+            <Button color="inherit" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
+              {t('header.login')}
+            </Button>
           )}
         </Box>
       </Toolbar>
+
+      {/* MODALS & DIALOGS */}
+      <UserProfile open={openProfileModal} onClose={() => setOpenProfileModal(false)} />
+      <SettingsDialog open={openSettingsDialog} onClose={() => setOpenSettingsDialog(false)} />
+      
+      <Dialog open={openSupportDialog} onClose={() => setOpenSupportDialog(false)} PaperProps={{ sx: { borderRadius: 3, maxWidth: 400 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pb: 0 }}>{t('header.customerSupport')}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <DialogContentText sx={{ mb: 3 }}>
+            {t('header.supportMessage')}
+          </DialogContentText>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">{t('header.emailSupport')}</Typography>
+              <Typography variant="body1" fontWeight={600}>info@desitechsolutions.com</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">{t('header.phoneWhatsapp')}</Typography>
+              <Typography variant="body1" fontWeight={600}>+91-950-815-6282</Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenSupportDialog(false)} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
+            {t('header.close')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AppBar>
   );
 };

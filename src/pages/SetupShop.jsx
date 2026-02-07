@@ -1,26 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  TextField,
-  Button,
-  Paper,
-  Typography,
-  Box,
-  Alert,
-  MenuItem,
-  CircularProgress,
-  Grid,
-  InputAdornment,
+  TextField, Button, Typography, Box, Alert, MenuItem,
+  CircularProgress, Grid, InputAdornment, Fade, Stepper, Step, 
+  StepLabel, IconButton, Tooltip, Stack, Avatar, Paper
 } from '@mui/material';
-import { styled } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
 import { setupShop } from '../services/api';
+import { useAuthContext } from '../context/AuthContext';
+import useShopConfig from '../hooks/useShopConfig';
 
+// Icons
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import PlaceIcon from '@mui/icons-material/Place';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import NumbersIcon from '@mui/icons-material/Numbers';
-import LanguageIcon from '@mui/icons-material/Language';
+import LogoutIcon from '@mui/icons-material/Logout';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
@@ -32,33 +32,21 @@ const STATES = [
 
 const LOCALES = [
   { value: 'en', label: 'English' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'gu', label: 'Gujarati' },
-  { value: 'ta', label: 'Tamil' },
-  { value: 'te', label: 'Telugu' },
-  { value: 'kn', label: 'Kannada' },
+  { value: 'hi', label: 'हिन्दी (Hindi)' },
+  { value: 'gu', label: 'ગુજરાતી (Gujarati)' },
+  { value: 'ta', label: 'தமிழ் (Tamil)' },
+  { value: 'te', label: 'తెలుగు (Telugu)' },
+  { value: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
 ];
 
-const FormContainer = styled(Box)({
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'linear-gradient(45deg, #f0f2f5 30%, #e9ebee 90%)',
-});
-
-const StyledPaper = styled(Paper)({
-  padding: '2.5rem',
-  minWidth: 350,
-  maxWidth: 500,
-  width: '100%',
-  borderRadius: '12px',
-  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
-  border: '1px solid rgba(255, 255, 255, 0.18)',
-  backdropFilter: 'blur(4px)',
-});
-
 const SetupShop = () => {
+  const { logout } = useAuthContext();
+  const navigate = useNavigate();
+  const { refetchShop } = useShopConfig();
+  const fileInputRef = useRef(null);
+
+  const [activeStep, setActiveStep] = useState(0);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [form, setForm] = useState({
     name: '',
     ownerName: '',
@@ -66,235 +54,215 @@ const SetupShop = () => {
     state: '',
     gstin: '',
     code: '',
-    locale: 'en'
+    locale: 'en',
+    logo: null,
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [touched, setTouched] = useState({});
+  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const [setupComplete, setSetupComplete] = useState(false);
 
-  const handleChange = e => {
+  const steps = ['Shop Basics', 'Branding', 'More Info'];
+
+  const validateStep = () => {
+    const newErrors = {};
+    if (activeStep === 0) {
+      if (!form.name.trim()) newErrors.name = 'Required';
+      if (!form.code.trim()) newErrors.code = 'Required';
+    }
+    if (activeStep === 2 && !form.state) {
+      newErrors.state = 'Required';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-    setTouched({ ...touched, [name]: true });
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const validateField = (name, value) => {
-    switch (name) {
-      case 'name':
-        return value.trim() ? '' : "Shop name is required.";
-      case 'state':
-        return value.trim() ? '' : "State is required.";
-      case 'code':
-        return /^[a-zA-Z0-9]+$/.test(value) ? '' : "Shop code must be alphanumeric.";
-      case 'gstin':
-        if (value && value.length > 0 && !/^[0-9a-zA-Z]{15}$/.test(value)) {
-          return "GSTIN must be 15 alphanumeric characters.";
-        }
-        return '';
-      default:
-        return '';
-    }
-  };
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const validateForm = () => {
-    const newTouched = {};
-    Object.keys(form).forEach(key => newTouched[key] = true);
-    setTouched(newTouched);
-
-    const errors = Object.keys(form).map(key => validateField(key, form[key])).filter(Boolean);
-    if (errors.length > 0) {
-      setError(errors[0]);
-      return false;
-    }
-    return true;
-  };
-
-  const handleSubmit = async e => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!validateForm()) {
+    if (file.size > 2 * 1024 * 1024) {
+      setErrors({ logo: 'Max 2MB allowed' });
       return;
     }
 
+    setForm(prev => ({ ...prev, logo: file }));
+    const reader = new FileReader();
+    reader.onloadend = () => setLogoPreview(reader.result);
+    reader.readAsDataURL(file);
+    setErrors(prev => ({ ...prev, logo: '' }));
+  };
+
+  const removeLogo = () => {
+    setForm(prev => ({ ...prev, logo: null }));
+    setLogoPreview(null);
+  };
+
+  const handleNext = () => {
+    if (validateStep()) setActiveStep(prev => prev + 1);
+  };
+
+  const handleBack = () => setActiveStep(prev => prev - 1);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStep()) return;
+
     setIsLoading(true);
+    setErrors({});
+
+    const formData = new FormData();
+    Object.entries(form).forEach(([key, value]) => {
+      if (value !== null && value !== '') formData.append(key, value);
+    });
+
     try {
-      await setupShop(form);
-      setSuccess('Shop setup complete! Redirecting to dashboard...');
-      setTimeout(() => navigate('/dashboard'), 2000);
+      await setupShop(formData);
+      await refetchShop();
+      setSetupComplete(true);
+      setTimeout(() => navigate('/', { replace: true }), 1600);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to setup shop. Please try again.');
+      setErrors({ submit: err?.response?.data?.message || 'Setup failed. Please try again.' });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <FormContainer>
-      <StyledPaper>
-        <Typography variant="h4" align="center" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
-          Welcome to Vyaparsathi!
-        </Typography>
-        <Typography variant="subtitle1" align="center" sx={{ mb: 3, color: 'text.secondary' }}>
-          Let's set up your shop to get started.
-        </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+    <Fade in timeout={800}>
+      <Box 
+        sx={{ 
+          width: '100%', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          py: { xs: 2, md: 4 },
+          px: { xs: 2, md: 6 }
+        }}
+      >
+        <Box sx={{ width: '100%', maxWidth: 600 }}>
+          {/* Header Section */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
+            <Box>
+              <Typography variant="h4" fontWeight={900} color="primary.main" gutterBottom sx={{ letterSpacing: '-0.5px' }}>
+                Shop Onboarding
+              </Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                Let's get your business set up quickly
+              </Typography>
+            </Box>
 
-        <form onSubmit={handleSubmit} autoComplete="off">
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Shop Name"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!touched.name && !!validateField('name', form.name)}
-                helperText={touched.name && validateField('name', form.name)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <StorefrontIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Shop Code"
-                name="code"
-                value={form.code}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!touched.code && !!validateField('code', form.code)}
-                helperText={touched.code && validateField('code', form.code)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <NumbersIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Owner Name"
-                name="ownerName"
-                value={form.ownerName}
-                onChange={handleChange}
-                fullWidth
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="GSTIN"
-                name="gstin"
-                value={form.gstin}
-                onChange={handleChange}
-                fullWidth
-                error={!!touched.gstin && !!validateField('gstin', form.gstin)}
-                helperText={touched.gstin && validateField('gstin', form.gstin)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <FingerprintIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Address"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                fullWidth
-                multiline
-                minRows={2}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PlaceIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="State"
-                name="state"
-                value={form.state}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!touched.state && !!validateField('state', form.state)}
-                helperText={touched.state && validateField('state', form.state)}
+            <Tooltip title="Sign Out and return to login" arrow>
+              <IconButton 
+                onClick={() => logout()} 
+                sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
               >
-                {STATES.map(state => (
-                  <MenuItem key={state} value={state}>{state}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Preferred Language"
-                name="locale"
-                value={form.locale}
-                onChange={handleChange}
-                fullWidth
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LanguageIcon color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              >
-                {LOCALES.map(locale => (
-                  <MenuItem key={locale.value} value={locale.value}>{locale.label}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            size="large"
-            disabled={isLoading}
-            sx={{
-              mt: 3,
-              fontWeight: 'bold',
-              letterSpacing: 1,
-              py: 1.2,
-              transition: 'transform 0.2s',
-              '&:hover': { transform: 'scale(1.01)' }
-            }}
+                <LogoutIcon fontSize="small" color="action" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Integrated Stepper */}
+          <Stepper 
+            activeStep={activeStep} 
+            alternativeLabel 
+            sx={{ mb: 3, '& .MuiStepLabel-label': { fontWeight: 700, fontSize: '0.75rem' } }}
           >
-            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Save & Continue'}
-          </Button>
-        </form>
-      </StyledPaper>
-    </FormContainer>
+            {steps.map(label => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {setupComplete ? (
+            <Paper variant="outlined" sx={{ textAlign: 'center', py: 8, borderRadius: 4, bgcolor: 'rgba(76, 175, 80, 0.04)', borderColor: 'success.light' }}>
+              <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              <Typography variant="h5" fontWeight={800} gutterBottom>Ready to go!</Typography>
+              <Typography variant="body2" color="text.secondary">Your shop has been configured successfully.</Typography>
+              <CircularProgress size={24} sx={{ mt: 4 }} />
+            </Paper>
+          ) : (
+            <Box component="form" onSubmit={handleSubmit} noValidate>
+              {errors.submit && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{errors.submit}</Alert>}
+
+              {/* Step 1: Basics */}
+              {activeStep === 0 && (
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12}>
+                    <TextField label="Shop Name" name="name" value={form.name} onChange={handleChange} fullWidth required error={!!errors.name} helperText={errors.name} InputProps={{ startAdornment: <InputAdornment position="start"><StorefrontIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Shop Code" name="code" value={form.code} onChange={handleChange} fullWidth required error={!!errors.code} helperText={errors.code || "Unique store ID"} InputProps={{ startAdornment: <InputAdornment position="start"><NumbersIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Owner Name" name="ownerName" value={form.ownerName} onChange={handleChange} fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                    <Button variant="contained" size="large" onClick={handleNext} disabled={!form.name.trim() || !form.code.trim()} endIcon={<ChevronRightIcon />} sx={{ borderRadius: 2, px: 4, fontWeight: 700 }}>Next Step</Button>
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Step 2: Branding */}
+              {activeStep === 1 && (
+                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed', borderWidth: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={800} gutterBottom>Upload Store Logo</Typography>
+                  <Stack alignItems="center" spacing={3} sx={{ mt: 2 }}>
+                    <Avatar src={logoPreview} sx={{ width: 100, height: 100, border: '3px solid', borderColor: 'primary.light', bgcolor: 'grey.50' }}>
+                      {!logoPreview && <StorefrontIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
+                    </Avatar>
+                    <input type="file" accept="image/*" hidden ref={fileInputRef} onChange={handleLogoChange} />
+                    <Stack direction="row" spacing={2}>
+                      <Button variant="outlined" startIcon={<CloudUploadIcon />} onClick={() => fileInputRef.current?.click()} sx={{ fontWeight: 700 }}>{logoPreview ? 'Change Logo' : 'Choose Logo'}</Button>
+                      {logoPreview && <Button variant="text" color="error" onClick={removeLogo} sx={{ fontWeight: 700 }}>Remove</Button>}
+                    </Stack>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%', pt: 4 }}>
+                      <Button variant="text" color="inherit" onClick={handleBack} startIcon={<ChevronLeftIcon />} sx={{ fontWeight: 700 }}>Back</Button>
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Button variant="contained" size="large" onClick={handleNext} sx={{ borderRadius: 2, px: 4, fontWeight: 700 }}>Continue</Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              )}
+
+              {/* Step 3: Details */}
+              {activeStep === 2 && (
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="GSTIN (Optional)" name="gstin" value={form.gstin} onChange={handleChange} fullWidth placeholder="22AAAAA0000A1Z5" InputProps={{ startAdornment: <InputAdornment position="start"><FingerprintIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField select label="State" name="state" value={form.state} onChange={handleChange} fullWidth required error={!!errors.state} helperText={errors.state}>
+                      {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField label="Shop Address" name="address" value={form.address} onChange={handleChange} fullWidth multiline rows={2} InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon color="primary" /></InputAdornment> }} />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField select label="System Language" name="locale" value={form.locale} onChange={handleChange} fullWidth>
+                      {LOCALES.map(l => <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                    <Button variant="text" color="inherit" onClick={handleBack} startIcon={<ChevronLeftIcon />} sx={{ fontWeight: 700 }}>Back</Button>
+                    <Button type="submit" variant="contained" size="large" disabled={isLoading || !form.state} sx={{ borderRadius: 2, px: 6, fontWeight: 700, minWidth: 160 }}>
+                      {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Complete Setup'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Fade>
   );
 };
 

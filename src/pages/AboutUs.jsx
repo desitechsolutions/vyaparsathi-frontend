@@ -1,190 +1,167 @@
 import React from 'react';
 import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Grid,
-  Divider,
-  Button,
-  IconButton,
-  Card,
-  CardContent,
-  Chip,
-  Avatar,
+  Box, Container, Typography, Paper, Grid, Divider, Button, IconButton,
+  Card, CardContent, Chip, Avatar, Stack, useTheme
 } from '@mui/material';
-import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
-import { useTranslation } from 'react-i18next';
-import GroupIcon from '@mui/icons-material/Group';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import EmailIcon from '@mui/icons-material/Email';
-import PhoneIcon from '@mui/icons-material/Phone';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CodeIcon from '@mui/icons-material/Code';
-import DnsIcon from '@mui/icons-material/Dns';
-import CloudIcon from '@mui/icons-material/Cloud';
-import EngineeringIcon from '@mui/icons-material/Engineering';
+import {
+  BusinessCenter, Lightbulb, Email, Phone, LocationOn, 
+  Code, Dns, Cloud, Engineering, VerifiedUser, 
+  Smartphone, Brush, Storage, SupportAgent
+} from '@mui/icons-material';
 
 const AboutUs = () => {
-const { t } = useTranslation();
+  const theme = useTheme();
+
+  const services = [
+    { title: "Web Development", icon: <Code />, tags: ["React", "Spring Boot", "Next.js"], desc: "Scalable enterprise web applications." },
+    { title: "Mobile Apps", icon: <Smartphone />, tags: ["Android", "Flutter", "React Native"], desc: "High-performance cross-platform apps." },
+    { title: "Cloud & DevOps", icon: <Cloud />, tags: ["AWS", "Docker", "Kubernetes"], desc: "Automated CI/CD and cloud architecture." },
+    { title: "UI/UX Design", icon: <Brush />, tags: ["Figma", "Material UI"], desc: "Conversion-focused, clean design systems." },
+    { title: "Data Engineering", icon: <Storage />, tags: ["PostgreSQL", "MongoDB"], desc: "Reliable data architecture & migration." },
+    { title: "Consulting", icon: <SupportAgent />, tags: ["Architecture", "Security"], desc: "Technology review and long-term support." },
+  ];
+
   return (
-    <Box
-      sx={{
-        flexGrow: 1,
-        py: { xs: 4, md: 8 },
-        px: { xs: 2, md: 4 },
-        bgcolor: '#f5f5f5',
-        minHeight: '100vh',
-      }}
-    >
+    <Box sx={{ flexGrow: 1, py: { xs: 4, md: 8 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Container maxWidth="lg">
-        <Paper
-          elevation={4}
-          sx={{
-            p: { xs: 3, md: 6 },
-            borderRadius: 4,
-            transition: 'transform 0.3s, box-shadow 0.3s',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-            },
-          }}
-        >
-          {/* Main Title Section */}
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Typography
-              variant="h3"
-              component="h1"
-              gutterBottom
-              sx={{ fontWeight: 'bold', color: 'primary.main' }}
-            >
-              About VyaparSathi
-            </Typography>
-            <Typography variant="h6" color="text.secondary">
-              Your trusted partner in business growth.
-            </Typography>
-          </Box>
+        
+        {/* HERO SECTION */}
+        <Box sx={{ textAlign: 'center', mb: 8 }}>
+          <Typography variant="overline" color="primary" sx={{ fontWeight: 800, letterSpacing: 2 }}>
+            Engineering Excellence Since 2019
+          </Typography>
+          <Typography variant="h2" fontWeight={900} gutterBottom sx={{ color: '#0f172a' }}>
+            DesiTech <Box component="span" sx={{ color: 'primary.main' }}>Solutions</Box>
+          </Typography>
+          <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, m: '0 auto' }}>
+            A premium technology brand operated by <b>Biruma Technology Solutions Private Limited</b>. 
+            Empowering Indian businesses with future-ready software.
+          </Typography>
+        </Box>
 
-          <Divider sx={{ my: 4 }} />
-
-          {/* Our Mission & Vision Section */}
-          <Grid container spacing={4} alignItems="center" sx={{ mb: 6 }}>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ textAlign: 'center', mb: { xs: 4, md: 0 } }}>
-                <BusinessCenterIcon sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  Our Mission
-                </Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.7, mt: 2 }}>
-                  Our mission is to empower small and medium-sized businesses in rural and semi-urban areas by simplifying their daily operations. We believe that technology should be a tool for empowerment, not a barrier. VyaparSathi is designed to make business management, from inventory to sales, accessible and easy for everyone.
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ textAlign: 'center' }}>
-                <LightbulbIcon sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  Our Vision
-                </Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.7, mt: 2 }}>
-                  We envision a future where every shop owner, regardless of their location or technical expertise, can manage their business efficiently and accurately. By providing an intuitive, offline-first application, we aim to bridge the digital divide and contribute to the economic prosperity of local communities.
-                </Typography>
-              </Box>
-            </Grid>
+        {/* MISSION & VISION */}
+        <Grid container spacing={4} sx={{ mb: 10 }}>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid #e2e8f0' }}>
+              <BusinessCenter sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" fontWeight={800} gutterBottom>Our Vision</Typography>
+              <Typography variant="body1" color="text.secondary" lineHeight={1.8}>
+                To become a trusted technology partner for Indian businesses by delivering scalable, 
+                secure, and future-ready software solutions driven by engineering excellence.
+              </Typography>
+            </Paper>
           </Grid>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid #e2e8f0' }}>
+              <Lightbulb sx={{ fontSize: 40, color: 'secondary.main', mb: 2 }} />
+              <Typography variant="h5" fontWeight={800} gutterBottom>Our Mission</Typography>
+              <Typography variant="body1" color="text.secondary" lineHeight={1.8}>
+                We aim to bridge the digital divide by making enterprise-grade technology accessible 
+                to every shop owner and startup in India, ensuring growth through automation.
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
 
-          <Divider sx={{ my: 4 }} />
-
-          {/* Our Founder & Team Section */}
-          <Card elevation={0} sx={{ p: { xs: 2, md: 4 }, mb: 6, bgcolor: '#fafafa', borderRadius: 3 }}>
-            <Grid container spacing={4} alignItems="center">
-              <Grid item xs={12} md={4} sx={{ textAlign: 'center' }}>
-                <Avatar sx={{ width: 100, height: 100, bgcolor: 'primary.main', m: '0 auto', mb: 2 }}>
-                  <EngineeringIcon sx={{ fontSize: 60 }} />
-                </Avatar>
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  Our Founder
-                </Typography>
-                <Typography variant="subtitle1" color="text.secondary">
-                  Birendra Shaw
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
-                  Our team is led by **Birendra Shaw**, a Technical Specialist at IBM with extensive experience in developing applications for small to medium-scale businesses. With a strong foundation in **Java Spring Boot, Microservices, Kafka, AWS, React.js, and Angular.js**, Birendra brings a wealth of knowledge to ensure our solutions are robust, scalable, and tailored to real-world business needs.
-                </Typography>
-                <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: { xs: 'center', md: 'flex-start' } }}>
-                  <Chip icon={<CodeIcon />} label="Java Spring Boot" color="primary" />
-                  <Chip icon={<DnsIcon />} label="Microservices" color="primary" />
-                  <Chip icon={<CloudIcon />} label="AWS" color="primary" />
-                </Box>
-              </Grid>
+        {/* SERVICES GRID */}
+        <Typography variant="h4" fontWeight={900} textAlign="center" mb={6}>Our Expertise</Typography>
+        <Grid container spacing={3} sx={{ mb: 10 }}>
+          {services.map((s, i) => (
+            <Grid item xs={12} sm={6} md={4} key={i}>
+              <Card elevation={0} sx={{ height: '100%', borderRadius: 4, border: '1px solid #e2e8f0', '&:hover': { borderColor: 'primary.main', bgcolor: '#f1f5f9' } }}>
+                <CardContent>
+                  <Avatar sx={{ bgcolor: 'primary.light', mb: 2 }}>{s.icon}</Avatar>
+                  <Typography variant="h6" fontWeight={800}>{s.title}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, height: 40 }}>{s.desc}</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {s.tags.map(tag => <Chip key={tag} label={tag} size="small" sx={{ fontSize: '0.65rem', fontWeight: 700 }} />)}
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
-            <Divider sx={{ my: 3 }} />
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body1" sx={{ lineHeight: 1.7, mb: 2 }}>
-                We are a dedicated team of **10+ developers**, including specialists in Android and iOS mobile app development and a cloud architect, ensuring we can provide comprehensive services to all business domains. Whether your needs are in **banking, finance, insurance, or retail**, our diverse expertise allows us to deliver high-quality, customized software solutions.
+          ))}
+        </Grid>
+
+        {/* LEADERSHIP SECTION */}
+        <Typography variant="h4" fontWeight={900} textAlign="center" mb={6}>The Leadership Team</Typography>
+        <Grid container spacing={4} sx={{ mb: 10 }}>
+          <Grid item xs={12} md={4}>
+            <LeaderCard 
+              name="Birendra Shaw" 
+              role="Director – Full Stack & Backend" 
+              desc="Leads backend architecture focusing on scalable enterprise systems and cloud-native platforms." 
+              skills={["Java", "Microservices", "AWS"]} 
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <LeaderCard 
+              name="Uma Shankar Pandey" 
+              role="Director – DevOps & Cloud" 
+              desc="Ensures reliability and secure deployments across modern cloud platforms and CI/CD pipelines." 
+              skills={["Docker", "Kubernetes", "DevOps"]} 
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <LeaderCard 
+              name="Rambabu Prajapati" 
+              role="Mobile Application Lead" 
+              desc="Specializes in developing high-performance Android & iOS applications with a focus on usability." 
+              skills={["Android", "iOS", "Flutter"]} 
+            />
+          </Grid>
+        </Grid>
+
+        {/* LEGAL IDENTITY SECTION */}
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#0f172a', color: 'white', mb: 10 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={3}>
+            <Box>
+              <Typography variant="h5" fontWeight={800} gutterBottom>Legal Identity</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                <b>DesiTech Solutions</b> is a technology services brand operated by <b>Biruma Technology Solutions Private Limited</b>.
+                <br />Incorporated in 2025 under the Companies Act, 2013.
               </Typography>
             </Box>
-          </Card>
+            <Box sx={{ textAlign: { md: 'right' } }}>
+              <Chip label={`CIN: U62010HR2025PTC139151`} sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 800, mb: 1 }} />
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>Regd Office: Arjun Nagar, Gurgaon, HR</Typography>
+            </Box>
+          </Stack>
+        </Paper>
 
-          <Divider sx={{ my: 4 }} />
-
-          {/* Contact Us Section */}
-          <Card elevation={0} sx={{ p: { xs: 2, md: 4 }, bgcolor: '#fafafa', borderRadius: 3 }}>
-            <CardContent>
-              <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 'bold', color: 'primary.main' }}
-                >
-                  Contact Us
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Let's discuss how we can help your business grow.
-                </Typography>
-              </Box>
-              <Grid container spacing={2} justifyContent="center" alignItems="center">
-                <Grid item xs={12} sm={4} sx={{ textAlign: 'center' }}>
-                  <IconButton color="primary" sx={{ mb: 1 }} href="tel:9508156282">
-                    <PhoneIcon sx={{ fontSize: 30 }} />
-                  </IconButton>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    Phone
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    9508156282
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={4} sx={{ textAlign: 'center' }}>
-                  <IconButton color="primary" sx={{ mb: 1 }} href="mailto:techie.birendra@gmail.com">
-                    <EmailIcon sx={{ fontSize: 30 }} />
-                  </IconButton>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    Email
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    techie.birendra@gmail.com
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={4} sx={{ textAlign: 'center' }}>
-                  <IconButton color="primary" sx={{ mb: 1 }} href="https://maps.google.com/?q=Sector-62, Noida" target="_blank">
-                    <LocationOnIcon sx={{ fontSize: 30 }} />
-                  </IconButton>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    Address
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Sector-62, Noida
-                  </Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+        {/* CONTACT SECTION */}
+        <Paper elevation={0} sx={{ p: { xs: 4, md: 8 }, borderRadius: 8, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
+          <Typography variant="h3" fontWeight={900} mb={2}>Let's Build Something Together</Typography>
+          <Typography variant="h6" mb={4} sx={{ opacity: 0.9 }}>Available for consultations, partnerships, and custom development.</Typography>
+          <Grid container spacing={3} justifyContent="center">
+            <ContactInfo icon={<Phone />} label="+91 9508156282" />
+            <ContactInfo icon={<Email />} label="info@desitechsolutions.com" />
+            <ContactInfo icon={<LocationOn />} label="Gurgaon, Haryana" />
+          </Grid>
         </Paper>
       </Container>
     </Box>
   );
 };
+
+const LeaderCard = ({ name, role, desc, skills }) => (
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', textAlign: 'center', p: 3, height: '100%' }}>
+    <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main', mx: 'auto', mb: 2, fontSize: 32, fontWeight: 800 }}>{name[0]}</Avatar>
+    <Typography variant="h6" fontWeight={800}>{name}</Typography>
+    <Typography variant="caption" color="primary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>{role}</Typography>
+    <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 3 }}>{desc}</Typography>
+    <Stack direction="row" spacing={1} justifyContent="center">
+      {skills.map(s => <Chip key={s} label={s} size="small" variant="outlined" />)}
+    </Stack>
+  </Card>
+);
+
+const ContactInfo = ({ icon, label }) => (
+  <Grid item xs={12} sm={4}>
+    <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+      <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}>{icon}</Avatar>
+      <Typography variant="body1" fontWeight={700}>{label}</Typography>
+    </Stack>
+  </Grid>
+);
 
 export default AboutUs;

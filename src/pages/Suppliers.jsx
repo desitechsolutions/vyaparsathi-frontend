@@ -1,562 +1,283 @@
 import React, { useState, useEffect } from "react";
 import {
-  Typography,
-  Box,
-  Stack,
-  Button,
-  TextField,
-  Modal,
-  IconButton,
-  Snackbar,
-  Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tooltip,
-  CircularProgress,
-  Divider,
+  Typography, Box, Stack, Button, TextField, Modal, IconButton, Snackbar,
+  Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Tooltip, CircularProgress, Divider, Avatar, Card, Grid, Dialog,
+  DialogTitle, DialogContent, DialogActions
 } from "@mui/material";
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Business as BusinessIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  LocationOn as LocationOnIcon,
-  Person as PersonIcon,
-  Assignment as AssignmentIcon,
+  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+  Business as BusinessIcon, Email as EmailIcon, Phone as PhoneIcon,
+  LocationOn as LocationOnIcon, Person as PersonIcon,
+  Assignment as AssignmentIcon, Search as SearchIcon,
+  Verified as VerifiedIcon, WarningAmber as WarningIcon,
+  Group as GroupIcon
 } from "@mui/icons-material";
 import { styled } from "@mui/system";
 
 // API helpers
-import {
-  getSuppliers,
-  createSupplier,
-  updateSupplier,
-  deleteSupplier,
-} from "../services/api";
+import { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from "../services/api";
 
-// Styled Modal
 const StyledModal = styled(Modal)({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backdropFilter: "blur(5px)",
+  display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)",
 });
 
-const ModalContent = styled(Box)({
-  backgroundColor: "#fff",
-  borderRadius: "12px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-  padding: "2.5rem",
-  width: "90%",
-  maxWidth: "520px",
-  maxHeight: "90vh",
-  overflowY: "auto",
-  position: "relative",
-});
+const ModalContent = styled(Box)(({ theme }) => ({
+  backgroundColor: "#fff", borderRadius: "16px", boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
+  padding: "2rem", width: "95%", maxWidth: "550px", position: "relative",
+  border: "1px solid rgba(0,0,0,0.05)"
+}));
 
-const initialForm = {
-  name: "",
-  contactPerson: "",
-  phone: "",
-  email: "",
-  address: "",
-  gstin: "",
-};
+const StatCard = ({ title, value, icon, color }) => (
+  <Card sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 2.5, borderRadius: 4, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid', borderColor: 'divider' }}>
+    <Avatar sx={{ bgcolor: `${color}.light`, color: `${color}.main`, width: 52, height: 52 }}>
+      {icon}
+    </Avatar>
+    <Box>
+      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{title}</Typography>
+      <Typography variant="h5" fontWeight={900}>{value}</Typography>
+    </Box>
+  </Card>
+);
+
+const initialForm = { name: "", contactPerson: "", phone: "", email: "", address: "", gstin: "" };
 
 const Suppliers = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // add | edit | view
+  const [modalMode, setModalMode] = useState("add"); 
   const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
-  const [formErrors, setFormErrors] = useState({});
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "info",
-  });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
   const [search, setSearch] = useState("");
 
-  // Fetch suppliers
-  useEffect(() => {
-    fetchSuppliers();
-    // eslint-disable-next-line
-  }, []);
+  useEffect(() => { fetchSuppliers(); }, []);
 
   const fetchSuppliers = async () => {
     setIsLoading(true);
     try {
       const res = await getSuppliers();
       setSuppliers(res || []);
-      if (!res || res.length === 0) {
-        setSnackbar({
-          open: true,
-          message: "No suppliers found.",
-          severity: "info",
-        });
-      }
     } catch (e) {
-      setSnackbar({
-        open: true,
-        message: "Failed to fetch suppliers.",
-        severity: "error",
-      });
+      showSnackbar("Failed to fetch suppliers", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Modal open/close/prepare
+  const showSnackbar = (message, severity = "info") => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   const handleOpenModal = (mode, supplier = null) => {
     setModalMode(mode);
     setSelectedSupplier(supplier);
-    if (mode === "add") {
-      setForm(initialForm);
-    } else if (supplier) {
-      setForm({
-        name: supplier.name || "",
-        contactPerson: supplier.contactPerson || "",
-        phone: supplier.phone || "",
-        email: supplier.email || "",
-        address: supplier.address || "",
-        gstin: supplier.gstin || "",
-      });
-    }
-    setFormErrors({});
+    setForm(supplier ? { ...supplier } : initialForm);
     setModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setSelectedSupplier(null);
-  };
-
-  // CRUD actions
-  const handleDelete = async (id) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this supplier? This action cannot be undone."
-      )
-    ) {
-      setIsLoading(true);
-      try {
-        await deleteSupplier(id);
-        setSnackbar({
-          open: true,
-          message: "Supplier deleted successfully.",
-          severity: "success",
-        });
-        fetchSuppliers();
-      } catch (e) {
-        setSnackbar({
-          open: true,
-          message: "Failed to delete supplier.",
-          severity: "error",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  // Validation
-  const validateForm = () => {
-    const errors = {};
-    if (!form.name) errors.name = "Supplier name is required";
-    if (!form.contactPerson) errors.contactPerson = "Contact person is required";
-    if (!form.phone) errors.phone = "Phone is required";
-    if (!/^\d{10,15}$/.test(form.phone.replace(/[^\d]/g, "")))
-      errors.phone = "Enter a valid phone number";
-    if (!form.email) errors.email = "Email is required";
-    if (
-      form.email &&
-      !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(form.email)
-    )
-      errors.email = "Enter a valid email";
-    if (!form.address) errors.address = "Address is required";
-    if (!form.gstin) errors.gstin = "GSTIN is required";
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Add/Edit submit
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!form.name || !form.phone) {
+        showSnackbar("Supplier Name and Phone are mandatory.", "warning");
+        return;
+    }
 
-    setIsLoading(true);
     try {
-      if (modalMode === "add") {
-        await createSupplier(form);
-        setSnackbar({
-          open: true,
-          message: "Supplier added successfully.",
-          severity: "success",
-        });
-      } else {
-        await updateSupplier(selectedSupplier.id, form);
-        setSnackbar({
-          open: true,
-          message: "Supplier updated successfully.",
-          severity: "success",
-        });
-      }
-      await fetchSuppliers();
-      handleCloseModal();
+      if (modalMode === "add") await createSupplier(form);
+      else await updateSupplier(selectedSupplier.id, form);
+      showSnackbar(`Supplier ${modalMode === "add" ? 'created' : 'updated'} successfully.`, "success");
+      fetchSuppliers();
+      setModalOpen(false);
     } catch (e) {
-      setSnackbar({
-        open: true,
-        message: "Failed to save supplier.",
-        severity: "error",
-      });
+      showSnackbar("Operation failed. Check server connection.", "error");
+    }
+  };
+
+  const confirmDelete = (supplier) => {
+    setSelectedSupplier(supplier);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleActualDelete = async () => {
+    try {
+      await deleteSupplier(selectedSupplier.id);
+      showSnackbar("Supplier deleted from directory.", "success");
+      fetchSuppliers();
+    } catch (e) {
+      showSnackbar("Could not delete supplier.", "error");
     } finally {
-      setIsLoading(false);
+      setDeleteDialogOpen(false);
     }
   };
 
-  // Search
-  const filteredSuppliers = suppliers.filter((s) => {
-    const query = search.trim().toLowerCase();
-    if (!query) return true;
-    return (
-      s.name?.toLowerCase().includes(query) ||
-      s.contactPerson?.toLowerCase().includes(query) ||
-      s.email?.toLowerCase().includes(query) ||
-      s.phone?.toLowerCase().includes(query) ||
-      s.address?.toLowerCase().includes(query) ||
-      s.gstin?.toLowerCase().includes(query)
-    );
-  });
-
-  // Snackbar close
-  const handleSnackbarClose = (_, reason) => {
-    if (reason === "clickaway") return;
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  };
-
-  // -- Render Modal Content --
-  const renderModalContent = () => {
-    if (modalMode === "view") {
-      return (
-        <Box>
-          <Typography variant="h5" fontWeight="bold" gutterBottom>
-            Supplier Details
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Stack spacing={2}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <BusinessIcon color="primary" />
-              <Typography>
-                <strong>Name:</strong> {form.name}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <PersonIcon color="primary" />
-              <Typography>
-                <strong>Contact Person:</strong> {form.contactPerson}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <PhoneIcon color="primary" />
-              <Typography>
-                <strong>Phone:</strong> {form.phone}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <EmailIcon color="primary" />
-              <Typography>
-                <strong>Email:</strong> {form.email}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <LocationOnIcon color="primary" />
-              <Typography>
-                <strong>Address:</strong> {form.address}
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <AssignmentIcon color="primary" />
-              <Typography>
-                <strong>GSTIN:</strong> {form.gstin}
-              </Typography>
-            </Stack>
-          </Stack>
-          <Box textAlign="right" mt={3}>
-            <Button variant="outlined" onClick={handleCloseModal}>
-              Close
-            </Button>
-          </Box>
-        </Box>
-      );
-    }
-
-    // Add/Edit form
-    return (
-      <Box component="form" onSubmit={handleFormSubmit}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          {modalMode === "add" ? "Add Supplier" : "Edit Supplier"}
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <Stack spacing={2}>
-          <TextField
-            label="Supplier Name"
-            name="name"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            error={!!formErrors.name}
-            helperText={formErrors.name}
-            fullWidth
-            autoFocus
-          />
-          <TextField
-            label="Contact Person"
-            name="contactPerson"
-            value={form.contactPerson}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, contactPerson: e.target.value }))
-            }
-            error={!!formErrors.contactPerson}
-            helperText={formErrors.contactPerson}
-            fullWidth
-          />
-          <TextField
-            label="Phone"
-            name="phone"
-            value={form.phone}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, phone: e.target.value }))
-            }
-            error={!!formErrors.phone}
-            helperText={formErrors.phone}
-            fullWidth
-          />
-          <TextField
-            label="Email"
-            name="email"
-            value={form.email}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, email: e.target.value }))
-            }
-            error={!!formErrors.email}
-            helperText={formErrors.email}
-            fullWidth
-          />
-          <TextField
-            label="Address"
-            name="address"
-            value={form.address}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, address: e.target.value }))
-            }
-            error={!!formErrors.address}
-            helperText={formErrors.address}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <TextField
-            label="GSTIN"
-            name="gstin"
-            value={form.gstin}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, gstin: e.target.value }))
-            }
-            error={!!formErrors.gstin}
-            helperText={formErrors.gstin}
-            fullWidth
-          />
-        </Stack>
-        <Stack direction="row" spacing={2} mt={4} justifyContent="flex-end">
-          <Button variant="outlined" onClick={handleCloseModal}>
-            Cancel
-          </Button>
-          <Button variant="contained" type="submit">
-            {modalMode === "add" ? "Add" : "Save"}
-          </Button>
-        </Stack>
-      </Box>
-    );
-  };
+  const filteredSuppliers = suppliers.filter(s => 
+    Object.values(s).some(val => String(val).toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 p-8 font-sans">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: { xs: "flex-start", md: "center" },
-            mb: 4,
-            gap: 2,
-            width: "100%",
-          }}
-        >
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            sx={{
-              color: "text.primary",
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              width: "100%",
-              justifyContent: { xs: "flex-start", md: "center" },
-            }}
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "#fcfcfc", minHeight: "100vh" }}>
+      <Box sx={{ maxWidth: "1200px", mx: "auto" }}>
+        
+        {/* Header Section */}
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="flex-end" spacing={2} sx={{ mb: 4 }}>
+          <Box>
+            <Typography variant="h4" fontWeight={900} sx={{ color: "#1a1a1a", display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+              <BusinessIcon fontSize="large" color="primary" /> Suppliers
+            </Typography>
+            <Typography variant="body1" color="text.secondary" fontWeight={500}>Directory of all business vendors and procurement contacts</Typography>
+          </Box>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />} 
+            onClick={() => handleOpenModal("add")}
+            sx={{ borderRadius: 2.5, px: 4, py: 1.4, fontWeight: 800, textTransform: 'none', boxShadow: '0 10px 20px rgba(0,0,0,0.08)' }}
           >
-            <BusinessIcon sx={{ verticalAlign: "middle", mr: 1 }} />
-            Suppliers
-          </Typography>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems="center"
-            justifyContent="center"
-            width="100%"
-            sx={{ mt: 1 }}
-          >
+            New Supplier
+          </Button>
+        </Stack>
+
+        {/* Stats Row */}
+        <Grid container spacing={3} sx={{ mb: 5 }}>
+          <Grid item xs={12} sm={6}>
+            <StatCard title="Total Vendors" value={suppliers.length} icon={<GroupIcon />} color="primary" />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <StatCard title="Registered GSTIN" value={suppliers.filter(s => s.gstin).length} icon={<VerifiedIcon />} color="success" />
+          </Grid>
+        </Grid>
+
+        {/* List Section */}
+        <Paper sx={{ borderRadius: 4, overflow: "hidden", border: '1px solid', borderColor: '#eee', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+          <Box sx={{ p: 3, bgcolor: "#fff", borderBottom: '1px solid #f1f5f9' }}>
             <TextField
-              placeholder="Search suppliers..."
+              placeholder="Search by name, contact, or GST number..."
+              fullWidth
+              size="small"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              size="small"
-              variant="outlined"
-              sx={{ minWidth: 220 }}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ color: "text.disabled", mr: 1.5 }} />,
+              }}
+              sx={{ maxWidth: 500, '& .MuiOutlinedInput-root': { borderRadius: 3, bgcolor: '#f9f9f9' } }}
             />
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenModal("add")}
-              sx={{
-                backgroundColor: "#1f2937",
-                color: "#fff",
-                "&:hover": { backgroundColor: "#374151" },
-                whiteSpace: "nowrap",
-              }}
-            >
-              Add Supplier
-            </Button>
-          </Stack>
-        </Box>
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3600}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
-        >
-          <Alert
-            onClose={handleSnackbarClose}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-        {/* Loading */}
-        {isLoading && (
-          <Box display="flex" justifyContent="center" alignItems="center" height="250px">
-            <CircularProgress color="primary" size={60} />
           </Box>
-        )}
-        {/* Empty state */}
-        {!isLoading && filteredSuppliers.length === 0 && (
-          <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            height="300px"
-            bgcolor="#fafbfc"
-            borderRadius={2}
-            sx={{ boxShadow: 1, mt: 6 }}
-          >
-            <BusinessIcon sx={{ fontSize: 60, color: "grey.400", mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" mb={2}>
-              No suppliers found.
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenModal("add")}
-              sx={{
-                backgroundColor: "#1f2937",
-                color: "#fff",
-                "&:hover": { backgroundColor: "#374151" },
-              }}
-            >
-              Add Supplier
-            </Button>
-          </Box>
-        )}
-        {/* Table */}
-        {!isLoading && filteredSuppliers.length > 0 && (
-          <TableContainer component={Paper} sx={{ borderRadius: 3, mt: 3, boxShadow: 2 }}>
+
+          <TableContainer>
             <Table>
-              <TableHead>
+              <TableHead sx={{ bgcolor: "#fafafa" }}>
                 <TableRow>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Contact Person</strong></TableCell>
-                  <TableCell><strong>Phone</strong></TableCell>
-                  <TableCell><strong>Email</strong></TableCell>
-                  <TableCell><strong>GSTIN</strong></TableCell>
-                  <TableCell align="right"><strong>Actions</strong></TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary', py: 2 }}>SUPPLIER ENTITY</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>CONTACT PERSON</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>MOBILE / EMAIL</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>GSTIN</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', pr: 4 }}>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredSuppliers.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.name}</TableCell>
-                    <TableCell>{s.contactPerson}</TableCell>
-                    <TableCell>{s.phone}</TableCell>
-                    <TableCell>{s.email}</TableCell>
-                    <TableCell>{s.gstin}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="View">
-                        <IconButton
-                          color="info"
-                          onClick={() => handleOpenModal("view", s)}
-                        >
-                          <AssignmentIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          color="secondary"
-                          onClick={() => handleOpenModal("edit", s)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(s.id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 12 }}><CircularProgress size={35} /></TableCell></TableRow>
+                ) : filteredSuppliers.length > 0 ? (
+                  filteredSuppliers.map((s) => (
+                    <TableRow key={s.id} hover sx={{ '&:hover': { bgcolor: '#fcfdfe !important' } }}>
+                      <TableCell sx={{ py: 2.5 }}>
+                        <Typography variant="body1" fontWeight={800} color="#1a1a1a">{s.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                          <LocationOnIcon sx={{ fontSize: 13 }} /> {s.address || "No address provided"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                          <Avatar sx={{ width: 32, height: 32, fontSize: '0.85rem', fontWeight: 800, bgcolor: 'primary.main', border: '2px solid #fff', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+                            {s.contactPerson?.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Typography variant="body2" fontWeight={600}>{s.contactPerson}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={700} color="primary.main">{s.phone}</Typography>
+                        <Typography variant="caption" color="text.secondary">{s.email || "N/A"}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ 
+                          bgcolor: s.gstin ? "#e8f5e9" : "#f5f5f5", 
+                          color: s.gstin ? "#2e7d32" : "#9e9e9e", 
+                          px: 1.5, py: 0.6, borderRadius: 1.5, display: 'inline-block', fontSize: '0.7rem', fontWeight: 900, border: '1px solid', borderColor: s.gstin ? "#c8e6c9" : "#eee"
+                        }}>
+                          {s.gstin || "UNREGISTERED"}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right" sx={{ pr: 3 }}>
+                        <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                          <Tooltip title="View Profile"><IconButton size="small" onClick={() => handleOpenModal("view", s)} sx={{ bgcolor: '#f5f5f5' }}><AssignmentIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Edit Details"><IconButton size="small" onClick={() => handleOpenModal("edit", s)} color="primary" sx={{ bgcolor: '#e3f2fd' }}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Delete Supplier"><IconButton size="small" onClick={() => confirmDelete(s)} color="error" sx={{ bgcolor: '#ffebee' }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                      <Typography variant="body1" color="text.secondary">No matching suppliers found.</Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
-        )}
-      </div>
-      {/* Modal */}
-      <StyledModal open={modalOpen} onClose={handleCloseModal}>
-        <ModalContent>{renderModalContent()}</ModalContent>
+        </Paper>
+      </Box>
+
+      {/* Profile/Entry Modal */}
+      <StyledModal open={modalOpen} onClose={() => setModalOpen(false)}>
+        <ModalContent>
+          <Typography variant="h5" fontWeight={900} color="primary.main" gutterBottom>
+            {modalMode === "add" ? "Register New Supplier" : modalMode === "edit" ? "Edit Supplier Details" : "Supplier Profile Overview"}
+          </Typography>
+          <Divider sx={{ mb: 4, opacity: 0.6 }} />
+          <Box component="form" onSubmit={handleFormSubmit}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12}><TextField label="Legal Company Name" fullWidth value={form.name} onChange={e => setForm({...form, name: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
+              <Grid item xs={6}><TextField label="Primary Contact Person" fullWidth value={form.contactPerson} onChange={e => setForm({...form, contactPerson: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={6}><TextField label="Mobile/WhatsApp Number" fullWidth value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
+              <Grid item xs={12}><TextField label="Email Address" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={12}><TextField label="Business Address" multiline rows={3} fullWidth value={form.address} onChange={e => setForm({...form, address: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={12}><TextField label="GSTIN (Optional)" fullWidth value={form.gstin} onChange={e => setForm({...form, gstin: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+            </Grid>
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 5 }}>
+              <Button onClick={() => setModalOpen(false)} variant="outlined" color="inherit" sx={{ borderRadius: 2, fontWeight: 700 }}>{modalMode === 'view' ? 'Close' : 'Cancel'}</Button>
+              {modalMode !== 'view' && <Button type="submit" variant="contained" sx={{ fontWeight: 800, px: 5, borderRadius: 2 }}>{modalMode === 'add' ? 'Create Supplier' : 'Save Updates'}</Button>}
+            </Stack>
+          </Box>
+        </ModalContent>
       </StyledModal>
-    </div>
+
+      {/* Professional Deletion Prompt */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { borderRadius: 4, p: 1.5, maxWidth: 450 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 900, color: 'error.main' }}>
+          <WarningIcon /> Confirm Removal
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: 'text.primary', mt: 1 }}>
+            You are about to delete <strong>{selectedSupplier?.name}</strong> from your records. This will remove all associated contact details.
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2, bgcolor: '#fff3e0', p: 1.5, borderRadius: 2, border: '1px solid #ffe0b2' }}>
+            Note: This action is permanent and cannot be reversed.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} variant="text" color="inherit" sx={{ fontWeight: 700 }}>Keep Record</Button>
+          <Button onClick={handleActualDelete} variant="contained" color="error" sx={{ fontWeight: 800, px: 3, borderRadius: 2 }}>Delete Permanently</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({...snackbar, open: false})} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 3, fontWeight: 700, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{snackbar.message}</Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

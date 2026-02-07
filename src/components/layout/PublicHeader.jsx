@@ -1,293 +1,195 @@
 import React, { useState } from 'react';
 import {
-  AppBar, Toolbar, Typography, Button, Box, Menu, MenuItem, Dialog, DialogTitle,
-  DialogContent, IconButton, DialogActions, Avatar, Stack, useMediaQuery, Divider, Tabs, Tab, Grid, Paper
+  AppBar, Toolbar, Typography, Button, Box, Dialog, DialogTitle,
+  DialogContent, IconButton, DialogActions, Stack, useMediaQuery, 
+  Tabs, Tab, Grid, Paper, useTheme, Chip, Divider, Container
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import LanguageIcon from '@mui/icons-material/Language';
 import CloseIcon from '@mui/icons-material/Close';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import CodeIcon from '@mui/icons-material/Code';
+import SmartphoneIcon from '@mui/icons-material/Smartphone';
+import CloudQueueIcon from '@mui/icons-material/CloudQueue';
+import BrushIcon from '@mui/icons-material/Brush';
+import StorageIcon from '@mui/icons-material/Storage';
+import ContactSupportIcon from '@mui/icons-material/ContactSupport';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import ConstructionIcon from '@mui/icons-material/Construction';
+import InfoIcon from '@mui/icons-material/Info';
 import EmailIcon from '@mui/icons-material/Email';
-import StoreIcon from '@mui/icons-material/Store';
-import PriceCheckIcon from '@mui/icons-material/PriceCheck';
-import PeopleIcon from '@mui/icons-material/People';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import PlumbingIcon from '@mui/icons-material/Plumbing';
-import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
-import HandymanIcon from '@mui/icons-material/Handyman';
-import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import FormatPaintIcon from '@mui/icons-material/FormatPaint';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
-import BugReportIcon from '@mui/icons-material/BugReport';
-import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
-import BuildIcon from '@mui/icons-material/Build';
-
-const vyaparSathiFeatures = [
-  {
-    title: 'itemCatalog',
-    icon: <StoreIcon color="primary" fontSize="large" />,
-    desc: 'Manage all your products and variants easily.'
-  },
-  {
-    title: 'inventory',
-    icon: <PriceCheckIcon color="primary" fontSize="large" />,
-    desc: 'Real-time stock tracking and alerts.'
-  },
-  {
-    title: 'sales',
-    icon: <PeopleIcon color="primary" fontSize="large" />,
-    desc: 'Record and analyze your daily sales.'
-  },
-  {
-    title: 'reports',
-    icon: <AnalyticsIcon color="primary" fontSize="large" />,
-    desc: 'Detailed reports for smarter decisions.'
-  },
-  {
-    title: 'customers',
-    icon: <PeopleIcon color="primary" fontSize="large" />,
-    desc: 'Customer management and history.'
-  },
-  {
-    title: 'purchaseOrders',
-    icon: <CheckCircleOutlineIcon color="primary" fontSize="large" />,
-    desc: 'Easy purchase order creation.'
-  },
-  {
-    title: 'expenses',
-    icon: <PriceCheckIcon color="primary" fontSize="large" />,
-    desc: 'Track all business expenses.'
-  },
-  {
-    title: 'analytics',
-    icon: <AnalyticsIcon color="primary" fontSize="large" />,
-    desc: 'Business insights & trends.'
-  }
-];
-
-const desiFixServices = [
-  { title: "Plumbing", icon: <PlumbingIcon color="primary" fontSize="large" />, descKey: "Expert plumbing solutions for your home." },
-  { title: "Electrical", icon: <ElectricalServicesIcon color="primary" fontSize="large" />, descKey: "Trusted electricians for every electrical need." },
-  { title: "Carpentry", icon: <HandymanIcon color="primary" fontSize="large" />, descKey: "Furniture repairs and woodwork." },
-  { title: "Cleaning", icon: <CleaningServicesIcon color="primary" fontSize="large" />, descKey: "Home and office cleaning services." },
-  { title: "Painting", icon: <FormatPaintIcon color="primary" fontSize="large" />, descKey: "Quality painting for interiors and exteriors." },
-  { title: "Car Booking", icon: <DirectionsCarIcon color="primary" fontSize="large" />, descKey: "Book cars for travel or errands." },
-  { title: "Gardening", icon: <LocalFloristIcon color="primary" fontSize="large" />, descKey: "Garden setup and maintenance." },
-  { title: "Pest Control", icon: <BugReportIcon color="primary" fontSize="large" />, descKey: "Safe and effective pest control." },
-  { title: "Water Tank Cleaning", icon: <LocalDrinkIcon color="primary" fontSize="large" />, descKey: "Hygienic water tank cleaning." },
-  { title: "Home Repair", icon: <BuildIcon color="primary" fontSize="large" />, descKey: "Any home repair, big or small." }
-];
-
-const whyChooseUs = [
-  "publicHeader.whyAffordable",
-  "publicHeader.whyEasyToUse",
-  "publicHeader.whyHindiEnglish",
-  "publicHeader.whyForBharat",
-  "publicHeader.whySupport",
-  "publicHeader.whyCloud"
-];
-
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`service-tabpanel-${index}`}
-      aria-labelledby={`service-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
-    </div>
-  );
-}
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 const PublicHeader = () => {
   const { t, i18n } = useTranslation();
-  const [langAnchorEl, setLangAnchorEl] = useState(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Modal States
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [tab, setTab] = useState(0);
 
-  const isMobile = useMediaQuery('(max-width:600px)');
-
-  const handleLangMenuOpen = (event) => setLangAnchorEl(event.currentTarget);
-  const handleLangMenuClose = () => setLangAnchorEl(null);
-
-  const changeLanguage = (lang) => {
-    i18n.changeLanguage(lang);
-    localStorage.setItem('language', lang);
-    handleLangMenuClose();
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'en' ? 'hi' : 'en';
+    i18n.changeLanguage(newLang);
+    localStorage.setItem('language', newLang);
   };
 
-  const handleSupportClick = () => {
-    window.open('https://wa.me/919508156282?text=Hi%20DesiTech%20team!%20I%20have%20a%20question.', '_blank');
-  };
-
-  const handleEmailClick = () => {
-    window.location.href = `mailto:techie.birendra@gmail.com?subject=Support Request for DesiTech`;
-  };
-
-  const handleTabChange = (e, newValue) => setTab(newValue);
+  const techServices = [
+    { category: "Web Development", icon: <CodeIcon />, desc: "Scalable and secure web applications.", items: ["React & Next.js", "Spring Boot APIs", "Admin Dashboards"], stack: ["React", "Java"] },
+    { category: "Mobile App Development", icon: <SmartphoneIcon />, desc: "High-performance cross-platform apps.", items: ["Android Apps", "React Native", "Flutter"], stack: ["Android", "Flutter"] },
+    { category: "Cloud & DevOps", icon: <CloudQueueIcon />, desc: "Cloud infrastructure & automation.", items: ["AWS Setup", "Docker & CI/CD", "Microservices"], stack: ["AWS", "Kubernetes"] },
+    { category: "UI / UX Design", icon: <BrushIcon />, desc: "Conversion-focused designs.", items: ["Wireframes", "App UI", "Design Systems"], stack: ["Figma", "MUI"] },
+    { category: "Data & Database", icon: <StorageIcon />, desc: "Reliable data architecture.", items: ["Database Design", "Migration", "Optimization"], stack: ["PostgreSQL", "MongoDB"] },
+    { category: "Consulting", icon: <ContactSupportIcon />, desc: "Architecture and long-term support.", items: ["Code Review", "Security Audits", "Maintenance"], stack: ["Security", "Architecture"] }
+  ];
 
   return (
     <>
       <AppBar
         position="fixed"
-        color="transparent"
-        elevation={2}
+        elevation={0}
         sx={{
-          background: 'linear-gradient(90deg, #FAF3E3 0%, #F6F7FA 100%)',
-          borderBottom: '2px solid #FFD600'
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          color: '#0f172a'
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', minHeight: isMobile ? 56 : 72 }}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Avatar
-              src="/logo192.png"
-              sx={{ bgcolor: "#FFD600", width: 48, height: 48, mr: 1 }}
-              alt="DesiTech Logo"
-            />
-            <Box>
-              <Typography variant={isMobile ? "h6" : "h5"} sx={{ color: 'primary.main', fontWeight: 900, letterSpacing: 1 }}>
-                {t('publicHeader.companyName', "Tech Birendra Innovations Pvt Ltd.")}
-              </Typography>
-              <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-                {t('publicHeader.companyTagline', "Empowering Bharat's Businesses & Homes Digitally")}
-              </Typography>
-            </Box>
-          </Stack>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.5 : 1 }}>
-            <Button color="inherit" onClick={() => setServicesOpen(true)}>
-              {t('publicHeader.ourServices', 'Our Services')}
-            </Button>
-            <Button color="inherit" startIcon={<WhatsAppIcon />} onClick={handleSupportClick}>
-              {t('publicHeader.support', 'Support')}
-            </Button>
-            <IconButton color="inherit" onClick={handleEmailClick} title={t('publicHeader.emailUs', 'Email Us')}>
-              <EmailIcon />
-            </IconButton>
-            <Button
-              color="inherit"
-              aria-controls="language-menu"
-              aria-haspopup="true"
-              onClick={handleLangMenuOpen}
-              startIcon={<LanguageIcon />}
-            >
-              {i18n.language === 'en' ? t('publicHeader.langEnglish', 'English') : t('publicHeader.langHindi', 'हिन्दी')}
-            </Button>
-            <Menu
-              id="language-menu"
-              anchorEl={langAnchorEl}
-              open={Boolean(langAnchorEl)}
-              onClose={handleLangMenuClose}
-            >
-              <MenuItem onClick={() => changeLanguage('en')} selected={i18n.language === 'en'}>
-                <span role="img" aria-label="English" style={{ marginRight: 8 }}>🇬🇧</span> {t('publicHeader.langEnglish', 'English')}
-              </MenuItem>
-              <MenuItem onClick={() => changeLanguage('hi')} selected={i18n.language === 'hi'}>
-                <span role="img" aria-label="Hindi" style={{ marginRight: 8 }}>🇮🇳</span> {t('publicHeader.langHindi', 'हिन्दी')}
-              </MenuItem>
-            </Menu>
-          </Box>
-        </Toolbar>
+        <Container maxWidth="xl">
+          <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: { xs: 70, md: 95 } }}>
+            
+            {/* BRANDING SECTION */}
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Box sx={{ height: { xs: 45, md: 65 } }}>
+                <img src="/desitechsolution.png" alt="DesiTech Logo" style={{ height: '100%', width: 'auto' }} />
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', lg: 'block' }, height: 40, my: 'auto' }} />
+              <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+                <Typography variant="subtitle2" fontWeight={900} color="primary" sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                  {t('publicHeader.companyTagline')}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                  {t('publicHeader.birumaTechnology')}
+                </Typography>
+              </Box>
+            </Stack>
+
+            {/* NAVIGATION ACTIONS */}
+            <Stack direction="row" spacing={{ xs: 0.5, md: 1.5 }} alignItems="center">
+              <Button onClick={() => setServicesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.services')}
+              </Button>
+              <Button onClick={() => setAboutOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.aboutUs')}
+              </Button>
+              <Button onClick={() => setContactOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>
+                {t('publicHeader.contact')}
+              </Button>
+              
+              <Button onClick={toggleLanguage} sx={{ fontWeight: 800, minWidth: 50, color: 'primary.main' }}>
+                {i18n.language === 'en' ? 'हिन्दी' : 'EN'}
+              </Button>
+
+              <Button
+                variant="contained"
+                disableElevation
+                startIcon={<WhatsAppIcon />}
+                onClick={() => window.open('https://wa.me/919508156282', '_blank')}
+                sx={{ borderRadius: 2, bgcolor: '#10b981', fontWeight: 800, display: { xs: 'none', md: 'flex' } }}
+              >
+                {t('publicHeader.connect')}
+              </Button>
+            </Stack>
+          </Toolbar>
+        </Container>
       </AppBar>
 
-      {/* Services Modal with Tabs */}
-      <Dialog open={servicesOpen} onClose={() => setServicesOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ pr: 6 }}>
-          {t('publicHeader.ourServices', 'Our Services')}
-          <IconButton
-            aria-label="close"
-            onClick={() => setServicesOpen(false)}
-            sx={{ position: 'absolute', right: 8, top: 8, color: (theme) => theme.palette.grey[500] }}
-          >
-            <CloseIcon />
-          </IconButton>
+      {/* MODAL: SERVICES */}
+      <Dialog open={servicesOpen} onClose={() => setServicesOpen(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
+        <DialogTitle sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.expertise')}</Typography>
+          <IconButton onClick={() => setServicesOpen(false)}><CloseIcon /></IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ pb: 1 }}>
-          <Tabs
-            value={tab}
-            onChange={handleTabChange}
-            indicatorColor="primary"
-            textColor="primary"
-            variant="fullWidth"
-            aria-label="services tabs"
-            sx={{ mb: 2 }}
-          >
-            <Tab label={t('publicHeader.tabVyaparSathi', 'VyaparSathi')} />
-            <Tab label={t('publicHeader.tabDesiFix', 'DesiFix')} />
-            {/* Add more apps here */}
+        <DialogContent sx={{ pb: 4 }}>
+          <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+            <Tab label={t('publicHeader.engineering')} sx={{ fontWeight: 800 }} />
+            <Tab label={<span>{t('publicHeader.desiFix')} <Chip label={t('publicHeader.comingSoon')} size="small" variant="outlined" sx={{ ml: 1, height: 20 }} /></span>} sx={{ fontWeight: 800 }} />
           </Tabs>
-
-          <TabPanel value={tab} index={0}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2, fontWeight: 700 }}>
-              {t('publicHeader.vyaparSathiTitle', 'VyaparSathi: Business Management Solutions')}
-            </Typography>
+          {tab === 0 ? (
             <Grid container spacing={2}>
-              {vyaparSathiFeatures.map((feature) => (
-                <Grid item xs={12} sm={6} key={feature.title}>
-                  <Paper elevation={2} sx={{
-                    display: 'flex', alignItems: 'center', gap: 2,
-                    px: 2, py: 1.5, borderRadius: 2
-                  }}>
-                    {feature.icon}
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {t(feature.title)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {t(`publicHeader.${feature.title}Desc`, feature.desc)}
-                      </Typography>
+              {techServices.map((s, i) => (
+                <Grid item xs={12} sm={6} md={4} key={i}>
+                  <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 4, height: '100%', transition: '0.3s', '&:hover': { borderColor: 'primary.main', bgcolor: '#f8fafc' } }}>
+                    <Box sx={{ color: 'primary.main', mb: 1.5 }}>{s.icon}</Box>
+                    <Typography variant="subtitle1" fontWeight={800}>{s.category}</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>{s.desc}</Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {s.stack.map(tag => <Chip key={tag} label={tag} size="small" sx={{ fontSize: '0.65rem', fontWeight: 700 }} />)}
                     </Box>
                   </Paper>
                 </Grid>
               ))}
             </Grid>
-          </TabPanel>
-          <TabPanel value={tab} index={1}>
-            <Typography variant="h6" color="primary" sx={{ mb: 2, fontWeight: 700 }}>
-              {t('publicHeader.desiFixTitle', 'DesiFix: Doorstep Services')}
-            </Typography>
-            <Grid container spacing={2}>
-              {desiFixServices.map((feature) => (
-                <Grid item xs={12} sm={6} key={feature.title}>
-                  <Paper elevation={2} sx={{
-                    display: 'flex', alignItems: 'center', gap: 2,
-                    px: 2, py: 1.5, borderRadius: 2
-                  }}>
-                    {feature.icon}
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {t(`publicHeader.${feature.title}`, feature.title)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {t(`publicHeader.${feature.title}Desc`, feature.descKey)}
-                      </Typography>
-                    </Box>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </TabPanel>
-        </DialogContent>
-        <Divider sx={{ my: 0 }} />
-        <Box sx={{ px: 2, pt: 2, pb: 2 }}>
-          <Typography variant="subtitle1" sx={{ color: 'primary.main', mb: 1, fontWeight: 600 }}>
-            {t('publicHeader.whyChooseUs', 'Why Choose Us?')}
-          </Typography>
-          {whyChooseUs.map((why, idx) => (
-            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <CheckCircleOutlineIcon fontSize="small" color="success" sx={{ mr: 1 }} />
-              <Typography variant="body2">{t(why)}</Typography>
+          ) : (
+            <Box sx={{ py: 8, textAlign: 'center' }}>
+              <ConstructionIcon sx={{ fontSize: 50, color: 'divider', mb: 2 }} />
+              <Typography variant="h6" fontWeight={800}>{t('publicHeader.productOngoing')}</Typography>
             </Box>
-          ))}
-        </Box>
-        <DialogActions>
-          <Button onClick={() => setServicesOpen(false)}>
-            {t('publicHeader.close', 'Close')}
-          </Button>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: ABOUT US */}
+      <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
+        <DialogTitle sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.aboutDesiTech')}</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', pb: 4 }}>
+          <RocketLaunchIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+          <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8 }}>
+            <strong>{t('publicHeader.companyName')}</strong> {t('publicHeader.isAUnitOf')} <strong>{t('publicHeader.birumaTechnology')}</strong> 
+            {t('publicHeader.aboutText')}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
+          <Button onClick={() => setAboutOpen(false)} variant="outlined" sx={{ borderRadius: 2, fontWeight: 800 }}>{t('publicHeader.close')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL: CONTACT US */}
+      <Dialog open={contactOpen} onClose={() => setContactOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 5 } }}>
+        <DialogTitle sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="h5" fontWeight={900}>{t('publicHeader.getInTouch')}</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pb: 4 }}>
+          <Stack spacing={3}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <EmailIcon color="primary" />
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.emailUs')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.emailAddress')}</Typography>
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <WhatsAppIcon sx={{ color: '#10b981' }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.whatsappSupport')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.whatsappNumber')}</Typography>
+              </Box>
+            </Paper>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <LocationOnIcon sx={{ color: '#f43f5e' }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('publicHeader.office')}</Typography>
+                <Typography variant="body2" fontWeight={800}>{t('publicHeader.officeLocation')}</Typography>
+              </Box>
+            </Paper>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button fullWidth onClick={() => setContactOpen(false)} variant="contained" sx={{ borderRadius: 2, py: 1.5, fontWeight: 800 }}>{t('publicHeader.close')}</Button>
         </DialogActions>
       </Dialog>
     </>
