@@ -3,12 +3,12 @@ import { Routes, Route } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
 import Layout from '../components/layout/Layout'; // Import Layout
 import Dashboard from '../pages/Dashboard';
-import Items from '../pages/Items';
+import ItemsPage from '../pages/ItemsPage';
 // ... other page imports
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
 import Sales from '../pages/Sales';
-import Reports from '../pages/reports/Reports';
+import TaxComplianceHub from '../pages/reports/TaxComplianceHub';
 import ReportsIndex from '../pages/reports/ReportsIndex';
 import DailyReport from '../pages/reports/DailyReport';
 import SalesSummary from '../pages/reports/SalesSummary';
@@ -37,47 +37,57 @@ import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
 import UserManagementPage from '../pages/UserManagementPage';
 import Notifications from '../pages/Notifications';
+import Receiving from '../pages/Receiving';
+import ShopGuard from '../components/guards/ShopGuard';
+import HsnSummary from '../pages/reports/HsnSummary';
+import AuditLogs from '../pages/AuditLogs';
+import SupplierPaymentPage from '../pages/SupplierPaymentPage';
 
 function AppRoutes() {
   return (
-     <AlertProvider>
-    <Routes>
-      {/* Public routes wrapped by PublicLayout */}
-      <Route element={<PublicLayout />}>
-        <Route path="/login" element={<Login />} />
-        {/* You can add other public routes like /forgot-password here */}
-      </Route>
+    <AlertProvider>
+      <Routes>
+        {/* 1. Public Layout: No Sidebar, No ShopGuard */}
+        <Route element={<PublicLayout />}>
+          <Route path="/login" element={<Login />} />
+          {/* Setup Shop now lives here, so it uses the Namaste/Welcome view */}
+          <Route path="/setup-shop" element={<SetupShop />} />
+        </Route>
 
-      {/* Protected routes wrapped by Layout */}
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <Layout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="items" element={<Items />} />
-        <Route path="stock" element={<Stock />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
-        <Route path="sales" element={<Sales />} />
-         <Route path="delivery" element={<DeliveryManagement />} />
-        <Route path="expenses" element={<Expenses />} />
-        <Route path="low-stock-alerts" element={<LowStockAlerts />} />
-        <Route path="backup" element={<Backup />} />
-        <Route path="products" element={<ProductOverview />} />
-        <Route path="customer-payments" element={<CustomerPaymentPage />} />
-        <Route path="about-us" element={<AboutUs />} />
-        <Route path="analytics" element={<AnalyticsDashboard />} />
-        <Route path="purchase-orders" element={<PurchaseOrders />} />
-        <Route path='receiving' element={<ReceivingPage />} />
-        <Route path="receiving/:poId" element={<ReceivingPage />} />
-        <Route path="suppliers" element={<Suppliers />} />
-        <Route path="admin/users" element={<UserManagementPage />} />
-                  {/* Reports routes */}
+        {/* 2. Protected Layout: Has Sidebar, Guarded by ShopGuard */}
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <ShopGuard>
+                <Layout />
+              </ShopGuard>          
+            </PrivateRoute>
+          }
+        >
+          {/* All these routes will only render if ShopGuard passes */}
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="items" element={<ItemsPage />} />
+          <Route path="stock" element={<Stock />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
+          <Route path="sales" element={<Sales />} />
+          <Route path="delivery" element={<DeliveryManagement />} />
+          <Route path="expenses" element={<Expenses />} />
+          <Route path="low-stock-alerts" element={<LowStockAlerts />} />
+          <Route path="backup" element={<Backup />} />
+          <Route path="products" element={<ProductOverview />} />
+          <Route path="customer-payments" element={<CustomerPaymentPage />} />
+          <Route path="supplier-payments" element={<SupplierPaymentPage />} />
+          <Route path="about-us" element={<AboutUs />} />
+          <Route path="analytics" element={<AnalyticsDashboard />} />
+          <Route path="purchase-orders" element={<PurchaseOrders />} />
+          <Route path="receiving/:poId" element={<ReceivingPage />} />
+          <Route path="suppliers" element={<Suppliers />} />
+          <Route path="admin/users" element={<UserManagementPage />} />
+          
+          {/* Reports routes */}
           <Route path="reports" element={<ReportsIndex />} />
           <Route path="reports/daily" element={<DailyReport />} />
           <Route path="reports/sales-summary" element={<SalesSummary />} />
@@ -88,17 +98,19 @@ function AppRoutes() {
           <Route path="reports/customer-sales" element={<CustomerSales />} />
           <Route path="reports/expenses-summary" element={<ExpensesSummary />} />
           <Route path="reports/payments-summary" element={<PaymentsSummary />} />
+          <Route path="receivings" element={<Receiving />} />
+          
+          {/* Compliance Routes */}
+          <Route path="reports/tax-compliance" element={<TaxComplianceHub />} />
+          <Route path="compliance/hsn" element={<HsnSummary />} />
+          <Route path="audit" element={<AuditLogs />} />
+          <Route path="notifications" element={<Notifications />} />
 
-        {/* Notifications route */}
-        <Route path="notifications" element={<Notifications />} />
-
-        {/* SetupShop should be inside PrivateRoute but not Layout */}
-        <Route path="setup-shop" element={<SetupShop />} />
-
-        {/* Catch-all route for 404 */}
-        <Route path="*" element={<div>Page Not Found</div>} />
-      </Route>
-    </Routes>
+          
+          {/* Catch-all route for 404 inside the dashboard */}
+          <Route path="*" element={<div>Page Not Found</div>} />
+        </Route>
+      </Routes>
     </AlertProvider>
   );
 }

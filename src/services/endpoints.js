@@ -12,6 +12,7 @@ const endpoints = {
     changePin: `${API_BASE}/auth/change-pin`,
   },
   shop: `${API_BASE}/shop`,
+  shopOnboard: `${API_BASE}/shop/onboarding`,
 
   // User Management
   users: `${API_BASE}/admin/users`,
@@ -24,6 +25,7 @@ const endpoints = {
 
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
+  pendingPurchaseOrder: `${API_BASE}/purchase-orders/pending`,
   receivePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/receive`,
   submitPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/submit`,
 
@@ -45,10 +47,13 @@ const endpoints = {
 
   customers: `${API_BASE}/customers`,
   sales: `${API_BASE}/sales`,
+  draftSale : `${API_BASE}/sales/drafts`,
   salesByDateRange: (from, to) => `${API_BASE}/sales?from=${from}&to=${to}`,
   payments: `${API_BASE}/payments`,
   salesWithDue: `${API_BASE}/sales/with-due`,
+  salesHistory: `${API_BASE}/sales/history`,
   saleDueById: (id) => `${API_BASE}/sales/${id}/due`,
+  getSaleById: (id) => `${API_BASE}/sales/${id}`,
   recordDuePayment: `${API_BASE}/payments/record`,
   products: `${API_BASE}/products`,
   generateInvoice: ({ saleId, invoiceNo }) =>
@@ -100,8 +105,10 @@ const endpoints = {
 
    // Receiving endpoints
 receiving: `${API_BASE}/receiving`,
+fetchAllTicket: `${API_BASE}/receiving/tickets`,
 receivingById: (id) => `${API_BASE}/receiving/${id}`,
 receivingByPoId: (poId) => `${API_BASE}/receiving/by-po/${poId}`,
+receivingByPoNumber: (poNumber) => `${API_BASE}/receiving/by-po-number/${poNumber}`,
 receivingTickets: `${API_BASE}/receiving/tickets`,
 receivingTicketById: (id) => `${API_BASE}/receiving/tickets/${id}`,
 receiveGoods: `${API_BASE}/receiving/receive-goods`,
@@ -109,12 +116,13 @@ receiveGoods: `${API_BASE}/receiving/receive-goods`,
   //Analytics endpoint
   analytics: {
     itemDemand: `${API_BASE}/analytics/item-demand`,
-    exportItemDemand: `${API_BASE}/analytics/export/item-demand`,
     customerTrends: `${API_BASE}/analytics/customer-trends`,
     futurePurchaseOrders: `${API_BASE}/analytics/future-purchase-orders`,
     topItems: `${API_BASE}/analytics/top-items`,
     seasonalTrends: `${API_BASE}/analytics/seasonal-trends`,
     churnPrediction: `${API_BASE}/analytics/churn-prediction`,
+    exportProcurementPlan: `${API_BASE}/analytics/export/procurement-plan`,
+    revenueLeakage: `${API_BASE}/analytics/revenue-leakage`,
   },
 };
 

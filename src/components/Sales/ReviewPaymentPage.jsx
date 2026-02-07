@@ -1,37 +1,27 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Select,
-  MenuItem,
-  TextField,
-  Checkbox,
-  FormControlLabel,
-  Tooltip,
-  Divider,
-  Alert,
+  Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Select, MenuItem, TextField, Divider, Grid, IconButton, 
+  Chip, Stack, Alert, Container
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import PersonIcon from '@mui/icons-material/Person';
+import PaymentIcon from '@mui/icons-material/Payment';
+import HomeIcon from '@mui/icons-material/Home';
 
-// Updated to include all methods supported by backend
+import { buildSalePayload }  from '../../utils/salesUtils';
+
 const paymentMethodOptions = [
   { value: 'CASH', label: 'Cash' },
-  { value: 'CARD', label: 'Card' },
-  { value: 'UPI', label: 'UPI' },
+  { value: 'CARD', label: 'Debit/Credit Card' },
+  { value: 'UPI', label: 'UPI / QR Code' },
   { value: 'NET_BANKING', label: 'Net Banking' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'OTHER', label: 'Other' },
 ];
-
-const needsTransactionId = (method) =>
-  ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE', 'OTHER'].includes(method);
 
 const transactionIdMandatory = (method) =>
   ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
@@ -40,387 +30,236 @@ const ReviewPaymentPage = ({
   formData,
   selectedCustomer,
   onConfirm,
-  onSaveDraft,
   onCancel,
   setError,
   loading,
 }) => {
-  // Use correct field names: paymentMethod, amount, reference, notes, transactionId
   const [paymentMethods, setPaymentMethods] = useState([
     { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
   ]);
+
   const [discount, setDiscount] = useState(formData.discount || 0);
-  const [sendInvoice, setSendInvoice] = useState(false);
 
-  // Assume previous dues are passed as selectedCustomer.creditBalance or similar
-  const previousDues = selectedCustomer?.creditBalance || 0;
+  // ==========================================
+  // LOGIC FOR creditBalance (Negative = Advance)
+  // ==========================================
+  const rawBalance = parseFloat(selectedCustomer?.creditBalance) || 0;
+  // If balance is -550, availableAdvance is 550. If balance is 5000, advance is 0.
+  const availableAdvance = rawBalance < 0 ? Math.abs(rawBalance) : 0;
 
-  const handleAddPaymentMethod = () => {
-    setPaymentMethods([
-      ...paymentMethods,
-      { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
-    ]);
-  };
+  // =======================
+  // CALCULATIONS
+  // =======================
+  const subtotal = parseFloat(formData.totalAmount) || 0;
+  const discountedTotal = (subtotal - discount);
+
+  // Automatic allocation of advance
+  const advanceApplied = Math.min(availableAdvance, discountedTotal);
+  const netPayable = (discountedTotal - advanceApplied).toFixed(2);
+
+  const totalPayment = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0);
+  const remaining = (parseFloat(netPayable) - totalPayment).toFixed(2);
 
   const handlePaymentChange = (index, field, value) => {
-    const newPaymentMethods = [...paymentMethods];
+    const newPayments = [...paymentMethods];
     if (field === 'amount') {
-      newPaymentMethods[index][field] = parseFloat(value) || 0;
+      newPayments[index][field] = parseFloat(value) || 0;
     } else if (field === 'paymentMethod') {
-      newPaymentMethods[index][field] = value;
-      // Clear transactionId if switching to CASH
-      if (value === 'CASH') newPaymentMethods[index].transactionId = '';
+      newPayments[index][field] = value;
+      if (value === 'CASH') newPayments[index].transactionId = '';
     } else {
-      newPaymentMethods[index][field] = value;
+      newPayments[index][field] = value;
     }
-    setPaymentMethods(newPaymentMethods);
+    setPaymentMethods(newPayments);
+  };
+
+  const handleAddPaymentMethod = () => {
+    setPaymentMethods([...paymentMethods, { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }]);
   };
 
   const handleRemovePaymentMethod = (index) => {
-    const newPaymentMethods = paymentMethods.filter((_, i) => i !== index);
-    setPaymentMethods(
-      newPaymentMethods.length
-        ? newPaymentMethods
-        : [{ paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }]
-    );
+    const newPayments = paymentMethods.filter((_, i) => i !== index);
+    setPaymentMethods(newPayments.length ? newPayments : [{ paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }]);
   };
 
-  const subtotal = parseFloat(formData.totalAmount) || 0;
-  const discountedTotal = (subtotal - discount).toFixed(2);
-  const totalPayment = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0);
-  const remaining = (parseFloat(discountedTotal) - totalPayment).toFixed(2);
-
-  // Discount percentage for display
-  const discountPercent = subtotal > 0 ? ((discount / subtotal) * 100).toFixed(1) : 0;
-
-  const handleConfirm = () => {
-    if (totalPayment > parseFloat(discountedTotal)) {
-      setError('Total payment cannot exceed the discounted total.');
+  const handleConfirmAction = () => {
+    // Validating against netPayable (Bill - Advance)
+    if (totalPayment > parseFloat(netPayable)) {
+      setError(`Recorded payment exceeds the net payable amount (₹${netPayable}).`);
       return;
     }
-    if (discount > subtotal) {
-      setError('Discount cannot exceed subtotal.');
-      return;
-    }
-    if (formData.items.length === 0) {
-      setError('No items in sale.');
-      return;
-    }
-    if (!formData.customerId) {
-      setError('No customer selected.');
-      return;
-    }
-    // Transaction ID validation
     for (let pm of paymentMethods) {
-      if (
-        needsTransactionId(pm.paymentMethod) &&
-        transactionIdMandatory(pm.paymentMethod) &&
-        (!pm.transactionId || pm.transactionId.trim() === '')
-      ) {
-        setError('Transaction ID is required for non-cash payment methods (except "Other").');
+      if (transactionIdMandatory(pm.paymentMethod) && (!pm.transactionId || pm.transactionId.trim() === '')) {
+        setError(`Please enter Transaction ID for ${pm.paymentMethod}.`);
         return;
       }
     }
 
-    const payload = {
-      sale: {
-        customerId: formData.customerId,
-        discount: discount,
-        isGstRequired: formData.isGstRequired === 'yes',
-        items: formData.items,
-        totalAmount: parseFloat(discountedTotal),
-      },
-      paymentDetails: paymentMethods
-        .filter(pm => pm.amount > 0)
-        .map(pm => ({
-          amount: parseFloat(pm.amount) || 0,
-          paymentMethod: pm.paymentMethod,
-          paymentDate: new Date().toISOString(),
-          reference: pm.reference || "",
-          notes: pm.notes || "",
-          transactionId: needsTransactionId(pm.paymentMethod)
-            ? (pm.transactionId || "")
-            : undefined,
-        })) || [],
-    };
-
-    onConfirm(payload, discount, sendInvoice);
+    const payload = buildSalePayload(
+      { ...formData, totalAmount: parseFloat(discountedTotal), discount: parseFloat(discount) },
+      selectedCustomer,
+      paymentMethods,
+      'COMPLETED'
+    );
+    onConfirm(payload);
   };
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 } }}>
-      <Typography variant="h5" gutterBottom>
-        Review and Payment
-      </Typography>
-
-      {/* Summary Section */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Customer Details
-        </Typography>
-        <Box sx={{ mb: 1 }}>
-          <Typography>
-            <strong>Name:</strong> {selectedCustomer?.name || 'N/A'}
-          </Typography>
-          <Typography>
-            <strong>Phone:</strong> {selectedCustomer?.phone || 'N/A'}
-          </Typography>
-          <Typography>
-            <strong>GST:</strong> {selectedCustomer?.gstNumber || 'N/A'}
-          </Typography>
-          <Typography>
-            <strong>Outstanding Dues:</strong>{' '}
-            <span style={{ color: previousDues > 0 ? '#d32f2f' : '#388e3c', fontWeight: 600 }}>
-              ₹{Number(previousDues).toFixed(2)}
-            </span>
-          </Typography>
-          {/* Delivery Review Section */}
-                {formData.deliveryRequired && (
-                  <Paper sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="h6" gutterBottom>Delivery Details</Typography>
-                    <Typography><strong>Address:</strong> {formData.deliveryAddress}</Typography>
-                    <Typography><strong>Charge:</strong> ₹{formData.deliveryCharge}</Typography>
-                    <Typography><strong>Paid By:</strong> {formData.deliveryPaidBy}</Typography>
-                    <Typography><strong>Status:</strong> PACKED</Typography>
-                    <Typography><strong>Notes:</strong> {formData.deliveryNotes}</Typography>
-                  </Paper>
-                )}
-        </Box>
-        {previousDues > 0 && (
-          <Alert severity="warning" sx={{ mb: 1 }}>
-            This customer has previous outstanding dues. Please remind them to clear dues.
-          </Alert>
-        )}
-      </Paper>
-
-      {/* Items Table */}
-      <TableContainer component={Paper} sx={{ mb: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Item</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>GST (%)</TableCell>
-              <TableCell>Total</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {formData.items.map((item, index) => (
-              <TableRow key={index}>
-                <TableCell>
-                  <Tooltip
-                    title={
-                      <>
-                        {item.description && (
-                          <div>
-                            <strong>Description:</strong> {item.description}
-                          </div>
-                        )}
-                        {item.color && (
-                          <div>
-                            <strong>Color:</strong> {item.color}
-                          </div>
-                        )}
-                        {item.size && (
-                          <div>
-                            <strong>Size:</strong> {item.size}
-                          </div>
-                        )}
-                        {item.design && (
-                          <div>
-                            <strong>Design:</strong> {item.design}
-                          </div>
-                        )}
-                      </>
-                    }
-                    arrow
-                  >
-                    <span>{item.itemName}</span>
-                  </Tooltip>
-                </TableCell>
-                <TableCell>{item.qty}</TableCell>
-                <TableCell>₹{Number(item.unitPrice).toFixed(2)}</TableCell>
-                <TableCell>
-                  {item.gstRate ? `${item.gstRate}%` : '-'}
-                </TableCell>
-                <TableCell>₹{(item.qty * item.unitPrice).toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
-            <TableRow>
-              <TableCell colSpan={4}>Subtotal</TableCell>
-              <TableCell>₹{subtotal.toFixed(2)}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={4}>
-                Discount{' '}
-                {discount > 0 && (
-                  <span style={{ color: '#1976d2' }}>
-                    ({discountPercent}%)
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>
-                <TextField
-                  type="number"
-                  value={discount}
-                  onChange={(e) =>
-                    setDiscount(
-                      Math.max(0, Math.min(parseFloat(e.target.value) || 0, subtotal))
-                    )
-                  }
-                  InputProps={{ inputProps: { min: 0, max: subtotal } }}
-                  size="small"
-                  sx={{ width: 100 }}
-                />
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={4}>Discounted Total</TableCell>
-              <TableCell>
-                <strong>₹{discountedTotal}</strong>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={4}>Total Paid</TableCell>
-              <TableCell>₹{totalPayment.toFixed(2)}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell colSpan={4}>
-                <span style={{ color: Number(remaining) > 0 ? '#d32f2f' : '#388e3c', fontWeight: 600 }}>
-                  Remaining
-                </span>
-              </TableCell>
-              <TableCell>
-                <span style={{ color: Number(remaining) > 0 ? '#d32f2f' : '#388e3c', fontWeight: 600 }}>
-                  ₹{remaining}
-                </span>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Payment Methods */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Payment Methods
-        </Typography>
-        {paymentMethods.map((pm, index) => (
-          <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-            <Select
-              value={pm.paymentMethod}
-              onChange={(e) => handlePaymentChange(index, 'paymentMethod', e.target.value)}
-              sx={{ minWidth: 120 }}
-            >
-              {paymentMethodOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-            <TextField
-              type="number"
-              value={pm.amount}
-              onChange={(e) => {
-                const newAmount = parseFloat(e.target.value) || 0;
-                const maxAmount =
-                  parseFloat(discountedTotal) -
-                  totalPayment +
-                  (parseFloat(pm.amount) || 0);
-                handlePaymentChange(index, 'amount', Math.min(newAmount, maxAmount));
-              }}
-              InputProps={{ inputProps: { min: 0 } }}
-              size="small"
-              sx={{ width: 120 }}
-            />
-            {needsTransactionId(pm.paymentMethod) && (
-              <TextField
-                label="Transaction ID"
-                value={pm.transactionId || ''}
-                onChange={(e) =>
-                  handlePaymentChange(index, 'transactionId', e.target.value)
-                }
-                required={transactionIdMandatory(pm.paymentMethod)}
-                size="small"
-                sx={{ width: 140 }}
-                placeholder={
-                  pm.paymentMethod === 'CHEQUE'
-                    ? 'Cheque No.'
-                    : pm.paymentMethod === 'UPI'
-                    ? 'UPI Ref/UTR'
-                    : pm.paymentMethod === 'NET_BANKING'
-                    ? 'IMPS/NEFT Ref'
-                    : pm.paymentMethod === 'CARD'
-                    ? 'POS Slip Ref'
-                    : 'Transaction Ref'
-                }
-              />
-            )}
-            <TextField
-              label="Reference"
-              value={pm.reference || ''}
-              onChange={(e) => handlePaymentChange(index, 'reference', e.target.value)}
-              size="small"
-              sx={{ width: 120 }}
-            />
-            <TextField
-              label="Notes"
-              value={pm.notes || ''}
-              onChange={(e) => handlePaymentChange(index, 'notes', e.target.value)}
-              size="small"
-              sx={{ width: 140 }}
-            />
-            {index > 0 && (
-              <Button
-                variant="outlined"
-                onClick={() => handleRemovePaymentMethod(index)}
-                size="small"
-              >
-                Remove
-              </Button>
-            )}
+    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      <Container maxWidth="xl">
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a' }}>Review & Payment</Typography>
+            <Typography variant="body2" color="textSecondary">Record payment distribution to complete sale</Typography>
           </Box>
-        ))}
-        <Button
-          variant="outlined"
-          onClick={handleAddPaymentMethod}
-          sx={{ mt: 1 }}
-          disabled={totalPayment >= parseFloat(discountedTotal)}
-        >
-          Add Payment Method
-        </Button>
-      </Paper>
+          <Button startIcon={<ArrowBackIcon />} onClick={onCancel} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
+            Back to Cart
+          </Button>
+        </Stack>
 
-      {/* Send Invoice Option */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={sendInvoice}
-              onChange={(e) => setSendInvoice(e.target.checked)}
-            />
-          }
-          label="Send Invoice via Email/SMS"
-        />
-      </Paper>
+        <Grid container spacing={4}>
+          <Grid item xs={12} lg={8}>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={7}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <PersonIcon color="primary" />
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Customer Info</Typography>
+                  </Stack>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{selectedCustomer?.name || 'Walk-in Customer'}</Typography>
+                  <Typography variant="body2" color="textSecondary"><strong>Mob:</strong> {selectedCustomer?.phone || 'N/A'}</Typography>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <HomeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="textSecondary">{selectedCustomer?.addressLine1 || 'No Address Provided'}</Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: '#f1f5f9', border: '1px solid #cbd5e1' }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <LocalShippingIcon color="primary" />
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Logistics</Typography>
+                  </Stack>
+                  {formData.deliveryRequired ? (
+                    <Box>
+                      <Chip label="Status: PACKED" size="small" color="info" sx={{ mb: 1, fontWeight: 700 }} />
+                      <Typography variant="body2"><strong>Fee:</strong> ₹{formData.deliveryCharge || 0}</Typography>
+                      <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>* Paid directly to courier</Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', mt: 1 }}>In-store pickup</Typography>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
 
-      {/* Action Buttons */}
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button
-          variant="contained"
-          onClick={handleConfirm}
-          disabled={loading || Number(remaining) < 0}
-        >
-          {loading ? 'Processing...' : 'Confirm Sale'}
-        </Button>
-        <Button variant="outlined" onClick={onSaveDraft}>
-          Save as Draft
-        </Button>
-        <Button variant="outlined" onClick={onCancel}>
-          Back
-        </Button>
-      </Box>
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Product Details</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {formData.items.map((item, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
+                        <Typography variant="caption" color="textSecondary">{item.sku} | {item.size}</Typography>
+                      </TableCell>
+                      <TableCell align="center">{item.qty}</TableCell>
+                      <TableCell align="right">₹{(item.qty * item.unitPrice).toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+              <Stack direction="row" justifyContent="space-between" sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, display: 'flex', gap: 1 }}><PaymentIcon color="primary" /> Payment Split</Typography>
+                <Button startIcon={<AddCircleOutlineIcon />} onClick={handleAddPaymentMethod}>Add Split</Button>
+              </Stack>
+              {paymentMethods.map((pm, index) => (
+                <Grid container spacing={2} key={index} sx={{ mb: 3 }}>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, ml: 1 }}>METHOD</Typography>
+                    <Select fullWidth value={pm.paymentMethod} onChange={(e) => handlePaymentChange(index, 'paymentMethod', e.target.value)}>
+                      {paymentMethodOptions.map(opt => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                    </Select>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, ml: 1 }}>AMOUNT (₹)</Typography>
+                    <TextField fullWidth type="number" value={pm.amount} onChange={(e) => handlePaymentChange(index, 'amount', e.target.value)} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, ml: 1 }}>TXN ID / REF</Typography>
+                    <TextField fullWidth placeholder={transactionIdMandatory(pm.paymentMethod) ? 'Required' : 'Optional'} value={pm.transactionId} onChange={(e) => handlePaymentChange(index, 'transactionId', e.target.value)} />
+                  </Grid>
+                  <Grid item xs={12} sm={1} sx={{ mt: 3 }}>
+                    {index > 0 && <IconButton color="error" onClick={() => handleRemovePaymentMethod(index)}><DeleteIcon /></IconButton>}
+                  </Grid>
+                </Grid>
+              ))}
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} lg={4}>
+            <Box sx={{ position: 'sticky', top: 24 }}>
+              <Paper elevation={12} sx={{ p: 4, borderRadius: 4, bgcolor: '#0f172a', color: 'white' }}>
+                <Typography variant="h5" sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 2, fontWeight: 800 }}>Billing Summary</Typography>
+                <Stack spacing={3} sx={{ my: 4 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ opacity: 0.7 }}>Subtotal</Typography>
+                    <Typography sx={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ opacity: 0.7 }}>Extra Discount</Typography>
+                    <TextField
+                      size="small" type="number" value={discount}
+                      sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'white', textAlign: 'right', fontWeight: 800 }}}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                    />
+                  </Box>
+
+                  {/* DISPLAY APPLIED ADVANCE FROM creditBalance */}
+                  {advanceApplied > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#4ade80' }}>Advance Applied</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#4ade80' }}>- ₹{advanceApplied.toFixed(2)}</Typography>
+                    </Box>
+                  )}
+
+                  <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="h5" sx={{ fontWeight: 900 }}>Net Payable</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#4ade80' }}>₹{netPayable}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" sx={{ opacity: 0.8 }}>Paid Now</Typography>
+                    <Typography variant="body2">₹{totalPayment.toFixed(2)}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                    <Typography variant="body2" color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>Balance Due</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }} color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>₹{remaining}</Typography>
+                  </Box>
+                </Stack>
+                <Button fullWidth variant="contained" onClick={handleConfirmAction} disabled={loading} sx={{ py: 2, fontWeight: 900, borderRadius: 3, fontSize: '1.1rem', bgcolor: '#4ade80', color: '#064e3b', '&:hover': { bgcolor: '#22c55e' } }}>
+                  {loading ? 'PROCESSING...' : 'COMPLETE SALE'}
+                </Button>
+              </Paper>
+
+              {Number(remaining) > 0 && (
+                <Alert severity="info" variant="outlined" sx={{ mt: 2, borderRadius: 2, bgcolor: 'white' }}>
+                  Balance ₹{remaining} will be added to ledger.
+                </Alert>
+              )}
+            </Box>
+          </Grid>
+        </Grid>
+      </Container>
     </Box>
   );
 };
