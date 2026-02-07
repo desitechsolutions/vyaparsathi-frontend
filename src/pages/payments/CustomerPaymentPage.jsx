@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Button, Tabs, Tab, Snackbar, Alert, Container } from '@mui/material';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Box, Button, Tabs, Tab, Snackbar, Alert, Container, Fade, Stack } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import HistoryIcon from '@mui/icons-material/History';
+import PaymentsIcon from '@mui/icons-material/Payments';
+
 import {
   fetchSalesWithDue,
   fetchCustomers,
@@ -9,10 +13,10 @@ import {
   fetchCustomerAdvanceBalance,
   fetchPaymentHistory
 } from '../../services/api';
+
 import PaymentSummaryCards from './PaymentSummaryCards';
 import PaymentForm from './PaymentForm';
 import PaymentHistory from './PaymentHistory';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const paymentMethodOptions = [
   { value: 'CASH', label: 'Cash' },
@@ -23,7 +27,6 @@ const paymentMethodOptions = [
 ];
 
 const needsTransactionId = (method) => ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
-
 const emptyMethod = { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' };
 
 const CustomerPaymentPage = () => {
@@ -31,88 +34,150 @@ const CustomerPaymentPage = () => {
   const [searchParams] = useSearchParams();
   const initialSaleId = searchParams.get('saleId');
 
+  const hasInitializedFromUrl = useRef(false);
+
+  // ─── DATA STATES ─────────────────────────────────────────
   const [tab, setTab] = useState(0);
   const [customers, setCustomers] = useState([]);
   const [allSales, setAllSales] = useState([]);
-  const [customerSales, setCustomerSales] = useState([]);
   const [advanceBalance, setAdvanceBalance] = useState(0);
+  
+  // PAGINATION STATES
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
+  // ─── SELECTION STATES ────────────────────────────────────
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
 
+  // ─── FORM STATES ─────────────────────────────────────────
   const [paymentMethods, setPaymentMethods] = useState([emptyMethod]);
   const [globalNotes, setGlobalNotes] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 16));
-
   const [formErrors, setFormErrors] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
-  const [paymentHistory, setPaymentHistory] = useState([]);
+  // ─── UI STATES ───────────────────────────────────────────
+  const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [totalDue, setTotalDue] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const formatAmount = (amount) => 
+    `₹${Number(amount || 0).toLocaleString('en-IN', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })}`;
 
+  const customerSales = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return allSales.filter(s => String(s.customerId) === String(selectedCustomer.id));
+  }, [selectedCustomer, allSales]);
+
+  const totalDue = useMemo(() => {
+    const targetSales = selectedCustomer ? customerSales : allSales;
+    return targetSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0);
+  }, [selectedCustomer, customerSales, allSales]);
+
+  // ─── DATA LOADING ────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [custRes, salesRes] = await Promise.all([fetchCustomers(), fetchSalesWithDue()]);
-      setCustomers(custRes.data || []);
-      const sales = salesRes.data || [];
-      setAllSales(sales);
+      const custData = custRes.data || [];
+      const salesData = salesRes.data || [];
+      
+      setCustomers(custData);
+      setAllSales(salesData);
 
-      if (initialSaleId && !selectedCustomer) {
-        const sale = sales.find(s => String(s.saleId) === String(initialSaleId));
+      if (initialSaleId && !hasInitializedFromUrl.current) {
+        const sale = salesData.find(s => String(s.saleId) === String(initialSaleId));
         if (sale) {
-          const cust = (custRes.data || []).find(c => String(c.id) === String(sale.customerId));
+          const cust = custData.find(c => String(c.id) === String(sale.customerId));
           setSelectedCustomer(cust);
           setSelectedSale(sale.saleId);
           setPaymentMethods([{ ...emptyMethod, amount: sale.dueAmount?.toString() || '' }]);
+          hasInitializedFromUrl.current = true;
         }
       }
     } catch (e) {
-      setSnackbar({ open: true, message: 'Load failed', severity: 'error' });
+      setSnackbar({ open: true, message: 'Data sync failed', severity: 'error' });
     } finally { setLoading(false); }
-  }, [initialSaleId, selectedCustomer]);
+  }, [initialSaleId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Handle Advance Balance & History
+  // UPDATED FETCH LOGIC WITH PAGINATION
   const fetchHistoryAndBalance = useCallback(async () => {
-    if (!selectedCustomer?.id) return;
+    if (!selectedCustomer?.id) {
+        setPaymentHistory([]);
+        setTotalElements(0);
+        return;
+    }
     setHistoryLoading(true);
     try {
-      const [hist, bal] = await Promise.all([
-        fetchPaymentHistory(selectedCustomer.id, selectedSale === 'BULK' ? null : selectedSale),
+      const saleIdParam = selectedSale === 'BULK' ? null : selectedSale;
+      const [histPage, bal] = await Promise.all([
+        fetchPaymentHistory(selectedCustomer.id, saleIdParam, page, rowsPerPage),
         fetchCustomerAdvanceBalance(selectedCustomer.id)
       ]);
-      setPaymentHistory(hist || []);
-      setAdvanceBalance(bal.data || 0);
+      
+      // Update state based on Page object
+      setPaymentHistory(histPage?.content || []);
+      setTotalElements(histPage?.totalElements || 0);
+      setAdvanceBalance(bal?.data?.data || 0);
     } catch (e) {
-      console.error("History fetch error", e);
+      console.error("Ledger fetch error", e);
+      setPaymentHistory([]);
+      setTotalElements(0);
     } finally { setHistoryLoading(false); }
-  }, [selectedCustomer, selectedSale]);
+  }, [selectedCustomer, selectedSale, page, rowsPerPage]);
 
   useEffect(() => {
     if (selectedCustomer) fetchHistoryAndBalance();
-  }, [selectedCustomer, tab, fetchHistoryAndBalance]);
+  }, [fetchHistoryAndBalance]);
 
-  useEffect(() => {
-    const custSales = allSales.filter(s => String(s.customerId) === String(selectedCustomer?.id));
-    setCustomerSales(custSales);
-    const dues = selectedCustomer 
-      ? custSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0)
-      : allSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0);
-    setTotalDue(dues);
-  }, [selectedCustomer, allSales]);
+  // ─── EVENT HANDLERS ──────────────────────────────────────
+  const handleCustomerChange = (val) => {
+    setSelectedCustomer(val);
+    setPage(0); // Reset page on customer change
+    if (!val) {
+      setSelectedSale(null);
+      setPaymentMethods([emptyMethod]);
+      setFormErrors({});
+      hasInitializedFromUrl.current = true;
+    }
+  };
+
+  const handleMethodChange = (index, field, value) => {
+    setPaymentMethods(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (newSize) => {
+    setRowsPerPage(newSize);
+    setPage(0); // Reset to first page when page size changes
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    
+    if (totalEntered <= 0) {
+      setSnackbar({ open: true, message: 'Enter a valid amount', severity: 'warning' });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
       if (selectedSale === 'BULK') {
         await recordBulkPayment({
           customerId: selectedCustomer.id,
@@ -122,85 +187,101 @@ const CustomerPaymentPage = () => {
           notes: globalNotes
         });
       } else {
-        const payload = paymentMethods.map(pm => ({
-          sourceId: selectedSale,
-          sourceType: 'SALE',
-          amount: parseFloat(pm.amount),
-          paymentMethod: pm.paymentMethod,
-          paymentDate,
-          customerId: selectedCustomer.id,
-          transactionId: pm.transactionId?.trim(),
-          notes: globalNotes
-        }));
+        const payload = paymentMethods
+            .filter(pm => parseFloat(pm.amount) > 0)
+            .map(pm => ({
+                sourceId: selectedSale,
+                sourceType: 'SALE',
+                amount: parseFloat(pm.amount),
+                paymentMethod: pm.paymentMethod,
+                paymentDate,
+                customerId: selectedCustomer.id,
+                transactionId: pm.transactionId?.trim(),
+                notes: globalNotes
+            }));
         await recordDuePaymentsBatch(payload);
       }
+      
       setSnackbar({ open: true, message: 'Success', severity: 'success' });
       setPaymentMethods([emptyMethod]);
+      setGlobalNotes('');
+      setPage(0); // Go back to first page to see the new entry
       loadData();
       fetchHistoryAndBalance();
     } catch (e) {
-      setSnackbar({ open: true, message: 'Payment failed', severity: 'error' });
+      setSnackbar({ open: true, message: 'Transaction failed', severity: 'error' });
     } finally { setSubmitting(false); }
   };
 
   return (
-    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f4f7f9', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Container maxWidth="lg">
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/customers')} sx={{ mb: 2 }}>Back</Button>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 3 }}>
-          <Tab label="Payment" />
-          <Tab label="History" />
-        </Tabs>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/customers')} sx={{ fontWeight: 700 }}>
+            Back
+          </Button>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+            <Tab icon={<PaymentsIcon fontSize="small" />} label="Collect" />
+            <Tab icon={<HistoryIcon fontSize="small" />} label="History" />
+          </Tabs>
+        </Stack>
 
-        <PaymentSummaryCards
-          totalDue={totalDue}
-          selectedCustomer={selectedCustomer}
-          selectedSaleObj={customerSales.find(s => s.saleId === selectedSale)}
-          formatAmount={formatAmount}
-          advanceBalance={advanceBalance}
-          isBulk={selectedSale === 'BULK'}
-        />
+        <Fade in={true}>
+          <Box>
+            <PaymentSummaryCards
+              totalDue={totalDue}
+              selectedCustomer={selectedCustomer}
+              selectedSaleObj={customerSales.find(s => s.saleId === selectedSale)}
+              formatAmount={formatAmount}
+              advanceBalance={advanceBalance}
+              isBulk={selectedSale === 'BULK'}
+            />
 
-        {tab === 0 ? (
-          <PaymentForm
-            customers={customers}
-            customerSales={customerSales}
-            selectedCustomer={selectedCustomer}
-            selectedSale={selectedSale}
-            paymentMethods={paymentMethods}
-            paymentDate={paymentDate}
-            formErrors={formErrors}
-            submitting={submitting}
-            onCustomerChange={setSelectedCustomer}
-            onSaleChange={setSelectedSale}
-            onMethodChange={(i, f, v) => {
-              const copy = [...paymentMethods];
-              copy[i][f] = v;
-              setPaymentMethods(copy);
-            }}
-            onAddMethod={() => setPaymentMethods([...paymentMethods, emptyMethod])}
-            onRemoveMethod={(i) => setPaymentMethods(paymentMethods.filter((_, idx) => idx !== i))}
-            onPaymentDateChange={setPaymentDate}
-            onSubmit={handleSubmit}
-            paymentMethodOptions={paymentMethodOptions}
-            needsTransactionId={needsTransactionId}
-            formatAmount={formatAmount}
-            globalNotes={globalNotes}
-            setGlobalNotes={setGlobalNotes}
-          />
-        ) : (
-          <PaymentHistory
-            loading={historyLoading}
-            paymentHistory={paymentHistory}
-            customers={customers}
-            selectedCustomer={selectedCustomer}
-            onCustomerChange={setSelectedCustomer}
-            onRefresh={fetchHistoryAndBalance}
-            formatAmount={formatAmount}
-          />
-        )}
+            <Box sx={{ mt: 4 }}>
+              {tab === 0 ? (
+                <PaymentForm
+                  customers={customers}
+                  customerSales={customerSales}
+                  selectedCustomer={selectedCustomer}
+                  selectedSale={selectedSale}
+                  paymentMethods={paymentMethods}
+                  paymentDate={paymentDate}
+                  formErrors={formErrors}
+                  submitting={submitting}
+                  onCustomerChange={handleCustomerChange}
+                  onSaleChange={setSelectedSale}
+                  onMethodChange={handleMethodChange}
+                  onAddMethod={() => setPaymentMethods([...paymentMethods, emptyMethod])}
+                  onRemoveMethod={(i) => setPaymentMethods(paymentMethods.filter((_, idx) => idx !== i))}
+                  onPaymentDateChange={setPaymentDate}
+                  onSubmit={handleSubmit}
+                  paymentMethodOptions={paymentMethodOptions}
+                  needsTransactionId={needsTransactionId}
+                  formatAmount={formatAmount}
+                  globalNotes={globalNotes}
+                  setGlobalNotes={setGlobalNotes}
+                />
+              ) : (
+                <PaymentHistory
+                  loading={historyLoading}
+                  paymentHistory={paymentHistory}
+                  totalElements={totalElements}
+                  page={page}
+                  rowsPerPage={rowsPerPage}
+                  onPageChange={handlePageChange}
+                  onRowsPerPageChange={handleRowsPerPageChange}
+                  customers={customers}
+                  selectedCustomer={selectedCustomer}
+                  onCustomerChange={handleCustomerChange}
+                  onRefresh={fetchHistoryAndBalance}
+                  formatAmount={formatAmount}
+                />
+              )}
+            </Box>
+          </Box>
+        </Fade>
       </Container>
-      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(p => ({ ...p, open: false }))}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
     </Box>

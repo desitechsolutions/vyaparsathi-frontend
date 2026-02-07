@@ -40,13 +40,25 @@ const ReviewPaymentPage = ({
 
   const [discount, setDiscount] = useState(formData.discount || 0);
 
+  // ==========================================
+  // LOGIC FOR creditBalance (Negative = Advance)
+  // ==========================================
+  const rawBalance = parseFloat(selectedCustomer?.creditBalance) || 0;
+  // If balance is -550, availableAdvance is 550. If balance is 5000, advance is 0.
+  const availableAdvance = rawBalance < 0 ? Math.abs(rawBalance) : 0;
+
   // =======================
   // CALCULATIONS
   // =======================
   const subtotal = parseFloat(formData.totalAmount) || 0;
-  const discountedTotal = (subtotal - discount).toFixed(2);
+  const discountedTotal = (subtotal - discount);
+
+  // Automatic allocation of advance
+  const advanceApplied = Math.min(availableAdvance, discountedTotal);
+  const netPayable = (discountedTotal - advanceApplied).toFixed(2);
+
   const totalPayment = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0);
-  const remaining = (parseFloat(discountedTotal) - totalPayment).toFixed(2);
+  const remaining = (parseFloat(netPayable) - totalPayment).toFixed(2);
 
   const handlePaymentChange = (index, field, value) => {
     const newPayments = [...paymentMethods];
@@ -70,13 +82,10 @@ const ReviewPaymentPage = ({
     setPaymentMethods(newPayments.length ? newPayments : [{ paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }]);
   };
 
-  // =======================
-  // CONFIRM SALE (FINAL)
-  // =======================
   const handleConfirmAction = () => {
-    // ---- VALIDATIONS ----
-    if (totalPayment > parseFloat(discountedTotal)) {
-      setError('Recorded payment exceeds the bill amount.');
+    // Validating against netPayable (Bill - Advance)
+    if (totalPayment > parseFloat(netPayable)) {
+      setError(`Recorded payment exceeds the net payable amount (₹${netPayable}).`);
       return;
     }
     for (let pm of paymentMethods) {
@@ -110,7 +119,6 @@ const ReviewPaymentPage = ({
 
         <Grid container spacing={4}>
           <Grid item xs={12} lg={8}>
-            {/* -------- CUSTOMER & LOGISTICS -------- */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} md={7}>
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
@@ -134,29 +142,17 @@ const ReviewPaymentPage = ({
                   </Stack>
                   {formData.deliveryRequired ? (
                     <Box>
-                      <Chip
-                        label="Status: PACKED"
-                        size="small"
-                        color="info"
-                        sx={{ mb: 1, fontWeight: 700 }}
-                      />
-                      <Typography variant="body2">
-                        <strong>Fee:</strong> ₹{formData.deliveryCharge || 0}
-                      </Typography>
-                      <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
-                        * Paid directly to courier
-                      </Typography>
+                      <Chip label="Status: PACKED" size="small" color="info" sx={{ mb: 1, fontWeight: 700 }} />
+                      <Typography variant="body2"><strong>Fee:</strong> ₹{formData.deliveryCharge || 0}</Typography>
+                      <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>* Paid directly to courier</Typography>
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ fontStyle: 'italic', mt: 1 }}>
-                      In-store pickup
-                    </Typography>
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', mt: 1 }}>In-store pickup</Typography>
                   )}
                 </Paper>
               </Grid>
             </Grid>
 
-            {/* -------- ITEMS TABLE -------- */}
             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
               <Table size="small">
                 <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow>
@@ -168,14 +164,9 @@ const ReviewPaymentPage = ({
                   {formData.items.map((item, idx) => (
                     <TableRow key={idx}>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {item.itemName}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {item.sku} | {item.size}
-                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
+                        <Typography variant="caption" color="textSecondary">{item.sku} | {item.size}</Typography>
                       </TableCell>
-
                       <TableCell align="center">{item.qty}</TableCell>
                       <TableCell align="right">₹{(item.qty * item.unitPrice).toFixed(2)}</TableCell>
                     </TableRow>
@@ -225,45 +216,30 @@ const ReviewPaymentPage = ({
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography sx={{ opacity: 0.7 }}>Extra Discount</Typography>
                     <TextField
-                      size="small"
-                      type="number"
-                      value={discount}
-                      sx={{
-                        width: 100,
-                        bgcolor: 'rgba(255,255,255,0.1)',
-                        borderRadius: 1.5,
-                        input: {
-                          color: 'white',
-                          textAlign: 'right',
-                          fontWeight: 800
-                        }
-                      }}
-                      onChange={(e) =>
-                        setDiscount(parseFloat(e.target.value) || 0)
-                      }
+                      size="small" type="number" value={discount}
+                      sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'white', textAlign: 'right', fontWeight: 800 }}}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                     />
                   </Box>
+
+                  {/* DISPLAY APPLIED ADVANCE FROM creditBalance */}
+                  {advanceApplied > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#4ade80' }}>Advance Applied</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#4ade80' }}>- ₹{advanceApplied.toFixed(2)}</Typography>
+                    </Box>
+                  )}
+
                   <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900 }}>
-                      Grand Total
-                    </Typography>
-                    <Typography
-                      variant="h5"
-                      sx={{ fontWeight: 900, color: '#4ade80' }}
-                    >
-                      ₹{discountedTotal}
-                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900 }}>Net Payable</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#4ade80' }}>₹{netPayable}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      Paid Now
-                    </Typography>
-                    <Typography variant="body2">
-                      ₹{totalPayment.toFixed(2)}
-                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.8 }}>Paid Now</Typography>
+                    <Typography variant="body2">₹{totalPayment.toFixed(2)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
                     <Typography variant="body2" color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>Balance Due</Typography>
@@ -276,11 +252,7 @@ const ReviewPaymentPage = ({
               </Paper>
 
               {Number(remaining) > 0 && (
-                <Alert
-                  severity="info"
-                  variant="outlined"
-                  sx={{ mt: 2, borderRadius: 2, bgcolor: 'white' }}
-                >
+                <Alert severity="info" variant="outlined" sx={{ mt: 2, borderRadius: 2, bgcolor: 'white' }}>
                   Balance ₹{remaining} will be added to ledger.
                 </Alert>
               )}

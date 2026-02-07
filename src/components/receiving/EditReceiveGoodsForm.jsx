@@ -40,10 +40,12 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
             previouslyReceived: match?.receivedQty || 0,
             previouslyRejected: match?.rejectedQty || 0,
             previouslyDamaged: match?.damagedQty || 0,
+            previouslyPutaway: match?.putawayQty || 0,
             // Current Session inputs
             newReceivedQty: 0,
             newRejectedQty: 0,
             newDamagedQty: 0,
+            newPutawayQty: 0,
             note: ''
           };
         });
@@ -94,10 +96,10 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
     const hasOverages = Object.keys(validationErrors).length > 0;
     
     if (hasOverages) {
-      // Calculate total units over PO for the modal
       const overageSum = Object.keys(validationErrors).reduce((sum, idx) => {
         const item = editData[idx];
-        const total = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+        const total = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + 
+                       item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
         return sum + (total - item.orderedQty);
       }, 0);
       setTotalOverages(overageSum);
@@ -105,13 +107,13 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
       return;
     }
 
-    // Direct submit if no overages
     finalizeSubmission(null);
   };
 
   const finalizeSubmission = (overageAudit) => {
     const payload = editData.map(item => {
-      const totalCombined = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+      const totalCombined = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + 
+                            item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
       const isOver = totalCombined > item.orderedQty;
 
       return {
@@ -120,7 +122,7 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
         receivedQty: item.newReceivedQty,
         damagedQty: item.newDamagedQty,
         rejectedQty: item.newRejectedQty,
-        // Audit data for overages
+        putawayQty: item.newPutawayQty,
         isOveraged: isOver,
         overageReason: isOver ? overageAudit?.overageReason : null,
         overageNotes: isOver ? overageAudit?.overageNotes : null,
@@ -166,6 +168,7 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>PO Qty</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>Historical</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>Received</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'purple.main' }}>Putaway</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>Rejected</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'warning.main' }}>Damaged</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
@@ -173,7 +176,14 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
           </TableHead>
           <TableBody>
             {editData.map((item, index) => {
-              const currentTotal = (item.newReceivedQty + item.newRejectedQty + item.newDamagedQty + item.previouslyReceived + item.previouslyRejected + item.previouslyDamaged);
+              const currentTotal = (
+                item.newReceivedQty + 
+                item.newRejectedQty + 
+                item.newDamagedQty + 
+                item.previouslyReceived + 
+                item.previouslyRejected + 
+                item.previouslyDamaged
+              );
               const isOver = currentTotal > item.orderedQty;
               const isMatch = currentTotal === item.orderedQty;
 
@@ -189,31 +199,64 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
                   </TableCell>
 
                   <TableCell align="center">
-                    <Tooltip title={`Prev Rec: ${item.previouslyReceived} | Prev Rej: ${item.previouslyRejected}`}>
+                    <Tooltip 
+                      title={
+                        `Prev Received: ${item.previouslyReceived}\n` +
+                        `Prev Rejected: ${item.previouslyRejected}\n` +
+                        `Prev Damaged: ${item.previouslyDamaged}\n` +
+                        `Prev Putaway: ${item.previouslyPutaway}`
+                      }
+                    >
                       <IconButton size="small">
                         <HistoryIcon fontSize="inherit" color="action" />
-                        <Typography variant="body2" sx={{ ml: 0.5 }}>{item.previouslyReceived}</Typography>
+                        <Typography variant="body2" sx={{ ml: 0.5 }}>
+                          {item.previouslyReceived}
+                        </Typography>
                       </IconButton>
                     </Tooltip>
                   </TableCell>
 
                   <TableCell align="center">
-                    <TextField type="number" size="small" variant="standard"
-                      value={item.newReceivedQty} sx={{ width: 50 }}
+                    <TextField 
+                      type="number" 
+                      size="small" 
+                      variant="standard"
+                      value={item.newReceivedQty} 
+                      sx={{ width: 50 }}
                       onChange={(e) => handleQtyChange(index, 'newReceivedQty', e.target.value)}
                     />
                   </TableCell>
 
                   <TableCell align="center">
-                    <TextField type="number" size="small" variant="standard"
-                      value={item.newRejectedQty} sx={{ width: 50 }}
+                    <TextField 
+                      type="number" 
+                      size="small" 
+                      variant="standard"
+                      value={item.newPutawayQty || 0} 
+                      sx={{ width: 60 }}
+                      onChange={(e) => handleQtyChange(index, 'newPutawayQty', e.target.value)}
+                      inputProps={{ min: 0 }}
+                    />
+                  </TableCell>
+
+                  <TableCell align="center">
+                    <TextField 
+                      type="number" 
+                      size="small" 
+                      variant="standard"
+                      value={item.newRejectedQty} 
+                      sx={{ width: 50 }}
                       onChange={(e) => handleQtyChange(index, 'newRejectedQty', e.target.value)}
                     />
                   </TableCell>
 
                   <TableCell align="center">
-                    <TextField type="number" size="small" variant="standard"
-                      value={item.newDamagedQty} sx={{ width: 50 }}
+                    <TextField 
+                      type="number" 
+                      size="small" 
+                      variant="standard"
+                      value={item.newDamagedQty} 
+                      sx={{ width: 50 }}
                       onChange={(e) => handleQtyChange(index, 'newDamagedQty', e.target.value)}
                     />
                   </TableCell>
@@ -256,7 +299,7 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
       {/* 5. Enhanced Overage Justification Modal */}
       <Modal open={showOverageModal} onClose={() => setShowOverageModal(false)}>
         <Box sx={{ outline: 'none' }}>
-           <OverageConfirmationModal
+          <OverageConfirmationModal
             onConfirm={(auditData) => finalizeSubmission(auditData)}
             onCancel={() => setShowOverageModal(false)}
             errors={validationErrors}

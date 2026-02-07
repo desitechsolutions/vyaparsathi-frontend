@@ -33,7 +33,7 @@ API.interceptors.request.use((config) => {
   }
   return config;
 });
-
+export const API_BASE_URL='http://localhost:8080'
 // Axios response interceptor: handle token refresh
 API.interceptors.response.use(
   (response) => response,
@@ -352,19 +352,43 @@ export const exportBackup = () => API.post(endpoints.backup.export, {}, { respon
 export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
 export const recordDuePaymentsBatch = (data) => API.post('/api/payments/record-batch', data);
 
-export const fetchPaymentHistory = (customerId, saleId) => {
+export const fetchPaymentHistory = (customerId, saleId, page = 0, size = 20) => {
   return API.get('/api/payments', {
     params: {
       customerId,
+      page,
+      size,
       ...(saleId ? { sourceType: 'SALE', sourceId: saleId } : {})
     },
-  }).then((r) => r.data || []);
+  }).then((r) => {
+    // Backend returns a Page object: { content: [], totalElements: X, ... }
+    // We return the whole object so the UI can see totalElements for the pager
+    return r.data; 
+  }).catch(err => {
+    console.error("Payment Fetch Error:", err);
+    return { content: [], totalElements: 0 }; // Return safe default
+  });
 };
 export const recordBulkPayment = (data) => API.post('/api/payments/bulk', data);
 export const fetchCustomerAdvanceBalance = (customerId) => API.get(`/api/payments/customer/${customerId}/advance-balance`);
 
 export const fetchProducts = () => API.get(endpoints.products);
 
+//Audit Log APIs
+// 1. Main Paginated Fetch (Used for the main table)
+export const fetchAuditLogs = (params) => 
+  API.get('/api/audit', { params }).then(res => res.data);
+
+// 2. User-Specific Fetch (Used if you click on a username in the table)
+export const fetchAuditLogsByUser = (username) => 
+  API.get(`/api/audit/user/${username}`).then(res => res.data);
+
+// 3. Export Logic (Used for the download button)
+export const exportAuditLogs = (params) => 
+  API.get('/api/audit/export', { 
+    params, 
+    responseType: 'blob' 
+  });
 // Analytics APIs
 export const fetchRevenueLeakage = () => API.get(endpoints.analytics.revenueLeakage);
 export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);

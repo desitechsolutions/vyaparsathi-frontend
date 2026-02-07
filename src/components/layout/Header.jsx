@@ -56,7 +56,8 @@ const AppBranding = () => {
 
 const Header = () => {
   const { user, logout } = useAuthContext();
-  const { alertCount, criticalCount } = useAlerts();
+  // Ensure your context provides the array of alerts. Using 'alerts' as common naming convention.
+  const { alertCount, criticalCount, alerts, lowStockItems } = useAlerts();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -72,12 +73,16 @@ const Header = () => {
   // --- UI STATES ---
   const [anchorEl, setAnchorEl] = useState(null);
   const [quickActionEl, setQuickActionEl] = useState(null);
+  const [notificationEl, setNotificationEl] = useState(null); // State for Notification Drawer
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
 
   const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.sub || 'User' : 'User';
   const isLoggedIn = !!user;
+
+  // Combine fallback for alert data
+  const activeAlerts = alerts || lowStockItems || [];
 
   // --- SEARCH DEBOUNCE LOGIC ---
   useEffect(() => {
@@ -112,9 +117,12 @@ const Header = () => {
 
   const handleMenu = (event) => setAnchorEl(event.currentTarget);
   const handleQuickActionOpen = (event) => setQuickActionEl(event.currentTarget);
+  const handleNotificationOpen = (event) => setNotificationEl(event.currentTarget);
+  
   const handleClose = () => {
     setAnchorEl(null);
     setQuickActionEl(null);
+    setNotificationEl(null);
   };
 
   const handleLogout = () => { handleClose(); logout(); };
@@ -125,11 +133,11 @@ const Header = () => {
   let tooltipMessage = '';
 
   if (criticalCount > 0 && lowCount > 0) {
-    tooltipMessage = `${criticalCount} ${t('header.critical')} and ${lowCount} ${t('header.lowStock')} ${t('header.itemsNeedAttention')}`;
+    tooltipMessage = `${criticalCount} ${t('header.critical')} and ${lowCount} ${t('header.lowStock')}`;
   } else if (criticalCount > 0) {
-    tooltipMessage = `${criticalCount} ${t('header.critical')} ${criticalCount > 1 ? t('header.items') : t('header.item')} ${t('header.needImmediateAttention')}`;
+    tooltipMessage = `${criticalCount} ${t('header.critical')} Items`;
   } else if (lowCount > 0) {
-    tooltipMessage = `${lowCount} ${t('header.lowStock')} ${lowCount > 1 ? t('header.items') : t('header.item')} ${t('header.needAttention')}`;
+    tooltipMessage = `${lowCount} Low Stock Items`;
   }
   // --- END: ALERT TOOLTIP LOGIC ---
 
@@ -205,7 +213,9 @@ const Header = () => {
                 ) : (
                   <Box sx={{ p: 4, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                      {t('header.noResultsFound')} "<strong>{searchQuery}</strong>"
+                    
+                      {t('header.noResultsFound', { value: searchQuery })}
+                   
                     </Typography>
                   </Box>
                 )}
@@ -267,16 +277,81 @@ const Header = () => {
                 </MenuItem>
               </Menu>
 
-              {/* ALERTS */}
+              {/* ALERTS (PROFESSIONAL DRAWER BEHAVIOR) */}
               {alertCount > 0 && (
                 <Tooltip title={tooltipMessage}>
-                  <IconButton color="inherit" onClick={() => navigate('/low-stock-alerts')} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
+                  <IconButton color="inherit" onClick={handleNotificationOpen} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
                     <Badge badgeContent={alertCount} color={criticalCount > 0 ? "error" : "warning"}>
                       {criticalCount > 0 ? <ReportProblemOutlinedIcon /> : <NotificationsIcon />}
                     </Badge>
                   </IconButton>
                 </Tooltip>
               )}
+
+              {/* NOTIFICATION DROPDOWN */}
+              <Menu
+                anchorEl={notificationEl}
+                open={Boolean(notificationEl)}
+                onClose={handleClose}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                PaperProps={{ 
+                  sx: { 
+                    width: 320, 
+                    mt: 1.5, 
+                    borderRadius: 3, 
+                    maxHeight: 500,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.15)' 
+                  } 
+                }}
+              >
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    {t('header.notifications')}
+                  </Typography>
+                  <Badge badgeContent={alertCount} color="error" sx={{ mr: 1 }} />
+                </Box>
+                <Divider />
+                <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }}>
+                  {activeAlerts.length > 0 ? (
+                    activeAlerts.map((item) => (
+                      <MenuItem 
+                        key={item.itemVariantId} 
+                        onClick={() => { handleClose(); navigate(`/stock?search=${item.itemName}`); }}
+                        sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: item.alertLevel === 'CRITICAL' ? 'error.main' : 'warning.main' }}>
+                            <InventoryIcon sx={{ color: 'white', fontSize: 20 }} />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText 
+                          primary={<Typography variant="body2" fontWeight={700}>{item.itemName}</Typography>}
+                          secondary={`${t('header.stock')}: ${item.currentStock} / ${item.threshold} ${item.unit}`}
+                        />
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {alertCount > 0 ? "Loading alerts..." : "No low stock alerts"}
+                      </Typography>
+                    </Box>
+                  )}
+                </List>
+                <Divider />
+                <Box sx={{ p: 1.5 }}>
+                  <Button 
+                    fullWidth 
+                    variant="contained" 
+                    size="small" 
+                    onClick={() => { handleClose(); navigate('/low-stock-alerts'); }}
+                    sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                  >
+                    {t('header.viewAllAlerts')}
+                  </Button>
+                </Box>
+              </Menu>
 
               <IconButton
                 size="small"

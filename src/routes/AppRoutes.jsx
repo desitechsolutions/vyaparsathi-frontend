@@ -41,6 +41,7 @@ import Receiving from '../pages/Receiving';
 import ShopGuard from '../components/guards/ShopGuard';
 import HsnSummary from '../pages/reports/HsnSummary';
 import AuditLogs from '../pages/AuditLogs';
+import SupplierPaymentPage from '../pages/SupplierPaymentPage';
 
 function AppRoutes() {
   return (
@@ -78,6 +79,7 @@ function AppRoutes() {
           <Route path="backup" element={<Backup />} />
           <Route path="products" element={<ProductOverview />} />
           <Route path="customer-payments" element={<CustomerPaymentPage />} />
+          <Route path="supplier-payments" element={<SupplierPaymentPage />} />
           <Route path="about-us" element={<AboutUs />} />
           <Route path="analytics" element={<AnalyticsDashboard />} />
           <Route path="purchase-orders" element={<PurchaseOrders />} />
@@ -103,6 +105,7 @@ function AppRoutes() {
           <Route path="compliance/hsn" element={<HsnSummary />} />
           <Route path="audit" element={<AuditLogs />} />
           <Route path="notifications" element={<Notifications />} />
+
           
           {/* Catch-all route for 404 inside the dashboard */}
           <Route path="*" element={<div>Page Not Found</div>} />

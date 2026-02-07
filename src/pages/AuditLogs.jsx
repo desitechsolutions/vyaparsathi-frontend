@@ -1,54 +1,159 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Paper, Table, TableHead, TableRow, TableCell, 
   TableBody, TableContainer, Chip, TextField, InputAdornment, 
-  Stack, IconButton, Tooltip, TablePagination, Alert
+  Stack, IconButton, Tooltip, TablePagination, Alert, LinearProgress, Button
 } from '@mui/material';
 import { 
-  Search, FilterList, History, Person, 
-  DeleteForever, Edit, Login, AddCircle 
+  Search, History, Person, DeleteForever, Edit, Login, 
+  AddCircle, LaptopMac, FileDownload, Close 
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
+// Make sure all three are exported from your api.js
+import { fetchAuditLogs, exportAuditLogs, fetchAuditLogsByUser } from '../services/api';
 
-// Helper to get color/icon based on action type
 const getActionStyle = (action) => {
-  const act = action.toLowerCase();
-  if (act.includes('delete')) return { color: 'error', icon: <DeleteForever fontSize="small" /> };
+  const act = action ? action.toLowerCase() : '';
+  if (act.includes('delete') || act.includes('cancel')) return { color: 'error', icon: <DeleteForever fontSize="small" /> };
   if (act.includes('update') || act.includes('edit')) return { color: 'warning', icon: <Edit fontSize="small" /> };
-  if (act.includes('create') || act.includes('add')) return { color: 'success', icon: <AddCircle fontSize="small" /> };
+  if (act.includes('create') || act.includes('add') || act.includes('complete')) return { color: 'success', icon: <AddCircle fontSize="small" /> };
   if (act.includes('login')) return { color: 'info', icon: <Login fontSize="small" /> };
   return { color: 'default', icon: <History fontSize="small" /> };
 };
 
 export default function AuditLogs() {
-  const [logs, setLogs] = useState([
-    // Mock Data - In production, fetch from /api/audit-logs
-    { id: 1, timestamp: '2026-02-02 10:30:15', user: 'Admin', action: 'Delete Invoice', module: 'Sales', details: 'Deleted INV-9902 (₹4,500)', ip: '192.168.1.1' },
-    { id: 2, timestamp: '2026-02-02 11:15:00', user: 'Manager', action: 'Update Stock', module: 'Inventory', details: 'Item "Laptop" qty changed: 10 -> 15', ip: '192.168.1.5' },
-    { id: 3, timestamp: '2026-02-02 12:05:22', user: 'Cashier', action: 'Create Sale', module: 'Point of Sale', details: 'New Invoice INV-9905 created', ip: '10.0.0.24' },
-    { id: 4, timestamp: '2026-02-02 09:00:01', user: 'Admin', action: 'User Login', module: 'Auth', details: 'Successful login from Chrome Windows', ip: '192.168.1.1' },
-  ]);
-
+  // State definitions must always be at the top level
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalElements, setTotalElements] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [startDate, setStartDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+  const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
+
+  // Define the general loader
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: page,
+        size: rowsPerPage,
+        startDate: dayjs(startDate).startOf('day').format('YYYY-MM-DDTHH:mm:ss'),
+        endDate: dayjs(endDate).endOf('day').format('YYYY-MM-DDTHH:mm:ss'),
+      };
+      const response = await fetchAuditLogs(params);
+      setLogs(response.content || []);
+      setTotalElements(response.totalElements || 0);
+    } catch (error) {
+      console.error("General fetch failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, rowsPerPage, startDate, endDate]);
+
+  // Define the user-specific loader
+  const loadUserLogs = useCallback(async (username) => {
+    setLoading(true);
+    try {
+      const data = await fetchAuditLogsByUser(username);
+      setLogs(data || []);
+      setTotalElements(data ? data.length : 0);
+      setPage(0);
+    } catch (error) {
+      console.error("User fetch failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Use a single useEffect to control logic flow
+  useEffect(() => {
+    if (selectedUser) {
+      loadUserLogs(selectedUser);
+    } else {
+      loadLogs();
+    }
+  }, [selectedUser, loadLogs, loadUserLogs]);
+
+  const handleExport = async (format) => {
+    try {
+      const params = {
+        startDate: dayjs(startDate).startOf('day').format('YYYY-MM-DDTHH:mm:ss'),
+        endDate: dayjs(endDate).endOf('day').format('YYYY-MM-DDTHH:mm:ss'),
+        format
+      };
+      const blob = await exportAuditLogs(params);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Audit_Report_${dayjs().format('YYYYMMDD')}.${format === 'excel' ? 'xlsx' : 'csv'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Export failed:", error);
+    }
+  };
 
   const filteredLogs = logs.filter(log => 
-    log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.details.toLowerCase().includes(searchTerm.toLowerCase())
+    (log.username?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (log.action?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (log.details?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
           <Typography variant="h4" fontWeight={900} color="#0f172a">Security Audit Logs</Typography>
-          <Typography color="text.secondary">Real-time trail of all system activities and modifications.</Typography>
+          <Typography color="text.secondary">
+            {selectedUser ? `Activity Trail for: ${selectedUser}` : "Real-time trail of all system activities and modifications."}
+          </Typography>
         </Box>
-        <Tooltip title="Filter Settings">
-          <IconButton sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}><FilterList /></IconButton>
-        </Tooltip>
+        
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          {selectedUser && (
+            <Button 
+              size="small" 
+              variant="outlined" 
+              color="error" 
+              startIcon={<Close />} 
+              onClick={() => setSelectedUser(null)}
+            >
+              Reset
+            </Button>
+          )}
+          <TextField
+            type="date"
+            size="small"
+            label="From"
+            value={startDate}
+            onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ bgcolor: 'white' }}
+          />
+          <TextField
+            type="date"
+            size="small"
+            label="To"
+            value={endDate}
+            onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ bgcolor: 'white' }}
+          />
+          <Tooltip title="Export to Excel">
+            <IconButton onClick={() => handleExport('excel')} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+              <FileDownload color="primary" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Refresh">
+            <IconButton onClick={selectedUser ? () => loadUserLogs(selectedUser) : loadLogs} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+              <History />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </Stack>
 
       <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
@@ -56,7 +161,8 @@ export default function AuditLogs() {
       </Alert>
 
       <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        {/* Table Search Bar */}
+        {loading && <LinearProgress color="primary" />}
+        
         <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
           <TextField
             placeholder="Filter by user, action, or details..."
@@ -87,57 +193,57 @@ export default function AuditLogs() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredLogs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((log) => {
-                const style = getActionStyle(log.action);
-                return (
-                  <TableRow key={log.id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {dayjs(log.timestamp).format('DD MMM, hh:mm A')}
-                      </Typography>
-                    </TableCell>
+              {filteredLogs
+                .slice(selectedUser ? page * rowsPerPage : 0, selectedUser ? (page + 1) * rowsPerPage : filteredLogs.length)
+                .map((log) => (
+                  <TableRow key={log.id || Math.random()} hover>
+                    <TableCell>{dayjs(log.timestamp).format('DD MMM, hh:mm A')}</TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack 
+                        direction="row" spacing={1} alignItems="center"
+                        onClick={() => setSelectedUser(log.username)}
+                        sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}
+                      >
                         <Person sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        <Typography variant="body2">{log.user}</Typography>
+                        <Typography variant="body2" fontWeight={600}>{log.username}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        icon={style.icon} 
+                        icon={getActionStyle(log.action).icon} 
                         label={log.action} 
                         size="small" 
-                        color={style.color} 
-                        variant="soft" // If using MUI Lab, or use custom sx below
-                        sx={{ fontWeight: 700, px: 1 }}
+                        color={getActionStyle(log.action).color} 
+                        sx={{ fontWeight: 700 }}
                       />
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" sx={{ bgcolor: '#f1f5f9', px: 1, py: 0.5, borderRadius: 1 }}>
-                        {log.module}
+                        {log.entity} {log.entityId !== 'N/A' ? `#${log.entityId}` : ''}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 300 }}>
-                      <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
-                        {log.details}
-                      </Typography>
+                    <TableCell sx={{ maxWidth: 250 }}>
+                      <Tooltip title={log.userAgent || ''}>
+                        <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
+                          {log.details}
+                        </Typography>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" fontFamily="monospace" color="text.disabled">
-                        {log.ip}
-                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="caption" fontFamily="monospace">{log.ipAddress}</Typography>
+                        {log.userAgent && <LaptopMac sx={{ fontSize: 14, color: 'text.disabled' }} />}
+                      </Stack>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
         
         <TablePagination
-          rowsPerPageOptions={[10, 25, 50]}
           component="div"
-          count={filteredLogs.length}
+          count={totalElements}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={(e, newPage) => setPage(newPage)}

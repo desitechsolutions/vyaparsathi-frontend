@@ -3,7 +3,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
   CircularProgress, Box, Typography, Container, Alert, FormControl,
-  InputLabel, Select, MenuItem, InputAdornment, 
+  Autocomplete, InputAdornment, 
   Paper, Chip, Stack, Snackbar, Grid, Card, CardContent, LinearProgress, Divider
 } from '@mui/material';
 import {
@@ -12,7 +12,7 @@ import {
   TrendingDown, TrendingUp,
   WarningAmber, Search,
   AttachMoney, ShowChart,
-  BarChart, Timeline
+  BarChart
 } from '@mui/icons-material';
 import { fetchStock, addStock, fetchItemVariants } from '../services/api';
 
@@ -23,7 +23,7 @@ const Stock = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-  const [analyticsOpen, setAnalyticsOpen] = useState(false); // State for Analytics Popup
+  const [analyticsOpen, setAnalyticsOpen] = useState(false); 
   const [formData, setFormData] = useState(initialFormState);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
@@ -259,23 +259,39 @@ const Stock = () => {
         <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>Record Stock Purchase</DialogTitle>
         <DialogContent sx={{ pb: 2 }}>
           <Stack spacing={3} sx={{ mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Product Variant</InputLabel>
-              <Select
-                label="Product Variant"
-                value={formData.itemVariantId}
-                onChange={(e) => setFormData({ ...formData, itemVariantId: e.target.value })}
-              >
-                {itemVariants.map((v) => (
-                  <MenuItem key={v.id} value={v.id}>
-                    <Box sx={{ py: 0.5 }}>
-                      <Typography variant="subtitle2" fontWeight={700}>{v.itemName} — {v.color} ({v.size})</Typography>
-                      <Typography variant="caption" color="text.secondary">SKU: {v.sku} | Unit: {v.unit}</Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            
+            {/* SEARCHABLE SELECTION (AUTOCOMPLETE) - STYLED TO MATCH YOUR THEME */}
+            <Autocomplete
+              options={itemVariants}
+              getOptionLabel={(option) => `${option.itemName} - ${option.color} (${option.size})`}
+              filterOptions={(options, { inputValue }) => 
+                options.filter(o => 
+                    o.itemName.toLowerCase().includes(inputValue.toLowerCase()) || 
+                    (o.sku && o.sku.toLowerCase().includes(inputValue.toLowerCase()))
+                )
+              }
+              value={itemVariants.find(v => v.id === formData.itemVariantId) || null}
+              onChange={(_, newValue) => {
+                setFormData({ ...formData, itemVariantId: newValue ? newValue.id : '' });
+              }}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box sx={{ py: 0.5 }}>
+                    <Typography variant="subtitle2" fontWeight={700}>{option.itemName} — {option.color} ({option.size})</Typography>
+                    <Typography variant="caption" color="text.secondary">SKU: {option.sku} | Unit: {option.unit}</Typography>
+                  </Box>
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Product Variant" 
+                  placeholder="Search by name or SKU..."
+                  variant="outlined"
+                  fullWidth
+                />
+              )}
+            />
 
             {selectedVariant && (
               <Box sx={{ p: 2, bgcolor: '#f0f9ff', borderRadius: 3, border: '1px dashed #0ea5e9' }}>
