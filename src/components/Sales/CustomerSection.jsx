@@ -197,7 +197,14 @@ const CustomerSection = ({
                       type="number"
                       fullWidth
                       value={formData.deliveryCharge || ''}
-                      onChange={e => setFormData(prev => ({ ...prev, deliveryCharge: e.target.value }))}
+                      onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          const cleanVal = isNaN(val) ? '' : Math.max(0, val); 
+                          setFormData(prev => ({ ...prev, deliveryCharge: cleanVal }));
+                        }}
+                        InputProps={{
+                          startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
+                        }}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>

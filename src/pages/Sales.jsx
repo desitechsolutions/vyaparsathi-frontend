@@ -39,7 +39,7 @@ const initialFormData = {
   customerId: '', items: [], totalAmount: 0, isGstRequired: 'no',
   discount: 0, paymentMethods: [{ method: 'Cash', amount: 0 }],
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
-  deliveryAddress: '', deliveryCharge: '', deliveryPaidBy: '',
+  deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: "PACKED",
 };
 
@@ -224,6 +224,16 @@ const tabValue = tabParam === "history" ? 1 : 0;
       description: '', color: '', size: '', brand: '', design: '', currentStock: 0,
     });
   };
+      const isDeliveryValid = () => {
+      // If delivery isn't checked, it's always "valid" to proceed
+      if (!formData.deliveryRequired) return true;
+
+      // If checked, ensure Address is not empty and "Paid By" is selected
+      const hasAddress = formData.deliveryAddress?.trim().length > 0;
+      const hasPaidBy = formData.deliveryPaidBy !== '' && formData.deliveryPaidBy !== null;
+
+      return hasAddress && hasPaidBy;
+    };
   const handleAddItem = () => {
     setItemError('');
     const quantity = Number(item.qty);
@@ -472,13 +482,17 @@ const handleSubmitSale = async (payload) => {
                   </Typography>
                 )}
 
-                <Tooltip title={!formData.customerId ? "Please select a customer first" : ""}>
+                <Tooltip title={
+                  !formData.customerId ? "Please select a customer first" : 
+                  !isDeliveryValid() ? "Please complete delivery details (Address & Paid By)" : ""
+
+                }>
                   <span>
                     <Button 
                       variant="contained" 
                       size="large" 
                       endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ChevronRightIcon />}
-                      disabled={formData.items.length === 0 || !formData.customerId || loading}
+                      disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid() || loading}
                       onClick={() => setShowReviewPage(true)}
                       sx={{ 
                         px: { xs: 3, md: 6 }, 

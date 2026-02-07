@@ -63,7 +63,8 @@ const ReviewPaymentPage = ({
   const handlePaymentChange = (index, field, value) => {
     const newPayments = [...paymentMethods];
     if (field === 'amount') {
-      newPayments[index][field] = parseFloat(value) || 0;
+      const val = parseFloat(value);
+      newPayments[index][field] = isNaN(val) ? 0 : Math.max(0, val);
     } else if (field === 'paymentMethod') {
       newPayments[index][field] = value;
       if (value === 'CASH') newPayments[index].transactionId = '';
@@ -218,7 +219,14 @@ const ReviewPaymentPage = ({
                     <TextField
                       size="small" type="number" value={discount}
                       sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'white', textAlign: 'right', fontWeight: 800 }}}
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          // Ensure discount is at least 0 and doesn't exceed the subtotal
+                          const cleanDiscount = isNaN(val) ? 0 : Math.max(0, Math.min(val, subtotal));
+                          setDiscount(cleanDiscount);
+                        }}
+                        inputProps={{ min: 0, max: subtotal }
+                      }
                     />
                   </Box>
 

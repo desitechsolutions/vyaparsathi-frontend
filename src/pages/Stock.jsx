@@ -103,8 +103,8 @@ const Stock = () => {
   );
 
   const handleSubmit = async () => {
-    const qty = parseFloat(formData.quantity);
-    const cost = parseFloat(formData.costPerUnit);
+    const qty = Number(formData.quantity);
+    const cost = Number(formData.costPerUnit);
 
     if (!formData.itemVariantId || !formData.quantity || !formData.costPerUnit) {
       setError('Please fill in all required fields including Purchase Cost.');
