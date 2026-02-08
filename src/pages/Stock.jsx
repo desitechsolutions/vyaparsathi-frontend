@@ -1,54 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import {
-  Button,
-  TextField,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  CircularProgress,
-  Box,
-  Typography,
-  Container,
-  Alert,
-  FormControl,
-  Autocomplete,
-  InputAdornment,
-  Paper,
-  Chip,
-  Stack,
-  Snackbar,
-  Grid,
-  Card,
-  CardContent,
-  LinearProgress,
-  Divider,
-  Tooltip,
+  Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
+  CircularProgress, Box, Typography, Container, Alert, Autocomplete,
+  InputAdornment, Paper, Chip, Stack, Snackbar, Grid, Card, CardContent,
+  LinearProgress, Divider, Tooltip, IconButton, MenuItem,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  Inventory as InventoryIcon,
-  TrendingDown,
-  TrendingUp,
-  WarningAmber,
-  Search,
-  AttachMoney,
-  ShowChart,
-  BarChart,
-  InfoOutlined as InfoIcon,
+  Add as AddIcon, Inventory as InventoryIcon, TrendingDown, TrendingUp,
+  WarningAmber, Search, AttachMoney, ShowChart, BarChart, 
+  History as HistoryIcon, SettingsSuggest, FileDownload, InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
-import { fetchStock, addStock, fetchItemVariants } from '../services/api';
+import { 
+  fetchStock, addStock, fetchItemVariants, 
+  adjustStock, fetchStockMovements, exportStockReport 
+} from '../services/api';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '' };
+
+// Helper for consistent Indian Currency Formatting
+const formatCurrency = (val) => 
+  Number(val || 0).toLocaleString('en-IN', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
 
 const Stock = () => {
   const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [formData, setFormData] = useState(initialFormState);
+  const [selectedHistory, setSelectedHistory] = useState([]);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [itemVariants, setItemVariants] = useState([]);
@@ -62,20 +48,14 @@ const Stock = () => {
         setStock(stockRes.data.map((item) => ({ ...item, id: item.itemVariantId })));
       }
       setItemVariants(variantsRes.data);
-    } catch (err) {
-      setError('System failed to sync inventory data.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError('System failed to sync inventory data.'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const filteredRows = useMemo(() => {
-    return stock.filter(
-      (row) =>
+    return stock.filter((row) =>
         row.itemName.toLowerCase().includes(searchText.toLowerCase()) ||
         (row.sku && row.sku.toLowerCase().includes(searchText.toLowerCase()))
     );
@@ -84,87 +64,69 @@ const Stock = () => {
   const stats = useMemo(() => {
     const totalItems = stock.length;
     const lowStock = stock.filter((s) => s.totalQuantity < 10).length;
-    const totalValue = stock.reduce(
-      (acc, curr) => acc + (Number(curr.totalQuantity || 0) * Number(curr.costPerUnit || 0)),
-      0
-    );
-    const potentialRevenue = stock.reduce(
-      (acc, curr) => acc + (Number(curr.totalQuantity || 0) * Number(curr.pricePerUnit || 0)),
-      0
-    );
-    const projectedProfit = potentialRevenue - totalValue;
-
-    return { totalItems, lowStock, totalValue, potentialRevenue, projectedProfit };
+    const totalValue = stock.reduce((acc, curr) => acc + (Number(curr.totalQuantity || 0) * Number(curr.costPerUnit || 0)), 0);
+    const potentialRevenue = stock.reduce((acc, curr) => acc + (Number(curr.totalQuantity || 0) * Number(curr.pricePerUnit || 0)), 0);
+    return { totalItems, lowStock, totalValue, potentialRevenue, projectedProfit: potentialRevenue - totalValue };
   }, [stock]);
 
-  const selectedVariant = useMemo(
-    () => itemVariants.find((v) => v.id === formData.itemVariantId),
-    [formData.itemVariantId, itemVariants]
-  );
+  const selectedVariant = useMemo(() => itemVariants.find((v) => v.id === formData.itemVariantId), [formData.itemVariantId, itemVariants]);
 
   const handleSubmit = async () => {
-    const qty = Number(formData.quantity);
-    const cost = Number(formData.costPerUnit);
-
     if (!formData.itemVariantId || !formData.quantity || !formData.costPerUnit) {
-      setError('Please fill in all required fields including Purchase Cost.');
-      return;
+      setError('Please fill in all required fields.'); return;
     }
-
-    if (qty <= 0) {
-      setError('Quantity must be a positive number greater than 0.');
-      return;
-    }
-
-    if (cost < 0) {
-      setError('Purchase cost cannot be negative.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      await addStock({
-        itemVariantId: formData.itemVariantId,
-        quantity: qty,
-        costPerUnit: cost,
-        batch: formData.batch || null,
-      });
+      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null });
       setSuccessMsg(`Inventory updated successfully!`);
-      setOpen(false);
-      setFormData(initialFormState);
-      loadData();
-    } catch (err) {
-      setError('Failed to update stock.');
-    } finally {
-      setIsSubmitting(false);
+      setOpen(false); setFormData(initialFormState); loadData();
+    } catch (err) { setError('Failed to update stock.'); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleAdjustSubmit = async () => {
+    if (!formData.itemVariantId || !formData.quantity || !formData.reason) {
+      setError('Please fill in all adjustment fields.'); return;
     }
+    setIsSubmitting(true);
+    try {
+      await adjustStock({ itemVariantId: formData.itemVariantId, adjustmentQuantity: Number(formData.quantity), reason: formData.reason });
+      setSuccessMsg('Stock adjustment applied successfully!');
+      setAdjustOpen(false); setFormData(initialFormState); loadData();
+    } catch (err) { setError('Adjustment failed.'); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleExport = async (format) => {
+    try {
+      const response = await exportStockReport(format);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Inventory_Report_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`);
+      document.body.appendChild(link); link.click();
+    } catch (err) { setError('Export failed.'); }
+  };
+
+  const viewHistory = async (variantId) => {
+    try {
+      const res = await fetchStockMovements(variantId);
+      setSelectedHistory(res.data); setHistoryOpen(true);
+    } catch (err) { setError('Failed to load history.'); }
   };
 
   const columns = [
     {
       field: 'itemName',
       headerName: 'Product Details',
-      flex: 1.5,
-      minWidth: 220,
+      flex: 1.5, minWidth: 220,
       renderCell: (params) => (
         <Box sx={{ py: 1 }}>
-          <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-            {params.value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            SKU: {params.row.sku}
-          </Typography>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>{params.value}</Typography>
+          <Typography variant="caption" color="text.secondary">SKU: {params.row.sku}</Typography>
           <Stack direction="row" spacing={0.5} mt={0.5}>
-            <Chip
-              label={params.row.color}
-              size="small"
-              sx={{ height: 18, fontSize: '0.65rem' }}
-            />
-            <Chip
-              label={params.row.size}
-              size="small"
-              sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#e2e8f0' }}
-            />
+            <Chip label={params.row.color} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+            <Chip label={params.row.size} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#e2e8f0' }} />
           </Stack>
         </Box>
       ),
@@ -172,488 +134,219 @@ const Stock = () => {
     {
       field: 'totalQuantity',
       headerName: 'Inventory Status',
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => {
-        const isLow = params.value < 10;
-        return (
-          <Box sx={{ width: '100%' }}>
-            <Typography
-              variant="body2"
-              fontWeight={800}
-              color={isLow ? 'error.main' : 'success.main'}
-              mb={0.5}
-            >
-              {params.value} {params.row.unit}
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min((params.value / 100) * 100, 100)}
-              color={isLow ? 'error' : 'primary'}
-              sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9' }}
-            />
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'costPerUnit',
-      headerName: 'Purchase Price',
-      flex: 0.8,
-      minWidth: 120,
+      flex: 1, minWidth: 150,
       renderCell: (params) => (
-        <Typography variant="body2" color="text.secondary">
-          ₹{Number(params.value || 0).toLocaleString('en-IN')}
-        </Typography>
+        <Box sx={{ width: '100%' }}>
+          <Typography variant="body2" fontWeight={800} color={params.value < 10 ? 'error.main' : 'success.main'} mb={0.5}>
+            {params.value} {params.row.unit}
+          </Typography>
+          <LinearProgress variant="determinate" value={Math.min((params.value / 100) * 100, 100)} color={params.value < 10 ? 'error' : 'primary'} sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9' }} />
+        </Box>
       ),
     },
     {
-      field: 'pricePerUnit',
-      headerName: 'Selling Price',
-      flex: 0.8,
-      minWidth: 120,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={700}>
-          ₹{Number(params.value || 0).toLocaleString('en-IN')}
-        </Typography>
-      ),
+        field: 'costPerUnit',
+        headerName: 'Purchase Price (WAC)',
+        flex: 0.8, minWidth: 140,
+        renderCell: (params) => (
+          <Typography variant="body2" color="text.secondary">₹{formatCurrency(params.value)}</Typography>
+        ),
+    },
+    {
+        field: 'pricePerUnit',
+        headerName: 'Selling Price',
+        flex: 0.8, minWidth: 120,
+        renderCell: (params) => <Typography variant="body2" fontWeight={700}>₹{formatCurrency(params.value)}</Typography>,
     },
     {
       field: 'margin',
       headerName: 'Margin',
-      flex: 0.8,
-      minWidth: 100,
+      flex: 0.8, minWidth: 100,
       renderCell: (params) => {
         const cost = Number(params.row.costPerUnit || 0);
         const price = Number(params.row.pricePerUnit || 0);
         if (cost === 0) return <Typography variant="caption" color="text.disabled">N/A</Typography>;
         const margin = ((price - cost) / price) * 100;
-        const isProfit = margin > 0;
         return (
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: isProfit ? 'success.main' : 'error.main' }}>
-            {isProfit ? <TrendingUp sx={{ fontSize: 16 }} /> : <TrendingDown sx={{ fontSize: 16 }} />}
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: margin > 0 ? 'success.main' : 'error.main' }}>
+            {margin > 0 ? <TrendingUp sx={{ fontSize: 16 }} /> : <TrendingDown sx={{ fontSize: 16 }} />}
             <Typography variant="body2" fontWeight={700}>{margin.toFixed(0)}%</Typography>
           </Stack>
         );
       },
     },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 0.6, minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="View Audit Log"><IconButton size="small" onClick={() => viewHistory(params.row.itemVariantId)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
+          <Tooltip title="Adjust Stock"><IconButton size="small" color="primary" onClick={() => { setFormData({ ...initialFormState, itemVariantId: params.row.itemVariantId }); setAdjustOpen(true); }}><SettingsSuggest fontSize="small" /></IconButton></Tooltip>
+        </Stack>
+      ),
+    }
   ];
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', pb: 5 }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ md: 'center' }}
-          mb={4}
-          spacing={2}
-        >
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} mb={4} spacing={2}>
           <Box>
-            <Typography variant="h4" fontWeight={900} color="#0f172a">
-              Stock Management
-            </Typography>
+            <Typography variant="h4" fontWeight={900} color="#0f172a">Stock Management</Typography>
             <Typography color="text.secondary">Track investment value and profit margins</Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpen(true)}
-            sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}
-          >
-            Add New Stock
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => handleExport('excel')} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>Export</Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>Add New Stock</Button>
+          </Stack>
         </Stack>
 
-        {/* Stats Cards */}
         <Grid container spacing={3} mb={4}>
-          <Grid item xs={12} sm={4}>
-            <StatCard
-              icon={<InventoryIcon color="primary" />}
-              label="Active Variants"
-              value={stats.totalItems}
-              color="#3b82f6"
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <StatCard
-              icon={<WarningAmber color="error" />}
-              label="Low Stock Warning"
-              value={stats.lowStock}
-              color="#ef4444"
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <StatCard
-              icon={<AttachMoney color="success" />}
-              label="Investment Value"
-              value={`₹${stats.totalValue.toLocaleString('en-IN')}`}
-              color="#10b981"
-            />
-          </Grid>
+          <Grid item xs={12} sm={4}><StatCard icon={<InventoryIcon color="primary" />} label="Active Variants" value={stats.totalItems} color="#3b82f6" /></Grid>
+          <Grid item xs={12} sm={4}><StatCard icon={<WarningAmber color="error" />} label="Low Stock Warning" value={stats.lowStock} color="#ef4444" /></Grid>
+          <Grid item xs={12} sm={4}><StatCard icon={<AttachMoney color="success" />} label="Investment Value" value={`₹${formatCurrency(stats.totalValue)}`} color="#10b981" /></Grid>
         </Grid>
 
-        {/* Table Paper */}
         <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <Stack
-            direction="row"
-            sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }}
-            spacing={2}
-            justifyContent="space-between"
-          >
-            <TextField
-              size="small"
-              placeholder="Search by name or SKU..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                width: 400,
-                '& .MuiInputBase-root': { borderRadius: 2, bgcolor: '#f8fafc' },
-              }}
-            />
-            <Button
-              startIcon={<ShowChart />}
-              size="small"
-              color="primary"
-              variant="outlined"
-              onClick={() => setAnalyticsOpen(true)}
-              sx={{ borderRadius: 2, fontWeight: 700 }}
-            >
-              Analytics
-            </Button>
+          <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }} spacing={2} justifyContent="space-between">
+            <TextField size="small" placeholder="Search by name or SKU..." value={searchText} onChange={(e) => setSearchText(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" color="action" /></InputAdornment> }} sx={{ width: 400, '& .MuiInputBase-root': { borderRadius: 2, bgcolor: '#f8fafc' } }} />
+            <Button startIcon={<ShowChart />} size="small" color="primary" variant="outlined" onClick={() => setAnalyticsOpen(true)} sx={{ borderRadius: 2, fontWeight: 700 }}>Analytics</Button>
           </Stack>
-
           <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
-            <DataGrid
-              rows={filteredRows}
-              columns={columns}
-              loading={loading}
-              disableRowSelectionOnClick
-              rowHeight={75}
-              sx={{
-                border: 0,
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f1f5f9' },
-              }}
-            />
+            <DataGrid rows={filteredRows} columns={columns} loading={loading} disableRowSelectionOnClick rowHeight={75} sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} />
           </Box>
         </Paper>
       </Container>
 
-      {/* Analytics Popup */}
-      <Dialog
-        open={analyticsOpen}
-        onClose={() => setAnalyticsOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 4 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1.5, pt: 3 }}>
-          <BarChart color="primary" /> Inventory Analytics
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ py: 1 }}>
-            <Box>
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                TOTAL INVESTMENT (COST)
-              </Typography>
-              <Typography variant="h5" fontWeight={900}>
-                ₹{stats.totalValue.toLocaleString('en-IN')}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                POTENTIAL REVENUE (SELLING)
-              </Typography>
-              <Typography variant="h5" fontWeight={900} color="primary.main">
-                ₹{stats.potentialRevenue.toLocaleString('en-IN')}
-              </Typography>
-            </Box>
-            <Divider />
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: '#f0fdf4',
-                borderRadius: 3,
-                border: '1px solid #dcfce7',
-              }}
-            >
-              <Typography variant="caption" color="success.main" fontWeight={800}>
-                ESTIMATED GROSS PROFIT
-              </Typography>
-              <Typography variant="h4" fontWeight={900} color="success.dark">
-                ₹{stats.projectedProfit.toLocaleString('en-IN')}
-              </Typography>
-            </Box>
-            <Stack
-              direction="row"
-              spacing={2}
-              sx={{ p: 2, bgcolor: '#fff7ed', borderRadius: 3, border: '1px solid #ffedd5' }}
-            >
-              <WarningAmber color="warning" />
-              <Box>
-                <Typography variant="subtitle2" fontWeight={800} color="#9a3412">
-                  Stock Health
-                </Typography>
-                <Typography variant="body2" color="#c2410c">
-                  {stats.lowStock} items are currently below the safety threshold.
-                </Typography>
-              </Box>
-            </Stack>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button
-            onClick={() => setAnalyticsOpen(false)}
-            fullWidth
-            variant="outlined"
-            sx={{ borderRadius: 2, fontWeight: 700 }}
-          >
-            Close Insights
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Add Stock Dialog */}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 4 } }}
-      >
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
         <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>Record Stock Purchase</DialogTitle>
-        <DialogContent sx={{ pb: 2 }}>
+        <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
-            {/* SEARCHABLE SELECTION (AUTOCOMPLETE) */}
             <Autocomplete
               options={itemVariants}
-              getOptionLabel={(option) =>
-                `${option.itemName} - ${option.color} (${option.size})`
-              }
-              filterOptions={(options, { inputValue }) =>
-                options.filter(
-                  (o) =>
-                    o.itemName.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    (o.sku && o.sku.toLowerCase().includes(inputValue.toLowerCase()))
-                )
-              }
-              value={itemVariants.find((v) => v.id === formData.itemVariantId) || null}
-              onChange={(_, newValue) => {
-                setFormData({ ...formData, itemVariantId: newValue ? newValue.id : '' });
-              }}
+              getOptionLabel={(o) => `${o.itemName} - ${o.color} (${o.size})`}
+              value={itemVariants.find(v => v.id === formData.itemVariantId) || null}
+              onChange={(_, v) => setFormData({ ...formData, itemVariantId: v?.id || '' })}
               renderOption={(props, option) => (
                 <Box component="li" {...props} key={option.id}>
-                  <Box sx={{ py: 0.5 }}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      {option.itemName} — {option.color} ({option.size})
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      SKU: {option.sku} | Unit: {option.unit}
-                    </Typography>
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={700}>{option.itemName} — {option.color} ({option.size})</Typography>
+                    <Typography variant="caption" color="text.secondary">SKU: {option.sku} | Unit: {option.unit}</Typography>
                   </Box>
                 </Box>
               )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Product Variant"
-                  placeholder="Search by name or SKU..."
-                  variant="outlined"
-                  fullWidth
-                />
-              )}
+              renderInput={(params) => <TextField {...params} label="Select Product Variant" placeholder="Search name or SKU..." />}
             />
-
             {selectedVariant && (
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: '#f0f9ff',
-                  borderRadius: 3,
-                  border: '1px dashed #0ea5e9',
-                }}
-              >
+              <Box sx={{ p: 2, bgcolor: '#f0f9ff', borderRadius: 3, border: '1px dashed #0ea5e9' }}>
                 <Grid container alignItems="center">
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      RETAIL PRICE
-                    </Typography>
-                    <Typography variant="h6" fontWeight={800}>
-                      ₹{selectedVariant.pricePerUnit}
-                    </Typography>
-                  </Grid>
+                  <Grid item xs={6}><Typography variant="caption">RETAIL PRICE</Typography><Typography variant="h6" fontWeight={800}>₹{formatCurrency(selectedVariant.pricePerUnit)}</Typography></Grid>
                   {formData.costPerUnit && (
                     <Grid item xs={6} sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        EST. PROFIT MARGIN
-                      </Typography>
-                      <Typography
-                        variant="h6"
-                        fontWeight={800}
-                        color={
-                          selectedVariant.pricePerUnit > Number(formData.costPerUnit)
-                            ? 'success.main'
-                            : 'error.main'
-                        }
-                      >
-                        {(
-                          ((selectedVariant.pricePerUnit - Number(formData.costPerUnit)) /
-                            selectedVariant.pricePerUnit) *
-                          100
-                        ).toFixed(1)}
-                        %
+                      <Typography variant="caption">EST. MARGIN</Typography>
+                      <Typography variant="h6" fontWeight={800} color="success.main">
+                        {(((selectedVariant.pricePerUnit - Number(formData.costPerUnit)) / selectedVariant.pricePerUnit) * 100).toFixed(1)}%
                       </Typography>
                     </Grid>
                   )}
                 </Grid>
               </Box>
             )}
-
             <Grid container spacing={2}>
-              {/* Purchase Cost - Prevent negative */}
-              <Grid item xs={6}>
-                <Tooltip
-                  title="Purchase price cannot be negative"
-                  arrow
-                  placement="top"
-                >
-                  <TextField
-                    fullWidth
-                    label="Purchase Cost (Per Unit)"
-                    type="number"
-                    value={formData.costPerUnit}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      // Allow only non-negative numbers
-                      if (val === '' || Number(val) >= 0) {
-                        setFormData({ ...formData, costPerUnit: val });
-                      }
-                    }}
-                    inputProps={{ min: 0 }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                    }}
-                    error={formData.costPerUnit !== '' && Number(formData.costPerUnit) < 0}
-                    helperText={
-                      formData.costPerUnit !== '' && Number(formData.costPerUnit) < 0
-                        ? 'Negative value not allowed'
-                        : ''
-                    }
-                  />
-                </Tooltip>
-              </Grid>
-
-              {/* Quantity - Prevent negative & zero */}
-              <Grid item xs={6}>
-                <Tooltip
-                  title="Quantity must be greater than 0"
-                  arrow
-                  placement="top"
-                >
-                  <TextField
-                    fullWidth
-                    label="Quantity to Add"
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      // Allow only positive numbers
-                      if (val === '' || (Number(val) > 0 && Number.isInteger(Number(val)))) {
-                        setFormData({ ...formData, quantity: val });
-                      }
-                    }}
-                    inputProps={{ min: 1, step: 1 }}
-                    error={formData.quantity !== '' && Number(formData.quantity) <= 0}
-                    helperText={
-                      formData.quantity !== '' && Number(formData.quantity) <= 0
-                        ? 'Must be greater than 0'
-                        : ''
-                    }
-                  />
-                </Tooltip>
-              </Grid>
+              <Grid item xs={6}><TextField fullWidth label="Purchase Cost" type="number" value={formData.costPerUnit} onChange={(e) => setFormData({ ...formData, costPerUnit: e.target.value })} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} /></Grid>
+              <Grid item xs={6}><TextField fullWidth label="Quantity" type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} /></Grid>
             </Grid>
-
-            <TextField
-              fullWidth
-              label="Batch / Lot Number"
-              placeholder="Optional"
-              value={formData.batch}
-              onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-            />
+            <TextField fullWidth label="Batch / Lot Number" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
-          <Button
-            onClick={() => setOpen(false)}
-            sx={{ fontWeight: 700, color: 'text.secondary' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={isSubmitting}
-            sx={{ borderRadius: 2, px: 4, fontWeight: 700 }}
-          >
-            {isSubmitting ? <CircularProgress size={24} /> : 'Complete Entry'}
-          </Button>
-        </DialogActions>
+        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleSubmit} disabled={isSubmitting} sx={{ borderRadius: 2, fontWeight: 700 }}>Complete Entry</Button></DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={!!successMsg}
-        autoHideDuration={3000}
-        onClose={() => setSuccessMsg('')}
-      >
-        <Alert severity="success" variant="filled" sx={{ borderRadius: 2 }}>
-          {successMsg}
-        </Alert>
-      </Snackbar>
-      <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError(null)}>
-        <Alert severity="error" variant="filled" sx={{ borderRadius: 2 }}>
-          {error}
-        </Alert>
-      </Snackbar>
+      {/* Adjust Stock Dialog */}
+      <Dialog open={adjustOpen} onClose={() => setAdjustOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>Manual Stock Adjustment</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            {selectedVariant && (
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fffbeb', borderColor: '#fef3c7', borderRadius: 2 }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <InfoIcon color="warning" />
+                        <Box>
+                            <Typography variant="subtitle2" fontWeight={800}>Adjusting: {selectedVariant.itemName} ({selectedVariant.sku})</Typography>
+                            <Typography variant="body2" color="text.secondary">Current Balance: <strong>{stock.find(s => s.itemVariantId === selectedVariant.id)?.totalQuantity || 0} {selectedVariant.unit}</strong></Typography>
+                        </Box>
+                    </Stack>
+                </Paper>
+            )}
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+                <strong>Tip:</strong> Use <strong>positive</strong> numbers to add stock and <strong>negative</strong> numbers (e.g., -5) to deduct stock.
+            </Alert>
+            <TextField select fullWidth label="Reason for Change" value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })}>
+              <MenuItem value="Damaged">Damaged / Expired</MenuItem>
+              <MenuItem value="Correction">Inventory Audit Correction</MenuItem>
+              <MenuItem value="Return">Customer Return (Not via Order)</MenuItem>
+              <MenuItem value="Sample">Given as Sample</MenuItem>
+            </TextField>
+            <TextField fullWidth type="number" label="Adjustment Quantity" placeholder="e.g. -5 or 10" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}><Button onClick={() => setAdjustOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleAdjustSubmit} disabled={isSubmitting || !formData.quantity || !formData.reason}>Apply Adjustment</Button></DialogActions>
+      </Dialog>
+
+      {/* Audit Log Dialog */}
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>Stock Audit History</DialogTitle>
+        <DialogContent>
+          {selectedHistory.length === 0 ? <Box sx={{ py: 4, textAlign: 'center' }}><Typography color="text.secondary">No movements found.</Typography></Box> : 
+            selectedHistory.map((m, i) => (
+              <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', p: 2, borderBottom: '1px solid #f1f5f9' }}>
+                <Box><Typography variant="subtitle2" fontWeight={700}>{m.movementType} — {m.reason || 'Purchased'}</Typography>
+                <Typography variant="caption" color="text.secondary">{new Date(m.timestamp).toLocaleString()}</Typography></Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="body2" fontWeight={800} color={m.quantity > 0 ? 'success.main' : 'error.main'}>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</Typography>
+                  <Typography variant="caption">WAC: ₹{formatCurrency(m.costPerUnit)}</Typography>
+                </Box>
+              </Box>
+            ))
+          }
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={() => setHistoryOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
+
+      {/* Analytics Popup */}
+      <Dialog open={analyticsOpen} onClose={() => setAnalyticsOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}><BarChart color="primary" sx={{ mr: 1, verticalAlign: 'middle' }} /> Inventory Analytics</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ py: 1 }}>
+            <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>TOTAL INVESTMENT (WAC)</Typography>
+            <Typography variant="h5" fontWeight={900}>₹{formatCurrency(stats.totalValue)}</Typography></Box>
+            <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>POTENTIAL REVENUE</Typography>
+            <Typography variant="h5" fontWeight={900} color="primary.main">₹{formatCurrency(stats.potentialRevenue)}</Typography></Box>
+            <Divider />
+            <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, border: '1px solid #dcfce7' }}>
+              <Typography variant="caption" color="success.main" fontWeight={800}>ESTIMATED GROSS PROFIT</Typography>
+              <Typography variant="h4" fontWeight={900} color="success.dark">₹{formatCurrency(stats.projectedProfit)}</Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}><Button onClick={() => setAnalyticsOpen(false)} fullWidth variant="outlined">Close</Button></DialogActions>
+      </Dialog>
+
+      <Snackbar open={!!successMsg} autoHideDuration={3000} onClose={() => setSuccessMsg('')}><Alert severity="success" variant="filled">{successMsg}</Alert></Snackbar>
+      <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError(null)}><Alert severity="error" variant="filled">{error}</Alert></Snackbar>
     </Box>
   );
 };
 
 const StatCard = ({ icon, label, value, color }) => (
-  <Card
-    elevation={0}
-    sx={{
-      borderRadius: 4,
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-    }}
-  >
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
-      <Box sx={{ bgcolor: `${color}15`, p: 2, borderRadius: 3, display: 'flex' }}>
-        {icon}
-      </Box>
-      <Box>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          fontWeight={700}
-          sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
-        >
-          {label}
-        </Typography>
-        <Typography variant="h5" fontWeight={900}>
-          {value}
-        </Typography>
-      </Box>
+      <Box sx={{ bgcolor: `${color}15`, p: 2, borderRadius: 3, display: 'flex' }}>{icon}</Box>
+      <Box><Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>{label}</Typography>
+      <Typography variant="h5" fontWeight={900}>{value}</Typography></Box>
     </CardContent>
   </Card>
 );

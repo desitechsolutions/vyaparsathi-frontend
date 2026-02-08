@@ -201,6 +201,13 @@ export const fetchItemVariantById = async (id) => {
 // Add & Fetch Stock
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchStock = () => API.get(endpoints.fetchStock);
+// --- IMPORTANT: Background polling for low stock alerts ---
+export const fetchLowStockAlerts = () =>
+  API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+export const adjustStock = (data) => API.post('/api/stock/adjust', data);
+export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
+export const exportStockReport = (startDate, endDate, format) => 
+  API.get(`/api/stock/movements/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
 
 // Customer related APIs
 export const fetchCustomers = () => API.get(endpoints.customers);
@@ -289,9 +296,7 @@ export const fetchSalesSummary = (from, to) => {
   }
   return API.get(endpoints.reports.salesSummary()); // no params
 };
-// --- IMPORTANT: Background polling for low stock alerts ---
-export const fetchLowStockAlerts = () =>
-  API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+
 // GST Summary
 export const fetchGstSummary = (from, to) =>
   API.get(endpoints.reports.gstSummary(from, to));
