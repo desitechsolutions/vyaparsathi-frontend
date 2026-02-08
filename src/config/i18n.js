@@ -276,6 +276,28 @@ const resources = {
         successRegister: 'Registration successful! Redirecting to shop setup...',
         successPinReset: 'PIN reset link sent.',
       },
+      payroll: {
+        title: 'Payroll',
+        stats: {
+          totalPayroll: 'Total Payroll',
+          pendingPayments: 'Pending Payments',
+          processedPayments: 'Processed',
+          activeStaff: 'Active Staff'
+        },
+        table: {
+          staffName: 'Staff Name',
+          role: 'Role',
+          baseSalary: 'Base Salary',
+          netSalary: 'Net Salary',
+          status: 'Status',
+          lastPaid: 'Last Paid'
+        },
+        actions: {
+          processSalary: 'Process Salary',
+          viewPayslip: 'View Payslip',
+          addStaff: 'Add Staff Member'
+        }
+      },
       header: {
         searchPlaceholder: "Search Customers, Invoices, Items...",
         quickAction: "Quick Action",
