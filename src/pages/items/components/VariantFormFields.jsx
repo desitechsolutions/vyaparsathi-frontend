@@ -73,6 +73,18 @@ export default function VariantFormFields({
     },
   };
 
+  // Helper to handle freeSolo fields properly
+  const handleFreeSoloChange = (field) => (event, newValue) => {
+    // newValue can be string (custom) or null
+    const value = newValue && typeof newValue === 'string' ? newValue : '';
+    setCurrentVariant((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFreeSoloInput = (field) => (event, newInputValue) => {
+    // This captures every keystroke → most reliable for custom values
+    setCurrentVariant((prev) => ({ ...prev, [field]: newInputValue }));
+  };
+
   const getVariantForm = () => (
     <Grid container spacing={2}>
       <Grid item xs={12} sm={6}>
@@ -80,8 +92,11 @@ export default function VariantFormFields({
           freeSolo
           options={flattenOptions(clothingSizes)}
           value={currentVariant.size || ''}
-          onChange={(_, val) => setCurrentVariant((prev) => ({ ...prev, size: val || '' }))}
-          renderInput={(params) => <TextField {...params} label={t('itemsPage.form.size')} sx={inputSx} />}
+          onChange={handleFreeSoloChange('size')}
+          onInputChange={handleFreeSoloInput('size')}
+          renderInput={(params) => (
+            <TextField {...params} label={t('itemsPage.form.size')} sx={inputSx} />
+          )}
         />
       </Grid>
 
@@ -90,8 +105,11 @@ export default function VariantFormFields({
           freeSolo
           options={clothingColors}
           value={currentVariant.color || ''}
-          onChange={(_, val) => setCurrentVariant((prev) => ({ ...prev, color: val || '' }))}
-          renderInput={(params) => <TextField {...params} label={t('itemsPage.form.color')} sx={inputSx} />}
+          onChange={handleFreeSoloChange('color')}
+          onInputChange={handleFreeSoloInput('color')}
+          renderInput={(params) => (
+            <TextField {...params} label={t('itemsPage.form.color')} sx={inputSx} />
+          )}
         />
       </Grid>
 
@@ -100,8 +118,11 @@ export default function VariantFormFields({
           freeSolo
           options={flattenOptions(clothingDesigns)}
           value={currentVariant.design || ''}
-          onChange={(_, val) => setCurrentVariant((prev) => ({ ...prev, design: val || '' }))}
-          renderInput={(params) => <TextField {...params} label={t('itemsPage.form.design')} sx={inputSx} />}
+          onChange={handleFreeSoloChange('design')}
+          onInputChange={handleFreeSoloInput('design')}
+          renderInput={(params) => (
+            <TextField {...params} label={t('itemsPage.form.design')} sx={inputSx} />
+          )}
         />
       </Grid>
 
@@ -110,8 +131,11 @@ export default function VariantFormFields({
           freeSolo
           options={clothingFits}
           value={currentVariant.fit || ''}
-          onChange={(_, val) => setCurrentVariant((prev) => ({ ...prev, fit: val || '' }))}
-          renderInput={(params) => <TextField {...params} label={t('itemsPage.form.fit')} sx={inputSx} />}
+          onChange={handleFreeSoloChange('fit')}
+          onInputChange={handleFreeSoloInput('fit')}
+          renderInput={(params) => (
+            <TextField {...params} label={t('itemsPage.form.fit')} sx={inputSx} />
+          )}
         />
       </Grid>
 
@@ -120,8 +144,16 @@ export default function VariantFormFields({
           freeSolo
           options={clothingUnits}
           value={currentVariant.unit || ''}
-          onChange={(_, val) => setCurrentVariant((prev) => ({ ...prev, unit: val || '' }))}
-          renderInput={(params) => <TextField {...params} label={t('itemsPage.form.unit')} required sx={inputSx} />}
+          onChange={handleFreeSoloChange('unit')}
+          onInputChange={handleFreeSoloInput('unit')}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={t('itemsPage.form.unit')}
+              required
+              sx={inputSx}
+            />
+          )}
         />
       </Grid>
 
@@ -172,11 +204,24 @@ export default function VariantFormFields({
           sx={{ borderRadius: 2, py: 1.5, borderStyle: 'dashed', fontWeight: 700 }}
         >
           {t('itemsPage.form.uploadPhoto')}
-          <VisuallyHiddenInput type="file" accept="image/*" onChange={handleCurrentVariantFileChange} />
+          <VisuallyHiddenInput
+            type="file"
+            accept="image/*"
+            onChange={handleCurrentVariantFileChange}
+          />
         </Button>
 
         {(currentVariant.photoPreviewUrl || currentVariant.photoUrl) && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: '#f1f5f9', borderRadius: 3, textAlign: 'center', border: '1px solid #e2e8f0' }}>
+          <Box
+            sx={{
+              mt: 2,
+              p: 1,
+              bgcolor: '#f1f5f9',
+              borderRadius: 3,
+              textAlign: 'center',
+              border: '1px solid #e2e8f0',
+            }}
+          >
             <img
               src={currentVariant.photoPreviewUrl || `${API_BASE_URL}${currentVariant.photoUrl}`}
               alt="Preview"
@@ -192,14 +237,14 @@ export default function VariantFormFields({
     <Grid container spacing={4}>
       {/* Left Column: Form Section */}
       <Grid item xs={12} md={6}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 3, 
-            borderRadius: 4, 
-            border: '2px solid', 
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: 4,
+            border: '2px solid',
             borderColor: isEditing ? 'success.light' : '#e2e8f0',
-            bgcolor: isEditing ? alpha('#f0fdf4', 0.5) : 'white'
+            bgcolor: isEditing ? alpha('#f0fdf4', 0.5) : 'white',
           }}
         >
           <Stack direction="row" alignItems="center" spacing={1} mb={2}>
@@ -234,12 +279,12 @@ export default function VariantFormFields({
           {variantList.length > 0 ? (
             <Stack spacing={2}>
               {variantList.map((variant, index) => (
-                <Card 
-                  key={variant.id || index} 
-                  elevation={0} 
-                  sx={{ 
-                    p: 2, 
-                    borderRadius: 3, 
+                <Card
+                  key={variant.id || index}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
                     border: '1px solid',
                     borderColor: editingVariantIndex === index ? 'primary.main' : '#e2e8f0',
                     bgcolor: editingVariantIndex === index ? '#f0f9ff' : 'white',
@@ -248,21 +293,33 @@ export default function VariantFormFields({
                   <Grid container alignItems="center">
                     <Grid item xs>
                       <Typography variant="subtitle2" fontWeight={900}>
-                        ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: '#64748b' }}>/ {variant.unit}</small>
+                        ₹{variant.pricePerUnit}{' '}
+                        <small style={{ fontWeight: 400, color: '#64748b' }}>
+                          / {variant.unit}
+                        </small>
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                        {variant.size} • {variant.color} • {variant.design || 'Standard'}
+                        {variant.size || '—'} • {variant.color || '—'} •{' '}
+                        {variant.design || 'Standard'}
                       </Typography>
                     </Grid>
                     <Grid item>
                       <Stack direction="row" spacing={0.5}>
                         <Tooltip title={t('itemsPage.actions.edit')}>
-                          <IconButton size="small" sx={{ color: 'primary.main', bgcolor: alpha('#6366f1', 0.1) }} onClick={() => handleEditVariantInList(index)}>
+                          <IconButton
+                            size="small"
+                            sx={{ color: 'primary.main', bgcolor: alpha('#6366f1', 0.1) }}
+                            onClick={() => handleEditVariantInList(index)}
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title={t('itemsPage.actions.delete')}>
-                          <IconButton size="small" sx={{ color: 'error.main', bgcolor: alpha('#ef4444', 0.1) }} onClick={() => handleDeleteVariantInList(index)}>
+                          <IconButton
+                            size="small"
+                            sx={{ color: 'error.main', bgcolor: alpha('#ef4444', 0.1) }}
+                            onClick={() => handleDeleteVariantInList(index)}
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -273,7 +330,14 @@ export default function VariantFormFields({
               ))}
             </Stack>
           ) : (
-            <Box sx={{ py: 6, textAlign: 'center', border: '2px dashed #e2e8f0', borderRadius: 4 }}>
+            <Box
+              sx={{
+                py: 6,
+                textAlign: 'center',
+                border: '2px dashed #e2e8f0',
+                borderRadius: 4,
+              }}
+            >
               <InventoryIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
               <Typography variant="body2" color="text.secondary" fontWeight={600}>
                 {t('itemsPage.variant.noVariantsYet')}
