@@ -125,6 +125,8 @@ const DeliveryManagement = () => {
     setEditMode(false);
     setAssignMode(false);
     setUpdateStatus("");
+    // Reset assign person fields
+    setAssignPerson({ name: "", phone: "", notes: "" });
   };
 
   const handleAssignPerson = async () => {
@@ -132,8 +134,13 @@ const DeliveryManagement = () => {
     setIsSubmitting(true);
     try {
       let personToAssign = assignPerson;
+      // If no ID, it means it's a new person typed in
       if (!personToAssign.id) {
-        const newPersonRes = await createDeliveryPerson(personToAssign);
+        const newPersonRes = await createDeliveryPerson({
+          name: assignPerson.name,
+          phone: assignPerson.phone,
+          notes: assignPerson.notes
+        });
         personToAssign = newPersonRes.data;
       }
       await assignDeliveryPerson(selectedDelivery.deliveryId, personToAssign);
@@ -284,7 +291,19 @@ const DeliveryManagement = () => {
       </TableContainer>
 
       {/* Details Drawer */}
-      <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)} PaperProps={{ sx: { width: { xs: "100vw", sm: 450 }, p: 0 } }}>
+      <Drawer 
+        anchor="right" 
+        open={drawerOpen} 
+        onClose={() => setDrawerOpen(false)} 
+        PaperProps={{ 
+          sx: { 
+            width: { xs: "100vw", sm: 450 }, 
+            p: 0,
+            mt: '64px', // FIX: Pushes drawer down so header wording isn't hidden
+            height: 'calc(100% - 64px)' // Ensures it doesn't overflow bottom
+          } 
+        }}
+      >
         {selectedDelivery && (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 3, bgcolor: '#1a237e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -334,15 +353,24 @@ const DeliveryManagement = () => {
               ) : (
                 <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2 }}>
                   <Autocomplete 
+                    freeSolo // FIX: Allows typing custom names not in the DB
                     options={deliveryPersons} 
-                    getOptionLabel={(opt) => opt.name || ""} 
+                    getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.name || ""} 
                     onInputChange={(e, v) => setAssignPerson(p => ({ ...p, name: v }))}
-                    onChange={(e, v) => v && setAssignPerson(v)}
-                    renderInput={(params) => <TextField {...params} label="Agent Name" size="small" />}
+                    onChange={(e, v) => {
+                        if (typeof v === 'string') {
+                            setAssignPerson(p => ({ ...p, name: v, id: null }));
+                        } else if (v && v.name) {
+                            setAssignPerson(v);
+                        }
+                    }}
+                    renderInput={(params) => <TextField {...params} label="Agent Name" size="small" placeholder="Type new or select existing" />}
                   />
                   <TextField fullWidth size="small" label="Phone" sx={{ my: 1 }} value={assignPerson.phone} onChange={e => setAssignPerson(p => ({ ...p, phone: e.target.value }))} />
                   <Stack direction="row" spacing={1}>
-                    <Button fullWidth variant="contained" size="small" onClick={handleAssignPerson}>Save</Button>
+                    <Button fullWidth variant="contained" size="small" onClick={handleAssignPerson} disabled={isSubmitting}>
+                      {isSubmitting ? <CircularProgress size={20} /> : 'Save & Assign'}
+                    </Button>
                     <Button fullWidth variant="outlined" size="small" onClick={() => setAssignMode(false)}>Cancel</Button>
                   </Stack>
                 </Box>
