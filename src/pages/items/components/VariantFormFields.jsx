@@ -31,6 +31,12 @@ import {
   clothingDesigns,
   clothingUnits,
   clothingFits,
+  // Ensure these exist in your constants for other industries
+  variantSpecs,
+  variantColors,
+  variantModels,
+  variantFits,
+  shopUnits,
 } from '../../../ui/constants';
 import { flattenOptions } from '../utils/flattenOptions';
 import { API_BASE_URL } from '../../../services/api';
@@ -48,6 +54,7 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 export default function VariantFormFields({
+  shopCategory = 'CLOTHING', // Added prop to handle dynamic industries
   currentVariant,
   setCurrentVariant,
   variantList,
@@ -63,6 +70,42 @@ export default function VariantFormFields({
   const { t } = useTranslation();
   const isEditing = editingVariantIndex !== null;
 
+  // --- DYNAMIC INDUSTRY CONFIG ---
+  const fieldConfig = {
+    CLOTHING: {
+      labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') },
+      options: {
+        size: flattenOptions(clothingSizes),
+        color: clothingColors,
+        design: flattenOptions(clothingDesigns),
+        fit: clothingFits,
+        unit: clothingUnits
+      }
+    },
+    ELECTRONICS: {
+      labels: { size: 'Storage/Capacity', color: 'Color/Finish', design: 'Model Number', fit: 'Connectivity' },
+      options: {
+        size: variantSpecs?.ELECTRONICS || [],
+        color: variantColors?.ELECTRONICS || [],
+        design: variantModels?.ELECTRONICS || [],
+        fit: variantFits?.ELECTRONICS || [],
+        unit: shopUnits?.ELECTRONICS || ['PIECE', 'PACK']
+      }
+    },
+    HARDWARE: {
+      labels: { size: 'Dimensions', color: 'Material/Finish', design: 'Grade/Type', fit: 'Installation' },
+      options: {
+        size: variantSpecs?.HARDWARE || [],
+        color: variantColors?.HARDWARE || [],
+        design: variantModels?.HARDWARE || [],
+        fit: variantFits?.HARDWARE || [],
+        unit: shopUnits?.HARDWARE || ['PIECE', 'KG', 'METER']
+      }
+    }
+  };
+
+  const currentConfig = fieldConfig[shopCategory] || fieldConfig.CLOTHING;
+
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
@@ -73,68 +116,69 @@ export default function VariantFormFields({
     },
   };
 
-  // Helper to handle freeSolo fields properly
   const handleFreeSoloChange = (field) => (event, newValue) => {
-    // newValue can be string (custom) or null
     const value = newValue && typeof newValue === 'string' ? newValue : '';
     setCurrentVariant((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleFreeSoloInput = (field) => (event, newInputValue) => {
-    // This captures every keystroke → most reliable for custom values
     setCurrentVariant((prev) => ({ ...prev, [field]: newInputValue }));
   };
 
   const getVariantForm = () => (
     <Grid container spacing={2}>
+      {/* Field 1: Size / Specs */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={flattenOptions(clothingSizes)}
+          options={currentConfig.options.size}
           value={currentVariant.size || ''}
           onChange={handleFreeSoloChange('size')}
           onInputChange={handleFreeSoloInput('size')}
           renderInput={(params) => (
-            <TextField {...params} label={t('itemsPage.form.size')} sx={inputSx} />
+            <TextField {...params} label={currentConfig.labels.size} sx={inputSx} />
           )}
         />
       </Grid>
 
+      {/* Field 2: Color / Finish */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={clothingColors}
+          options={currentConfig.options.color}
           value={currentVariant.color || ''}
           onChange={handleFreeSoloChange('color')}
           onInputChange={handleFreeSoloInput('color')}
           renderInput={(params) => (
-            <TextField {...params} label={t('itemsPage.form.color')} sx={inputSx} />
+            <TextField {...params} label={currentConfig.labels.color} sx={inputSx} />
           )}
         />
       </Grid>
 
+      {/* Field 3: Design / Grade */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={flattenOptions(clothingDesigns)}
+          options={currentConfig.options.design}
           value={currentVariant.design || ''}
           onChange={handleFreeSoloChange('design')}
           onInputChange={handleFreeSoloInput('design')}
           renderInput={(params) => (
-            <TextField {...params} label={t('itemsPage.form.design')} sx={inputSx} />
+            <TextField {...params} label={currentConfig.labels.design} sx={inputSx} />
           )}
         />
       </Grid>
 
+      {/* Field 4: Fit / Connectivity */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={clothingFits}
+          options={currentConfig.options.fit}
           value={currentVariant.fit || ''}
           onChange={handleFreeSoloChange('fit')}
           onInputChange={handleFreeSoloInput('fit')}
           renderInput={(params) => (
-            <TextField {...params} label={t('itemsPage.form.fit')} sx={inputSx} />
+            <TextField {...params} label={currentConfig.labels.fit} sx={inputSx} />
           )}
         />
       </Grid>
@@ -142,7 +186,7 @@ export default function VariantFormFields({
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={clothingUnits}
+          options={currentConfig.options.unit}
           value={currentVariant.unit || ''}
           onChange={handleFreeSoloChange('unit')}
           onInputChange={handleFreeSoloInput('unit')}
@@ -235,7 +279,6 @@ export default function VariantFormFields({
 
   return (
     <Grid container spacing={4}>
-      {/* Left Column: Form Section */}
       <Grid item xs={12} md={6}>
         <Paper
           elevation={0}
@@ -269,7 +312,6 @@ export default function VariantFormFields({
         </Paper>
       </Grid>
 
-      {/* Right Column: List Section */}
       <Grid item xs={12} md={6}>
         <Typography variant="overline" fontWeight={800} color="text.secondary" sx={{ letterSpacing: 1 }}>
           {t('itemsPage.variant.currentVariants')} ({variantList.length})
@@ -300,7 +342,7 @@ export default function VariantFormFields({
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                         {variant.size || '—'} • {variant.color || '—'} •{' '}
-                        {variant.design || 'Standard'}
+                        {variant.design || (shopCategory === 'CLOTHING' ? 'Standard' : 'N/A')}
                       </Typography>
                     </Grid>
                     <Grid item>
