@@ -6,23 +6,63 @@ import {
   Autocomplete,
   Typography,
   Box,
+  ListSubheader,
 } from '@mui/material';
 
-import { clothingFabrics, clothingSeasons } from '../../../ui/constants';
+import { 
+  clothingFabrics, 
+  clothingSeasons,
+  variantMaterials, 
+  variantUsage 
+} from '../../../ui/constants';
 
 export default function ItemDetailsForm({
+  shopCategory = 'CLOTHING', 
   itemFormData,
   setItemFormData,
   apiCategories,
 }) {
   const { t } = useTranslation();
 
+  // --- DYNAMIC INDUSTRY CONFIG ---
+  const industryConfig = {
+    CLOTHING: {
+      label1: t('itemsPage.form.fabric'),
+      label2: t('itemsPage.form.season'),
+      options1: clothingFabrics || [],
+      options2: clothingSeasons || [],
+    },
+    ELECTRONICS: {
+      label1: 'Build Material',
+      label2: 'Warranty Period',
+      options1: variantMaterials?.ELECTRONICS || ['Plastic', 'Aluminum', 'Glass'],
+      options2: variantUsage?.ELECTRONICS || ['1 Year', '2 Years', 'Limited Life-time'],
+    },
+    HARDWARE: {
+      label1: 'Material',
+      label2: 'Usage Environment',
+      options1: variantMaterials?.HARDWARE || ['Steel', 'Wood', 'Brass', 'PVC'],
+      options2: variantUsage?.HARDWARE || ['Indoor', 'Outdoor', 'Industrial', 'Marine'],
+    }
+  };
+
+  const currentConfig = industryConfig[shopCategory] || industryConfig.CLOTHING;
+
+  // --- GROUPING & SORTING CATEGORIES ---
+  const sortedCategories = React.useMemo(() => {
+    return [...(apiCategories || [])].sort((a, b) => {
+      // Sort primarily by parent name to keep groups together
+      const groupA = a.parentName || a.name;
+      const groupB = b.parentName || b.name;
+      return groupA.localeCompare(groupB);
+    });
+  }, [apiCategories]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setItemFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Styled Input Props to maintain consistency across the app
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
@@ -55,10 +95,11 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Category Selection */}
+        {/* Category Selection with Grouping */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
-            options={apiCategories || []}
+            options={sortedCategories}
+            groupBy={(option) => option.parentName || 'MAIN INDUSTRIES'}
             getOptionLabel={(option) => option.name || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
             value={apiCategories.find((cat) => cat.id === itemFormData.categoryId) || null}
@@ -68,6 +109,15 @@ export default function ItemDetailsForm({
                 categoryId: newValue ? newValue.id : '',
               }))
             }
+            // This makes the group headers look much cleaner
+            renderGroup={(params) => (
+              <li key={params.key}>
+                <ListSubheader sx={{ bgcolor: '#f1f5f9', fontWeight: 800, color: 'primary.main', lineHeight: '32px' }}>
+                  {params.group}
+                </ListSubheader>
+                <Box sx={{ pl: 1 }}>{params.children}</Box>
+              </li>
+            )}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -93,19 +143,19 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Fabric (FreeSolo) */}
+        {/* Attribute 1 */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
-            options={clothingFabrics || []}
-            value={itemFormData.fabric || ''}
+            options={currentConfig.options1}
+            value={itemFormData.attribute1 || itemFormData.fabric || ''}
             onInputChange={(_, newValue) => 
-              setItemFormData((prev) => ({ ...prev, fabric: newValue }))
+              setItemFormData((prev) => ({ ...prev, attribute1: newValue }))
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t('itemsPage.form.fabric')}
+                label={currentConfig.label1}
                 variant="outlined"
                 sx={inputSx}
               />
@@ -113,19 +163,19 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Season (FreeSolo) */}
+        {/* Attribute 2 */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
-            options={clothingSeasons || []}
-            value={itemFormData.season || ''}
+            options={currentConfig.options2}
+            value={itemFormData.attribute2 || itemFormData.season || ''}
             onInputChange={(_, newValue) => 
-              setItemFormData((prev) => ({ ...prev, season: newValue }))
+              setItemFormData((prev) => ({ ...prev, attribute2: newValue }))
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t('itemsPage.form.season')}
+                label={currentConfig.label2}
                 variant="outlined"
                 sx={inputSx}
               />
@@ -144,7 +194,7 @@ export default function ItemDetailsForm({
             multiline
             rows={3}
             variant="outlined"
-            placeholder="Enter product details, care instructions, etc..."
+            placeholder="Enter product details, specifications, etc..."
             sx={inputSx}
           />
         </Grid>

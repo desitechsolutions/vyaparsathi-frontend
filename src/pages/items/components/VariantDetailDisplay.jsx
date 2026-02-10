@@ -17,8 +17,32 @@ import { useTranslation } from 'react-i18next';
 
 import { API_BASE_URL } from '../../../services/api';
 
-export default function VariantDetailDisplay({ item, stockData, onDeleteVariant }) {
+export default function VariantDetailDisplay({ 
+  item, 
+  stockData, 
+  onDeleteVariant,
+  shopCategory = 'CLOTHING' // Industry context
+}) {
   const { t } = useTranslation();
+
+  // --- Dynamic Industry Labels ---
+  const industryLabels = {
+    CLOTHING: {
+      colorSize: (v) => `${v.color} — ${v.size}`,
+      secondary: (v) => `${v.design || t('itemsPage.variant.standardDesign')} • ${v.fit || t('itemsPage.variant.standardFit')}`
+    },
+    ELECTRONICS: {
+      colorSize: (v) => `${v.color} (Finish) — ${v.size} (Storage)`,
+      secondary: (v) => `${v.design || 'Standard Model'} • ${v.fit || 'No Connectivity Info'}`
+    },
+    HARDWARE: {
+      colorSize: (v) => `${v.color} (Material) — ${v.size} (Specs)`,
+      secondary: (v) => `${v.design || 'Standard Grade'} • ${v.fit || 'Standard Mounting'}`
+    }
+  };
+
+  const labels = industryLabels[shopCategory] || industryLabels.CLOTHING;
+
   const stockLookup = useMemo(() => {
     const map = new Map();
     if (stockData) {
@@ -57,7 +81,7 @@ export default function VariantDetailDisplay({ item, stockData, onDeleteVariant 
                     }
                   }}
                 >
-                  {/* Photo Section - Top Aligned */}
+                  {/* Photo Section */}
                   <Box
                     sx={{
                       height: 180,
@@ -106,7 +130,7 @@ export default function VariantDetailDisplay({ item, stockData, onDeleteVariant 
                           {variant.sku || t('itemsPage.variant.noSku')}
                         </Typography>
                         <Typography variant="subtitle1" fontWeight={900} sx={{ lineHeight: 1.2, mb: 0.5 }}>
-                          {variant.color} — {variant.size}
+                          {labels.colorSize(variant)}
                         </Typography>
                       </Box>
                       <Typography variant="h6" fontWeight={900} color="primary.main">
@@ -115,7 +139,7 @@ export default function VariantDetailDisplay({ item, stockData, onDeleteVariant 
                     </Stack>
 
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      {variant.design} • {variant.fit} • {variant.unit}
+                      {labels.secondary(variant)} • {variant.unit}
                     </Typography>
 
                     <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
