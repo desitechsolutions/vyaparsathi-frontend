@@ -100,11 +100,31 @@ export const login = (payload) =>
 export const register = async (data) => {
   return API.post(endpoints.auth.register, data);
 };
+
+// --- Authentication & Pin Reset ---
+
+// Request a reset link via email
+export const forgotPassword = (data) => 
+  API.post('/api/auth/forget-password', data, { skipAuthRefresh: true });
+
+// Validate if the token from the email is still valid
+export const validateResetToken = (token) => 
+  API.post('/api/auth/validate-reset-token', { token });
+
+// Set the new pin/password using the token
+export const resetPassword = (data) => 
+  API.post('/api/auth/reset-password', data, { skipAuthRefresh: true });
 export const forgotPin = (data) => API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
 export const resetPin = (data) => API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
 export const changePin = (data) => API.post(endpoints.auth.changePin, data);
 // API functions
 export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
+// Add this to your existing api.js
+export const checkShopCode = async (code) => {
+  // This calls a simple GET endpoint that returns 200 if available, 409 if taken
+  const response = await API.get(`api/shop/check-code?code=${code}`);
+  return response.data;
+};
 export const refreshToken = (refreshToken) =>
   API.post(endpoints.auth.refresh, { refreshToken });
 
@@ -231,6 +251,12 @@ export const draftSale = (data) =>{
 export const completeDraftSale = async (id, data) => {
   return await API.put(`api/sales/${id}/complete`, data);
 };
+// Add to services/api.js
+export const processSaleReturn = (saleId, returnData) => 
+    API.post(`/api/sales/${saleId}/return`, returnData);
+
+export const cancelSale = (saleId, reason) => 
+    API.post(`/api/sales/${saleId}/cancel?reason=${encodeURIComponent(reason)}`, {});
 
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
 export const fetchSalesHistory = () => API.get(endpoints.salesHistory);
@@ -282,7 +308,11 @@ export const deleteDeliveryPerson = (id) =>
 
 //Notifications API
 export const fetchNotifications = (recipient) => API.get(`/api/notifications?recipient=${recipient}`);
-export const markNotificationAsRead = (id) => API.patch(`/api/notifications/${id}/read`);
+// Individual read
+export const markNotificationAsRead = (id) => API.post(`/api/notifications/${id}/read`);
+// Bulk actions
+export const markAllNotificationsAsRead = (recipient) => API.put(`/api/notifications/read-all?recipient=${recipient}`);
+export const clearAllNotifications = (recipient) => API.delete(`/api/notifications/clear-all?recipient=${recipient}`);
 
 // Reports related APIs
 
@@ -445,7 +475,83 @@ export const updateReceivingTicket = (data) =>
 export const deleteReceivingTicket = (data) =>
   API.delete('{/tickets/${id}');
 
+// --- Staff Management ---
+export const fetchStaff = (month, year, page = 0, size = 100) =>
+  API.get(endpoints.staff, {
+    params: {
+      month,
+      year,
+      page,
+      size
+    }
+  }).then(r => r.data);
 
+export const addStaff = (data) =>
+  API.post(endpoints.staff, data).then(r => r.data);
+
+export const updateStaff = (id, data) =>
+  API.put(`${endpoints.staff}/${id}`, data).then(r => r.data);
+
+export const deleteStaff = (id) =>
+  API.delete(`${endpoints.staff}/${id}`).then(r => r.data);
+
+// --- Advance Management ---
+export const issueStaffAdvance = (id, amount, remarks) =>
+  API.post(`${endpoints.staff}/${id}/advance`, null, { 
+    params: { amount, remarks } 
+  }).then(r => r.data);
+
+// --- Payroll Processing ---
+export const processSalary = (payload) =>
+  API.post(endpoints.payrollProcess, payload).then(r => r.data);
+
+// This is the one you'll use for your Bulk Selection later
+export const processBulkSalary = (payloadArray) =>
+  API.post(endpoints.payrollBulk, payloadArray).then(r => r.data);
+
+// --- History ---
+export const fetchStaffPaymentHistory = (staffId, page = 0, size = 10) =>
+  API.get(`${endpoints.payrollHistory}/staff/${staffId}?page=${page}&size=${size}`).then(r => r.data);
+
+// Subscription & Payment Verification APIs
+
+// --- USER / SHOP OWNER ACTIONS ---
+
+// Start the 14-day free trial (NEW - added to match controller)
+export const startTrial = () => 
+  API.post('/api/subscriptions/trial/start').then(res => res.data);
+
+// Submit UPI/HDFC UTR for verification
+export const submitPaymentUtr = (paymentData) => 
+  API.post('/api/subscriptions/verify-payment', paymentData).then(res => res.data);
+
+// Fetch current shop's subscription status, tier, and days remaining
+export const fetchSubscriptionStatus = () => 
+  API.get('/api/subscriptions/status').then(res => res.data);
+
+
+// --- SUPER_ADMIN PLATFORM ACTIONS ---
+
+// Admin: Get the queue of pending UTRs for manual bank statement checking
+export const fetchPendingVerifications = () => 
+  API.get('/api/subscriptions/platform/pending').then(res => res.data);
+
+// Admin: Approve a payment (Activates the shop's plan)
+export const approvePayment = (verificationId) => 
+  API.post(`/api/subscriptions/platform/approve/${verificationId}`).then(res => res.data);
+
+// Admin: Reject a payment (Requires a reason as a query param)
+export const rejectPayment = (verificationId, reason) => 
+  API.post(`/api/subscriptions/platform/reject/${verificationId}`, null, { 
+    params: { reason } 
+  }).then(res => res.data);
+
+  export const fetchPlatformStats = () => 
+  API.get('/api/subscriptions/platform/stats').then(res => res.data);
+
+// Optional: Admin Platform Revenue Chart Data
+export const fetchPlatformRevenueHistory = (days = 30) => 
+  API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
 
 // --- User Management API ---
 export const fetchUsers = () =>
