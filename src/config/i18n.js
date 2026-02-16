@@ -256,7 +256,7 @@ const resources = {
         pin: 'PIN',
         forgotPin: 'Forgot PIN?',
         forgotPinTitle: 'Forgot PIN?',
-        forgotPinPrompt: "Enter your username and we'll send you a link to reset your PIN.",
+        forgotPinPrompt: "Enter your registered email and we'll send you a link to reset your PIN.",
         sendResetLink: 'Send Reset Link',
         noAccount: "Don't have an account?",
         signUp: 'Sign Up',
@@ -268,6 +268,7 @@ const resources = {
         firstName: 'First Name',
         lastName: 'Last Name',
         email: 'Email',
+        phone: 'Mobile Number',
         errorRequired: '{{field}} is required.',
         errorAllFieldsRequired: 'All fields are required.',
         errorPinsDontMatch: 'PINs do not match.',
@@ -276,12 +277,34 @@ const resources = {
         successRegister: 'Registration successful! Redirecting to shop setup...',
         successPinReset: 'PIN reset link sent.',
       },
+      payroll: {
+        title: 'Payroll',
+        stats: {
+          totalPayroll: 'Total Payroll',
+          pendingPayments: 'Pending Payments',
+          processedPayments: 'Processed',
+          activeStaff: 'Active Staff'
+        },
+        table: {
+          staffName: 'Staff Name',
+          role: 'Role',
+          baseSalary: 'Base Salary',
+          netSalary: 'Net Salary',
+          status: 'Status',
+          lastPaid: 'Last Paid'
+        },
+        actions: {
+          processSalary: 'Process Salary',
+          viewPayslip: 'View Payslip',
+          addStaff: 'Add Staff Member'
+        }
+      },
       header: {
         searchPlaceholder: "Search Customers, Invoices, Items...",
         quickAction: "Quick Action",
         transactionShortcuts: "Transaction Shortcuts",
         newSale: "New Sale",
-        advancePayment: "Advance Payment",
+        advancePayment: "Payment",
         addProduct: "Add Product",
         critical: "critical",
         lowStock: "low stock",
@@ -629,7 +652,7 @@ const resources = {
         pin: 'पिन',
         forgotPin: 'पिन भूल गए?',
         forgotPinTitle: 'पिन भूल गए?',
-        forgotPinPrompt: 'अपना उपयोगकर्ता नाम दर्ज करें और हम आपको आपका पिन रीसेट करने के लिए एक लिंक भेजेंगे।',
+        forgotPinPrompt: 'अपना ईमेल दर्ज करें और हम आपको आपका पिन रीसेट करने के लिए एक लिंक भेजेंगे।',
         sendResetLink: 'रीसेट लिंक भेजें',
         noAccount: 'खाता नहीं है?',
         signUp: 'साइन अप करें',
@@ -638,6 +661,7 @@ const resources = {
         firstName: 'पहला नाम',
         lastName: 'अंतिम नाम',
         email: 'ईमेल',
+        phone: 'मोबाइल ',
         role: 'भूमिका',
         register: 'पंजीकरण करें',
         backToLogin: 'लॉगिन पर वापस जाएं',
@@ -654,7 +678,7 @@ const resources = {
         quickAction: "त्वरित कार्रवाई",
         transactionShortcuts: "लेन-देन शॉर्टकट",
         newSale: "नई बिक्री",
-        advancePayment: "अग्रिम भुगतान",
+        advancePayment: "भुगतान",
         addProduct: "उत्पाद जोड़ें",
         critical: "गंभीर",
         lowStock: "कम स्टॉक",

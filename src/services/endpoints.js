@@ -19,6 +19,12 @@ const endpoints = {
   userById: (id) => `${API_BASE}/admin/users/${id}`,
   userStatus: (id) => `${API_BASE}/admin/users/${id}/status`,
   userRole: (id) => `${API_BASE}/admin/users/${id}/role`,
+
+  staff: `${API_BASE}/payroll/staff`,
+  payrollProcess: `${API_BASE}/payroll/process`,
+  payrollBulk: `${API_BASE}/payroll/process/bulk`,
+  payrollHistory: `${API_BASE}/payroll/history`,
+
   // Supplier endpoints
   suppliers: `${API_BASE}/suppliers`,
   supplierById: (id) => `${API_BASE}/suppliers/${id}`,

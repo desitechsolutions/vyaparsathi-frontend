@@ -2,10 +2,12 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material'; // Use MUI components
 import useShopConfig from '../../hooks/useShopConfig';
+import useAuth from '../../hooks/useAuth';
 
 export default function ShopGuard({ children }) {
   const { shop, loading } = useShopConfig();
   const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
 
   // Handle Loading state with a standard MUI Spinner
   if (loading) {
@@ -21,6 +23,14 @@ export default function ShopGuard({ children }) {
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (user?.role === 'SUPER_ADMIN') {
+    // Optional: Prevent Super Admin from even seeing the setup-shop page
+    if (location.pathname === '/setup-shop') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return children;
   }
 
   // 1. If no shop, and NOT already on setup page -> Redirect to setup

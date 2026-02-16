@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer, Paper,
   Typography, TextField, InputAdornment, IconButton, Chip, TablePagination,
-  Collapse, Box, Button, Tooltip, Divider, CircularProgress, Stack
+  Collapse, Box, Button, Tooltip, Divider, CircularProgress, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions, Checkbox, FormControlLabel,
+  Alert, Snackbar
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -12,8 +14,13 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
 import DateRangeIcon from '@mui/icons-material/DateRange';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Added Icon
-import { fetchSalesHistory } from '../../services/api'; 
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import CancelIcon from '@mui/icons-material/Cancel';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+
+import { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale } from '../../services/api'; 
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
@@ -21,6 +28,7 @@ const statusConfig = {
   COMPLETED: { label: 'Completed', color: 'success' },
   DRAFT: { label: 'Draft', color: 'warning' },
   CANCELLED: { label: 'Cancelled', color: 'error' },
+  RETURNED: { label: 'Returned', color: 'secondary' },
 };
 
 const paymentStatusColors = {
@@ -29,13 +37,15 @@ const paymentStatusColors = {
   DUE: 'error',
 };
 
-function formatAmount(amount) {
-  return `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-}
-
-function getPaymentStatus(dueAmount) {
-  return Number(dueAmount) <= 0 ? 'PAID' : 'DUE';
-}
+const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const getPaymentStatus = (dueAmount) => Number(dueAmount) <= 0 ? 'PAID' : 'DUE';
+const isToday = (dateString) => {
+    const d = new Date(dateString);
+    const today = new Date();
+    return d.getDate() === today.getDate() && 
+           d.getMonth() === today.getMonth() && 
+           d.getFullYear() === today.getFullYear();
+};
 
 const SalesHistory = () => {
   const [salesHistory, setSalesHistory] = useState([]);
@@ -47,145 +57,180 @@ const SalesHistory = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedRow, setExpandedRow] = useState(null);
 
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Modal States
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectedSale, setSelectedSale] = useState(null);
+  
+  // Return Logic States
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnReason, setReturnReason] = useState('');
+  const [isRefundPayment, setIsRefundPayment] = useState(false);
+
+  // Cancel Logic State
+  const [cancelReason, setCancelReason] = useState('');
+
   const navigate = useNavigate();
   const location = useLocation();
   const API_BASE_URL = 'http://localhost:8080';
 
-  // Check if we are in "Filtered Mode" from Customer Details
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    const invoiceQuery = params.get('search');
-    if (invoiceQuery) {
-      setSearch(invoiceQuery);
-      setExpandedRow(0);
-    }
-  }, [location.search]);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = () => {
     setLoading(true);
     fetchSalesHistory()
       .then((res) => setSalesHistory(res.data || []))
-      .catch((err) => console.error("Load Error:", err))
+      .catch((err) => showSnackbar("Failed to load sales history", "error"))
       .finally(() => setLoading(false));
   };
 
-  const handleExportCSV = () => {
-    if (filteredSales.length === 0) return;
-    const headers = ["Invoice No,Customer,Date,Total Amount,Status,Due Amount\n"];
-    const rows = filteredSales.map(sale => [
-      sale.invoiceNo,
-      `"${sale.customerName || 'Walk-in'}"`,
-      new Date(sale.date).toLocaleDateString('en-IN'),
-      sale.totalAmount,
-      sale.status,
-      sale.dueAmount || 0
-    ].join(","));
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
 
-    const blob = new Blob([headers.concat(rows).join("\n")], { type: 'text/csv' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Sales_Report.csv`;
-    link.click();
+  // --- Summary Calculation for Return ---
+  const totalReturnValue = useMemo(() => {
+    return returnItems.reduce((acc, item) => acc + (item.returnQuantity * item.unitPrice), 0);
+  }, [returnItems]);
+
+  // --- Return Logic ---
+  const handleOpenReturn = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    setSelectedSale(sale);
+    setReturnDialogOpen(true);
+    setLoadingDetails(true);
+    setReturnReason('');
+    setIsRefundPayment(false);
+
+    try {
+      const res = await getSaleById(saleId);
+      const items = res.data.items || []; 
+      
+      setReturnItems(items.map(item => ({
+        saleItemId: item.id, 
+        itemName: item.itemName,
+        originalQty: item.qty,
+        returnedQty: item.returnedQty || 0,
+        netQty: item.netQty !== undefined ? item.netQty : (item.qty - (item.returnedQty || 0)),
+        unitPrice: item.unitPrice,
+        returnQuantity: 0
+      })));
+    } catch (err) {
+      showSnackbar("Failed to load items for return.", "error");
+      setReturnDialogOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const submitReturn = async () => {
+    const saleId = selectedSale?.id || selectedSale?.saleId;
+    const validItems = returnItems.filter(i => i.returnQuantity > 0);
+    
+    if (validItems.length === 0) {
+        showSnackbar("Please enter a return quantity for at least one item.", "warning");
+        return;
+    }
+
+    const payload = {
+      saleId: saleId,
+      reason: returnReason,
+      refundPayment: isRefundPayment,
+      returnItems: validItems.map(i => ({ 
+        saleItemId: i.saleItemId, 
+        returnQuantity: Number(i.returnQuantity) 
+      }))
+    };
+
+    try {
+      await processSaleReturn(saleId, payload); 
+      showSnackbar("Return processed successfully");
+      setReturnDialogOpen(false);
+      loadData();
+    } catch (err) { 
+        showSnackbar(err.response?.data?.message || "Return failed", "error"); 
+    }
+  };
+
+  // --- Cancel Logic ---
+  const handleOpenCancel = (sale) => {
+    setSelectedSale(sale);
+    setCancelReason('');
+    setCancelDialogOpen(true);
+  };
+
+  const submitCancel = async () => {
+    if (!cancelReason.trim()) return;
+    try {
+      await cancelSale(selectedSale.id || selectedSale.saleId, cancelReason);
+      showSnackbar("Sale cancelled successfully");
+      setCancelDialogOpen(false);
+      loadData();
+    } catch (err) { showSnackbar("Cancellation failed", "error"); }
   };
 
   const handlePrintInvoice = async (sale) => {
-    const saleId = sale.saleId || sale.id;
+    const saleId = sale.id || sale.saleId;
     try {
       const res = await axios.get(`${API_BASE_URL}/api/sales/${saleId}/signed-url`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       window.open(`${API_BASE_URL}${res.data}`, '_blank');
-    } catch (err) { alert('Failed to load invoice.'); }
-  };
-
-  const handleResumeDraft = (sale) => {
-    navigate(`/sales?resumeId=${sale.saleId || sale.id}`, { replace: true });
+    } catch (err) { showSnackbar("Failed to load invoice.", "error"); }
   };
 
   const filteredSales = useMemo(() => {
-    return salesHistory
-      .filter(sale => {
-        const matchesSearch = (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-                             (sale.invoiceNo || '').toLowerCase().includes(search.toLowerCase());
-        
-        const saleDate = new Date(sale.date).setHours(0,0,0,0);
-        const start = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
-        const end = endDate ? new Date(endDate).setHours(23,59,59,999) : null;
-
-        const matchesDate = (!start || saleDate >= start) && (!end || saleDate <= end);
-        return matchesSearch && matchesDate;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    return salesHistory.filter(sale => {
+      const matchesSearch = (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
+                           (sale.invoiceNo || '').toLowerCase().includes(search.toLowerCase());
+      const saleDate = new Date(sale.date).setHours(0,0,0,0);
+      const start = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
+      const end = endDate ? new Date(endDate).setHours(23,59,59,999) : null;
+      return matchesSearch && (!start || saleDate >= start) && (!end || saleDate <= end);
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [salesHistory, search, startDate, endDate]);
 
-  const paginatedSales = useMemo(
-    () => filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filteredSales, page, rowsPerPage]
-  );
+  const paginatedSales = filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Box sx={{ p: 2 }}>
+      {/* Header & Search Sections */}
       <Stack spacing={3} sx={{ mb: 4 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                {/* Condition: Show back button ONLY if coming from Customer Details */}
                 {isFilteredView ? (
-                  <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: '#f1f5f9', mr: 1 }}>
-                    <ArrowBackIcon />
-                  </IconButton>
+                  <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: '#f1f5f9', mr: 1 }}><ArrowBackIcon /></IconButton>
                 ) : (
                   <HistoryIcon color="primary" sx={{ fontSize: 32 }} />
                 )}
                 <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                      {isFilteredView ? 'Invoice Lookup' : 'Sales History'}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {isFilteredView ? `Viewing details for ${search}` : 'Manage invoices and export reports'}
-                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 800 }}>{isFilteredView ? 'Invoice Lookup' : 'Sales History'}</Typography>
+                    <Typography variant="body2" color="textSecondary">Manage returns, payments, and invoice status</Typography>
                 </Box>
             </Box>
-            <Button 
-                variant="contained" 
-                startIcon={<DownloadIcon />} 
-                onClick={handleExportCSV}
-                sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}
-            >
-                Export CSV
-            </Button>
+            <Button variant="contained" startIcon={<DownloadIcon />} sx={{ bgcolor: '#10b981', borderRadius: 2, fontWeight: 700 }}>Export CSV</Button>
         </Stack>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', bgcolor: '#f8fafc' }}>
-            <TextField
-                size="small"
-                placeholder="Search name/invoice..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                InputProps={{ 
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" sx={{ color: 'action.active' }} />
-                    </InputAdornment>
-                  )
-                }}
-                sx={{ bgcolor: 'white', minWidth: 250 }}
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 2, alignItems: 'center', bgcolor: '#f8fafc' }}>
+            <TextField size="small" placeholder="Search name/invoice..." value={search} onChange={e => setSearch(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} sx={{ bgcolor: 'white', minWidth: 250 }}
             />
             <Divider orientation="vertical" flexItem />
             <Stack direction="row" spacing={1} alignItems="center">
                 <DateRangeIcon fontSize="small" color="action" />
                 <TextField type="date" size="small" label="From" InputLabelProps={{ shrink: true }} value={startDate} onChange={e => setStartDate(e.target.value)} sx={{ bgcolor: 'white' }} />
                 <TextField type="date" size="small" label="To" InputLabelProps={{ shrink: true }} value={endDate} onChange={e => setEndDate(e.target.value)} sx={{ bgcolor: 'white' }} />
-                {(startDate || endDate) && <Button size="small" onClick={() => { setStartDate(''); setEndDate(''); }}>Clear</Button>}
             </Stack>
         </Paper>
       </Stack>
 
+      {/* Main Table */}
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small">
@@ -195,7 +240,7 @@ const SalesHistory = () => {
                 <TableCell sx={{ fontWeight: 700 }}>Invoice #</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Customer</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Payment</TableCell>
               </TableRow>
@@ -204,12 +249,14 @@ const SalesHistory = () => {
               {loading ? (
                 <TableRow><TableCell colSpan={7} align="center" sx={{ py: 10 }}><CircularProgress /></TableCell></TableRow>
               ) : paginatedSales.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>No sales found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>No transactions found.</TableCell></TableRow>
               ) : paginatedSales.map((sale, idx) => {
                   const isExpanded = expandedRow === idx;
                   const payStatus = getPaymentStatus(sale.dueAmount);
+                  const isCancelable = sale.status === 'DRAFT' || (sale.status === 'COMPLETED' && isToday(sale.date));
+
                   return (
-                    <React.Fragment key={sale.saleId || idx}>
+                    <React.Fragment key={sale.id || idx}>
                       <TableRow hover>
                         <TableCell>
                           <IconButton size="small" onClick={() => setExpandedRow(isExpanded ? null : idx)}>
@@ -219,27 +266,52 @@ const SalesHistory = () => {
                         <TableCell sx={{ fontWeight: 600 }}>{sale.invoiceNo}</TableCell>
                         <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
                         <TableCell>{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</TableCell>
-                        <TableCell>
-                          <Chip label={sale.status} color={statusConfig[sale.status]?.color || 'default'} size="small" />
-                        </TableCell>
-                        <TableCell>
-                          {sale.status !== 'DRAFT' && <Chip label={payStatus} size="small" color={paymentStatusColors[payStatus]} />}
-                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</TableCell>
+                        <TableCell><Chip label={sale.status} color={statusConfig[sale.status]?.color || 'default'} size="small" /></TableCell>
+                        <TableCell>{sale.status !== 'DRAFT' && <Chip label={payStatus} size="small" color={paymentStatusColors[payStatus]} />}</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell colSpan={7} sx={{ p: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ p: 2, bgcolor: '#f8fafc' }}>
-                              <Stack direction="row" spacing={2}>
-                                {sale.status === 'DRAFT' ? (
-                                    <Button variant="contained" color="warning" startIcon={<PlayArrowIcon />} onClick={() => handleResumeDraft(sale)}>Resume</Button>
-                                ) : (
+                            <Box sx={{ p: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                              <Stack direction="row" spacing={4} divider={<Divider orientation="vertical" flexItem />}>
+                                <Stack spacing={1.5} sx={{ minWidth: 220 }}>
+                                  <Typography variant="overline" color="textSecondary">Transaction Actions</Typography>
+                                  {sale.status === 'DRAFT' ? (
+                                    <Button variant="contained" color="warning" startIcon={<PlayArrowIcon />} onClick={() => navigate(`/sales?resumeId=${sale.id}`)}>Resume Draft</Button>
+                                  ) : (
                                     <>
-                                        <Button variant="contained" startIcon={<PrintIcon />} onClick={() => handlePrintInvoice(sale)} sx={{ bgcolor: '#0f172a' }}>Print</Button>
-                                        {Number(sale.dueAmount) > 0 && <Button variant="contained" color="success" onClick={() => navigate(`/customer-payments?saleId=${sale.saleId}`)}>Receive Pay</Button>}
+                                      <Button variant="contained" startIcon={<PrintIcon />} onClick={() => handlePrintInvoice(sale)} sx={{ bgcolor: '#0f172a', '&:hover': {bgcolor: '#1e293b'} }}>Print Invoice</Button>
+                                      {sale.status !== 'CANCELLED' && (
+                                        <Button variant="outlined" color="secondary" startIcon={<AssignmentReturnIcon />} onClick={() => handleOpenReturn(sale)}>Return Items</Button>
+                                      )}
                                     </>
-                                )}
+                                  )}
+                                  {isCancelable && sale.status !== 'CANCELLED' && (
+                                    <Button variant="text" color="error" startIcon={<CancelIcon />} onClick={() => handleOpenCancel(sale)}>
+                                      {sale.status === 'DRAFT' ? 'Discard Draft' : 'Cancel Sale'}
+                                    </Button>
+                                  )}
+                                </Stack>
+                                <Box sx={{ flexGrow: 1 }}>
+                                  <Typography variant="overline" color="textSecondary">Financial Summary</Typography>
+                                  <Stack spacing={1} sx={{ mt: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
+                                      <Typography variant="body2">Total Bill Amount:</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
+                                      <Typography variant="body2">Current Outstanding:</Typography>
+                                      <Typography variant="body2" color="error.main" sx={{ fontWeight: 700 }}>{formatAmount(sale.dueAmount)}</Typography>
+                                    </Box>
+                                    {Number(sale.dueAmount) > 0 && (
+                                      <Button variant="contained" color="success" size="small" startIcon={<PaymentsIcon />} 
+                                        onClick={() => navigate(`/customer-payments?saleId=${sale.id}`)} sx={{ mt: 1, width: 'fit-content', borderRadius: 2 }}>
+                                        Receive Payment
+                                      </Button>
+                                    )}
+                                  </Stack>
+                                </Box>
                               </Stack>
                             </Box>
                           </Collapse>
@@ -254,6 +326,112 @@ const SalesHistory = () => {
         </TableContainer>
         <TablePagination component="div" count={filteredSales.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={e => setRowsPerPage(parseInt(e.target.value, 10))} />
       </Paper>
+
+      {/* RETURN DIALOG */}
+      <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Process Return: {selectedSale?.invoiceNo}</DialogTitle>
+        <DialogContent dividers>
+          {loadingDetails ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
+              <CircularProgress size={30} />
+              <Typography variant="caption">Loading purchased items...</Typography>
+            </Box>
+          ) : (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Item Description</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700 }}>Available</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Returning</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {returnItems.map((item, index) => (
+                      <TableRow key={item.saleItemId}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
+                          <Typography variant="caption" color="textSecondary">{formatAmount(item.unitPrice)} / unit</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title={`Original Purchase: ${item.originalQty}`}>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.netQty}</Typography>
+                              {item.returnedQty > 0 && <Typography variant="caption" color="error">({item.returnedQty} already ret.)</Typography>}
+                            </Box>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField 
+                              type="number" size="small" value={item.returnQuantity} disabled={item.netQty <= 0}
+                              onChange={(e) => {
+                                  const val = Math.min(item.netQty, Math.max(0, Number(e.target.value)));
+                                  const newItems = [...returnItems];
+                                  newItems[index].returnQuantity = val;
+                                  setReturnItems(newItems);
+                              }}
+                              sx={{ width: 80 }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* SUMMARY ROW */}
+                    <TableRow sx={{ bgcolor: '#f0fdf4' }}>
+                        <TableCell colSpan={2} align="right">
+                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Total Return Value:</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                           <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 800 }}>
+                              {formatAmount(totalReturnValue)}
+                           </Typography>
+                        </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <TextField fullWidth label="Reason for return" multiline rows={2} value={returnReason} onChange={e => setReturnReason(e.target.value)} />
+              
+              <Box sx={{ p: 2, bgcolor: '#fff7ed', borderRadius: 2, border: '1px solid #ffedd5' }}>
+                <FormControlLabel control={<Checkbox checked={isRefundPayment} onChange={e => setIsRefundPayment(e.target.checked)} />} 
+                  label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Issue Refund / Add to Customer Credit?</Typography>} />
+                <Typography variant="caption" display="block" color="textSecondary" sx={{ ml: 4 }}>
+                   This will reduce the invoice total and adjust the customer's ledger balance.
+                </Typography>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="secondary" onClick={submitReturn} disabled={loadingDetails || totalReturnValue <= 0} startIcon={<AssignmentReturnIcon />}>
+            Confirm Return {totalReturnValue > 0 && `(${formatAmount(totalReturnValue)})`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* CANCEL DIALOG */}
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 800 }}>
+          <WarningAmberIcon /> Confirm Cancellation
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Are you sure you want to cancel <strong>Invoice {selectedSale?.invoiceNo}</strong>? This action reverses all stock and payment entries permanently.
+          </Typography>
+          <TextField fullWidth label="Cancellation Reason" required value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCancelDialogOpen(false)}>No, Keep Sale</Button>
+          <Button variant="contained" color="error" onClick={submitCancel} disabled={!cancelReason.trim()}>Cancel Sale Now</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SNACKBAR */}
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+      </Snackbar>
     </Box>
   );
 };

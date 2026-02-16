@@ -43,6 +43,9 @@ import VariantFormFields from './items/components/VariantFormFields';
 import ReviewStepContent from './items/components/ReviewStepContent';
 import ItemsAwaitingVariants from './items/components/ItemsAwaitingVariants';
 
+// Import categoryData to determine industry
+import { categoryData } from '../ui/constants';
+
 export default function ItemsPage() {
   const { t } = useTranslation();
 
@@ -92,6 +95,25 @@ export default function ItemsPage() {
     columns,
   } = useItemsLogic();
 
+  // --- DYNAMIC INDUSTRY DETECTION ---
+  const currentShopCategory = useMemo(() => {
+    if (!itemFormData.categoryId || !apiCategories.length) return 'CLOTHING';
+    
+    const selectedCat = apiCategories.find(c => c.id === itemFormData.categoryId);
+    if (!selectedCat) return 'CLOTHING';
+
+    const catName = selectedCat.name.toUpperCase();
+    
+    // Check if category name matches anything in Electronics or Hardware constants
+    const isElectronics = Object.keys(categoryData.ELECTRONICS).some(key => catName.includes(key));
+    if (isElectronics) return 'ELECTRONICS';
+
+    const isHardware = Object.keys(categoryData.HARDWARE).some(key => catName.includes(key));
+    if (isHardware) return 'HARDWARE';
+
+    return 'CLOTHING';
+  }, [itemFormData.categoryId, apiCategories]);
+
   const steps = [
     t('itemsPage.stepper.itemDetails'),
     t('itemsPage.stepper.addVariants'),
@@ -133,7 +155,14 @@ export default function ItemsPage() {
   const getStepContent = (currentStep) => {
     switch (currentStep) {
       case 0:
-        return <ItemDetailsForm itemFormData={itemFormData} setItemFormData={setItemFormData} apiCategories={apiCategories} />;
+        return (
+          <ItemDetailsForm 
+            itemFormData={itemFormData} 
+            setItemFormData={setItemFormData} 
+            apiCategories={apiCategories} 
+            shopCategory={currentShopCategory}
+          />
+        );
       case 1:
         return (
           <VariantFormFields
@@ -148,10 +177,18 @@ export default function ItemsPage() {
             addOrUpdateVariantToList={addOrUpdateVariantToList}
             handleEditVariantInList={handleEditVariantInList}
             handleDeleteVariantInList={handleDeleteVariantInList}
+            shopCategory={currentShopCategory}
           />
         );
       case 2:
-        return <ReviewStepContent itemFormData={itemFormData} variantList={variantList} apiCategories={apiCategories} />;
+        return (
+          <ReviewStepContent 
+            itemFormData={itemFormData} 
+            variantList={variantList} 
+            apiCategories={apiCategories} 
+            shopCategory={currentShopCategory}
+          />
+        );
       default:
         return null;
     }
@@ -231,6 +268,7 @@ export default function ItemsPage() {
                 <ItemsAwaitingVariants
                   itemsWithoutVariants={itemsWithoutVariants}
                   handleManageItem={handleManageItem}
+                  shopCategory={currentShopCategory}
                 />
               </Box>
             )}
@@ -350,6 +388,7 @@ export default function ItemsPage() {
             item={variantsToView}
             stockData={stockData}
             onDeleteVariant={handleDeleteVariant}
+            shopCategory={currentShopCategory}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>

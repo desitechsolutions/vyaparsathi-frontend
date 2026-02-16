@@ -1,14 +1,14 @@
 export const initialVariantState = {
   unit: '',
   pricePerUnit: '',
-  size: '',
-  color: '',
-  design: '',
+  size: '', // Maps to: Storage (Elec) / Dimensions (Hardw)
+  color: '', // Maps to: Finish (Elec) / Material (Hardw)
+  design: '', // Maps to: Model (Elec) / Grade (Hardw)
+  fit: '', // Maps to: Connectivity (Elec) / Installation (Hardw)
   gstRate: '',
   photoFile: null,
   photoPreviewUrl: null,
   lowStockThreshold: '',
-  fit: '',
 };
 
 export const initialItemFormData = {
@@ -16,6 +16,7 @@ export const initialItemFormData = {
   description: '',
   categoryId: '',
   brandName: '',
-  fabric: '',
-  season: '',
+  // RENAMED FOR GENERALITY:
+  attribute1: '', // Maps to: Fabric (Cloth) / Build Material (Elec) / Material (Hardw)
+  attribute2: '', // Maps to: Season (Cloth) / Warranty (Elec) / Usage Env (Hardw)
 };

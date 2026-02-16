@@ -103,7 +103,6 @@ export default function useItemsLogic() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Revoke old preview if it exists
     if (currentVariant.photoPreviewUrl) URL.revokeObjectURL(currentVariant.photoPreviewUrl);
 
     const previewUrl = URL.createObjectURL(file);
@@ -150,7 +149,6 @@ export default function useItemsLogic() {
     const variantsPayload = variantList.map((variant, index) => {
       const { photoFile, photoPreviewUrl, id, ...rest } = variant;
       
-      // Keep ID only if it's an existing database record
       const cleanVariant = { ...rest };
       if (id && !String(id).startsWith('local_')) {
         cleanVariant.id = id;
@@ -202,7 +200,7 @@ export default function useItemsLogic() {
 
   // ── Action Handlers ────────────────────────────────────
   const handleAddItemClick = () => {
-    handleDialogClose(); // Reset state
+    handleDialogClose();
     setOpenAddDialog(true);
   };
 
@@ -215,8 +213,9 @@ export default function useItemsLogic() {
       description: item.description || '',
       categoryId: item.categoryId || '',
       brandName: item.brandName || '',
-      fabric: item.fabric || '',
-      season: item.season || '',
+      // Support both legacy fields and generic attributes
+      attribute1: item.attribute1 || item.fabric || '',
+      attribute2: item.attribute2 || item.season || '',
     });
 
     setVariantList(item.variants.map(v => ({
@@ -240,10 +239,10 @@ export default function useItemsLogic() {
   };
 
   const confirmDeleteVariant = async () => {
-    setOpenDeleteConfirm(false);
     try {
       await deleteItemVariant(selectedVariantId);
       showSnackbar('Variant deleted!', 'success');
+      setOpenDeleteConfirm(false);
       setOpenViewVariantsDialog(false);
       loadData();
     } catch (err) {
