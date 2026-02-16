@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, IconButton, Avatar, Box, Menu, MenuItem,
   useMediaQuery, useTheme, Button, Tooltip, Dialog, DialogTitle,
-  DialogContent, DialogContentText, DialogActions, Badge, keyframes,
+  DialogContent, DialogContentText, DialogActions, Badge, keyframes,Chip,
   InputBase, Divider, ListItemIcon, Paper, CircularProgress, List, ListItemText, ListItemAvatar, Stack
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
 import SettingsDialog from '../settings/SettingsDialog';
+import { useSubscription } from '../../context/SubscriptionContext';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 1; }
@@ -63,6 +65,8 @@ const Header = () => {
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const { isPremium, subscription } = useSubscription();
+  const premium = isPremium();
 
   // --- SEARCH STATES ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,7 +153,6 @@ const Header = () => {
         <Box onClick={() => navigate('/')}>
           <AppBranding />
         </Box>
-
         {/* MIDDLE: Global Search (Desktop & Tablet) */}
         {isLoggedIn && !isMobile && (
           <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
@@ -287,7 +290,6 @@ const Header = () => {
                   </IconButton>
                 </Tooltip>
               )}
-
               {/* NOTIFICATION DROPDOWN */}
               <Menu
                 anchorEl={notificationEl}
@@ -364,6 +366,38 @@ const Header = () => {
                   {i18n.language === 'en' ? 'हिंदी' : 'Eng'}
                 </Typography>
               </IconButton>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* HEADER PRICING OPTION */}
+          {premium ? (
+            <Chip 
+              label={subscription?.tier || 'PRO'} 
+              color="secondary" 
+              size="small"
+              icon={<WorkspacePremiumIcon />}
+              onClick={() => navigate('/pricing')}
+              sx={{ 
+                fontWeight: 800, 
+                cursor: 'pointer',
+                background: 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)',
+                color: '#000'
+              }}
+            />
+          ) : (
+            <Button 
+              variant="contained" 
+              color="warning" 
+              size="small"
+              startIcon={<WorkspacePremiumIcon />}
+              onClick={() => navigate('/pricing')}
+              sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+            >
+              Upgrade
+            </Button>
+          )}
+          
+          {/* Other icons like Notifications, Profile, etc. */}
+        </Box>
 
               {/* USER PROFILE SECTION */}
               <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>

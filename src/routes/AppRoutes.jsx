@@ -1,10 +1,9 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
-import Layout from '../components/layout/Layout'; // Import Layout
+import Layout from '../components/layout/Layout';
 import Dashboard from '../pages/Dashboard';
 import ItemsPage from '../pages/ItemsPage';
-// ... other page imports
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
 import Sales from '../pages/Sales';
@@ -42,74 +41,117 @@ import ShopGuard from '../components/guards/ShopGuard';
 import HsnSummary from '../pages/reports/HsnSummary';
 import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
+import PayrollDashboard from '../pages/PayrollDashboard';
+import PricingPage from '../pages/PricingPage';
+import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
+import ResetPassword from '../pages/ResetPassword';
+import AdminLayout from '../components/layout/AdminLayout';
+import TechAdminDashboard from '../pages/admin/TechAdminDashboard';
+import AdminPaymentQueue from '../pages/admin/AdminPaymentQueue';
+import { useAuthContext } from '../context/AuthContext';
 
 function AppRoutes() {
+  const { user } = useAuthContext();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
   return (
     <AlertProvider>
       <Routes>
         {/* 1. Public Layout: No Sidebar, No ShopGuard */}
         <Route element={<PublicLayout />}>
           <Route path="/login" element={<Login />} />
-          {/* Setup Shop now lives here, so it uses the Namaste/Welcome view */}
           <Route path="/setup-shop" element={<SetupShop />} />
+          <Route path="auth/reset-password" element={<ResetPassword />} />
         </Route>
 
-        {/* 2. Protected Layout: Has Sidebar, Guarded by ShopGuard */}
-        <Route
-          path="/"
+        {/* 2. Admin Routes - Active ONLY for Super Admin */}
+        {isSuperAdmin && (
+          <Route
+            path="/admin"
+            element={
+              <PrivateRoute>
+                <AdminLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route index element={<TechAdminDashboard />} />
+            <Route path="dashboard" element={<TechAdminDashboard />} />
+            <Route path="payments" element={<AdminPaymentQueue />} />
+            <Route path="shops" element={<div>Global Shop Management</div>} />
+          </Route>
+        )}
+
+        {/* 3. Protected Layout: Disabled for Super Admin to avoid ShopGuard/Context conflicts */}
+        {!isSuperAdmin && (
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <ShopGuard>
+                  <Layout />
+                </ShopGuard>          
+              </PrivateRoute>
+            }
+          >
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route index element={<Dashboard />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="items" element={<ItemsPage />} />
+            <Route path="stock" element={<Stock />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
+            <Route path="sales" element={<Sales />} />
+            <Route path="delivery" element={<DeliveryManagement />} />
+            <Route path="expenses" element={<Expenses />} />
+            <Route path="low-stock-alerts" element={<LowStockAlerts />} />
+            <Route path="backup" element={<Backup />} />
+            <Route path="products" element={<ProductOverview />} />
+            <Route path="customer-payments" element={<CustomerPaymentPage />} />
+            <Route path="supplier-payments" element={<SupplierPaymentPage />} />
+            <Route path="about-us" element={<AboutUs />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="purchase-orders" element={<PurchaseOrders />} />
+            <Route path="receiving/:poId" element={<ReceivingPage />} />
+            <Route path="suppliers" element={<Suppliers />} />
+            <Route path="admin/users" element={<UserManagementPage />} />
+            <Route path="admin/payroll" element={<PayrollDashboard />} />
+            
+            <Route path="reports" element={<ReportsIndex />} />
+            <Route path="reports/daily" element={<DailyReport />} />
+            <Route path="reports/sales-summary" element={<SalesSummary />} />
+            <Route path="reports/gst-summary" element={<GstSummary />} />
+            <Route path="reports/gst-breakdown" element={<GstBreakdown />} />
+            <Route path="reports/items-sold" element={<ItemsSold />} />
+            <Route path="reports/category-sales" element={<CategorySales />} />
+            <Route path="reports/customer-sales" element={<CustomerSales />} />
+            <Route path="reports/expenses-summary" element={<ExpensesSummary />} />
+            <Route path="reports/payments-summary" element={<PaymentsSummary />} />
+            <Route path="receivings" element={<Receiving />} />
+            
+            <Route path="reports/tax-compliance" element={<TaxComplianceHub />} />
+            <Route path="compliance/hsn" element={<HsnSummary />} />
+            <Route path="audit" element={<AuditLogs />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="/payroll/history/:staffId" element={<PaymentHistoryPage />} />
+
+            <Route path="*" element={<div>Page Not Found</div>} />
+          </Route>
+        )}
+
+        {/* Root Redirect based on role */}
+        <Route 
+          path="/" 
           element={
-            <PrivateRoute>
-              <ShopGuard>
-                <Layout />
-              </ShopGuard>          
-            </PrivateRoute>
-          }
-        >
-          {/* All these routes will only render if ShopGuard passes */}
-          <Route index element={<Dashboard />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="items" element={<ItemsPage />} />
-          <Route path="stock" element={<Stock />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
-          <Route path="sales" element={<Sales />} />
-          <Route path="delivery" element={<DeliveryManagement />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="low-stock-alerts" element={<LowStockAlerts />} />
-          <Route path="backup" element={<Backup />} />
-          <Route path="products" element={<ProductOverview />} />
-          <Route path="customer-payments" element={<CustomerPaymentPage />} />
-          <Route path="supplier-payments" element={<SupplierPaymentPage />} />
-          <Route path="about-us" element={<AboutUs />} />
-          <Route path="analytics" element={<AnalyticsDashboard />} />
-          <Route path="purchase-orders" element={<PurchaseOrders />} />
-          <Route path="receiving/:poId" element={<ReceivingPage />} />
-          <Route path="suppliers" element={<Suppliers />} />
-          <Route path="admin/users" element={<UserManagementPage />} />
-          
-          {/* Reports routes */}
-          <Route path="reports" element={<ReportsIndex />} />
-          <Route path="reports/daily" element={<DailyReport />} />
-          <Route path="reports/sales-summary" element={<SalesSummary />} />
-          <Route path="reports/gst-summary" element={<GstSummary />} />
-          <Route path="reports/gst-breakdown" element={<GstBreakdown />} />
-          <Route path="reports/items-sold" element={<ItemsSold />} />
-          <Route path="reports/category-sales" element={<CategorySales />} />
-          <Route path="reports/customer-sales" element={<CustomerSales />} />
-          <Route path="reports/expenses-summary" element={<ExpensesSummary />} />
-          <Route path="reports/payments-summary" element={<PaymentsSummary />} />
-          <Route path="receivings" element={<Receiving />} />
-          
-          {/* Compliance Routes */}
-          <Route path="reports/tax-compliance" element={<TaxComplianceHub />} />
-          <Route path="compliance/hsn" element={<HsnSummary />} />
-          <Route path="audit" element={<AuditLogs />} />
-          <Route path="notifications" element={<Notifications />} />
-
-          
-          {/* Catch-all route for 404 inside the dashboard */}
-          <Route path="*" element={<div>Page Not Found</div>} />
-        </Route>
+            isSuperAdmin ? (
+              <Navigate to="/admin/dashboard" replace />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          } 
+        />
+        
+        {/* Global Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AlertProvider>
   );

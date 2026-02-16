@@ -9,6 +9,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { I18nextProvider } from 'react-i18next';
 import i18n from './config/i18n';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 
 function App() {
   return (
@@ -17,7 +18,9 @@ function App() {
         <CssBaseline />
         <Router>
           <AuthProvider>
-            <AppRoutes />
+            <SubscriptionProvider>
+              <AppRoutes />
+            </SubscriptionProvider>
           </AuthProvider>
         </Router>
         <ToastContainer />

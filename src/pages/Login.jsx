@@ -19,7 +19,7 @@ import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { login as loginApi, register as registerApi, forgotPin } from '../services/api';
+import { login as loginApi, register as registerApi, forgotPassword } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const APP_NAME = "VyaparSathi";
@@ -37,6 +37,7 @@ const Login = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +87,12 @@ const Login = () => {
         }
         const response = await loginApi({ username, pin });
         login(response.data.token, response.data.refreshToken);
-        navigate('/', { replace: true });
+
+        if (response.data.role === 'SUPER_ADMIN') {
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
       } 
       else if (view === 'register') {
         if (!firstName.trim() || !username.trim() || !pin.trim() || !confirmPin.trim()) {
@@ -106,6 +112,7 @@ const Login = () => {
           firstName,
           lastName: lastName || null,
           email: email || null,
+          phone,
           username,
           pin,
           role: 'PENDING_OWNER',
@@ -121,13 +128,17 @@ const Login = () => {
         setTimeout(() => navigate('/setup-shop', { replace: true }), 1500);
       } 
       else if (view === 'forgotPin') {
-        if (!username.trim()) {
-          setError(t('login.errorRequired', { field: t('login.username') }));
+        if (!email.trim()) {
+          setError(t('login.errorRequired', { field: t('login.email') }));
           return;
         }
-        const response = await forgotPin({ username });
+        if (!/\S+@\S+\.\S+/.test(email)) {
+          setError(t('login.errorInvalidEmail'));
+          return;
+        }
+        const response = await forgotPassword({ email });
         setSuccessMessage(response.data.message || t('login.successPinReset'));
-        setTimeout(() => setView('login'), 3000);
+        setTimeout(() => setView('login'), 5000);
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message || t('login.errorUnexpected'));
@@ -273,6 +284,18 @@ const Login = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
+                    label={t('login.phone') || "Mobile Number"}
+                    fullWidth
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    size="small"
+                    inputProps={{ maxLength: 10 }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
                     label={t('login.username')}
                     fullWidth
                     value={username}
@@ -351,11 +374,11 @@ const Login = () => {
 
             <Box component="form" onSubmit={handleSubmit} noValidate>
               <TextField
-                label={t('login.username')}
+                label={t('login.email')}
                 fullWidth
                 margin="dense"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={isSubmitting}
                 required
                 size="small"
