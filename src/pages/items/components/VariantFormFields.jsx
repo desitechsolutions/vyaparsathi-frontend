@@ -11,7 +11,6 @@ import {
   Autocomplete,
   TextField,
   Stack,
-  Divider,
   alpha,
   Card,
 } from '@mui/material';
@@ -26,12 +25,6 @@ import {
 
 import { styled } from '@mui/material/styles';
 import {
-  clothingSizes,
-  clothingColors,
-  clothingDesigns,
-  clothingUnits,
-  clothingFits,
-  // Ensure these exist in your constants for other industries
   variantSpecs,
   variantColors,
   variantModels,
@@ -54,7 +47,7 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 export default function VariantFormFields({
-  shopCategory = 'CLOTHING', // Added prop to handle dynamic industries
+  shopCategory = 'CLOTHING', 
   currentVariant,
   setCurrentVariant,
   variantList,
@@ -71,40 +64,52 @@ export default function VariantFormFields({
   const isEditing = editingVariantIndex !== null;
 
   // --- DYNAMIC INDUSTRY CONFIG ---
-  const fieldConfig = {
+  // Maps the 4 generic variant fields to industry terminology
+  const industryConfig = {
     CLOTHING: {
       labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') },
-      options: {
-        size: flattenOptions(clothingSizes),
-        color: clothingColors,
-        design: flattenOptions(clothingDesigns),
-        fit: clothingFits,
-        unit: clothingUnits
-      }
     },
     ELECTRONICS: {
-      labels: { size: 'Storage/Capacity', color: 'Color/Finish', design: 'Model Number', fit: 'Connectivity' },
-      options: {
-        size: variantSpecs?.ELECTRONICS || [],
-        color: variantColors?.ELECTRONICS || [],
-        design: variantModels?.ELECTRONICS || [],
-        fit: variantFits?.ELECTRONICS || [],
-        unit: shopUnits?.ELECTRONICS || ['PIECE', 'PACK']
-      }
+      labels: { size: 'Storage/Capacity', color: 'Color/Finish', design: 'Model/Version', fit: 'Connectivity' },
     },
     HARDWARE: {
-      labels: { size: 'Dimensions', color: 'Material/Finish', design: 'Grade/Type', fit: 'Installation' },
-      options: {
-        size: variantSpecs?.HARDWARE || [],
-        color: variantColors?.HARDWARE || [],
-        design: variantModels?.HARDWARE || [],
-        fit: variantFits?.HARDWARE || [],
-        unit: shopUnits?.HARDWARE || ['PIECE', 'KG', 'METER']
-      }
+      labels: { size: 'Dimensions/Size', color: 'Material/Finish', design: 'Grade', fit: 'Mounting Type' },
+    },
+    PHARMACY: {
+      labels: { size: 'Strength (mg/ml)', color: 'Visual Ref/Strip', design: 'Type (Generic/Brand)', fit: 'Usage/Route' },
+    },
+    GROCERY: {
+      labels: { size: 'Weight/Volume', color: 'Origin/Brand', design: 'Grade/Quality', fit: 'Shelf Life' },
+    },
+    AUTOMOBILE: {
+      labels: { size: 'Specs/Dimensions', color: 'Finish/Color', design: 'Part Number', fit: 'Vehicle Position' },
+    },
+    STATIONERY: {
+      labels: { size: 'Dimensions/GSM', color: 'Ink/Color', design: 'Binding/Type', fit: 'Layout' },
+    },
+    FOOTWEAR: {
+      labels: { size: 'Size (UK/EU)', color: 'Color', design: 'Style/Collection', fit: 'Width Fit' },
+    },
+    FURNITURE: {
+      labels: { size: 'Dimensions (WxHxD)', color: 'Wood Finish/Fabric', design: 'Style', fit: 'Assembly Type' },
+    },
+    JEWELLERY: {
+      labels: { size: 'Length/Size', color: 'Metal Tone', design: 'Pattern', fit: 'Clasp Type' },
     }
   };
 
-  const currentConfig = fieldConfig[shopCategory] || fieldConfig.CLOTHING;
+  const config = industryConfig[shopCategory] || industryConfig.CLOTHING;
+
+  // Helper to get options safely from constants
+  const getOptions = (source, category) => flattenOptions(source[category] || []);
+
+  const options = {
+    size: getOptions(variantSpecs, shopCategory),
+    color: getOptions(variantColors, shopCategory),
+    design: getOptions(variantModels, shopCategory),
+    fit: getOptions(variantFits, shopCategory),
+    unit: shopUnits[shopCategory] || ['PIECE']
+  };
 
   const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -117,7 +122,7 @@ export default function VariantFormFields({
   };
 
   const handleFreeSoloChange = (field) => (event, newValue) => {
-    const value = newValue && typeof newValue === 'string' ? newValue : '';
+    const value = newValue && typeof newValue === 'string' ? newValue : newValue || '';
     setCurrentVariant((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -127,76 +132,57 @@ export default function VariantFormFields({
 
   const getVariantForm = () => (
     <Grid container spacing={2}>
-      {/* Field 1: Size / Specs */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={currentConfig.options.size}
+          options={options.size}
           value={currentVariant.size || ''}
           onChange={handleFreeSoloChange('size')}
           onInputChange={handleFreeSoloInput('size')}
-          renderInput={(params) => (
-            <TextField {...params} label={currentConfig.labels.size} sx={inputSx} />
-          )}
+          renderInput={(params) => <TextField {...params} label={config.labels.size} sx={inputSx} />}
         />
       </Grid>
 
-      {/* Field 2: Color / Finish */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={currentConfig.options.color}
+          options={options.color}
           value={currentVariant.color || ''}
           onChange={handleFreeSoloChange('color')}
           onInputChange={handleFreeSoloInput('color')}
-          renderInput={(params) => (
-            <TextField {...params} label={currentConfig.labels.color} sx={inputSx} />
-          )}
+          renderInput={(params) => <TextField {...params} label={config.labels.color} sx={inputSx} />}
         />
       </Grid>
 
-      {/* Field 3: Design / Grade */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={currentConfig.options.design}
+          options={options.design}
           value={currentVariant.design || ''}
           onChange={handleFreeSoloChange('design')}
           onInputChange={handleFreeSoloInput('design')}
-          renderInput={(params) => (
-            <TextField {...params} label={currentConfig.labels.design} sx={inputSx} />
-          )}
+          renderInput={(params) => <TextField {...params} label={config.labels.design} sx={inputSx} />}
         />
       </Grid>
 
-      {/* Field 4: Fit / Connectivity */}
       <Grid item xs={12} sm={6}>
         <Autocomplete
           freeSolo
-          options={currentConfig.options.fit}
+          options={options.fit}
           value={currentVariant.fit || ''}
           onChange={handleFreeSoloChange('fit')}
           onInputChange={handleFreeSoloInput('fit')}
-          renderInput={(params) => (
-            <TextField {...params} label={currentConfig.labels.fit} sx={inputSx} />
-          )}
+          renderInput={(params) => <TextField {...params} label={config.labels.fit} sx={inputSx} />}
         />
       </Grid>
 
       <Grid item xs={12} sm={6}>
         <Autocomplete
-          freeSolo
-          options={currentConfig.options.unit}
+          options={options.unit}
           value={currentVariant.unit || ''}
           onChange={handleFreeSoloChange('unit')}
-          onInputChange={handleFreeSoloInput('unit')}
           renderInput={(params) => (
-            <TextField
-              {...params}
-              label={t('itemsPage.form.unit')}
-              required
-              sx={inputSx}
-            />
+            <TextField {...params} label={t('itemsPage.form.unit')} required sx={inputSx} />
           )}
         />
       </Grid>
@@ -248,24 +234,11 @@ export default function VariantFormFields({
           sx={{ borderRadius: 2, py: 1.5, borderStyle: 'dashed', fontWeight: 700 }}
         >
           {t('itemsPage.form.uploadPhoto')}
-          <VisuallyHiddenInput
-            type="file"
-            accept="image/*"
-            onChange={handleCurrentVariantFileChange}
-          />
+          <VisuallyHiddenInput type="file" accept="image/*" onChange={handleCurrentVariantFileChange} />
         </Button>
 
         {(currentVariant.photoPreviewUrl || currentVariant.photoUrl) && (
-          <Box
-            sx={{
-              mt: 2,
-              p: 1,
-              bgcolor: '#f1f5f9',
-              borderRadius: 3,
-              textAlign: 'center',
-              border: '1px solid #e2e8f0',
-            }}
-          >
+          <Box sx={{ mt: 2, p: 1, bgcolor: '#f1f5f9', borderRadius: 3, textAlign: 'center', border: '1px solid #e2e8f0' }}>
             <img
               src={currentVariant.photoPreviewUrl || `${API_BASE_URL}${currentVariant.photoUrl}`}
               alt="Preview"
@@ -280,16 +253,9 @@ export default function VariantFormFields({
   return (
     <Grid container spacing={4}>
       <Grid item xs={12} md={6}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: 4,
-            border: '2px solid',
-            borderColor: isEditing ? 'success.light' : '#e2e8f0',
-            bgcolor: isEditing ? alpha('#f0fdf4', 0.5) : 'white',
-          }}
-        >
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '2px solid', 
+          borderColor: isEditing ? 'success.light' : '#e2e8f0',
+          bgcolor: isEditing ? alpha('#f0fdf4', 0.5) : 'white' }}>
           <Stack direction="row" alignItems="center" spacing={1} mb={2}>
             {isEditing ? <EditIcon color="success" /> : <AddIcon color="primary" />}
             <Typography variant="h6" fontWeight={900}>
@@ -321,50 +287,26 @@ export default function VariantFormFields({
           {variantList.length > 0 ? (
             <Stack spacing={2}>
               {variantList.map((variant, index) => (
-                <Card
-                  key={variant.id || index}
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    borderRadius: 3,
-                    border: '1px solid',
-                    borderColor: editingVariantIndex === index ? 'primary.main' : '#e2e8f0',
-                    bgcolor: editingVariantIndex === index ? '#f0f9ff' : 'white',
-                  }}
-                >
+                <Card key={index} elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid',
+                  borderColor: editingVariantIndex === index ? 'primary.main' : '#e2e8f0',
+                  bgcolor: editingVariantIndex === index ? '#f0f9ff' : 'white' }}>
                   <Grid container alignItems="center">
                     <Grid item xs>
                       <Typography variant="subtitle2" fontWeight={900}>
-                        ₹{variant.pricePerUnit}{' '}
-                        <small style={{ fontWeight: 400, color: '#64748b' }}>
-                          / {variant.unit}
-                        </small>
+                        ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: '#64748b' }}>/ {variant.unit}</small>
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                        {variant.size || '—'} • {variant.color || '—'} •{' '}
-                        {variant.design || (shopCategory === 'CLOTHING' ? 'Standard' : 'N/A')}
+                        {variant.size || '—'} • {variant.color || '—'} • {variant.design || 'Standard'}
                       </Typography>
                     </Grid>
                     <Grid item>
                       <Stack direction="row" spacing={0.5}>
-                        <Tooltip title={t('itemsPage.actions.edit')}>
-                          <IconButton
-                            size="small"
-                            sx={{ color: 'primary.main', bgcolor: alpha('#6366f1', 0.1) }}
-                            onClick={() => handleEditVariantInList(index)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('itemsPage.actions.delete')}>
-                          <IconButton
-                            size="small"
-                            sx={{ color: 'error.main', bgcolor: alpha('#ef4444', 0.1) }}
-                            onClick={() => handleDeleteVariantInList(index)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <IconButton size="small" color="primary" onClick={() => handleEditVariantInList(index)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteVariantInList(index)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </Stack>
                     </Grid>
                   </Grid>
@@ -372,14 +314,7 @@ export default function VariantFormFields({
               ))}
             </Stack>
           ) : (
-            <Box
-              sx={{
-                py: 6,
-                textAlign: 'center',
-                border: '2px dashed #e2e8f0',
-                borderRadius: 4,
-              }}
-            >
+            <Box sx={{ py: 6, textAlign: 'center', border: '2px dashed #e2e8f0', borderRadius: 4 }}>
               <InventoryIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
               <Typography variant="body2" color="text.secondary" fontWeight={600}>
                 {t('itemsPage.variant.noVariantsYet')}

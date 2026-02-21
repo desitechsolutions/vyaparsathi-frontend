@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DataGrid,
   GridToolbarContainer,
@@ -9,18 +9,21 @@ import {
   Paper, Chip, Stack, IconButton, Tooltip, Avatar
 } from '@mui/material';
 import { useSearchParams } from 'react-router-dom'; 
-import { Refresh as RefreshIcon, Category as CategoryIcon, Layers } from '@mui/icons-material';
+import { Refresh as RefreshIcon, Layers } from '@mui/icons-material';
 import { fetchProducts } from '../services/api';
+import { useTranslation } from 'react-i18next'; // ← added
 
 const CustomToolbar = ({ rowCount, onRefresh }) => {
+  const { t } = useTranslation(); // ← added
+
   return (
     <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc' }}>
       <Stack direction="row" spacing={2} alignItems="center">
         <Typography variant="h6" fontWeight={800} color="#1e293b">
-          Product Catalog
+          {t('productsOverview.title')} {/* ← translated */}
         </Typography>
         <Chip 
-          label={`${rowCount} total variants`} 
+          label={t('productsOverview.totalVariants', { count: rowCount })} 
           size="small" 
           variant="outlined" 
           sx={{ fontWeight: 600, color: '#64748b', borderColor: '#e2e8f0' }} 
@@ -28,13 +31,13 @@ const CustomToolbar = ({ rowCount, onRefresh }) => {
       </Stack>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         <GridToolbarQuickFilter 
-          placeholder="Search catalog..." 
+          placeholder={t('productsOverview.searchPlaceholder')} 
           sx={{ 
             '& .MuiInputBase-root': { borderRadius: 2, px: 1, bgcolor: 'white' },
             pb: 0 
           }} 
         />
-        <Tooltip title="Refresh Data">
+        <Tooltip title={t('productsOverview.refreshTooltip')}>
           <IconButton onClick={onRefresh} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
             <RefreshIcon fontSize="small" />
           </IconButton>
@@ -45,6 +48,7 @@ const CustomToolbar = ({ rowCount, onRefresh }) => {
 };
 
 const ProductOverview = () => {
+  const { t } = useTranslation(); // ← added
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,10 +57,10 @@ const ProductOverview = () => {
   const urlSearchValue = searchParams.get('search');
 
   useEffect(() => {
-        if (urlSearchValue) {
-            setSearchQuery(urlSearchValue); 
-        }
-    }, [urlSearchValue]);
+    if (urlSearchValue) {
+      setSearchQuery(urlSearchValue); 
+    }
+  }, [urlSearchValue]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -67,7 +71,7 @@ const ProductOverview = () => {
         setProducts(res.data.map(item => ({ ...item, id: item.itemVariantId })));
       }
     } catch (err) {
-      setError('Failed to load catalog. Please check network connection.');
+      setError(t('productsOverview.errorFetch'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +82,7 @@ const ProductOverview = () => {
   const columns = [
     { 
       field: 'itemName', 
-      headerName: 'Product & Brand', 
+      headerName: t('productsOverview.columns.productBrand'), 
       flex: 2, 
       minWidth: 250,
       renderCell: (params) => (
@@ -99,20 +103,20 @@ const ProductOverview = () => {
     },
     { 
       field: 'variantInfo', 
-      headerName: 'Attributes', 
+      headerName: t('productsOverview.columns.attributes'), 
       flex: 1.5, 
       minWidth: 200,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
-          <Chip label={params.row.color} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />
-          <Chip label={params.row.size} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />
-          <Chip label={params.row.design} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />
+          {params.row.color && <Chip label={params.row.color} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
+          {params.row.size && <Chip label={params.row.size} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
+          {params.row.design && <Chip label={params.row.design} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
         </Stack>
       )
     },
     { 
       field: 'pricePerUnit', 
-      headerName: 'Retail Price', 
+      headerName: t('productsOverview.columns.retailPrice'), 
       width: 140,
       renderCell: (params) => (
         <Typography variant="body2" fontWeight={800} color="#0f172a">
@@ -122,18 +126,18 @@ const ProductOverview = () => {
     },
     { 
       field: 'availableQuantity', 
-      headerName: 'Availability', 
+      headerName: t('productsOverview.columns.availability'), 
       width: 180,
       renderCell: (params) => {
         const qty = params.value || 0;
-        let status = { label: 'In Stock', color: 'success' };
-        if (qty === 0) status = { label: 'Out of Stock', color: 'error' };
-        else if (qty < 10) status = { label: 'Low Stock', color: 'warning' };
+        let status = { label: t('productsOverview.status.inStock'), color: 'success' };
+        if (qty === 0) status = { label: t('productsOverview.status.outOfStock'), color: 'error' };
+        else if (qty < 10) status = { label: t('productsOverview.status.lowStock'), color: 'warning' };
 
         return (
           <Stack direction="column" spacing={0.5}>
-             <Typography variant="body2" fontWeight={700}>{qty} Units</Typography>
-             <Chip 
+            <Typography variant="body2" fontWeight={700}>{qty} {t('productsOverview.units')}</Typography>
+            <Chip 
               label={status.label} 
               color={status.color} 
               size="small" 
@@ -150,13 +154,17 @@ const ProductOverview = () => {
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="xl">
         <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-           <Box sx={{ bgcolor: '#0f172a', p: 1, borderRadius: 2 }}>
-              <Layers sx={{ color: 'white' }} />
-           </Box>
-           <Box>
-            <Typography variant="h4" fontWeight={900} color="#0f172a">Catalog Overview</Typography>
-            <Typography color="text.secondary">Comprehensive list of all product variants and public pricing</Typography>
-           </Box>
+          <Box sx={{ bgcolor: '#0f172a', p: 1, borderRadius: 2 }}>
+            <Layers sx={{ color: 'white' }} />
+          </Box>
+          <Box>
+            <Typography variant="h4" fontWeight={900} color="#0f172a">
+              {t('productsOverview.title')}
+            </Typography>
+            <Typography color="text.secondary">
+              {t('productsOverview.subtitle')}
+            </Typography>
+          </Box>
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 3 }}>{error}</Alert>}
@@ -179,7 +187,7 @@ const ProductOverview = () => {
               rowHeight={70}
               slots={{ 
                 toolbar: CustomToolbar,
-                loadingOverlay: LinearProgress 
+                loadingOverlay: () => <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
               }}
               slotProps={{
                 toolbar: { rowCount: products.length, onRefresh: loadProducts }
@@ -190,6 +198,11 @@ const ProductOverview = () => {
                 '& .MuiDataGrid-cell': { borderBottom: '1px solid #f1f5f9' },
                 '& .MuiDataGrid-footerContainer': { borderTop: '2px solid #e2e8f0' }
               }}
+              localeText={{
+                noRowsLabel: t('productsOverview.noData'),
+                columnHeaderSortIconLabel: t('productsOverview.sort'),
+                // Add more translations if needed
+              }}
             />
           </Box>
         </Paper>
@@ -197,12 +210,5 @@ const ProductOverview = () => {
     </Box>
   );
 };
-
-// Simple Linear Progress for loading
-const LinearProgress = () => (
-  <Box sx={{ width: '100%', position: 'absolute', top: 0 }}>
-    <CircularProgress size={20} sx={{ m: 2 }} />
-  </Box>
-);
 
 export default ProductOverview;

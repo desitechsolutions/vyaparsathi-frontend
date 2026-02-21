@@ -51,7 +51,7 @@ const Login = () => {
     }
   }, [user, navigate]);
 
-  // Autofill handling (unchanged)
+  // Autofill handling
   useEffect(() => {
     const handleAnimationStart = (e) => {
       if (e.animationName === 'mui-auto-fill' || e.animationName === 'mui-auto-fill-cancel') {
@@ -83,10 +83,12 @@ const Login = () => {
       if (view === 'login') {
         if (!username.trim() || !pin.trim()) {
           setError(t('login.errorAllFieldsRequired'));
+          setIsSubmitting(false);
           return;
         }
         const response = await loginApi({ username, pin });
-        login(response.data.token, response.data.refreshToken);
+        
+        login(response.data.accessToken || response.data.token);
 
         if (response.data.role === 'SUPER_ADMIN') {
           navigate('/admin/dashboard', { replace: true });
@@ -97,14 +99,17 @@ const Login = () => {
       else if (view === 'register') {
         if (!firstName.trim() || !username.trim() || !pin.trim() || !confirmPin.trim()) {
           setError(t('login.errorAllFieldsRequired'));
+          setIsSubmitting(false);
           return;
         }
         if (pin !== confirmPin) {
           setError(t('login.errorPinsDontMatch'));
+          setIsSubmitting(false);
           return;
         }
         if (email && !/\S+@\S+\.\S+/.test(email)) {
           setError(t('login.errorInvalidEmail'));
+          setIsSubmitting(false);
           return;
         }
 
@@ -118,11 +123,13 @@ const Login = () => {
           role: 'PENDING_OWNER',
         };
 
+        // 1. Attempt Registration
         await registerApi(payload);
 
-        // Auto-login after registration
+        // 2. ONLY proceed if registration succeeded
         const loginRes = await loginApi({ username, pin });
-        login(loginRes.data.token, loginRes.data.refreshToken);
+        
+        login(loginRes.data.accessToken || loginRes.data.token);
 
         setSuccessMessage(t('login.successRegister'));
         setTimeout(() => navigate('/setup-shop', { replace: true }), 1500);
@@ -130,10 +137,12 @@ const Login = () => {
       else if (view === 'forgotPin') {
         if (!email.trim()) {
           setError(t('login.errorRequired', { field: t('login.email') }));
+          setIsSubmitting(false);
           return;
         }
         if (!/\S+@\S+\.\S+/.test(email)) {
           setError(t('login.errorInvalidEmail'));
+          setIsSubmitting(false);
           return;
         }
         const response = await forgotPassword({ email });
@@ -141,7 +150,9 @@ const Login = () => {
         setTimeout(() => setView('login'), 5000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || t('login.errorUnexpected'));
+      // Capture detailed error message from backend (e.g., "Email already registered")
+      const errorMessage = err.response?.data?.message || err.message || t('login.errorUnexpected');
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -402,45 +413,19 @@ const Login = () => {
     }
   };
 
-return (
-    <Box 
-      sx={{ 
-        width: '100%',
-        minHeight: '100vh', // Ensures it takes full height of the parent
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center', // Centers vertically in the right panel
-        alignItems: 'center',
-        p: { xs: 2, sm: 4 },
-        background: 'transparent', // Let the PublicLayout handle the background
-      }}
-    >
-      {/* Removed absolute elevation for a cleaner "Integrated" look.
-         If you prefer the card look, keep the Paper but reduce elevation.
-      */}
-      <Box
-        sx={{
-          p: { xs: 2, sm: 3 },
-          width: '100%',
-          maxWidth: 400, // Standard width for login forms
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2
-        }}
-      >
-        {error && (
-          <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {successMessage && (
-          <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
-            {successMessage}
-          </Alert>
-        )}
-
-        {renderForm()}
-      </Box>
+  return (
+    <Box sx={{ width: '100%' }}>
+      {error && (
+        <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+          {successMessage}
+        </Alert>
+      )}
+      {renderForm()}
     </Box>
   );
 };

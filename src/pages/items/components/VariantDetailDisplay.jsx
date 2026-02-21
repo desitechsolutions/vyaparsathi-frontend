@@ -21,27 +21,59 @@ export default function VariantDetailDisplay({
   item, 
   stockData, 
   onDeleteVariant,
-  shopCategory = 'CLOTHING' // Industry context
+  shopCategory = 'CLOTHING' // Industry context passed from parent
 }) {
   const { t } = useTranslation();
 
-  // --- Dynamic Industry Labels ---
+  // --- Dynamic Industry Label Helpers ---
   const industryLabels = {
     CLOTHING: {
       colorSize: (v) => `${v.color} — ${v.size}`,
-      secondary: (v) => `${v.design || t('itemsPage.variant.standardDesign')} • ${v.fit || t('itemsPage.variant.standardFit')}`
+      secondary: (v) => `${v.design || 'Standard'} • ${v.fit || 'Regular Fit'}`
     },
     ELECTRONICS: {
-      colorSize: (v) => `${v.color} (Finish) — ${v.size} (Storage)`,
-      secondary: (v) => `${v.design || 'Standard Model'} • ${v.fit || 'No Connectivity Info'}`
+      colorSize: (v) => `${v.size} (Storage) — ${v.color} (Finish)`,
+      secondary: (v) => `${v.design || 'Model'} • ${v.fit || 'Connectivity'}`
     },
     HARDWARE: {
-      colorSize: (v) => `${v.color} (Material) — ${v.size} (Specs)`,
-      secondary: (v) => `${v.design || 'Standard Grade'} • ${v.fit || 'Standard Mounting'}`
+      colorSize: (v) => `${v.size} (Specs) — ${v.color} (Coating)`,
+      secondary: (v) => `${v.design || 'Grade'} • ${v.fit || 'Mounting'}`
+    },
+    PHARMACY: {
+      colorSize: (v) => `${v.size} (Strength) — ${v.color} (Ref)`,
+      secondary: (v) => `${v.design || 'Type'} • ${v.fit || 'Usage'}`
+    },
+    GROCERY: {
+      colorSize: (v) => `${v.size} (Qty) — ${v.color} (Origin)`,
+      secondary: (v) => `${v.design || 'Grade'} • ${v.fit || 'Shelf Life'}`
+    },
+    AUTOMOBILE: {
+      colorSize: (v) => `${v.size} (Specs) — ${v.color} (Finish)`,
+      secondary: (v) => `${v.design || 'Part Type'} • ${v.fit || 'Position'}`
+    },
+    FOOTWEAR: {
+      colorSize: (v) => `Size: ${v.size} (UK) — ${v.color}`,
+      secondary: (v) => `${v.design || 'Style'} • ${v.fit || 'Width Fit'}`
+    },
+    STATIONERY: {
+      colorSize: (v) => `${v.size} (Dim) — ${v.color}`,
+      secondary: (v) => `${v.design || 'Binding'} • ${v.fit || 'Layout'}`
+    },
+    FURNITURE: {
+      colorSize: (v) => `${v.size} (Dim) — ${v.color} (Finish)`,
+      secondary: (v) => `${v.design || 'Style'} • ${v.fit || 'Assembly'}`
+    },
+    JEWELLERY: {
+      colorSize: (v) => `${v.size} (Len) — ${v.color} (Tone)`,
+      secondary: (v) => `${v.design || 'Pattern'} • ${v.fit || 'Clasp Type'}`
     }
   };
 
-  const labels = industryLabels[shopCategory] || industryLabels.CLOTHING;
+  // Fallback for generic industries
+  const labels = industryLabels[shopCategory] || {
+    colorSize: (v) => `${v.size || ''} ${v.color || ''}`,
+    secondary: (v) => `${v.design || ''} ${v.fit || ''}`
+  };
 
   const stockLookup = useMemo(() => {
     const map = new Map();
@@ -138,7 +170,7 @@ export default function VariantDetailDisplay({
                       </Typography>
                     </Stack>
 
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textTransform: 'capitalize' }}>
                       {labels.secondary(variant)} • {variant.unit}
                     </Typography>
 
@@ -147,7 +179,7 @@ export default function VariantDetailDisplay({
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Box>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {t('itemsPage.variant.gstRate')}: <strong>{variant.gstRate || 0}%</strong>
+                          {t('itemsPage.variant.gstLabel', { rate: variant.gstRate || 0 })}
                         </Typography>
                       </Box>
                       

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
-import Layout from '../components/layout/Layout';
+import MainLayout from '../components/layout/MainLayout'; // Updated to use your responsive layout
 import Dashboard from '../pages/Dashboard';
 import ItemsPage from '../pages/ItemsPage';
 import Stock from '../pages/Stock';
@@ -49,6 +49,9 @@ import AdminLayout from '../components/layout/AdminLayout';
 import TechAdminDashboard from '../pages/admin/TechAdminDashboard';
 import AdminPaymentQueue from '../pages/admin/AdminPaymentQueue';
 import { useAuthContext } from '../context/AuthContext';
+import AdminSupport from '../pages/admin/AdminSupport';
+import GlobalShopManagement from '../pages/admin/GlobalShopManagement';
+import SystemUserManagement from '../pages/admin/SystemUserManagement';
 
 function AppRoutes() {
   const { user } = useAuthContext();
@@ -77,18 +80,20 @@ function AppRoutes() {
             <Route index element={<TechAdminDashboard />} />
             <Route path="dashboard" element={<TechAdminDashboard />} />
             <Route path="payments" element={<AdminPaymentQueue />} />
-            <Route path="shops" element={<div>Global Shop Management</div>} />
+            <Route path="shops" element={<GlobalShopManagement />} />
+            <Route path="support" element={<AdminSupport />} />
+            <Route path="users" element={<SystemUserManagement />} />
           </Route>
         )}
 
-        {/* 3. Protected Layout: Disabled for Super Admin to avoid ShopGuard/Context conflicts */}
+        {/* 3. Protected Layout: Responsive wrapper for Shop Owners/Staff */}
         {!isSuperAdmin && (
           <Route
             path="/"
             element={
               <PrivateRoute>
                 <ShopGuard>
-                  <Layout />
+                  <MainLayout />
                 </ShopGuard>          
               </PrivateRoute>
             }

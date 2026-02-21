@@ -43,9 +43,6 @@ import VariantFormFields from './items/components/VariantFormFields';
 import ReviewStepContent from './items/components/ReviewStepContent';
 import ItemsAwaitingVariants from './items/components/ItemsAwaitingVariants';
 
-// Import categoryData to determine industry
-import { categoryData } from '../ui/constants';
-
 export default function ItemsPage() {
   const { t } = useTranslation();
 
@@ -55,6 +52,7 @@ export default function ItemsPage() {
     itemsWithoutVariants,
     stockData,
     apiCategories,
+    shopCategory, // Global shop category detected from root categories
     openAddDialog,
     openEditDialog,
     openDeleteConfirm,
@@ -63,7 +61,6 @@ export default function ItemsPage() {
     setOpenDeleteConfirm,
     setOpenViewVariantsDialog,
     step,
-    setStep,
     itemFormData,
     setItemFormData,
     variantList,
@@ -95,24 +92,23 @@ export default function ItemsPage() {
     columns,
   } = useItemsLogic();
 
-  // --- DYNAMIC INDUSTRY DETECTION ---
-  const currentShopCategory = useMemo(() => {
-    if (!itemFormData.categoryId || !apiCategories.length) return 'CLOTHING';
+  /**
+   * DYNAMIC INDUSTRY DETECTION (Per Item)
+   * Determines terminology for the specific item currently being added/edited.
+   * If no category is selected, it falls back to the global shop category.
+   */
+  const activeIndustry = useMemo(() => {
+    if (!itemFormData.categoryId || !apiCategories.length) return shopCategory;
     
+    // Find the selected category and traverse up to find the root industry name
     const selectedCat = apiCategories.find(c => c.id === itemFormData.categoryId);
-    if (!selectedCat) return 'CLOTHING';
+    if (!selectedCat) return shopCategory;
 
-    const catName = selectedCat.name.toUpperCase();
-    
-    // Check if category name matches anything in Electronics or Hardware constants
-    const isElectronics = Object.keys(categoryData.ELECTRONICS).some(key => catName.includes(key));
-    if (isElectronics) return 'ELECTRONICS';
-
-    const isHardware = Object.keys(categoryData.HARDWARE).some(key => catName.includes(key));
-    if (isHardware) return 'HARDWARE';
-
-    return 'CLOTHING';
-  }, [itemFormData.categoryId, apiCategories]);
+    // Logic: If the category has a parent, we look at the parentName (usually the Industry name)
+    // If it's a root category, its own name is the industry.
+    const industryName = selectedCat.parentName || selectedCat.name;
+    return industryName.toUpperCase();
+  }, [itemFormData.categoryId, apiCategories, shopCategory]);
 
   const steps = [
     t('itemsPage.stepper.itemDetails'),
@@ -130,7 +126,7 @@ export default function ItemsPage() {
             <Tooltip title={t('itemsPage.actions.viewVariants')}>
               <IconButton
                 size="small"
-                sx={{ color: '#6366f1', bgcolor: '#6366f110', '&:hover': { bgcolor: '#6366f120' } }}
+                sx={{ color: '#6366f1', bgcolor: alpha('#6366f1', 0.1), '&:hover': { bgcolor: alpha('#6366f1', 0.2) } }}
                 onClick={() => handleViewVariants(params.row)}
               >
                 <VisibilityIcon fontSize="small" />
@@ -160,7 +156,7 @@ export default function ItemsPage() {
             itemFormData={itemFormData} 
             setItemFormData={setItemFormData} 
             apiCategories={apiCategories} 
-            shopCategory={currentShopCategory}
+            shopCategory={activeIndustry}
           />
         );
       case 1:
@@ -177,7 +173,7 @@ export default function ItemsPage() {
             addOrUpdateVariantToList={addOrUpdateVariantToList}
             handleEditVariantInList={handleEditVariantInList}
             handleDeleteVariantInList={handleDeleteVariantInList}
-            shopCategory={currentShopCategory}
+            shopCategory={activeIndustry}
           />
         );
       case 2:
@@ -186,7 +182,7 @@ export default function ItemsPage() {
             itemFormData={itemFormData} 
             variantList={variantList} 
             apiCategories={apiCategories} 
-            shopCategory={currentShopCategory}
+            shopCategory={activeIndustry}
           />
         );
       default:
@@ -205,7 +201,7 @@ export default function ItemsPage() {
               {t('itemsPage.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Manage your product catalog and variants
+              {t('itemsPage.subtitle')}
             </Typography>
           </Box>
           <Button
@@ -240,7 +236,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<InventoryIcon sx={{ color: '#6366f1' }} />} 
-                  label="Total Items" 
+                  label={t('itemsPage.stats.totalItems')}
                   value={itemsWithVariants.length} 
                   color="#6366f1" 
                 />
@@ -248,7 +244,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<CategoryIcon sx={{ color: '#10b981' }} />} 
-                  label="Categories" 
+                  label={t('itemsPage.stats.categories')}
                   value={apiCategories.length} 
                   color="#10b981" 
                 />
@@ -256,7 +252,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<WarningIcon sx={{ color: '#f59e0b' }} />} 
-                  label="Awaiting Variants" 
+                  label={t('itemsPage.stats.awaitingVariants')}
                   value={itemsWithoutVariants.length} 
                   color="#f59e0b" 
                 />
@@ -268,7 +264,7 @@ export default function ItemsPage() {
                 <ItemsAwaitingVariants
                   itemsWithoutVariants={itemsWithoutVariants}
                   handleManageItem={handleManageItem}
-                  shopCategory={currentShopCategory}
+                  shopCategory={activeIndustry}
                 />
               </Box>
             )}
@@ -372,7 +368,7 @@ export default function ItemsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* View Variants Slider/Dialog */}
+      {/* View Variants Dialog */}
       <Dialog
         open={openViewVariantsDialog}
         onClose={() => setOpenViewVariantsDialog(false)}
@@ -388,12 +384,12 @@ export default function ItemsPage() {
             item={variantsToView}
             stockData={stockData}
             onDeleteVariant={handleDeleteVariant}
-            shopCategory={currentShopCategory}
+            shopCategory={activeIndustry}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 700, borderRadius: 2 }}>
-            {t('itemsPage.actions.cancel')}
+            {t('itemsPage.actions.close')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -401,11 +397,10 @@ export default function ItemsPage() {
   );
 }
 
-// Sub-component for Stats Cards
 const StatCard = ({ icon, label, value, color }) => (
   <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, py: '20px !important' }}>
-      <Box sx={{ bgcolor: `${color}10`, p: 2, borderRadius: 3, display: 'flex' }}>
+      <Box sx={{ bgcolor: alpha(color, 0.1), p: 2, borderRadius: 3, display: 'flex' }}>
         {icon}
       </Box>
       <Box>
@@ -419,3 +414,8 @@ const StatCard = ({ icon, label, value, color }) => (
     </CardContent>
   </Card>
 );
+
+// Helper for alpha colors without direct import
+function alpha(color, opacity) {
+  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+}

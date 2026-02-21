@@ -10,13 +10,13 @@ const shimmer = keyframes`
 `;
 
 const SubscriptionStatusCard = () => {
-  const { getDaysRemaining, getStatus, isPremium, subscription } = useSubscription();
+  const { getStatus, isPremium, subscription } = useSubscription();
   const navigate = useNavigate();
   
-  const days = getDaysRemaining();
   const premium = isPremium();
-  const status = getStatus();
+  const status = getStatus(); 
   const currentTier = subscription?.tier;
+  const daysLeft = subscription?.daysRemaining;
 
   const goldenStyle = {
     background: 'linear-gradient(90deg, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c)',
@@ -37,21 +37,24 @@ const SubscriptionStatusCard = () => {
       }}
     >
       <WorkspacePremiumIcon sx={{ 
-        color: (premium || status === 'PENDING') ? '#bf953f' : 'text.disabled', 
+        color: (premium || status === 'PENDING' || status === 'TRIAL') ? '#bf953f' : 'text.disabled', 
         fontSize: 18, mr: 1 
       }} />
       
       <Box sx={{ flex: 1 }}>
-        <Typography variant="caption" sx={premium ? goldenStyle : { fontWeight: 700, color: 'text.secondary' }}>
-          {status === 'PENDING' ? 'VERIFYING...' : (premium ? `${currentTier} PLAN` : 'FREE PLAN')}
+        <Typography variant="caption" sx={(premium || status === 'TRIAL') ? goldenStyle : { fontWeight: 700, color: 'text.secondary' }}>
+          {/* PRIORITY LOGIC: We check TRIAL before checking the general Premium tier name */}
+          {status === 'PENDING' ? 'VERIFYING...' : 
+           status === 'TRIAL' ? 'TRIAL PLAN' : 
+           premium ? `${currentTier} PLAN` : 'FREE PLAN'}
         </Typography>
         
-        {/* Sub-text logic */}
+        {/* Sub-text logic for secondary information */}
         {(premium || status === 'PENDING' || status === 'TRIAL') && (
           <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem', color: 'text.secondary', mt: -0.5 }}>
-            {status === 'TRIAL' ? `${days} days trial left` : 
-             status === 'PENDING' ? `Checking ${currentTier} Plan` : 
-             `${days} days remaining`}
+            {status === 'TRIAL' ? `${daysLeft} days trial left` : 
+             status === 'PENDING' ? `Verifying ${currentTier} Payment` : 
+             `${daysLeft} days remaining`}
           </Typography>
         )}
       </Box>

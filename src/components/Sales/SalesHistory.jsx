@@ -20,7 +20,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
-import { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale } from '../../services/api'; 
+import API, { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale, API_BASE_URL } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
@@ -75,7 +75,6 @@ const SalesHistory = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const API_BASE_URL = 'http://localhost:8080';
 
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
@@ -176,15 +175,38 @@ const SalesHistory = () => {
   };
 
   const handlePrintInvoice = async (sale) => {
-    const saleId = sale.id || sale.saleId;
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/sales/${saleId}/signed-url`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      window.open(`${API_BASE_URL}${res.data}`, '_blank');
-    } catch (err) { showSnackbar("Failed to load invoice.", "error"); }
-  };
+  const saleId = sale.id || sale.saleId;
+  try {
+    // 1. Get the signed URL/Path
+    const res = await API.get(`/api/sales/${saleId}/signed-url`);
+    const signedPath = res.data;
 
+    // 2. Fetch as BLOB using the authenticated API instance
+    const response = await API.get(signedPath, {
+      responseType: 'blob',
+    });
+
+    // 3. Create a blob URL and open it
+    const file = new Blob([response.data], { type: 'application/pdf' });
+    const fileURL = URL.createObjectURL(file);
+    
+    // Open in new tab
+    const pdfWindow = window.open();
+    if (pdfWindow) {
+        pdfWindow.location.href = fileURL;
+    } else {
+        // Fallback if popup is blocked
+        window.location.assign(fileURL);
+    }
+
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+
+  } catch (err) {
+    console.error("In-browser PDF Error:", err);
+    showSnackbar("Could not generate PDF. Please check your connection.", "error");
+  }
+};
   const filteredSales = useMemo(() => {
     return salesHistory.filter(sale => {
       const matchesSearch = (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||

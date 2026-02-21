@@ -56,6 +56,11 @@ const resources = {
       users: 'Users',
       auditLogs: 'Audit Logs',
       notifications: 'Notifications',
+      common:{
+        cancel: 'Cancel',
+         close: "Close",
+      },
+
       dashboardPage: {
         hello: "Hello",
         errorLoad: 'Failed to load dashboard data.',
@@ -249,6 +254,106 @@ const resources = {
           actions: 'Actions',
           variants: 'Variants',
         },
+      },
+      productsOverview: {
+        title: 'Product Catalog',
+        subtitle: 'Comprehensive list of all product variants and public pricing',
+        totalVariants: '{{count}} total variants',
+        totalVariants_plural: '{{count}} total variants',
+        searchPlaceholder: 'Search catalog...',
+        refreshTooltip: 'Refresh Data',
+        errorFetch: 'Failed to load catalog. Please check network connection.',
+        noData: 'No products found',
+        columns: {
+          productBrand: 'Product & Brand',
+          attributes: 'Attributes',
+          retailPrice: 'Retail Price',
+          availability: 'Availability'
+        },
+        status: {
+          inStock: 'In Stock',
+          outOfStock: 'Out of Stock',
+          lowStock: 'Low Stock'
+        },
+        units: 'Units'
+      },
+      stock: {
+        title: 'Stock Management',
+        subtitle: 'Track investment value and profit margins',
+        searchPlaceholder: 'Search by name or SKU...',
+        errorFetch: 'Failed to load inventory data.',
+        errorRequiredFields: 'Please fill in all required fields.',
+        errorAdd: 'Failed to add stock.',
+        errorAdjust: 'Failed to adjust stock.',
+        errorExport: 'Export failed.',
+        errorHistory: 'Failed to load history.',
+        successAdd: 'Stock entry recorded successfully!',
+        successAdjust: 'Stock adjustment applied successfully!',
+        exportFilename: 'Inventory_Report',
+        noData: 'No stock entries found',
+        sort: 'Sort',
+        columns: {
+          productDetails: 'Product Details',
+          inventoryStatus: 'Inventory Status',
+          purchasePrice: 'Purchase Price (WAC)',
+          sellingPrice: 'Selling Price',
+          margin: 'Margin',
+          actions: 'Actions',
+          skuLabel: 'SKU:',
+          wac: 'WAC',
+          nA: 'N/A'
+        },
+        status: {
+          inStock: 'In Stock',
+          lowStock: 'Low Stock',
+          outOfStock: 'Out of Stock'
+        },
+        stats: {
+          activeVariants: 'Active Variants',
+          lowStockWarning: 'Low Stock Warning',
+          investmentValue: 'Investment Value',
+          potentialRevenue: 'Potential Revenue',
+          estimatedProfit: 'Estimated Gross Profit'
+        },
+        actions: {
+          export: 'Export',
+          addNewStock: 'Add New Stock',
+          analytics: 'Analytics',
+          completeEntry: 'Complete Entry',
+          applyAdjustment: 'Apply Adjustment'
+        },
+        dialog: {
+          addStockTitle: 'Record Stock Purchase',
+          adjustStockTitle: 'Manual Stock Adjustment',
+          adjusting: 'Adjusting',
+          currentBalance: 'Current Balance',
+          tip: 'Tip',
+          tipContent: 'Use positive numbers to add stock and negative numbers (e.g., -5) to deduct stock.',
+          historyTitle: 'Stock Audit History',
+          noHistory: 'No movements found.',
+          analyticsTitle: 'Inventory Analytics'
+        },
+        form: {
+          selectVariant: 'Select Product Variant',
+          searchVariant: 'Search name or SKU',
+          retailPrice: 'RETAIL PRICE',
+          estimatedMargin: 'EST. MARGIN',
+          purchaseCost: 'Purchase Cost',
+          quantity: 'Quantity',
+          batchNumber: 'Batch / Lot Number',
+          reason: 'Reason for Change'
+        },
+        reason: {
+          damaged: 'Damaged / Expired',
+          correction: 'Inventory Audit Correction',
+          return: 'Customer Return (Not via Order)',
+          sample: 'Given as Sample',
+          purchased: 'Purchased'
+        },
+        tooltips: {
+          viewHistory: 'View Audit Log',
+          adjustStock: 'Adjust Stock'
+        }
       },
       login: {
         signIn: 'Sign In',
@@ -504,6 +609,10 @@ const resources = {
       reviewNow: 'अभी समीक्षा करें',
       chartSales: 'बिक्री',
     },
+      common:{
+        cancel: 'रद्द करें',
+        close: "बंद करें",
+      },
       itemsPage: {
         title: 'आइटम्स',
         notAvailable: 'उपलब्ध नहीं',
@@ -645,6 +754,106 @@ const resources = {
           actions: 'कार्रवाई',
           variants: 'वेरिएंट',
         },
+      },
+      productsOverview: {
+        title: 'उत्पाद कैटलॉग',
+        subtitle: 'सभी उत्पाद वेरिएंट्स और सार्वजनिक मूल्य की व्यापक सूची',
+        totalVariants: '{{count}} कुल वेरिएंट',
+        totalVariants_plural: '{{count}} कुल वेरिएंट्स',
+        searchPlaceholder: 'कैटलॉग खोजें...',
+        refreshTooltip: 'डेटा रिफ्रेश करें',
+        errorFetch: 'कैटलॉग लोड करने में विफल। कृपया नेटवर्क कनेक्शन जांचें।',
+        noData: 'कोई उत्पाद नहीं मिला',
+        columns: {
+          productBrand: 'उत्पाद और ब्रांड',
+          attributes: 'विशेषताएँ',
+          retailPrice: 'खुदरा मूल्य',
+          availability: 'उपलब्धता'
+        },
+        status: {
+          inStock: 'स्टॉक में',
+          outOfStock: 'स्टॉक खत्म',
+          lowStock: 'कम स्टॉक'
+        },
+        units: 'यूनिट'
+      },
+      stock: {
+        title: 'स्टॉक प्रबंधन',
+        subtitle: 'निवेश मूल्य और लाभ मार्जिन ट्रैक करें',
+        searchPlaceholder: 'नाम या SKU से खोजें...',
+        errorFetch: 'इन्वेंटरी डेटा लोड करने में विफल।',
+        errorRequiredFields: 'कृपया सभी आवश्यक फ़ील्ड भरें।',
+        errorAdd: 'स्टॉक जोड़ने में विफल।',
+        errorAdjust: 'स्टॉक समायोजन में विफल।',
+        errorExport: 'निर्यात विफल।',
+        errorHistory: 'इतिहास लोड करने में विफल।',
+        successAdd: 'स्टॉक प्रविष्टि सफलतापूर्वक दर्ज की गई!',
+        successAdjust: 'स्टॉक समायोजन सफलतापूर्वक लागू किया गया!',
+        exportFilename: 'इन्वेंटरी_रिपोर्ट',
+        noData: 'कोई स्टॉक प्रविष्टि नहीं मिली',
+        sort: 'क्रमबद्ध करें',
+        columns: {
+          productDetails: 'उत्पाद विवरण',
+          inventoryStatus: 'इन्वेंटरी स्थिति',
+          purchasePrice: 'खरीद मूल्य (WAC)',
+          sellingPrice: 'बिक्री मूल्य',
+          margin: 'मार्जिन',
+          actions: 'कार्रवाई',
+          skuLabel: 'SKU:',
+          wac: 'WAC',
+          nA: 'N/A'
+        },
+        status: {
+          inStock: 'स्टॉक में',
+          lowStock: 'कम स्टॉक',
+          outOfStock: 'स्टॉक खत्म'
+        },
+        stats: {
+          activeVariants: 'सक्रिय वेरिएंट्स',
+          lowStockWarning: 'कम स्टॉक चेतावनी',
+          investmentValue: 'निवेश मूल्य',
+          potentialRevenue: 'संभावित राजस्व',
+          estimatedProfit: 'अनुमानित सकल लाभ'
+        },
+        actions: {
+          export: 'निर्यात',
+          addNewStock: 'नया स्टॉक जोड़ें',
+          analytics: 'विश्लेषण',
+          completeEntry: 'प्रविष्टि पूरी करें',
+          applyAdjustment: 'समायोजन लागू करें'
+        },
+        dialog: {
+          addStockTitle: 'स्टॉक खरीद दर्ज करें',
+          adjustStockTitle: 'मैनुअल स्टॉक समायोजन',
+          adjusting: 'समायोजन कर रहे हैं',
+          currentBalance: 'वर्तमान शेष',
+          tip: 'टिप',
+          tipContent: 'स्टॉक जोड़ने के लिए धनात्मक संख्या और घटाने के लिए ऋणात्मक संख्या (जैसे -5) का उपयोग करें।',
+          historyTitle: 'स्टॉक ऑडिट इतिहास',
+          noHistory: 'कोई मूवमेंट नहीं मिला।',
+          analyticsTitle: 'इन्वेंटरी विश्लेषण'
+        },
+        form: {
+          selectVariant: 'उत्पाद वेरिएंट चुनें',
+          searchVariant: 'नाम या SKU खोजें',
+          retailPrice: 'खुदरा मूल्य',
+          estimatedMargin: 'अनुमानित मार्जिन',
+          purchaseCost: 'खरीद लागत',
+          quantity: 'मात्रा',
+          batchNumber: 'बैच / लॉट नंबर',
+          reason: 'परिवर्तन का कारण'
+        },
+        reason: {
+          damaged: 'क्षतिग्रस्त / समाप्त',
+          correction: 'इन्वेंटरी ऑडिट सुधार',
+          return: 'ग्राहक रिटर्न (ऑर्डर के माध्यम से नहीं)',
+          sample: 'नमूने के रूप में दिया गया',
+          purchased: 'खरीदा गया'
+        },
+        tooltips: {
+          viewHistory: 'ऑडिट लॉग देखें',
+          adjustStock: 'स्टॉक समायोजित करें'
+        }
       },
       login: {
         signIn: 'साइन इन करें',

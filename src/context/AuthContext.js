@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
-import API from '../services/api';
+import API, { logout as apiLogout } from '../services/api';
 import { startSmartIdleTimer } from '../utils/auth';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -13,75 +13,145 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [warningActive, setWarningActive] = useState(false);
   const navigate = useNavigate();
-  const isRefreshing = useRef(false); // prevent concurrent refreshes
+  
+  const isRefreshing = useRef(false); 
   const idleWarningToastIdRef = useRef(null);
+  const lastCheckRef = useRef(0); 
+  const hasNavigatedRef = useRef(false);
 
   // --- Logout function ---
-  const hasNavigatedRef = useRef(false);
-  const logout = useCallback((message) => {
+  const logout = useCallback(async (message) => {
+    // If we are already mid-logout, don't trigger again
+    if (hasNavigatedRef.current && !message) return;
+    
     console.log('[AuthContext] logout called', { message });
+    
+    try {
+      // Call backend to clear the HttpOnly cookie and DB token
+      await apiLogout();
+    } catch (err) {
+      console.warn("Backend logout failed (likely already unauthorized)");
+    }
+
+    // Clear local credentials
     localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('refreshToken'); 
     delete API.defaults.headers.common['Authorization'];
+    
     setUser(null);
     setWarningActive(false);
-    hasNavigatedRef.current = false;
 
     if (!hasNavigatedRef.current) {
       hasNavigatedRef.current = true;
-      if (message) {
+      
+      if (message && typeof message === 'string') {
         toast.error(message, {
           position: 'top-center',
           autoClose: 3000,
           onClose: () => {
             navigate('/login', { replace: true });
+            hasNavigatedRef.current = false; 
           }
         });
       } else {
         navigate('/login', { replace: true });
+        hasNavigatedRef.current = false;
       }
     }
   }, [navigate]);
+
   // --- Silent refresh logic ---
   const silentRefresh = useCallback(async () => {
-    console.log('[AuthContext] silentRefresh called');
-    if (isRefreshing.current) return; // Prevent multiple refreshes
+    if (isRefreshing.current) return null;
+    console.log('[AuthContext] Attempting silentRefresh...');
     isRefreshing.current = true;
+
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) return;
-      const res = await API.post('/api/auth/refresh', { refreshToken });
-      const { token, refreshToken: newRefreshToken } = res.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', newRefreshToken);
-      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const decoded = jwtDecode(token);
-      setUser((prevUser) => {
-        if (!prevUser || prevUser.sub !== decoded.sub || prevUser.exp !== decoded.exp) {
-          return decoded;
-        }
-        return prevUser;
-      });
+      const res = await API.post('/api/auth/refresh', {}, { meta: { background: true } });
+      const { accessToken } = res.data;
+      
+      localStorage.setItem('token', accessToken);
+      API.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      
+      const decoded = jwtDecode(accessToken);
+      setUser(decoded);
+      console.log('[AuthContext] Refresh successful');
+      return accessToken;
     } catch (err) {
-      logout('Session expired. Please log in again.');
+      console.error('[AuthContext] Refresh failed');
+      // If refresh fails (cookie expired), then we truly logout
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        logout('Session expired. Please log in again.');
+      }
+      throw err;
     } finally {
       isRefreshing.current = false;
     }
   }, [logout]);
 
   // --- Check and refresh token if expiring soon ---
-  const checkAndRefreshTokenIfNeeded = useCallback(() => {
+  const checkAndRefreshTokenIfNeeded = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastCheckRef.current < 30000) return;
+    lastCheckRef.current = now;
+
     const token = localStorage.getItem('token');
     if (!token) return;
-    const decoded = jwtDecode(token);
-    const now = Date.now();
-    const timeLeft = decoded.exp * 1000 - now;
-    if (timeLeft < (2 * 60 * 1000)) {
-      silentRefresh();
+
+    try {
+      const decoded = jwtDecode(token);
+      const timeLeft = decoded.exp * 1000 - now;
+      
+      // If expired or expiring in < 2 mins, refresh
+      if (timeLeft < (2 * 60 * 1000)) {
+        await silentRefresh();
+      }
+    } catch (e) {
+      // If token is tampered with (jwtDecode fails), try recovery via silentRefresh
+      console.warn("[AuthContext] Token corrupted, attempting recovery via cookie...");
+      try {
+        await silentRefresh();
+      } catch (refreshErr) {
+        logout("Invalid session. Please log in again.");
+      }
     }
+  }, [silentRefresh, logout]);
+
+  // --- Initial Boot Logic (Self-Healing) ---
+  useEffect(() => {
+    const initAuth = async () => {
+      console.log('[AuthContext] Initializing Auth State');
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        try {
+          const decodedUser = jwtDecode(token);
+          // If valid and has > 10s left, use it
+          if (decodedUser.exp * 1000 > Date.now() + 10000) {
+            API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setUser(decodedUser);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.warn('[AuthContext] Local token invalid/tampered');
+        }
+      }
+
+      // If no token or token invalid, try to recover session from HttpOnly Cookie
+      try {
+        await silentRefresh();
+      } catch (err) {
+        console.log('[AuthContext] No valid session cookie found on boot');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, [silentRefresh]);
 
-  // --- Idle timer ---
+  // --- Idle timer setup ---
   useEffect(() => {
     let cleanupTimer;
     if (user) {
@@ -89,32 +159,17 @@ export const AuthProvider = ({ children }) => {
         onTimeout: () => logout('Logged out due to inactivity.'),
         onWarning: () => {
           setWarningActive(true);
-          // Show warning only if not already active
-          if (!idleWarningToastIdRef.current || !toast.isActive(idleWarningToastIdRef.current)) {
+          if (!toast.isActive('idle-warning')) {
             idleWarningToastIdRef.current = toast.warn(
-              <span>
-                You have been inactive for a while.<br />
-                Session will expire soon.<br />
-                <b>Interact with the app to continue.</b>
-              </span>,
-              {
-                position: 'top-center',
-                autoClose: 10000,
-                toastId: 'idle-warning',
-                closeOnClick: true
-              }
+              "Inactivity detected. Session will expire soon.",
+              { position: 'top-center', autoClose: 10000, toastId: 'idle-warning' }
             );
           }
         },
         onExtend: () => {
           checkAndRefreshTokenIfNeeded();
-          if (
-            warningActive &&
-            idleWarningToastIdRef.current &&
-            toast.isActive(idleWarningToastIdRef.current)
-          ) {
-            toast.dismiss(idleWarningToastIdRef.current);
-            idleWarningToastIdRef.current = null;
+          if (warningActive) {
+            toast.dismiss('idle-warning');
             setWarningActive(false);
           }
         }
@@ -122,70 +177,29 @@ export const AuthProvider = ({ children }) => {
     }
     return () => {
       if (cleanupTimer) cleanupTimer();
-      // Defensive: only dismiss if toast is active
-      if (
-        idleWarningToastIdRef.current &&
-        toast.isActive(idleWarningToastIdRef.current)
-      ) {
-        toast.dismiss(idleWarningToastIdRef.current);
-        idleWarningToastIdRef.current = null;
-      }
+      toast.dismiss('idle-warning');
     };
-  }, [user, logout, silentRefresh, checkAndRefreshTokenIfNeeded, warningActive]);
-
-  // --- Initial token check ---
-  useEffect(() => {
-    console.log('[AuthContext] Initial token check useEffect');
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const decodedUser = jwtDecode(token);
-        if (decodedUser.exp * 1000 < Date.now()) {
-          console.log('[AuthContext] Token expired, calling logout');
-          logout('Session expired');
-        } else {
-          API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          setUser((prevUser) => {
-            if (!prevUser || prevUser.sub !== decodedUser.sub || prevUser.exp !== decodedUser.exp) {
-              console.log('[AuthContext] Setting user from token', decodedUser);
-              return decodedUser;
-            }
-            return prevUser;
-          });
-        }
-      }
-    } catch (error) {
-      console.log('[AuthContext] Invalid token, calling logout');
-      logout('Invalid token');
-    } finally {
-      setLoading(false);
-    }
-  }, [logout]);
+  }, [user, logout, checkAndRefreshTokenIfNeeded, warningActive]);
 
   // --- Login function ---
-  const login = (token, refreshToken) => {
+  const login = (token) => {
     console.log('[AuthContext] login called');
     try {
       localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', refreshToken);
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const decodedUser = jwtDecode(token);
-      setUser((prevUser) => {
-        if (!prevUser || prevUser.sub !== decodedUser.sub || prevUser.exp !== decodedUser.exp) {
-          console.log('[AuthContext] Setting user from login', decodedUser);
-          return decodedUser;
-        }
-        return prevUser;
-      });
+      setUser(decodedUser);
       setLoading(false);
-      if (!hasNavigatedRef.current) {
-        hasNavigatedRef.current = true;
-        console.log('[AuthContext] Navigating to / after login');
-        navigate('/', { replace: true });
-      }
+
+      setTimeout(() => {
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          navigate('/', { replace: true });
+          setTimeout(() => { hasNavigatedRef.current = false; }, 1000);
+        }
+      }, 100);
     } catch (error) {
-      console.log('[AuthContext] Invalid token in login, calling logout');
-      logout('Invalid token');
+      logout('Invalid session data.');
     }
   };
 
@@ -193,7 +207,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      <ToastContainer position="top-center" newestOnTop closeOnClick draggable />
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar={false} />
       {!loading && children}
     </AuthContext.Provider>
   );
@@ -201,8 +215,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
