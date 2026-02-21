@@ -27,125 +27,123 @@ const PublicLayout = () => {
         maxWidth="lg" 
         sx={{ 
           flexGrow: 1, 
-          pt: { xs: 10, md: 12 },          // ← Increased top padding to clear header
+          pt: { xs: 10, md: 12 },
           pb: { xs: 6, md: 8 },
           display: 'flex', 
-          alignItems: 'flex-start',
-          minHeight: { xs: '70vh', md: '80vh' }
+          alignItems: { xs: 'flex-start', md: 'center' }, // Center vertically on laptop
+          minHeight: 'auto'
         }}
       >
-        <Grid container spacing={6} alignItems="flex-start" justifyContent="center">
+        <Grid container spacing={6} alignItems="center" justifyContent="center">
           
-          {/* Left Greeting - only desktop */}
-          {!isMobile && (
-            <Grid item md={7}>
-              <Fade in timeout={800}>
-                <Stack spacing={4} sx={{ pt: 2 }}>  {/* ← Small top padding for breathing room */}
-                  <Stack direction="row" alignItems="center" spacing={2.5}>
-                    <Typography 
-                      variant="h1" 
-                      sx={{ 
-                        fontSize: { md: '3.8rem', lg: '4rem' },  // ← Slightly smaller on md screens
-                        animation: 'wave 2.5s infinite ease-in-out',
-                        transformOrigin: 'bottom left',
-                        lineHeight: 1,                            // Prevents extra upward space
-                      }}
-                    >
-                      🙏
-                    </Typography>
-                    <Typography 
-                      variant="h5" 
-                      sx={{ 
-                        fontWeight: 800, 
-                        color: 'primary.main', 
-                        letterSpacing: 3, 
-                        textTransform: 'uppercase' 
-                      }}
-                    >
-                      {t('publicLayout.namaste')}
-                    </Typography>
-                  </Stack>
-
+          {/* Left Greeting */}
+          <Grid item xs={12} md={7} sx={{ display: isMobile ? 'block' : 'block' }}>
+            <Fade in timeout={800}>
+              <Stack spacing={4} sx={{ pt: 2, textAlign: isMobile ? 'center' : 'left', alignItems: isMobile ? 'center' : 'flex-start' }}>
+                <Stack direction="row" alignItems="center" spacing={2.5}>
                   <Typography 
-                    variant="h2" 
-                    fontWeight={900} 
+                    variant="h1" 
                     sx={{ 
-                      color: '#0f172a', 
-                      lineHeight: 1.05, 
-                      fontSize: { md: '3.6rem', lg: '4rem' },
-                      letterSpacing: '-0.5px'
+                      fontSize: { xs: '3rem', md: '3.8rem', lg: '4rem' },
+                      animation: 'wave 2.5s infinite ease-in-out',
+                      transformOrigin: 'bottom left',
+                      lineHeight: 1,
                     }}
                   >
-                    {t('publicLayout.welcomeTo')} <br />
-                    <Box 
-                      component="span" 
-                      sx={{ 
-                        background: 'linear-gradient(90deg, #FFD600, #FFAA00, #FF6B00)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                      }}
-                    >
-                      VyaparSathi
-                    </Box>
+                    🙏
                   </Typography>
-
                   <Typography 
-                    variant="h6" 
-                    color="text.secondary" 
+                    variant="h5" 
                     sx={{ 
-                      fontWeight: 500, 
-                      maxWidth: 580, 
-                      lineHeight: 1.7,
-                      fontSize: '1.15rem'
+                      fontWeight: 800, 
+                      color: 'primary.main', 
+                      letterSpacing: 3, 
+                      textTransform: 'uppercase' 
                     }}
                   >
-                    {t('publicLayout.builtForEveryIndian')}
+                    {t('publicLayout.namaste')}
                   </Typography>
-
-                  {/* Trust Stats */}
-                  <Grid container spacing={2} sx={{ mt: 2 }}>
-                    {[
-                      { icon: '🏪', label: t('publicLayout.businesses'), value: '1,200+' },
-                      { icon: '⚡', label: t('publicLayout.uptime'), value: '99.9%' },
-                      { icon: '🇮🇳', label: t('publicLayout.madeIn'), value: t('publicLayout.bharat') }
-                    ].map((stat, i) => (
-                      <Grid item xs={4} key={i}>
-                        <Paper 
-                          elevation={0} 
-                          sx={{ 
-                            p: 2.5, 
-                            borderRadius: 3, 
-                            bgcolor: 'rgba(255,255,255,0.6)', 
-                            backdropFilter: 'blur(12px)',
-                            border: '1px solid rgba(255,255,255,0.4)',
-                            textAlign: 'center',
-                            transition: 'all 0.3s',
-                            '&:hover': { transform: 'translateY(-6px)', bgcolor: '#ffffff' }
-                          }}
-                        >
-                          <Typography sx={{ fontSize: '2rem', mb: 1 }}>{stat.icon}</Typography>
-                          <Typography variant="h6" fontWeight={800} color="#0f172a">
-                            {stat.value}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                            {stat.label}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-                    <Box sx={{ width: 10, height: 10, bgcolor: '#10b981', borderRadius: '50%', boxShadow: '0 0 10px #10b98180' }} />
-                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                      {t('publicLayout.allSystemsOperational')} • {t('publicLayout.proudlyBuiltInIndia')}
-                    </Typography>
-                  </Box>
                 </Stack>
-              </Fade>
-            </Grid>
-          )}
+
+                <Typography 
+                  variant="h2" 
+                  fontWeight={900} 
+                  sx={{ 
+                    color: '#0f172a', 
+                    lineHeight: 1.05, 
+                    fontSize: { xs: '2.5rem', md: '3.6rem', lg: '4rem' },
+                    letterSpacing: '-0.5px'
+                  }}
+                >
+                  {t('publicLayout.welcomeTo')} <br />
+                  <Box 
+                    component="span" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #FFD600, #FFAA00, #FF6B00)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}
+                  >
+                    VyaparSathi
+                  </Box>
+                </Typography>
+
+                <Typography 
+                  variant="h6" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontWeight: 500, 
+                    maxWidth: 580, 
+                    lineHeight: 1.7,
+                    fontSize: '1.15rem'
+                  }}
+                >
+                  {t('publicLayout.builtForEveryIndian')}
+                </Typography>
+
+                {/* Trust Stats */}
+                <Grid container spacing={2} sx={{ mt: 2, justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                  {[
+                    { icon: '🏪', label: t('publicLayout.businesses'), value: '1,200+' },
+                    { icon: '⚡', label: t('publicLayout.uptime'), value: '99.9%' },
+                    { icon: '🇮🇳', label: t('publicLayout.madeIn'), value: t('publicLayout.bharat') }
+                  ].map((stat, i) => (
+                    <Grid item xs={4} key={i}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 2.5, 
+                          borderRadius: 3, 
+                          bgcolor: 'rgba(255,255,255,0.6)', 
+                          backdropFilter: 'blur(12px)',
+                          border: '1px solid rgba(255,255,255,0.4)',
+                          textAlign: 'center',
+                          transition: 'all 0.3s',
+                          '&:hover': { transform: 'translateY(-6px)', bgcolor: '#ffffff' }
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '2rem', mb: 1 }}>{stat.icon}</Typography>
+                        <Typography variant="h6" fontWeight={800} color="#0f172a">
+                          {stat.value}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          {stat.label}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                  <Box sx={{ width: 10, height: 10, bgcolor: '#10b981', borderRadius: '50%', boxShadow: '0 0 10px #10b98180' }} />
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    {t('publicLayout.allSystemsOperational')} • {t('publicLayout.proudlyBuiltInIndia')}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Fade>
+          </Grid>
 
           {/* Right side: Outlet */}
           <Grid item xs={12} md={5}>
@@ -153,41 +151,23 @@ const PublicLayout = () => {
               <Box sx={{ 
                 maxWidth: 460, 
                 mx: 'auto',
-                minHeight: { xs: '480px', md: '620px' },
-                display: 'flex',
-                flexDirection: 'column',
+                width: '100%',
                 position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -30,
-                  right: -30,
-                  width: 140,
-                  height: 140,
-                  bgcolor: 'primary.light',
-                  borderRadius: '50%',
-                  opacity: 0.15,
-                  zIndex: 0,
-                }
               }}>
                 <Paper 
                   elevation={8}
                   sx={{ 
                     p: { xs: 3, md: 4 },
                     borderRadius: 4,
-                    flexGrow: 1,
-                    position: 'relative',
-                    zIndex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-start',
                     bgcolor: 'background.paper',
-                    border: '1px solid rgba(0,0,0,0.08)'
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    display: 'flex',
+                    flexDirection: 'column'
                   }}
                 >
                   <Suspense fallback={
                     <Box sx={{ 
-                      flexGrow: 1, 
+                      py: 5,
                       display: 'flex', 
                       alignItems: 'center', 
                       justifyContent: 'center' 

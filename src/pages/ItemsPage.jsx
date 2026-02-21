@@ -240,7 +240,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<InventoryIcon sx={{ color: '#6366f1' }} />} 
-                  label="Total Items" 
+                  label={t('itemsPage.stats.totalItems')}
                   value={itemsWithVariants.length} 
                   color="#6366f1" 
                 />
@@ -248,7 +248,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<CategoryIcon sx={{ color: '#10b981' }} />} 
-                  label="Categories" 
+                  label={t('itemsPage.stats.categories')}
                   value={apiCategories.length} 
                   color="#10b981" 
                 />
@@ -256,7 +256,7 @@ export default function ItemsPage() {
               <Grid item xs={12} sm={4}>
                 <StatCard 
                   icon={<WarningIcon sx={{ color: '#f59e0b' }} />} 
-                  label="Awaiting Variants" 
+                  label={t('itemsPage.stats.awaitingVariants')}
                   value={itemsWithoutVariants.length} 
                   color="#f59e0b" 
                 />

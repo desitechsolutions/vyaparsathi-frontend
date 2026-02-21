@@ -20,7 +20,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
-import { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale } from '../../services/api'; 
+import API, { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale, API_BASE_URL } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
@@ -75,7 +75,6 @@ const SalesHistory = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const API_BASE_URL = 'http://localhost:8080';
 
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
@@ -178,10 +177,14 @@ const SalesHistory = () => {
   const handlePrintInvoice = async (sale) => {
     const saleId = sale.id || sale.saleId;
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/sales/${saleId}/signed-url`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      window.open(`${API_BASE_URL}${res.data}`, '_blank');
+      const res = await API.get(`/api/sales/${saleId}/signed-url`);
+      const signedPath = res.data;
+
+      const fullUrl = signedPath.startsWith('http') 
+        ? signedPath 
+        : `${API_BASE_URL}${signedPath.startsWith('/') ? '' : '/'}${signedPath}`;
+
+      window.open(fullUrl, '_blank', 'noopener,noreferrer');
     } catch (err) { showSnackbar("Failed to load invoice.", "error"); }
   };
 

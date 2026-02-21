@@ -3,8 +3,9 @@ import endpoints from './endpoints';
 import { signalApiActivity } from '../utils/auth';
 import 'react-toastify/dist/ReactToastify.css';
 
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 const API = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: API_BASE_URL,
 });
 
 let isRefreshing = false;
@@ -33,7 +34,6 @@ API.interceptors.request.use((config) => {
   }
   return config;
 });
-export const API_BASE_URL='http://localhost:8080'
 // Axios response interceptor: handle token refresh
 API.interceptors.response.use(
   (response) => response,
@@ -65,7 +65,7 @@ API.interceptors.response.use(
           return Promise.reject(new Error("No refresh token available."));
         }
 
-        const res = await axios.post(endpoints.auth.refresh, { refreshToken }, { baseURL: API.defaults.baseURL });
+        const res = await axios.post(endpoints.auth.refresh, { refreshToken }, { baseURL: API_BASE_URL});
         const newToken = res.data.token;
         const newRefreshToken = res.data.refreshToken;
 
@@ -307,6 +307,7 @@ export const deleteDeliveryPerson = (id) =>
   API.delete(`/api/delivery-persons/${id}`);
 
 //Notifications API
+export const bookDemo = (demoData) => API.post('/api/notifications/public/contact', demoData);
 export const fetchNotifications = (recipient) => API.get(`/api/notifications?recipient=${recipient}`);
 // Individual read
 export const markNotificationAsRead = (id) => API.post(`/api/notifications/${id}/read`);
@@ -552,6 +553,39 @@ export const rejectPayment = (verificationId, reason) =>
 // Optional: Admin Platform Revenue Chart Data
 export const fetchPlatformRevenueHistory = (days = 30) => 
   API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
+
+// --- Support & Chat APIs ---
+
+/**
+ * For Shop Owners: Fetches their own chat history.
+ * Logic: TenantContext on backend filters this by the shopId in the token.
+ */
+export const fetchMyChatHistory = () => 
+  API.get('/api/support/history').then(res => res.data);
+
+/**
+ * For Super Admin: Fetches history of a specific shop.
+ * Accessible only by ROLE_SUPER_ADMIN.
+ */
+export const fetchShopHistoryForAdmin = (shopId) => 
+  API.get(`/api/support/history/${shopId}`).then(res => res.data);
+
+/**
+ * Admin: Mark messages for a shop as read.
+ */
+export const markChatAsRead = (shopId) => 
+  API.post(`/api/support/mark-read/${shopId}`).then(res => res.data);
+export const fetchAllConversations = () => 
+  API.get('/api/support/admin/conversations').then(res => res.data);
+
+export const fetchGlobalShopSummary = (page = 0, size = 20, sort = 'createdAt,desc') => 
+  API.get(`/api/admin/shops/summary?page=${page}&size=${size}&sort=${sort}`)
+    .then(res => res.data);
+
+// Toggle a shop's active status (deactivates/activates all users of that shop)
+export const toggleShopStatus = (shopId, active) => 
+  API.patch(`/api/admin/shops/${shopId}/status?active=${active}`)
+    .then(res => res.data);
 
 // --- User Management API ---
 export const fetchUsers = () =>

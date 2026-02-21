@@ -1,50 +1,174 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import SockJS from 'sockjs-client';
-import { Stomp } from '@stomp/stompjs';
+import { Client } from '@stomp/stompjs';
 import { toast } from 'react-toastify'; 
-import { API_BASE_URL } from './api'; 
+import { API_BASE_URL } from '../services/api';
 
 const useWebSocket = (shopId) => {
+  const [stompClient, setStompClient] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  
+  // State for typing indicators
+  const [typingStatus, setTypingStatus] = useState({ isTyping: false, user: '' });
+  
   const stompClientRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  const clearNotifications = useCallback(() => setNotifications([]), []);
+
+  /**
+   * Helper to send typing events.
+   * @param {boolean} isTyping - Whether the user is typing
+   * @param {string} userName - The name of the person typing
+   * @param {number} targetShopId - The numeric ID of the shop (Required for Admin)
+   */
+  const sendTypingStatus = (isTyping, userName, targetShopId = null) => {
+    if (stompClientRef.current && stompClientRef.current.connected) {
+      // Logic: If Admin, use targetShopId. If Shop Owner, use hook's shopId.
+      const numericId = shopId === 'ADMIN_SUPER' ? targetShopId : shopId;
+
+      // Validation: Backend TypingDTO["shopId"] is a Long. Do not send if null or NaN.
+      if (!numericId || isNaN(numericId)) {
+        return; 
+      }
+
+      const destination = shopId === 'ADMIN_SUPER' ? `/app/admin/typing` : `/app/shop/typing`;
+      
+      stompClientRef.current.publish({
+        destination,
+        body: JSON.stringify({ 
+          shopId: Number(numericId), // Force numeric type for Jackson deserialization
+          userName, 
+          isTyping 
+        })
+      });
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token || !shopId) return;
+    if (!token) return;
 
-    // Use the same base URL as your Axios instance
+    let isMounted = true;
     const socket = new SockJS(`${API_BASE_URL}/ws`);
-    const client = Stomp.over(socket);
 
-    // Pass the JWT token in the connection headers
-    const headers = {
-      Authorization: `Bearer ${token}`
-    };
+    const client = new Client({
+      webSocketFactory: () => socket,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+        authorization: `Bearer ${token}` 
+      },
+      reconnectDelay: 5000,
+      debug: () => {},
 
-    client.connect(headers, (frame) => {
-      console.log('Connected to WebSocket');
-      stompClientRef.current = client;
+      onConnect: () => {
+        if (!isMounted) return;
 
-      // 1. Subscribe to Shop Notifications (Broadcasts)
-      client.subscribe(`/topic/shop/${shopId}/notifications`, (message) => {
-        const data = JSON.parse(message.body);
-        toast.info(data.message || "New Notification Received");
-      });
+        console.log('Socket Connected for', shopId || 'Admin');
+        stompClientRef.current = client;
+        setStompClient(client);
+        setConnected(true);
 
-      // 2. Subscribe to Private User Notifications (Password Reset, etc.)
-      client.subscribe('/user/queue/notifications', (message) => {
-        toast.success(message.body);
-      });
+        // ===== 1. TYPING INDICATOR SUBSCRIPTION =====
+        const typingTopic = shopId === 'ADMIN_SUPER' 
+          ? `/topic/admin/typing` 
+          : `/topic/shop/${shopId}/typing`;
 
-    }, (error) => {
-      console.error('STOMP Error:', error);
+        client.subscribe(typingTopic, (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            setTypingStatus({
+            isTyping: data.isTyping,
+            user: data.userName,
+            shopId: data.shopId
+            });
+
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            if (data.isTyping) {
+              typingTimeoutRef.current = setTimeout(() => {
+                setTypingStatus({ isTyping: false, user: '' });
+              }, 3000);
+            }
+          } catch (err) {
+            console.error("Typing parse error", err);
+          }
+        });
+
+        // ===== 2. SHOP USER NOTIFICATIONS =====
+        if (shopId && !isNaN(shopId)) {
+          client.subscribe(`/topic/shop/${shopId}/notifications`, (message) => {
+            try {
+              const data = JSON.parse(message.body);
+              setNotifications((prev) => [...prev, data]);
+            } catch (err) {
+              setNotifications((prev) => [...prev, { message: message.body }]);
+            }
+          });
+        }
+
+        // ===== 3. SUPER ADMIN / TECH SUPPORT TOPIC =====
+        if (!shopId || shopId === 'ADMIN_SUPER') {
+          client.subscribe(`/topic/admin/support`, (message) => {
+            try {
+              const data = JSON.parse(message.body);
+              setNotifications((prev) => [...prev, data]);
+            } catch (err) {
+              setNotifications((prev) => [...prev, { message: message.body }]);
+            }
+          });
+        }
+
+        // ===== 4. PRIVATE USER NOTIFICATIONS =====
+        client.subscribe('/user/queue/notifications', (message) => {
+          toast.success(message.body);
+        });
+      },
+
+      onStompError: (frame) => {
+        console.error('STOMP Error:', frame);
+        if (isMounted) {
+          setConnected(false);
+          setStompClient(null);
+        }
+      },
+
+      onWebSocketError: (error) => {
+        console.error('WebSocket Error:', error);
+        if (isMounted) {
+          setConnected(false);
+          setStompClient(null);
+        }
+      }
     });
 
+    client.activate();
+
     return () => {
+      isMounted = false;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (stompClientRef.current) {
-        stompClientRef.current.disconnect();
+        try {
+          stompClientRef.current.deactivate();
+        } catch (e) {
+          console.error('WS Disconnect Error', e);
+        }
+        stompClientRef.current = null;
       }
+      setStompClient(null);
+      setConnected(false);
     };
+
   }, [shopId]);
 
-  return stompClientRef.current;
+  return { 
+    stompClient, 
+    connected, 
+    notifications, 
+    clearNotifications, 
+    typingStatus,    
+    sendTypingStatus 
+  };
 };
+
+export default useWebSocket;

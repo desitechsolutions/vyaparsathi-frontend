@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Typography, Card, CardContent, Button, Stack, 
   Divider, CircularProgress, Avatar, Paper,
-  IconButton, Tooltip, Alert,Chip
+  IconButton, Tooltip, Alert, Chip, GlobalStyles
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchPlatformStats } from '../../services/api';
@@ -17,11 +17,12 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ChatIcon from '@mui/icons-material/Chat'; // Added for Support
 
 /**
  * Reusable Metric Card for Admin Stats
  */
-const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse }) => (
+const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse, pulseColor }) => (
   <Card 
     sx={{ 
       bgcolor: '#1e293b', 
@@ -29,12 +30,8 @@ const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse }) =
       borderRadius: 4, 
       height: '100%',
       border: pulse ? `1px solid ${color}` : '1px solid rgba(255,255,255,0.05)',
-      animation: pulse ? 'pulse-border 2s infinite' : 'none',
-      '@keyframes pulse-border': {
-        '0%': { boxShadow: `0 0 0 0px ${color}40` },
-        '70%': { boxShadow: `0 0 0 10px ${color}00` },
-        '100%': { boxShadow: `0 0 0 0px ${color}00` },
-      },
+      // Dynamic pulse animation based on the card's theme color
+      animation: pulse ? `pulse-${color.replace('#', '')} 2s infinite` : 'none',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       '&:hover': { 
         transform: 'translateY(-5px)', 
@@ -77,9 +74,9 @@ const TechAdminDashboard = () => {
     try {
       const data = await fetchPlatformStats();
       setStats(data);
-    } catch (error) {
-      console.error("Platform Stats Fetch Error:", error);
-      setError("Unable to connect to platform services. Please check backend.");
+    } catch (err) {
+      console.error("Platform Stats Fetch Error:", err);
+      setError("Unable to connect to platform services. Please check backend connectivity.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +93,21 @@ const TechAdminDashboard = () => {
   );
 
   return (
-    <Box sx={{ flexGrow: 1, p: 1 }}>
+    <Box sx={{ flexGrow: 1, p: 2 }}>
+      {/* Global Styles for multiple pulse colors */}
+      <GlobalStyles styles={{
+        '@keyframes pulse-fbbf24': { // Yellow (Pending)
+          '0%': { boxShadow: '0 0 0 0px rgba(251, 191, 36, 0.4)' },
+          '70%': { boxShadow: '0 0 0 10px rgba(251, 191, 36, 0)' },
+          '100%': { boxShadow: '0 0 0 0px rgba(251, 191, 36, 0)' },
+        },
+        '@keyframes pulse-ec4899': { // Pink (Support)
+          '0%': { boxShadow: '0 0 0 0px rgba(236, 72, 153, 0.4)' },
+          '70%': { boxShadow: '0 0 0 10px rgba(236, 72, 153, 0)' },
+          '100%': { boxShadow: '0 0 0 0px rgba(236, 72, 153, 0)' },
+        }
+      }} />
+
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3, borderRadius: 3, bgcolor: '#450a0a', color: '#fca5a5' }} icon={<WarningAmberIcon />}>
@@ -123,96 +134,108 @@ const TechAdminDashboard = () => {
           </Tooltip>
           <Button 
             variant="contained" 
+            color="secondary" 
+            startIcon={<ChatIcon />} 
+            onClick={() => navigate('/admin/support')}
+            sx={{ borderRadius: 2, fontWeight: 800, px: 3, bgcolor: '#ec4899', '&:hover': { bgcolor: '#db2777' } }}
+          >
+            Live Support
+          </Button>
+          <Button 
+            variant="contained" 
             color="success" 
             startIcon={<VerifiedUserIcon />} 
             onClick={() => navigate('/admin/payments')}
             sx={{ borderRadius: 2, fontWeight: 800, px: 3, textTransform: 'none', boxShadow: '0 4px 14px 0 rgba(74, 222, 128, 0.39)' }}
           >
-            Review {stats?.pendingCount || 0} Payments
+            Verify {stats?.pendingCount || 0} Payments
           </Button>
         </Stack>
       </Stack>
 
       <Grid container spacing={3}>
-        {/* 1. Pending Verifications - High Priority */}
+        {/* Metric Cards */}
+        <Grid item xs={12} sm={6} md={3}>
+          <AdminStatCard 
+            title="Live Support"
+            value="Active"
+            icon={<ChatIcon />}
+            color="#ec4899"
+            subtext="Reply to Shop Owners"
+            onClick={() => navigate('/admin/support')}
+            pulse={true}
+          />
+        </Grid>
+
         <Grid item xs={12} sm={6} md={3}>
           <AdminStatCard 
             title="Pending UTRs"
             value={stats?.pendingCount || 0}
             icon={<PendingActionsIcon />}
-            color="#fbbf24" // Amber
-            subtext="Needs Staff Approval"
+            color="#fbbf24"
+            subtext="Needs Verification"
             onClick={() => navigate('/admin/payments')}
             pulse={stats?.pendingCount > 0}
           />
         </Grid>
 
-        {/* 2. Total Shops */}
+        <Grid item xs={12} sm={6} md={3}>
+          <AdminStatCard 
+            title="Verified Revenue"
+            value={`₹${(stats?.totalRevenue || 0).toLocaleString('en-IN')}`}
+            icon={<TrendingUpIcon />}
+            color="#4ade80"
+            subtext="Platform Earnings"
+          />
+        </Grid>
+
         <Grid item xs={12} sm={6} md={3}>
           <AdminStatCard 
             title="Total Shops"
             value={stats?.totalShops || 0}
             icon={<StorefrontIcon />}
-            color="#38bdf8" // Sky Blue
-            subtext="Global Registered Entities"
+            color="#38bdf8"
+            subtext="Registered Partners"
+            onClick={() => navigate('/admin/shops')}
           />
         </Grid>
 
-        {/* 3. Monthly Revenue */}
-        <Grid item xs={12} sm={6} md={3}>
-          <AdminStatCard 
-            title="Total Revenue"
-            value={`₹${(stats?.totalRevenue || 0).toLocaleString('en-IN')}`}
-            icon={<TrendingUpIcon />}
-            color="#4ade80" // Emerald
-            subtext="Verified Earnings"
-          />
-        </Grid>
-
-        {/* 4. Total Users */}
-        <Grid item xs={12} sm={6} md={3}>
-          <AdminStatCard 
-            title="Platform Users"
-            value={stats?.totalUsers || 0}
-            icon={<GroupIcon />}
-            color="#a78bfa" // Violet
-            subtext="Total Staff & Owners"
-          />
-        </Grid>
-
-        {/* Main Content Areas */}
+        {/* System Health Area */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 4, bgcolor: '#1e293b', color: 'white', borderRadius: 5, border: '1px solid rgba(255,255,255,0.05)', minHeight: 400 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
               <Typography variant="h6" fontWeight={800}>System Health & Growth</Typography>
-              <Chip label="Live" size="small" color="success" variant="outlined" sx={{ fontWeight: 900 }} />
+              <Chip label="All Systems Nominal" size="small" color="success" variant="outlined" sx={{ fontWeight: 900 }} />
             </Stack>
             <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 4 }} />
             
-            {/* Descriptive Summary for Rakesh */}
             <Box sx={{ mb: 4 }}>
-               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                  Platform is currently handling <strong>{stats?.totalShops} shops</strong> across India. 
+               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.8 }}>
+                  VyaparSathi is currently monitoring <strong>{stats?.totalShops} shops</strong> and <strong>{stats?.totalUsers} total users</strong>. 
                   {stats?.pendingCount > 0 ? (
-                    <Typography component="span" sx={{ color: '#fbbf24' }}>
-                      {` There are ${stats.pendingCount} payments waiting for your verification.`}
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(251, 191, 36, 0.1)', borderRadius: 2, border: '1px solid rgba(251, 191, 36, 0.2)' }}>
+                      <Typography variant="body2" sx={{ color: '#fbbf24', fontWeight: 600 }}>
+                         Action Required: {stats.pendingCount} payment verifications are pending.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography component="p" sx={{ color: '#4ade80', mt: 2 }}>
+                      ✓ All subscription payments are up to date.
                     </Typography>
-                  ) : " All payments are currently reconciled."}
+                  )}
                </Typography>
             </Box>
 
-            {/* Chart Placeholder */}
-            
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mt: 4 }}>
-              <TrendingUpIcon sx={{ fontSize: 60, color: 'rgba(255,255,255,0.1)', mb: 2 }} />
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.3)' }}>
-                Analytics visualization will populate as more shops complete the onboarding process.
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mt: 6, opacity: 0.2 }}>
+              <TrendingUpIcon sx={{ fontSize: 80, mb: 2 }} />
+              <Typography variant="body2">
+                Growth analytics will appear as transaction volume increases.
               </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        {/* Sidebar Actions */}
+        {/* Sidebar Controls */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 4, bgcolor: '#1e293b', color: 'white', borderRadius: 5, border: '1px solid rgba(255,255,255,0.05)', height: '100%' }}>
             <Typography variant="h6" fontWeight={800} gutterBottom>Administrative Tools</Typography>
@@ -224,7 +247,7 @@ const TechAdminDashboard = () => {
               {[
                 { label: 'Manage All Shops', icon: <StorefrontIcon />, path: '/admin/shops' },
                 { label: 'Platform Users List', icon: <GroupIcon />, path: '/admin/users' },
-                { label: 'Revenue Analytics', icon: <PaymentsIcon />, path: '/admin/revenue' },
+                { label: 'Live Support Center', icon: <ChatIcon />, path: '/admin/support', highlight: true },
                 { label: 'System Settings', icon: <ArrowForwardIcon />, path: '/admin/settings' },
               ].map((item, index) => (
                 <Button 
@@ -234,16 +257,20 @@ const TechAdminDashboard = () => {
                   onClick={() => item.path && navigate(item.path)}
                   sx={{ 
                     justifyContent: 'flex-start', 
-                    py: 1.5, 
-                    px: 2,
+                    py: 1.8, 
+                    px: 2.5,
                     borderRadius: 3,
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.8)',
-                    '&:hover': { borderColor: '#ef4444', color: 'white', bgcolor: 'rgba(239, 68, 68, 0.05)' }
+                    borderColor: item.highlight ? 'rgba(236, 72, 153, 0.3)' : 'rgba(255,255,255,0.1)',
+                    color: item.highlight ? '#ec4899' : 'rgba(255,255,255,0.8)',
+                    '&:hover': { 
+                      borderColor: item.highlight ? '#ec4899' : '#ef4444', 
+                      color: 'white', 
+                      bgcolor: item.highlight ? 'rgba(236, 72, 153, 0.05)' : 'rgba(239, 68, 68, 0.05)' 
+                    }
                   }}
                 >
                   <Box sx={{ mr: 2, display: 'flex' }}>{item.icon}</Box>
-                  <Typography variant="body2" fontWeight={600}>{item.label}</Typography>
+                  <Typography variant="body2" fontWeight={700}>{item.label}</Typography>
                 </Button>
               ))}
             </Stack>

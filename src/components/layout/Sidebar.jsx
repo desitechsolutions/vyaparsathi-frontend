@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-  Divider, Box, Collapse, Typography
+  Divider, Box, Collapse, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -30,8 +30,10 @@ import { useSubscription } from '../../context/SubscriptionContext';
 
 const drawerWidth = 240;
 
-const Sidebar = () => {
+const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isPremium } = useSubscription();
   const premium = isPremium(); 
   const navigate = useNavigate();
@@ -46,7 +48,7 @@ const Sidebar = () => {
   const menuItems = [
     { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' },
-    { text: 'productsOverview', icon: <ShoppingCartIcon />, path: '/products' },
+    { text: 'productsOverview.title', icon: <ShoppingCartIcon />, path: '/products' },
     { text: 'inventory', icon: <InventoryIcon />, path: '/stock'},
     { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
@@ -111,7 +113,6 @@ const Sidebar = () => {
     '&:hover': { backgroundColor: 'primary.dark' },
   };
 
-  // REUSABLE ITEM RENDERER
   const renderItem = (item, isNested = false) => {
     const isLocked = item.protected && !premium;
     const isActuallyActive = location.pathname === item.path;
@@ -119,18 +120,22 @@ const Sidebar = () => {
     return (
       <ListItem key={item.text} disablePadding>
         <ListItemButton
-          // If locked, we don't use NavLink to prevent incorrect auto-highlighting
           component={isLocked ? 'div' : NavLink}
           to={isLocked ? undefined : item.path}
-          onClick={isLocked ? () => navigate('/pricing') : undefined}
+          onClick={() => {
+            if (isLocked) {
+              navigate('/pricing');
+            }
+            if (isMobile) {
+              onDrawerToggle(); // Close drawer on mobile after clicking
+            }
+          }}
           sx={{
             borderRadius: '8px',
             margin: '4px 8px',
             pl: isNested ? 6 : 2,
             opacity: isLocked ? 0.7 : 1,
-            // Apply active styles only if path matches AND it's not locked
             ...(isActuallyActive && !isLocked ? activeStyle : {}),
-            // Remove the generic &.active to stop NavLink from forcing styles via CSS class
           }}
         >
           <ListItemIcon sx={{ minWidth: 40, color: (isActuallyActive && !isLocked) ? 'inherit' : '#1976d2' }}>
@@ -172,24 +177,8 @@ const Sidebar = () => {
       )
     );
 
-  return (
-    <Drawer
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
-          backgroundColor: '#f5f5f5',
-          color: '#333',
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100vh',
-        },
-      }}
-      variant="permanent"
-      anchor="left"
-    >
+  const drawerContent = (
+    <>
       <Toolbar />
       <SubscriptionStatusCard />
       <Box sx={{ flex: 1, overflowY: 'auto' }}>
@@ -203,7 +192,32 @@ const Sidebar = () => {
       <List sx={{ mt: 'auto', p: 0 }}>
         {renderItem(aboutUsItem)}
       </List>
-    </Drawer>
+    </>
+  );
+
+  return (
+    <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+      <Drawer
+        variant={isMobile ? "temporary" : "permanent"}
+        open={isMobile ? mobileOpen : true}
+        onClose={onDrawerToggle}
+        ModalProps={{ keepMounted: true }} 
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            backgroundColor: '#f5f5f5',
+            color: '#333',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh',
+          },
+        }}
+        anchor="left"
+      >
+        {drawerContent}
+      </Drawer>
+    </Box>
   );
 };
 

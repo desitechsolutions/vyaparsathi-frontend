@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, IconButton, Avatar, Box, Menu, MenuItem,
   useMediaQuery, useTheme, Button, Tooltip, Dialog, DialogTitle,
-  DialogContent, DialogContentText, DialogActions, Badge, keyframes,Chip,
+  DialogContent, DialogContentText, DialogActions, Badge, keyframes, Chip,
   InputBase, Divider, ListItemIcon, Paper, CircularProgress, List, ListItemText, ListItemAvatar, Stack
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { useAlerts } from '../../context/AlertContext';
 import { searchGlobalData } from '../../services/api';
 
 // Icons
+import MenuIcon from '@mui/icons-material/Menu'; // Added for Hamburger
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
@@ -56,9 +57,8 @@ const AppBranding = () => {
   );
 };
 
-const Header = () => {
+const Header = ({ onDrawerToggle }) => {
   const { user, logout } = useAuthContext();
-  // Ensure your context provides the array of alerts. Using 'alerts' as common naming convention.
   const { alertCount, criticalCount, alerts, lowStockItems } = useAlerts();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -77,7 +77,7 @@ const Header = () => {
   // --- UI STATES ---
   const [anchorEl, setAnchorEl] = useState(null);
   const [quickActionEl, setQuickActionEl] = useState(null);
-  const [notificationEl, setNotificationEl] = useState(null); // State for Notification Drawer
+  const [notificationEl, setNotificationEl] = useState(null); 
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
@@ -85,7 +85,6 @@ const Header = () => {
   const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.sub || 'User' : 'User';
   const isLoggedIn = !!user;
 
-  // Combine fallback for alert data
   const activeAlerts = alerts || lowStockItems || [];
 
   // --- SEARCH DEBOUNCE LOGIC ---
@@ -132,7 +131,6 @@ const Header = () => {
   const handleLogout = () => { handleClose(); logout(); };
   const changeLanguage = (lng) => { i18n.changeLanguage(lng); localStorage.setItem('language', lng); };
 
-  // --- START: ALERT TOOLTIP LOGIC ---
   const lowCount = alertCount - criticalCount;
   let tooltipMessage = '';
 
@@ -143,16 +141,30 @@ const Header = () => {
   } else if (lowCount > 0) {
     tooltipMessage = `${lowCount} Low Stock Items`;
   }
-  // --- END: ALERT TOOLTIP LOGIC ---
 
   return (
     <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 60, sm: 70 } }}>
         
-        {/* LEFT: Branding */}
-        <Box onClick={() => navigate('/')}>
-          <AppBranding />
+        {/* LEFT: Branding & Hamburger */}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {/* HAMBURGER ICON: Visible only on mobile/tablet */}
+          {isLoggedIn && (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={onDrawerToggle}
+              sx={{ mr: 2, display: { md: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          <Box onClick={() => navigate('/')}>
+            <AppBranding />
+          </Box>
         </Box>
+
         {/* MIDDLE: Global Search (Desktop & Tablet) */}
         {isLoggedIn && !isMobile && (
           <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
@@ -172,7 +184,6 @@ const Header = () => {
               {isSearching && <CircularProgress size={20} sx={{ color: 'white', ml: 1 }} />}
             </Box>
 
-            {/* SEARCH RESULTS DROPDOWN */}
             {showResults && (
               <Paper 
                 elevation={10}
@@ -216,16 +227,13 @@ const Header = () => {
                 ) : (
                   <Box sx={{ p: 4, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                    
                       {t('header.noResultsFound', { value: searchQuery })}
-                   
                     </Typography>
                   </Box>
                 )}
               </Paper>
             )}
             
-            {/* Click-away overlay to close search results */}
             {showResults && (
               <Box 
                 onClick={() => setShowResults(false)} 
@@ -239,7 +247,6 @@ const Header = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
           {isLoggedIn && (
             <>
-              {/* QUICK ACTION HUB */}
               <Tooltip title={t('header.quickAction')}>
                 <IconButton 
                   onClick={handleQuickActionOpen} 
@@ -280,7 +287,6 @@ const Header = () => {
                 </MenuItem>
               </Menu>
 
-              {/* ALERTS (PROFESSIONAL DRAWER BEHAVIOR) */}
               {alertCount > 0 && (
                 <Tooltip title={tooltipMessage}>
                   <IconButton color="inherit" onClick={handleNotificationOpen} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
@@ -290,7 +296,7 @@ const Header = () => {
                   </IconButton>
                 </Tooltip>
               )}
-              {/* NOTIFICATION DROPDOWN */}
+
               <Menu
                 anchorEl={notificationEl}
                 open={Boolean(notificationEl)}
@@ -367,39 +373,39 @@ const Header = () => {
                 </Typography>
               </IconButton>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {/* HEADER PRICING OPTION */}
-          {premium ? (
-            <Chip 
-              label={subscription?.tier || 'PRO'} 
-              color="secondary" 
-              size="small"
-              icon={<WorkspacePremiumIcon />}
-              onClick={() => navigate('/pricing')}
-              sx={{ 
-                fontWeight: 800, 
-                cursor: 'pointer',
-                background: 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)',
-                color: '#000'
-              }}
-            />
-          ) : (
-            <Button 
-              variant="contained" 
-              color="warning" 
-              size="small"
-              startIcon={<WorkspacePremiumIcon />}
-              onClick={() => navigate('/pricing')}
-              sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
-            >
-              Upgrade
-            </Button>
-          )}
-          
-          {/* Other icons like Notifications, Profile, etc. */}
-        </Box>
-
-              {/* USER PROFILE SECTION */}
+<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+  {/* If user is on Trial OR has a paid Premium plan */}
+  {premium || subscription?.status === 'TRIAL' ? (
+    <Chip 
+      // PRIORITY: Show 'TRIAL' if on trial, otherwise show the Tier name
+      label={subscription?.status === 'TRIAL' ? 'TRIAL' : (subscription?.tier || 'PRO')} 
+      color="secondary" 
+      size="small"
+      icon={<WorkspacePremiumIcon />}
+      onClick={() => navigate('/pricing')}
+      sx={{ 
+        fontWeight: 800, 
+        cursor: 'pointer',
+        background: subscription?.status === 'TRIAL' 
+          ? 'linear-gradient(45deg, #3b82f6 30%, #2dd4bf 90%)' // Blue/Teal for Trial
+          : 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)', // Gold for Paid
+        color: subscription?.status === 'TRIAL' ? '#FFF' : '#000',
+        '& .MuiChip-icon': { color: 'inherit' }
+      }}
+    />
+  ) : (
+    <Button 
+      variant="contained" 
+      color="warning" 
+      size="small"
+      startIcon={<WorkspacePremiumIcon />}
+      onClick={() => navigate('/pricing')}
+      sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+    >
+      Upgrade
+    </Button>
+  )}
+</Box>
               <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
                 {!isTablet && (
                   <Typography variant="body2" sx={{ mr: 1.5, fontWeight: 700, color: 'white' }}>
