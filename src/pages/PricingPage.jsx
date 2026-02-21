@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   Box, Grid, Card, Typography, Button, Container, Stack, ToggleButton, ToggleButtonGroup,
@@ -26,14 +28,14 @@ const PricingPage = () => {
 
   const status = getStatus();
 
-  if (loading) return (
+  // Show banner only if not on Trial and not Premium
+  const isTrialAvailable = subscription?.status !== 'TRIAL' && (status === 'FREE' || !subscription?.tier || subscription?.tier === 'FREE');
+
+  if (loading && (!plans || plans.length === 0)) return (
     <Box sx={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <CircularProgress size={40} thickness={4} sx={{ color: '#1E293B' }} />
     </Box>
   );
-
-  // Logic to show trial banner
-  const isTrialAvailable = status === 'FREE' || !subscription?.tier || subscription?.tier === 'FREE';
 
   const handleOpenPayment = (plan, finalPrice) => {
     setSelectedPlan({ ...plan, finalPrice });
@@ -59,7 +61,7 @@ const PricingPage = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#FDFDFD', minHeight: '100vh', py: { xs: 6, md: 10 } }}>
+    <Box sx={{ bgcolor: '#FDFDFD', minHeight: '100vh', py: { xs: 6, md: 10 }, overflowX: 'hidden' }}>
       <Container maxWidth="lg">
         
         {/* Header Section */}
@@ -89,9 +91,14 @@ const PricingPage = () => {
         {/* Pricing Cards Grid */}
         <Grid container spacing={4} justifyContent="center" alignItems="stretch" sx={{ overflow: 'visible' }}>
           {plans.map((plan) => {
-            // CORRECTED LOGIC: Distinguish between verifying this specific plan vs. an active plan
-            const isPendingThisPlan = status === 'PENDING' && subscription?.tier === plan.tier;
-            const isCurrentlyActive = subscription?.tier === plan.tier && subscription?.premium === true;
+            const isThisPlanTier = subscription?.tier === plan.tier;
+            const isPendingThisPlan = status === 'PENDING' && isThisPlanTier;
+            
+            // Logic: A plan is "Current" only if they have actually PAID (not just on trial)
+            const isPaidActive = isThisPlanTier && subscription?.premium === true && subscription?.status !== 'TRIAL';
+            
+            // User is on trial for this specific plan
+            const isOnTrialForThis = isThisPlanTier && subscription?.status === 'TRIAL';
 
             const isBusiness = plan.tier === 'PRO' || plan.tier === 'BUSINESS';
             const isEnterprise = plan.tier === 'ENTERPRISE';
@@ -104,7 +111,9 @@ const PricingPage = () => {
               <Grid item key={plan.id} xs={12} md={4} sx={{ display: 'flex', overflow: 'visible' }}>
                 <Card sx={{ 
                   width: '100%', p: 5, borderRadius: '28px', position: 'relative', 
-                  display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease',
+                  display: 'flex', flexDirection: 'column', transition: 'transform 0.2s ease-in-out',
+                  minHeight: '620px', 
+                  willChange: 'transform',
                   overflow: 'visible',
                   border: isBusiness ? '2px solid #3B82F6' : '1px solid #E2E8F0',
                   boxShadow: isBusiness ? '0 25px 50px -12px rgba(59, 130, 246, 0.2)' : '0 10px 20px -5px rgba(0,0,0,0.04)',
@@ -126,7 +135,12 @@ const PricingPage = () => {
                   )}
 
                   <Box sx={{ mb: 4 }}>
-                    <Typography variant="h6" fontWeight={800}>{plan.name}</Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="h6" fontWeight={800}>{plan.name}</Typography>
+                        {isOnTrialForThis && (
+                            <Chip label={`${subscription.daysRemaining} days left`} size="small" color="primary" sx={{ fontWeight: 800, fontSize: '0.6rem' }} />
+                        )}
+                    </Stack>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 2 }}>
                       <Typography variant="h3" fontWeight={900}>₹{cyclePrice}</Typography>
                       <Typography variant="subtitle1" sx={{ ml: 1, opacity: 0.6, fontWeight: 700 }}>/mo</Typography>
@@ -157,20 +171,25 @@ const PricingPage = () => {
                     variant="contained"
                     size="large"
                     onClick={() => handleOpenPayment(plan, gstTotal)}
-                    // Disable button if this plan is already active OR if any plan is currently being verified
-                    disabled={isCurrentlyActive || status === 'PENDING'}
+                    // Button is ONLY disabled if they have PAID for this plan or verification is PENDING
+                    disabled={isPaidActive || status === 'PENDING'}
                     
                     sx={{ 
                         py: 2, borderRadius: '16px', fontWeight: 900, textTransform: 'none',
                         bgcolor: isEnterprise ? '#FFF' : (isBusiness ? '#3B82F6' : '#F1F5F9'),
                         color: isEnterprise ? '#0F172A' : (isBusiness ? '#FFF' : '#1E293B'),
                         '&:hover': { bgcolor: isEnterprise ? '#E2E8F0' : (isBusiness ? '#2563EB' : '#E2E8F0') },
-                        "&.Mui-disabled": { bgcolor: isCurrentlyActive ? '#22C55E' : '#F1F5F9', color: isCurrentlyActive ? '#FFF' : '#94A3B8' }
+                        "&.Mui-disabled": { 
+                          bgcolor: isPaidActive ? '#22C55E' : '#F1F5F9', 
+                          color: isPaidActive ? '#FFF' : '#94A3B8' 
+                        }
                     }}
                   >
-                    {isCurrentlyActive ? 'Current Plan' : 
-                     isPendingThisPlan ? 'Verifying Payment...' : 
-                     (status === 'PENDING' ? 'Verification in Progress' : 'Upgrade Now')}
+                    {isPaidActive 
+                      ? 'Current Plan' 
+                      : isPendingThisPlan 
+                        ? 'Verifying Payment...' 
+                        : (status === 'PENDING' ? 'Verification in Progress' : 'Upgrade Now')}
                   </Button>
                 </Card>
               </Grid>

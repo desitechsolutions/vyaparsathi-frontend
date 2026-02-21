@@ -51,7 +51,7 @@ const Login = () => {
     }
   }, [user, navigate]);
 
-  // Autofill handling (unchanged)
+  // Autofill handling
   useEffect(() => {
     const handleAnimationStart = (e) => {
       if (e.animationName === 'mui-auto-fill' || e.animationName === 'mui-auto-fill-cancel') {
@@ -402,45 +402,19 @@ const Login = () => {
     }
   };
 
-return (
-    <Box 
-      sx={{ 
-        width: '100%',
-        minHeight: '100vh', // Ensures it takes full height of the parent
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center', // Centers vertically in the right panel
-        alignItems: 'center',
-        p: { xs: 2, sm: 4 },
-        background: 'transparent', // Let the PublicLayout handle the background
-      }}
-    >
-      {/* Removed absolute elevation for a cleaner "Integrated" look.
-         If you prefer the card look, keep the Paper but reduce elevation.
-      */}
-      <Box
-        sx={{
-          p: { xs: 2, sm: 3 },
-          width: '100%',
-          maxWidth: 400, // Standard width for login forms
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2
-        }}
-      >
-        {error && (
-          <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {successMessage && (
-          <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
-            {successMessage}
-          </Alert>
-        )}
-
-        {renderForm()}
-      </Box>
+  return (
+    <Box sx={{ width: '100%' }}>
+      {error && (
+        <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
+          {successMessage}
+        </Alert>
+      )}
+      {renderForm()}
     </Box>
   );
 };

@@ -14,9 +14,7 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 import PrintIcon from '@mui/icons-material/Print';
 import CloseIcon from '@mui/icons-material/Close';
-
-// Backend base URL (move to .env later: process.env.REACT_APP_API_URL)
-const API_BASE_URL = 'http://localhost:8080';
+import { API_BASE_URL } from '../../services/api';
 
 const InvoiceModal = ({
   open,
@@ -32,12 +30,17 @@ const InvoiceModal = ({
   const isDisabled = !signedInvoiceUrl;
 
   const getFullUrl = () => {
-    if (!signedInvoiceUrl) return null;
-    return signedInvoiceUrl.startsWith('http')
-      ? signedInvoiceUrl
-      : `${API_BASE_URL}${signedInvoiceUrl.startsWith('/') ? '' : '/'}${signedInvoiceUrl}`;
+    if (isDisabled) return null;
+    
+    // If it's already a full cloud URL (like the one you provided), use it directly
+    if (signedInvoiceUrl.startsWith('http')) {
+        return signedInvoiceUrl;
+    }
+    
+    // Fallback for local/relative paths
+    const cleanPath = signedInvoiceUrl.startsWith('/') ? signedInvoiceUrl : `/${signedInvoiceUrl}`;
+    return `${API_BASE_URL}${cleanPath}`;
   };
-
   const handlePrint = () => {
     if (isDisabled) return;
     setLoading(true);
@@ -45,7 +48,11 @@ const InvoiceModal = ({
 
     const fullUrl = getFullUrl();
     if (fullUrl) {
-      window.open(fullUrl, '_blank', 'noopener,noreferrer');
+      // For cloud environments, window.open is better for Preview
+      const printWindow = window.open(fullUrl, '_blank', 'noopener,noreferrer');
+      if (!printWindow) {
+        setError('Popup blocked. Please allow popups to view the invoice.');
+      }
     } else {
       setError('No valid URL available.');
     }
@@ -59,22 +66,20 @@ const InvoiceModal = ({
 
     const fullUrl = getFullUrl();
     if (fullUrl) {
-      // Force download by using attachment disposition via query param
+      // Append download param correctly handling existing query strings
       const downloadUrl = fullUrl.includes('?')
         ? `${fullUrl}&download=true`
         : `${fullUrl}?download=true`;
 
-      // Use <a> click method - most reliable for forcing download
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `invoice_${invoiceNo || saleId || 'unknown'}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // On Cloud Run/HTTPS, direct assignment is often more reliable than <a> click
+      // as it bypasses certain cross-origin download restrictions
+      window.location.assign(downloadUrl);
     } else {
       setError('No valid URL available.');
     }
-    setLoading(false);
+    
+    // Keep loading for a second to show progress before allowing user to close
+    setTimeout(() => setLoading(false), 1000);
   };
 
 const handleClose = () => {

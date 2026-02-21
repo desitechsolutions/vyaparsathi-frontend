@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const isRefreshing = useRef(false); // prevent concurrent refreshes
   const idleWarningToastIdRef = useRef(null);
+  const lastCheckRef = useRef(0); // Throttle token checks on scroll/activity
 
   // --- Logout function ---
   const hasNavigatedRef = useRef(false);
@@ -42,6 +43,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
   }, [navigate]);
+
   // --- Silent refresh logic ---
   const silentRefresh = useCallback(async () => {
     console.log('[AuthContext] silentRefresh called');
@@ -50,7 +52,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) return;
-      const res = await API.post('/api/auth/refresh', { refreshToken });
+      
+      // Added meta background to avoid recursive activity signaling
+      const res = await API.post('/api/auth/refresh', { refreshToken }, { meta: { background: true } });
+      
       const { token, refreshToken: newRefreshToken } = res.data;
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', newRefreshToken);
@@ -71,11 +76,17 @@ export const AuthProvider = ({ children }) => {
 
   // --- Check and refresh token if expiring soon ---
   const checkAndRefreshTokenIfNeeded = useCallback(() => {
+    const now = Date.now();
+    
+    // THROTTLE: Only allow this check once every 30 seconds
+    if (now - lastCheckRef.current < 30000) return;
+    lastCheckRef.current = now;
+
     const token = localStorage.getItem('token');
     if (!token) return;
     const decoded = jwtDecode(token);
-    const now = Date.now();
     const timeLeft = decoded.exp * 1000 - now;
+    
     if (timeLeft < (2 * 60 * 1000)) {
       silentRefresh();
     }
@@ -89,7 +100,6 @@ export const AuthProvider = ({ children }) => {
         onTimeout: () => logout('Logged out due to inactivity.'),
         onWarning: () => {
           setWarningActive(true);
-          // Show warning only if not already active
           if (!idleWarningToastIdRef.current || !toast.isActive(idleWarningToastIdRef.current)) {
             idleWarningToastIdRef.current = toast.warn(
               <span>
@@ -122,7 +132,6 @@ export const AuthProvider = ({ children }) => {
     }
     return () => {
       if (cleanupTimer) cleanupTimer();
-      // Defensive: only dismiss if toast is active
       if (
         idleWarningToastIdRef.current &&
         toast.isActive(idleWarningToastIdRef.current)
@@ -206,3 +215,4 @@ export const useAuthContext = () => {
   }
   return context;
 };
+export const useAuth = useAuthContext;
