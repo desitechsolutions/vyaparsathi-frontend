@@ -16,14 +16,19 @@ export const flattenOptions = (options) => {
     } else if (item !== null && typeof item === 'object') {
       Object.values(item).forEach(recurse);
     } else if (item !== undefined && item !== null) {
-      // Add primitive values (strings, numbers) to the set
-      flattened.add(String(item));
+      // Convert to string and trim whitespace
+      const value = String(item).trim();
+      // Only add if the value is not an empty string
+      if (value !== "") {
+        flattened.add(value);
+      }
     }
   };
 
   recurse(options);
   
-  // Sort alphabetically for a better user experience in dropdowns
+  // Sort alphabetically and numerically for a better user experience
+  // (e.g., "Size 2" will come before "Size 10")
   return Array.from(flattened).sort((a, b) => 
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   );

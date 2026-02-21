@@ -11,7 +11,6 @@ import {
   Avatar
 } from '@mui/material';
 import {
-  Inventory2,
   CheckCircleOutline
 } from '@mui/icons-material';
 
@@ -19,55 +18,88 @@ export default function ReviewStepContent({
   itemFormData,
   variantList,
   apiCategories,
+  shopCategory = 'CLOTHING', // Receiving from parent
 }) {
   const { t } = useTranslation();
 
-  // 1. Find the specific category selected
   const selectedCategory = apiCategories.find((c) => c.id === itemFormData.categoryId);
   const categoryName = selectedCategory?.name || 'N/A';
 
-  // 2. Logic to determine the Top-Level Industry
-  const getDetectedIndustry = () => {
-    if (!selectedCategory) return 'CLOTHING';
-
-    // Check if the category itself OR its parent is one of the major industries
-    const target = (selectedCategory.parentName || selectedCategory.name || '').toUpperCase();
-
-    if (target.includes('ELECTRONICS')) return 'ELECTRONICS';
-    if (target.includes('HARDWARE')) return 'HARDWARE';
-    
-    // Default to clothing for MEN, WOMEN, KIDS, etc.
-    return 'CLOTHING';
-  };
-
-  const detectedIndustry = getDetectedIndustry();
-
-  // --- Industry-Specific Labels Configuration ---
-  const industryLabels = {
+  // --- Dynamic Industry Label Configuration ---
+  const industryConfig = {
     CLOTHING: {
       attr1: t('itemsPage.form.fabric'),
       attr2: t('itemsPage.form.season'),
-      fitLabel: t('itemsPage.variant.fit', 'Fit'),
-      colorLabel: t('itemsPage.variant.color', 'Color'),
-      sizeLabel: t('itemsPage.variant.size', 'Size'),
+      size: t('itemsPage.variant.size', 'Size'),
+      color: t('itemsPage.variant.color', 'Color'),
+      fit: t('itemsPage.variant.fit', 'Fit')
     },
     ELECTRONICS: {
       attr1: 'Build Material',
       attr2: 'Warranty',
-      fitLabel: 'Connectivity',
-      colorLabel: 'Finish',
-      sizeLabel: 'Storage/Cap',
+      size: 'Storage/Cap',
+      color: 'Finish',
+      fit: 'Connectivity'
     },
     HARDWARE: {
       attr1: 'Material',
       attr2: 'Usage Env',
-      fitLabel: 'Mounting',
-      colorLabel: 'Finish/Coating',
-      sizeLabel: 'Specs/Weight',
+      size: 'Specs/Dimensions',
+      color: 'Coating',
+      fit: 'Mounting'
+    },
+    PHARMACY: {
+      attr1: 'Dosage Form',
+      attr2: 'Storage',
+      size: 'Strength',
+      color: 'Visual Ref',
+      fit: 'Usage'
+    },
+    GROCERY: {
+      attr1: 'Packaging',
+      attr2: 'Dietary',
+      size: 'Weight/Vol',
+      color: 'Origin',
+      fit: 'Life'
+    },
+    AUTOMOBILE: {
+      attr1: 'Material',
+      attr2: 'Compatibility',
+      size: 'Specs',
+      color: 'Finish',
+      fit: 'Position'
+    },
+    STATIONERY: {
+      attr1: 'Material',
+      attr2: 'Usage',
+      size: 'Dimensions',
+      color: 'Ink/Color',
+      fit: 'Binding'
+    },
+    FOOTWEAR: {
+      attr1: 'Upper Mat.',
+      attr2: 'Season',
+      size: 'Size (UK)',
+      color: 'Color',
+      fit: 'Width'
+    },
+    FURNITURE: {
+      attr1: 'Frame',
+      attr2: 'Room',
+      size: 'Dimensions',
+      color: 'Finish',
+      fit: 'Assembly'
+    },
+    JEWELLERY: {
+      attr1: 'Purity',
+      attr2: 'Occasion',
+      size: 'Length/Size',
+      color: 'Tone',
+      fit: 'Clasp'
     }
   };
 
-  const labels = industryLabels[detectedIndustry];
+  const labels = industryConfig[shopCategory] || industryConfig.CLOTHING;
 
   return (
     <Box>
@@ -79,6 +111,7 @@ export default function ReviewStepContent({
       </Stack>
 
       <Grid container spacing={3}>
+        {/* Left Side: Basic Product Details */}
         <Grid item xs={12} md={5}>
           <Paper 
             elevation={0} 
@@ -96,8 +129,9 @@ export default function ReviewStepContent({
               />
               <DetailRow label={t('itemsPage.form.brandName')} value={itemFormData.brandName} />
               <Divider />
-              <DetailRow label={labels.attr1} value={itemFormData.attribute1 || itemFormData.fabric} />
-              <DetailRow label={labels.attr2} value={itemFormData.attribute2 || itemFormData.season} />
+              {/* Using generic attribute names stored in itemFormData */}
+              <DetailRow label={labels.attr1} value={itemFormData.attribute1} />
+              <DetailRow label={labels.attr2} value={itemFormData.attribute2} />
             </Stack>
 
             {itemFormData.description && (
@@ -109,12 +143,19 @@ export default function ReviewStepContent({
           </Paper>
         </Grid>
 
+        {/* Right Side: Variant List Summary */}
         <Grid item xs={12} md={7}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="overline" color="text.secondary" fontWeight={800}>
               {t('itemsPage.variant.variantsCount', { count: variantList.length })}
             </Typography>
-            <Chip label={detectedIndustry} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: '0.6rem' }} />
+            <Chip 
+              label={shopCategory} 
+              size="small" 
+              color="primary" 
+              variant="outlined" 
+              sx={{ fontWeight: 800, fontSize: '0.65rem' }} 
+            />
           </Box>
 
           <Stack spacing={2} sx={{ maxHeight: '450px', overflowY: 'auto', pr: 1 }}>
@@ -137,16 +178,24 @@ export default function ReviewStepContent({
                   <Grid item xs>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="subtitle1" fontWeight={900}>₹{variant.pricePerUnit}</Typography>
-                      <Typography variant="caption" color="text.secondary">{t('itemsPage.variant.perUnit', { unit: variant.unit })}</Typography>
-                      <Chip label={t('itemsPage.variant.gstLabel', { rate: variant.gstRate })} size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: '#e0f2fe', color: '#0369a1' }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {t('itemsPage.variant.perUnit', { unit: variant.unit })}
+                      </Typography>
+                      <Chip 
+                        label={t('itemsPage.variant.gstLabel', { rate: variant.gstRate })} 
+                        size="small" 
+                        sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: '#e0f2fe', color: '#0369a1' }} 
+                      />
                     </Stack>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      <strong>{variant.color}</strong> ({labels.colorLabel}) • <strong>{variant.size}</strong> ({labels.sizeLabel}) • {variant.fit || t('itemsPage.variant.standardFit')}
+                      <strong>{variant.size || 'N/A'}</strong> ({labels.size}) • 
+                      <strong> {variant.color || 'N/A'}</strong> ({labels.color}) • 
+                      {variant.fit || labels.fit}
                     </Typography>
                   </Grid>
                   <Grid item sx={{ textAlign: 'right' }}>
                     <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: '#64748b' }}>
-                      {t('itemsPage.variant.sku')}: {variant.sku || t('itemsPage.notAvailable')}
+                      {variant.sku || 'No SKU'}
                     </Typography>
                   </Grid>
                 </Grid>

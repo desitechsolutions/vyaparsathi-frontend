@@ -85,7 +85,6 @@ const PublicHeader = () => {
         message: `Request for Live Demo.\nLocation: ${demoData.city}\nRequirements: ${demoData.note}`
       });
 
-      // Axios returns the response object, we check status 200 (ok)
       if (response.status === 200) {
         setDemoSuccess(true);
         setSnackbar({ 
@@ -173,9 +172,9 @@ const PublicHeader = () => {
                   </Menu>
                 </>
               )}
+              
+              <Button variant="outlined" onClick={() => setDemoOpen(true)} sx={{ borderRadius: 2, fontWeight: 800, display: { xs: 'none', md: 'flex' }, borderWidth: 2 }}>📅 Book Demo</Button>
               <Button onClick={toggleLanguage} sx={{ fontWeight: 800, minWidth: 50, color: 'primary.main' }}>{i18n.language === 'en' ? 'हिन्दी' : 'EN'}</Button>
-              <Button variant="outlined" onClick={() => setDemoOpen(true)} sx={{ borderRadius: 2, fontWeight: 800, display: { xs: 'none', md: 'flex' }, borderWidth: 2 }}>Book Demo</Button>
-              <Button variant="contained" disableElevation startIcon={<WhatsAppIcon />} onClick={() => window.open('https://wa.me/919508156282', '_blank')} sx={{ borderRadius: 2, bgcolor: '#10b981', fontWeight: 800, display: { xs: 'none', md: 'flex' }, '&:hover': { bgcolor: '#059669' } }}>Connect</Button>
             </Stack>
           </Toolbar>
         </Container>
@@ -197,13 +196,13 @@ const PublicHeader = () => {
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'white' }}>
                             <Stack direction="row" spacing={2} alignItems="center">
                                 <Avatar sx={{ bgcolor: 'primary.main' }}><EngineeringIcon /></Avatar>
-                                <Box><Typography variant="subtitle2" fontWeight={800}>Birendra Shaw</Typography><Typography variant="caption" color="text.secondary">Backend Lead</Typography></Box>
+                                <Box><Typography variant="subtitle2" fontWeight={800}>Birendra Shaw</Typography><Typography variant="caption" color="text.secondary">Technical Expert/Lead</Typography></Box>
                             </Stack>
                         </Paper>
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'white' }}>
                             <Stack direction="row" spacing={2} alignItems="center">
                                 <Avatar sx={{ bgcolor: 'secondary.main' }}><CloudIcon /></Avatar>
-                                <Box><Typography variant="subtitle2" fontWeight={800}>Uma Shankar Pandey</Typography><Typography variant="caption" color="text.secondary">Cloud Lead</Typography></Box>
+                                <Box><Typography variant="subtitle2" fontWeight={800}>Uma Shankar Pandey</Typography><Typography variant="caption" color="text.secondary">Cloud Lead/Marketing Head</Typography></Box>
                             </Stack>
                         </Paper>
                         <Alert severity="success" sx={{ borderRadius: 3, mt: 2 }} icon={<CheckCircleOutlineIcon fontSize="small" />}><Typography variant="caption" fontWeight={700}>⚡ 2-4 Hours response promise.</Typography></Alert>
@@ -293,13 +292,59 @@ const PublicHeader = () => {
         <DialogTitle sx={{ textAlign: 'center', pt: 4 }}><Typography variant="h5" fontWeight={900}>Get in Touch</Typography></DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', '&:hover': { bgcolor: '#f8fafc' } }} onClick={() => window.location.href = 'mailto:info@desitechsolutions.com'}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', '&:hover': { bgcolor: '#f8fafc' } }} onClick={() => window.location.href = 'mailto:sales@desitechsolutions.com'}>
                 <Avatar sx={{ bgcolor: '#eff6ff', color: 'primary.main' }}><EmailIcon /></Avatar>
-                <Box><Typography variant="caption" fontWeight={700} color="text.secondary">Email Sales</Typography><Typography variant="body2" fontWeight={800}>info@desitechsolutions.com</Typography></Box>
+                <Box><Typography variant="caption" fontWeight={700} color="text.secondary">Email Sales</Typography><Typography variant="body2" fontWeight={800}>sales@desitechsolutions.com</Typography></Box>
               </Paper>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', '&:hover': { bgcolor: '#f0fdf4' } }} onClick={() => window.open('https://wa.me/919508156282', '_blank')}>
-                <Avatar sx={{ bgcolor: '#f0fdf4', color: '#10b981' }}><WhatsAppIcon /></Avatar>
-                <Box><Typography variant="caption" fontWeight={700} color="text.secondary">WhatsApp Support</Typography><Typography variant="body2" fontWeight={800}>+91 95081 56282</Typography></Box>
+             <Paper 
+                variant="outlined" 
+                sx={{ 
+                  p: 2, 
+                  borderRadius: 3, 
+                  display: 'flex', 
+                  alignItems: 'flex-start',
+                  gap: 2, 
+                  bgcolor: '#f8fafc'
+                }}
+              >
+                <Avatar sx={{ bgcolor: '#f0fdf4', color: '#10b981' }}>
+                  <WhatsAppIcon />
+                </Avatar>
+                
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" gutterBottom>
+                    WhatsApp Support
+                  </Typography>
+
+                  {/* Contact 1 */}
+                  <Typography 
+                    variant="body2" 
+                    fontWeight={800} 
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { color: '#10b981' },
+                      display: 'block',
+                      mb: 0.5 
+                    }}
+                    onClick={() => window.open('https://wa.me/919508156282', '_blank')}
+                  >
+                    +91 95081 56282 (Birendra)
+                  </Typography>
+
+                  {/* Contact 2 */}
+                  <Typography 
+                    variant="body2" 
+                    fontWeight={800} 
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { color: '#10b981' },
+                      display: 'block' 
+                    }}
+                    onClick={() => window.open('https://wa.me/918447769695', '_blank')}
+                  >
+                    +91 84477 69695 (Uma Shankar)
+                  </Typography>
+                </Box>
               </Paper>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar sx={{ bgcolor: '#fff1f2', color: '#f43f5e' }}><LocationOnIcon /></Avatar>

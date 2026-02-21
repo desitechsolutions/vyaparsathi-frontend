@@ -10,8 +10,6 @@ import {
 } from '@mui/material';
 
 import { 
-  clothingFabrics, 
-  clothingSeasons,
   variantMaterials, 
   variantUsage 
 } from '../../../ui/constants';
@@ -25,35 +23,31 @@ export default function ItemDetailsForm({
   const { t } = useTranslation();
 
   // --- DYNAMIC INDUSTRY CONFIG ---
-  const industryConfig = {
-    CLOTHING: {
-      label1: t('itemsPage.form.fabric'),
-      label2: t('itemsPage.form.season'),
-      options1: clothingFabrics || [],
-      options2: clothingSeasons || [],
-    },
-    ELECTRONICS: {
-      label1: 'Build Material',
-      label2: 'Warranty Period',
-      options1: variantMaterials?.ELECTRONICS || ['Plastic', 'Aluminum', 'Glass'],
-      options2: variantUsage?.ELECTRONICS || ['1 Year', '2 Years', 'Limited Life-time'],
-    },
-    HARDWARE: {
-      label1: 'Material',
-      label2: 'Usage Environment',
-      options1: variantMaterials?.HARDWARE || ['Steel', 'Wood', 'Brass', 'PVC'],
-      options2: variantUsage?.HARDWARE || ['Indoor', 'Outdoor', 'Industrial', 'Marine'],
-    }
+  // This maps the generic attribute fields to industry-specific terminology
+  const industryLabels = {
+    CLOTHING:    { attr1: t('itemsPage.form.fabric'), attr2: t('itemsPage.form.season') },
+    ELECTRONICS: { attr1: 'Build Material', attr2: 'Warranty Period' },
+    HARDWARE:    { attr1: 'Primary Material', attr2: 'Usage Environment' },
+    PHARMACY:    { attr1: 'Dosage Form', attr2: 'Storage Req.' },
+    GROCERY:     { attr1: 'Packaging Type', attr2: 'Dietary Info' },
+    AUTOMOBILE:  { attr1: 'Material Type', attr2: 'Vehicle Compatibility' },
+    STATIONERY:  { attr1: 'Material', attr2: 'Intended Use' },
+    FOOTWEAR:    { attr1: 'Upper Material', attr2: 'Season' },
+    FURNITURE:   { attr1: 'Frame Material', attr2: 'Room Type' },
+    JEWELLERY:   { attr1: 'Metal Purity', attr2: 'Occasion' },
   };
 
-  const currentConfig = industryConfig[shopCategory] || industryConfig.CLOTHING;
+  const labels = industryLabels[shopCategory] || { attr1: 'Material/Type', attr2: 'Usage/Category' };
+
+  // Get options from constants based on shopCategory, fallback to empty array
+  const options1 = variantMaterials[shopCategory] || [];
+  const options2 = variantUsage[shopCategory] || [];
 
   // --- GROUPING & SORTING CATEGORIES ---
   const sortedCategories = React.useMemo(() => {
     return [...(apiCategories || [])].sort((a, b) => {
-      // Sort primarily by parent name to keep groups together
-      const groupA = a.parentName || a.name;
-      const groupB = b.parentName || b.name;
+      const groupA = a.parentName || 'ROOT';
+      const groupB = b.parentName || 'ROOT';
       return groupA.localeCompare(groupB);
     });
   }, [apiCategories]);
@@ -77,7 +71,7 @@ export default function ItemDetailsForm({
   return (
     <Box>
       <Typography variant="subtitle2" color="text.secondary" fontWeight={700} mb={2} sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-        {t('itemsPage.sections.basicInfo')}
+        {t('itemsPage.sections.basicInfo')} - <span style={{ color: '#6366f1' }}>{shopCategory}</span>
       </Typography>
       
       <Grid container spacing={2.5}>
@@ -109,7 +103,6 @@ export default function ItemDetailsForm({
                 categoryId: newValue ? newValue.id : '',
               }))
             }
-            // This makes the group headers look much cleaner
             renderGroup={(params) => (
               <li key={params.key}>
                 <ListSubheader sx={{ bgcolor: '#f1f5f9', fontWeight: 800, color: 'primary.main', lineHeight: '32px' }}>
@@ -143,19 +136,19 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Attribute 1 */}
+        {/* Attribute 1 (Fabric/Material/Dosage) */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
-            options={currentConfig.options1}
-            value={itemFormData.attribute1 || itemFormData.fabric || ''}
+            options={options1}
+            value={itemFormData.attribute1 || ''}
             onInputChange={(_, newValue) => 
               setItemFormData((prev) => ({ ...prev, attribute1: newValue }))
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={currentConfig.label1}
+                label={labels.attr1}
                 variant="outlined"
                 sx={inputSx}
               />
@@ -163,19 +156,19 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Attribute 2 */}
+        {/* Attribute 2 (Season/Warranty/Storage) */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
-            options={currentConfig.options2}
-            value={itemFormData.attribute2 || itemFormData.season || ''}
+            options={options2}
+            value={itemFormData.attribute2 || ''}
             onInputChange={(_, newValue) => 
               setItemFormData((prev) => ({ ...prev, attribute2: newValue }))
             }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={currentConfig.label2}
+                label={labels.attr2}
                 variant="outlined"
                 sx={inputSx}
               />

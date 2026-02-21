@@ -175,19 +175,38 @@ const SalesHistory = () => {
   };
 
   const handlePrintInvoice = async (sale) => {
-    const saleId = sale.id || sale.saleId;
-    try {
-      const res = await API.get(`/api/sales/${saleId}/signed-url`);
-      const signedPath = res.data;
+  const saleId = sale.id || sale.saleId;
+  try {
+    // 1. Get the signed URL/Path
+    const res = await API.get(`/api/sales/${saleId}/signed-url`);
+    const signedPath = res.data;
 
-      const fullUrl = signedPath.startsWith('http') 
-        ? signedPath 
-        : `${API_BASE_URL}${signedPath.startsWith('/') ? '' : '/'}${signedPath}`;
+    // 2. Fetch as BLOB using the authenticated API instance
+    const response = await API.get(signedPath, {
+      responseType: 'blob',
+    });
 
-      window.open(fullUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) { showSnackbar("Failed to load invoice.", "error"); }
-  };
+    // 3. Create a blob URL and open it
+    const file = new Blob([response.data], { type: 'application/pdf' });
+    const fileURL = URL.createObjectURL(file);
+    
+    // Open in new tab
+    const pdfWindow = window.open();
+    if (pdfWindow) {
+        pdfWindow.location.href = fileURL;
+    } else {
+        // Fallback if popup is blocked
+        window.location.assign(fileURL);
+    }
 
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+
+  } catch (err) {
+    console.error("In-browser PDF Error:", err);
+    showSnackbar("Could not generate PDF. Please check your connection.", "error");
+  }
+};
   const filteredSales = useMemo(() => {
     return salesHistory.filter(sale => {
       const matchesSearch = (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
