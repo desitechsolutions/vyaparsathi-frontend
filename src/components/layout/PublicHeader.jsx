@@ -85,7 +85,6 @@ const PublicHeader = () => {
         message: `Request for Live Demo.\nLocation: ${demoData.city}\nRequirements: ${demoData.note}`
       });
 
-      // Axios returns the response object, we check status 200 (ok)
       if (response.status === 200) {
         setDemoSuccess(true);
         setSnackbar({ 
@@ -197,13 +196,13 @@ const PublicHeader = () => {
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'white' }}>
                             <Stack direction="row" spacing={2} alignItems="center">
                                 <Avatar sx={{ bgcolor: 'primary.main' }}><EngineeringIcon /></Avatar>
-                                <Box><Typography variant="subtitle2" fontWeight={800}>Birendra Shaw</Typography><Typography variant="caption" color="text.secondary">Backend Lead</Typography></Box>
+                                <Box><Typography variant="subtitle2" fontWeight={800}>Birendra Shaw</Typography><Typography variant="caption" color="text.secondary">Technical Expert/Lead</Typography></Box>
                             </Stack>
                         </Paper>
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'white' }}>
                             <Stack direction="row" spacing={2} alignItems="center">
                                 <Avatar sx={{ bgcolor: 'secondary.main' }}><CloudIcon /></Avatar>
-                                <Box><Typography variant="subtitle2" fontWeight={800}>Uma Shankar Pandey</Typography><Typography variant="caption" color="text.secondary">Cloud Lead</Typography></Box>
+                                <Box><Typography variant="subtitle2" fontWeight={800}>Uma Shankar Pandey</Typography><Typography variant="caption" color="text.secondary">Cloud Lead/Marketing Head</Typography></Box>
                             </Stack>
                         </Paper>
                         <Alert severity="success" sx={{ borderRadius: 3, mt: 2 }} icon={<CheckCircleOutlineIcon fontSize="small" />}><Typography variant="caption" fontWeight={700}>⚡ 2-4 Hours response promise.</Typography></Alert>
