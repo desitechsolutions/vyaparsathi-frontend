@@ -22,6 +22,10 @@ export default function useItemsLogic() {
   const [stockData, setStockData] = useState([]);
   const [apiCategories, setApiCategories] = useState([]);
 
+  // ── Industry Context State ──────────────────────────────
+  // Detects shop type (CLOTHING, PHARMACY, etc.) for UI labels
+  const [shopCategory, setShopCategory] = useState('CLOTHING');
+
   // ── UI / Loading States ────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +74,18 @@ export default function useItemsLogic() {
       setItemsWithoutVariants(items.filter((item) => !item.variants?.length));
 
       setStockData(Array.isArray(stockRes.data) ? stockRes.data : []);
-      setApiCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+      
+      const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
+      setApiCategories(categories);
+
+      // Detect Industry from Categories: Find the root industry category
+      if (categories.length > 0) {
+        const rootCat = categories.find(c => !c.parentId || c.parentName === null);
+        if (rootCat) {
+          setShopCategory(rootCat.name.toUpperCase());
+        }
+      }
+
     } catch (err) {
       console.error('Data fetch error:', err);
       showSnackbar('Failed to load data. Please check API service.', 'error');
@@ -147,7 +162,7 @@ export default function useItemsLogic() {
   const prepareFormData = (isUpdate = false) => {
     const formData = new FormData();
     const variantsPayload = variantList.map((variant, index) => {
-      const { photoFile, photoPreviewUrl, id, ...rest } = variant;
+      const { photoFile, photoPreviewUrl, id, photoUrl, ...rest } = variant;
       
       const cleanVariant = { ...rest };
       if (id && !String(id).startsWith('local_')) {
@@ -213,15 +228,14 @@ export default function useItemsLogic() {
       description: item.description || '',
       categoryId: item.categoryId || '',
       brandName: item.brandName || '',
-      // Support both legacy fields and generic attributes
-      attribute1: item.attribute1 || item.fabric || '',
-      attribute2: item.attribute2 || item.season || '',
+      attribute1: item.attribute1 || '',
+      attribute2: item.attribute2 || '',
     });
 
     setVariantList(item.variants.map(v => ({
       ...v,
       photoUrl: v.photoPath,
-      lowStockThreshold: v.lowStockThreshold || ''
+      lowStockThreshold: v.lowStockThreshold || '5'
     })));
 
     setSelectedItemId(itemId);
@@ -291,12 +305,16 @@ export default function useItemsLogic() {
   ], [t]);
 
   return {
-    loading, itemsWithVariants, itemsWithoutVariants, stockData, apiCategories,
+    // Data States
+    loading, itemsWithVariants, itemsWithoutVariants, stockData, apiCategories, shopCategory,
+    // Dialog States
     openAddDialog, setOpenAddDialog, openEditDialog, setOpenEditDialog,
     openDeleteConfirm, setOpenDeleteConfirm, openViewVariantsDialog, setOpenViewVariantsDialog,
+    // Form States
     variantsToView, step, setStep, itemFormData, setItemFormData,
     variantList, setVariantList, currentVariant, setCurrentVariant,
     editingVariantIndex, setEditingVariantIndex, isSubmitting, dialogError, setDialogError,
+    // Helpers
     snackbar, showSnackbar, handleSnackbarClose, handleDialogClose,
     handleAddItemClick, handleManageItem, handleViewVariants, handleDeleteVariant,
     confirmDeleteVariant, handleNext, handleBack, handleMultiStepSubmit, handleMultiStepUpdate,
