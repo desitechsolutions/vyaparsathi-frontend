@@ -51,6 +51,11 @@ const Login = () => {
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    setError('');
+    setSuccessMessage('');
+  }, [view]);
+
   // Autofill handling
   useEffect(() => {
     const handleAnimationStart = (e) => {

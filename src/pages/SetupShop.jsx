@@ -47,7 +47,7 @@ const INDUSTRIES = [
 ];
 
 const SetupShop = () => {
-  const { logout } = useAuthContext();
+  const { logout, silentRefresh } = useAuthContext();
   const navigate = useNavigate();
   const { refetchShop } = useShopConfig();
   const fileInputRef = useRef(null);
@@ -166,6 +166,9 @@ const SetupShop = () => {
 
     try {
       await setupShop(formData);
+      if (silentRefresh) {
+      await silentRefresh(); 
+    }
       await refetchShop();
       setSetupComplete(true);
       setTimeout(() => navigate('/', { replace: true }), 1600);
