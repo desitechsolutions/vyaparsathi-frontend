@@ -8,39 +8,53 @@ import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { useSupportChat } from './admin/hooks/useSupportChat';
-import useWebSocket from '../hooks/useWebSocket'; 
+// import useWebSocket from '../hooks/useWebSocket'; // Removed redundant direct import
 
 const SupportChatWidget = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const scrollRef = useRef(null);
 
-  // Hook for message history and sending logic
-  const { messages, loading, sendMessage } = useSupportChat(user?.shopId, false);
-  
-  // Updated WebSocket hook with typing capabilities
-  const { notifications, clearNotifications, typingStatus, sendTypingStatus } = useWebSocket(user?.shopId);
+  /**
+   * ✅ CRITICAL CHANGE: 
+   * Extracting typingStatus and sendTypingStatus from useSupportChat.
+   * This ensures the logic uses the filtered state we defined in your support hook.
+   */
+  const { 
+    messages, 
+    loading, 
+    sendMessage, 
+    typingStatus, 
+    sendTypingStatus,
+    notifications,
+    clearNotifications 
+  } = useSupportChat(user?.shopId, false);
 
   // Auto-scroll to bottom
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
       
-      if (notifications.length > 0) {
+      if (notifications && notifications.length > 0) {
         clearNotifications();
       }
+      return () => clearTimeout(timer);
     }
-  }, [messages, isOpen, notifications.length, clearNotifications, typingStatus.isTyping]);
+  }, [messages, isOpen, notifications?.length, clearNotifications, typingStatus?.isTyping]);
 
   const handleSend = () => {
     if (!text.trim()) return;
     if (!user || !user.shopId) return;
 
     sendMessage(text, user.name, user.shopId, user.shopName);
+    
     // Notify admin that typing has stopped after sending
-    sendTypingStatus(false, user.name); 
+    // Passed shopId as 3rd param to ensure it reaches the right destination
+    if (sendTypingStatus) {
+        sendTypingStatus(false, user.name, user.shopId); 
+    }
     setText('');
   };
 
@@ -49,8 +63,8 @@ const SupportChatWidget = ({ user }) => {
     setText(val);
     
     // Trigger real-time typing status
-    if (user?.shopId) {
-      sendTypingStatus(val.length > 0, user.name);
+    if (user?.shopId && sendTypingStatus) {
+      sendTypingStatus(val.length > 0, user.name, user.shopId);
     }
   };
 
@@ -196,11 +210,11 @@ const SupportChatWidget = ({ user }) => {
               })
             )}
 
-            {/* Real-time Typing Indicator UI */}
-            {typingStatus.isTyping && (
+            {/* ✅ REAL-TIME TYPING INDICATOR UI */}
+            {typingStatus?.isTyping && (
               <Box sx={{ alignSelf: 'flex-start', mb: 1.5, ml: 1 }}>
                  <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 1 }}>
-                   <CircularProgress size={10} thickness={6} /> Support is typing...
+                   Support is typing...
                  </Typography>
               </Box>
             )}
@@ -258,9 +272,9 @@ const SupportChatWidget = ({ user }) => {
       {/* Toggle Button with Notification Badge */}
       <Box sx={{ pointerEvents: 'auto' }}>
         <Badge 
-          badgeContent={notifications.length} 
+          badgeContent={notifications?.length || 0} 
           color="error"
-          invisible={isOpen || notifications.length === 0}
+          invisible={isOpen || !notifications?.length}
           sx={{ '& .MuiBadge-badge': { fontSize: '0.75rem', height: 20, minWidth: 20 } }}
         >
           <Fab 

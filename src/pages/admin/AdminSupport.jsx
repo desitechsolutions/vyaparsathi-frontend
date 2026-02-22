@@ -23,7 +23,6 @@ const AdminSupport = () => {
         const response = await fetchAllConversations();
         const initialMap = {};
         
-        // Handle axios response structures safely
         const chatList = Array.isArray(response) ? response : (response?.data || []);
         
         chatList.forEach(conv => {
@@ -31,7 +30,7 @@ const AdminSupport = () => {
             shopId: conv.shopId,
             shopName: conv.shopName || `Shop #${conv.shopId}`,
             lastMessage: conv.lastMessage || '',
-            hasNew: !!conv.hasUnread, // Ensure boolean
+            hasNew: !!conv.hasUnread,
             timestamp: conv.timestamp || new Date().toISOString()
           };
         });
@@ -59,8 +58,11 @@ const AdminSupport = () => {
 
         setConversations(prev => {
           const existing = prev[incoming.shopId] || {};
-          // Only show as "New" if Rakesh isn't currently looking at this shop
-          const shouldNotify = incoming.shopId !== activeShopId;
+          
+          // FIX: Use Number() to ensure type-safe comparison 
+          // This prevents the message from showing as "New" in the active window
+          const isCurrentlyActive = Number(incoming.shopId) === Number(activeShopId);
+          const shouldNotify = !isCurrentlyActive;
 
           return {
             ...prev,
@@ -82,28 +84,26 @@ const AdminSupport = () => {
 
   // 3. Handle Selecting a shop from the list
   const handleSelectShop = async (shop) => {
+    if (activeShopId === shop.shopId) return;
+
     setActiveShopId(shop.shopId);
     setActiveShopName(shop.shopName);
     
-    // Clear notification state locally immediately
     setConversations(prev => ({
       ...prev,
       [shop.shopId]: { ...prev[shop.shopId], hasNew: false }
     }));
 
-    // Update DB status in background
     try {
       await markChatAsRead(shop.shopId);
     } catch (err) {
-      console.warn("Read status sync failed on server, but UI is updated.");
+      console.warn("Read status sync failed on server.");
     }
   };
 
   // 4. Sort calculations for the sidebar
   const sortedConversations = Object.values(conversations).sort((a, b) => {
-    // Priority 1: Unread messages at the top
     if (a.hasNew !== b.hasNew) return a.hasNew ? -1 : 1;
-    // Priority 2: Most recent message time
     return new Date(b.timestamp) - new Date(a.timestamp);
   });
 
@@ -131,7 +131,7 @@ const AdminSupport = () => {
                 Support Center
               </Typography>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                <Box sx={{ width: 8, height: 8, bgcolor: connected ? '#4ade80' : '#f87171', borderRadius: '50%' }} />
+                <Box sx={{ width: 8, height: 8, bgcolor: connected ? '#4ade80' : '#f87171', borderRadius: '50%', boxShadow: connected ? '0 0 8px #4ade80' : 'none' }} />
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase' }}>
                   {connected ? 'System Live' : 'Connecting...'}
                 </Typography>
@@ -145,15 +145,14 @@ const AdminSupport = () => {
                 <ListItemButton 
                   key={shop.shopId} 
                   onClick={() => handleSelectShop(shop)}
-                  selected={activeShopId === shop.shopId}
+                  selected={Number(activeShopId) === Number(shop.shopId)}
                   sx={{ 
-                    py: 2,
-                    px: 2,
+                    py: 2, px: 2,
                     '&.Mui-selected': { 
                       bgcolor: 'rgba(236, 72, 153, 0.12)',
                       '&:hover': { bgcolor: 'rgba(236, 72, 153, 0.2)' }
                     },
-                    borderLeft: activeShopId === shop.shopId ? '4px solid #ec4899' : '4px solid transparent',
+                    borderLeft: Number(activeShopId) === Number(shop.shopId) ? '4px solid #ec4899' : '4px solid transparent',
                     transition: 'all 0.2s ease'
                   }}
                 >
@@ -192,12 +191,6 @@ const AdminSupport = () => {
                   />
                 </ListItemButton>
               ))}
-
-              {sortedConversations.length === 0 && (
-                <Box sx={{ p: 4, textAlign: 'center', opacity: 0.5 }}>
-                  <Typography variant="body2">Waiting for conversations...</Typography>
-                </Box>
-              )}
             </List>
           </Paper>
         </Grid>
@@ -217,35 +210,25 @@ const AdminSupport = () => {
             {activeShopId ? (
               <ChatWindow 
                 shopId={activeShopId} 
-                shopName={activeShopName} 
+                shopName={activeShopName}
+                stompClient={stompClient}
+                connected={connected}
               />
             ) : (
-              <Box 
-                sx={{ 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  bgcolor: '#f8fafc',
-                  textAlign: 'center',
-                  p: 3
-                }}
-              >
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc', textAlign: 'center', p: 3 }}>
                 <Avatar sx={{ width: 100, height: 100, mb: 3, bgcolor: 'white', border: '1px solid #e2e8f0' }}>
                   <StorefrontIcon sx={{ fontSize: 50, color: '#cbd5e1' }} />
                 </Avatar>
                 <Typography variant="h5" fontWeight={900} color="#1e293b" gutterBottom>
                   Admin Support Desktop
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
+                <Typography variant="body1" color="text.secondary">
                   Select a business from the left sidebar to start a secure support session.
                 </Typography>
               </Box>
             )}
           </Paper>
         </Grid>
-
       </Grid>
     </Box>
   );

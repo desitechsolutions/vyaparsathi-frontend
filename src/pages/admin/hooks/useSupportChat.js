@@ -9,15 +9,27 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
     // For Tech Admin, we pass 'ADMIN_SUPER'. For Owners, we pass their shopId.
     const wsIdentity = isSuperAdmin ? 'ADMIN_SUPER' : targetShopId;
 
-    // FIX: Extract typingStatus and sendTypingStatus from useWebSocket
     const { 
         stompClient, 
         connected, 
-        typingStatus, 
+        typingStatus: rawTypingStatus, 
         sendTypingStatus 
     } = useWebSocket(wsIdentity);
+    
+    /**
+     * ✅ TYPING FILTER LOGIC
+     * If Admin: Only show typing if the incoming shopId matches the active window.
+     * If Shop: Just show whatever comes through.
+     */
+    const typingStatus = (isSuperAdmin && rawTypingStatus?.shopId && Number(rawTypingStatus.shopId) !== Number(targetShopId))
+        ? { isTyping: false, user: '', shopId: null }
+        : rawTypingStatus;
 
-    const isInitialLoad = useRef(true);
+    // Use a ref to track the current shopId to avoid stale closures in the subscription
+    const currentShopIdRef = useRef(targetShopId);
+    useEffect(() => {
+        currentShopIdRef.current = targetShopId;
+    }, [targetShopId]);
 
     const loadHistory = useCallback(async () => {
         // Tech Admin only loads history if a specific shop is selected
@@ -25,19 +37,14 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
         
         try {
             setLoading(true);
+            // Clear messages when switching shops so old chat doesn't persist visually
+            setMessages([]); 
 
             const data = isSuperAdmin 
                 ? await fetchShopHistoryForAdmin(targetShopId) 
                 : await fetchMyChatHistory();
 
-            setMessages(prev => {
-                if (isInitialLoad.current) {
-                    isInitialLoad.current = false;
-                    return data || [];
-                }
-                return prev; 
-            });
-
+            setMessages(data || []);
         } catch (error) {
             console.error("Chat History Error:", error);
         } finally {
@@ -50,11 +57,9 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
     }, [loadHistory]);
 
     useEffect(() => {
-        // --- SAFETY CHECK ---
         if (connected && stompClient && typeof stompClient.subscribe === 'function') {
 
-            // Tech Admin listens to global topic
-            // Shop Owner listens to shop topic
+            // Tech Admin listens to global topic, Shop Owner listens to specific shop topic
             const topic = isSuperAdmin 
                 ? `/topic/admin/support` 
                 : (targetShopId ? `/topic/shop/${targetShopId}/notifications` : null);
@@ -68,16 +73,29 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
                 try {
                     newMessage = JSON.parse(frame.body);
                 } catch {
-                    newMessage = { message: frame.body };
+                    return; 
+                }
+
+                /**
+                 * ✅ MESSAGE FILTER LOGIC
+                 * Filter incoming messages so they only appear in the correct shop's window.
+                 */
+                if (isSuperAdmin) {
+                    const msgShopId = Number(newMessage.shopId);
+                    const activeId = Number(currentShopIdRef.current);
+                    
+                    if (msgShopId !== activeId) {
+                        return; // Ignore messages for other shops
+                    }
                 }
 
                 setMessages((prev) => {
-                    // Remove optimistic duplicate
+                    // Remove optimistic duplicate if it exists
                     const filtered = prev.filter(
                         m => !(m.isOptimistic && m.message === newMessage.message)
                     );
 
-                    // Prevent duplicate server messages
+                    // Prevent duplicate server messages by ID
                     if (newMessage.id && filtered.some(m => m.id === newMessage.id)) {
                         return filtered;
                     }
@@ -93,19 +111,22 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
             };
         }
 
-    }, [stompClient, connected, targetShopId, isSuperAdmin]);
+    }, [stompClient, connected, isSuperAdmin]); // targetShopId removed to keep subscription stable
 
     const sendMessage = (text, senderName, shopId, shopName) => {
+        if (!text.trim()) return;
+
         const payload = {
             message: text,
             senderName,
-            shopId,
+            shopId: Number(shopId),
             shopName,
             isFromAdmin: isSuperAdmin,
             timestamp: new Date().toISOString(),
             isOptimistic: true
         };
 
+        // UI update for immediate feedback
         setMessages(prev => [...prev, payload]);
 
         if (!stompClient || !connected) {
@@ -127,7 +148,6 @@ export const useSupportChat = (targetShopId = null, isSuperAdmin = false) => {
         }
     };
 
-    // FIX: Added typingStatus and sendTypingStatus to the returned object
     return { 
         messages, 
         loading, 
