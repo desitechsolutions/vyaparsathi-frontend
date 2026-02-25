@@ -48,7 +48,8 @@ const useWebSocket = (shopId) => {
 
     let isMounted = true;
    const socket = new SockJS(`${API_BASE_URL}/ws`, null, {
-      withCredentials: true 
+      withCredentials: true,
+      transports: ['websocket', 'xhr-streaming', 'xhr-polling']
     });
     const client = new Client({
       webSocketFactory: () => socket,

@@ -145,10 +145,10 @@ const PublicHeader = () => {
               <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', lg: 'block' }, height: 40, my: 'auto' }} />
               <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
                 <Typography variant="subtitle2" fontWeight={900} color="primary" sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                   VyaparSathi ERP
+                  {t('publicHeader.companyTagline')}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                  Biruma Technology Solutions
+                  {t('publicHeader.birumaTechnology')}
                 </Typography>
               </Box>
             </Stack>
@@ -156,10 +156,10 @@ const PublicHeader = () => {
             <Stack direction="row" spacing={{ xs: 0.5, md: 1.5 }} alignItems="center">
               {!isMobile ? (
                 <>
-                  <Button onClick={() => setFeaturesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>Features</Button>
-                  <Button onClick={() => setServicesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>Services</Button>
-                  <Button onClick={() => setAboutOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>About</Button>
-                  <Button onClick={() => setContactOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>Contact</Button>
+                  <Button onClick={() => setFeaturesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>{t('publicHeader.features')}</Button>
+                  <Button onClick={() => setServicesOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>{t('publicHeader.services')}</Button>
+                  <Button onClick={() => setAboutOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}>{t('publicHeader.aboutUs')}</Button>
+                  <Button onClick={() => setContactOpen(true)} sx={{ fontWeight: 800, textTransform: 'none', color: 'text.primary' }}> {t('publicHeader.contact')}</Button>
                 </>
               ) : (
                 <>
