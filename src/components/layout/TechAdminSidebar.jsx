@@ -12,6 +12,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import HelpCenterIcon from '@mui/icons-material/HelpCenter';
 import GavelIcon from '@mui/icons-material/Gavel';
 import useWebSocket from '../../hooks/useWebSocket';
+import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 
 const drawerWidth = 240;
 
@@ -87,6 +88,11 @@ const TechAdminSidebar = () => {
 
   const systemMenu = [
     { text: 'Global Analytics', icon: <AssessmentIcon />, path: '/admin/analytics' },
+    { 
+    text: 'Pricing Plans', 
+    icon: <SettingsSuggestIcon />, 
+    path: '/admin/plans'
+  },
     { text: 'Audit Logs', icon: <GavelIcon />, path: '/admin/audit' },
     {
       text: 'Support Tickets',

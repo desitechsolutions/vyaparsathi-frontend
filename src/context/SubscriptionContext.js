@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { fetchSubscriptionStatus, submitPaymentUtr, startTrial } from '../services/api';
+import { 
+    fetchSubscriptionStatus, 
+    submitPaymentUtr, 
+    startTrial, 
+    fetchActivePricingPlans // New dynamic import
+} from '../services/api';
 import { useAuthContext } from './AuthContext';
 import { toast } from 'react-toastify';
 
@@ -8,18 +13,32 @@ const SubscriptionContext = createContext();
 export const SubscriptionProvider = ({ children }) => {
     const { user } = useAuthContext(); 
     const [subscription, setSubscription] = useState(null);
+    const [dynamicPlans, setDynamicPlans] = useState([]); // State for DB plans
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
-    // Use a ref to track if it's the very first load for this user
     const isInitialLoad = useRef(true);
     const prevStatusRef = useRef(null);
+
+    /**
+     * Fetches active plan configurations from the database.
+     * This ensures prices and features match what the Admin set.
+     */
+    const loadPlansFromDB = useCallback(async () => {
+        try {
+            const plansData = await fetchActivePricingPlans();
+            setDynamicPlans(plansData);
+        } catch (err) {
+            console.error("Failed to fetch dynamic pricing plans:", err);
+            // Non-blocking error: the app will still function with current sub status
+        }
+    }, []);
 
     const refreshStatus = useCallback(async (showLoading = true) => {
         if (!user) {
             setSubscription(null);
             setLoading(false);
-            isInitialLoad.current = true; // Reset when user logs out
+            isInitialLoad.current = true;
             prevStatusRef.current = null;
             return;
         }
@@ -27,17 +46,22 @@ export const SubscriptionProvider = ({ children }) => {
         if (showLoading) setLoading(true);
         setError(null);
         try {
-            const data = await fetchSubscriptionStatus();
-            const currentStatus = data?.status;
+            // Run both status check and plan fetching in parallel
+            const [subData] = await Promise.all([
+                fetchSubscriptionStatus(),
+                loadPlansFromDB()
+            ]);
+
+            const currentStatus = subData?.status;
 
             // --- NOTIFICATION LOGIC ---
-            // We only show toasts if this is NOT the initial login load
             if (!isInitialLoad.current) {
                 
-                // 1. Success Toast: PENDING -> ACTIVE (Payment Verified)
+                // 1. Payment Verified
                 if (prevStatusRef.current === 'PENDING' && currentStatus === 'ACTIVE') {
+                    const cycle = subData?.billingCycle === 'YEARLY' ? 'Year' : 'Month';
                     if (!toast.isActive('payment-success')) {
-                        toast.success('Payment Verified! Premium features are now unlocked.', {
+                        toast.success(`Subscription active for the next ${cycle}!`, {
                             toastId: 'payment-success',
                             position: "top-right",
                             autoClose: 5000,
@@ -45,8 +69,7 @@ export const SubscriptionProvider = ({ children }) => {
                     }
                 }
                 
-                // 2. Success Toast: Detection of status change to TRIAL (Real-time activation)
-                // We check if it was explicitly NOT trial before, but was a valid status (not null)
+                // 2. Trial Activated
                 if (prevStatusRef.current !== 'TRIAL' && currentStatus === 'TRIAL' && prevStatusRef.current !== null) {
                     if (!toast.isActive('trial-activated-toast')) {
                         toast.info('14-Day Free Trial Activated!', { 
@@ -55,25 +78,49 @@ export const SubscriptionProvider = ({ children }) => {
                         });
                     }
                 }
+
+                // 3. Plan Expired
+                if ((prevStatusRef.current === 'ACTIVE' || prevStatusRef.current === 'TRIAL') && currentStatus === 'EXPIRED') {
+                    if (!toast.isActive('plan-expired-toast')) {
+                        toast.error('Your subscription has expired. Features are now locked.', { 
+                            toastId: 'plan-expired-toast',
+                            position: "top-right",
+                            autoClose: false 
+                        });
+                    }
+                }
             }
             
-            // After the first successful fetch, mark initial load as false
             isInitialLoad.current = false;
             prevStatusRef.current = currentStatus;
-            setSubscription(data);
+            setSubscription(subData);
         } catch (err) {
             console.error("Subscription sync failed:", err);
             setError("Could not update subscription status.");
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user, loadPlansFromDB]);
 
+    // Derived State Helpers
+    const isPremium = useCallback(() => {
+        return (subscription?.status === 'ACTIVE' || subscription?.status === 'TRIAL') && subscription?.premium === true;
+    }, [subscription]);
+
+    const canStartTrial = useCallback(() => {
+        return !subscription?.usedTrial && !isPremium();
+    }, [subscription, isPremium]);
+
+    const getCurrentCycle = useCallback(() => {
+        return subscription?.billingCycle || 'MONTHLY';
+    }, [subscription]);
+
+    // Initial Load Effect
     useEffect(() => {
         refreshStatus();
     }, [refreshStatus]);
 
-    // AUTO-POLLING: Only runs when status is PENDING
+    // Polling Effect for Pending Payments
     useEffect(() => {
         let interval;
         if (subscription?.status === 'PENDING') {
@@ -86,23 +133,29 @@ export const SubscriptionProvider = ({ children }) => {
         };
     }, [subscription?.status, refreshStatus]);
 
-    const plans = useMemo(() => [
-        { 
-            id: 'p1', name: 'Starter', monthlyPrice: 499, tier: 'STARTER', 
-            features: ['Up to 50 Products', 'Standard Invoices'] 
-        },
-        { 
-            id: 'p2', name: 'Business Pro', monthlyPrice: 1299, tier: 'PRO', 
-            features: ['Unlimited Products', 'Advanced GST Reports', 'Bulk Data Export'] 
-        },
-        { 
-            id: 'p3', name: 'Enterprise', monthlyPrice: 1499, tier: 'ENTERPRISE', 
-            features: ['Multi-shop Locations', 'Audit Logs', 'Custom API Access'] 
-        }
-    ], []);
+    // Memoized plans now come from the DB state
+    const plans = useMemo(() => dynamicPlans, [dynamicPlans]);
 
-    const isPremium = useCallback(() => {
-        return subscription?.premium === true || subscription?.status === 'TRIAL'; 
+    // --- TIER HELPERS ---
+    
+    const getTierLevel = (tier) => {
+        const levels = { 'FREE': 0, 'STARTER': 1, 'PRO': 2, 'ENTERPRISE': 3 };
+        return levels[tier] || 0;
+    };
+
+    const hasAccess = useCallback((requiredTier) => {
+        if (!requiredTier) return true; 
+        
+        if (subscription?.status === 'EXPIRED' || subscription?.status === 'PENDING') {
+            return false;
+        }
+
+        if (subscription?.status === 'TRIAL') {
+            return getTierLevel('PRO') >= getTierLevel(requiredTier);
+        }
+
+        const currentTier = subscription?.tier || 'FREE';
+        return getTierLevel(currentTier) >= getTierLevel(requiredTier);
     }, [subscription]);
     
     const getDaysRemaining = useCallback(() => {
@@ -113,18 +166,14 @@ export const SubscriptionProvider = ({ children }) => {
         return subscription?.status || 'FREE'; 
     }, [subscription]);
 
-    const verifyPayment = async (utrNumber, planTier) => {
+    const verifyPayment = async (utrNumber, planTier, billingCycle, finalAmount) => {
         try {
-            const plan = plans.find(p => p.tier === planTier);
-            const amount = plan ? Math.round(plan.monthlyPrice * 1.18) : 0;
-
             const response = await submitPaymentUtr({
                 utrNumber,
                 planTier,
-                amountPaid: amount
+                billingCycle,
+                amountPaid: finalAmount
             });
-            // We want the notification to show after a manual action, 
-            // so we keep isInitialLoad false here.
             await refreshStatus(false); 
             return response;
         } catch (err) {
@@ -135,7 +184,6 @@ export const SubscriptionProvider = ({ children }) => {
     const initiateTrial = async () => {
         try {
             await startTrial();
-            // Force isInitialLoad to false so the user gets immediate feedback
             isInitialLoad.current = false;
             await refreshStatus(false);
             
@@ -159,8 +207,11 @@ export const SubscriptionProvider = ({ children }) => {
         error,
         plans,
         isPremium,
+        hasAccess,
         getDaysRemaining,
         getStatus,
+        canStartTrial,
+        getCurrentCycle,
         verifyPayment,
         initiateTrial,
         refreshStatus,

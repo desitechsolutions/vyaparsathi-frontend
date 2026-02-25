@@ -429,6 +429,10 @@ export const submitPaymentUtr = (paymentData) =>
   API.post('/api/subscriptions/verify-payment', paymentData).then(res => res.data);
 export const fetchSubscriptionStatus = () => 
   API.get('/api/subscriptions/status').then(res => res.data);
+export const fetchMyPaymentHistory = () => 
+  API.get('/api/subscriptions/my-payments').then(res => res.data);
+export const cancelSubscription = () => 
+  API.post('/api/subscriptions/cancel').then(res => res.data);
 
 // --- PLATFORM ADMIN ACTIONS ---
 
@@ -444,6 +448,15 @@ export const rejectPayment = (verificationId, reason) =>
   API.get('/api/subscriptions/platform/stats').then(res => res.data);
 export const fetchPlatformRevenueHistory = (days = 30) => 
   API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
+
+export const fetchActivePricingPlans = () => 
+  API.get('/api/pricing/active').then(res => res.data);
+
+export const updatePlanConfig = (planDto) => 
+  API.put('/api/pricing/admin/update', planDto).then(res => res.data);
+
+export const fetchPlanDetailsByTier = (tier) => 
+  API.get(`/api/pricing/admin/${tier}`).then(res => res.data);
 
 // --- SUPPORT & CHAT ---
 

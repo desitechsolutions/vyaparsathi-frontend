@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-  Divider, Box, Collapse, Typography, useMediaQuery, useTheme
+  Divider, Box, Collapse, useMediaQuery, useTheme, ListSubheader
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
+
+// Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import CategoryIcon from '@mui/icons-material/Category';
@@ -25,8 +28,9 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import VerifiedUser from '@mui/icons-material/VerifiedUser';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import { AccountBalanceWallet, Settings } from '@mui/icons-material';
+
 import SubscriptionStatusCard from '../SubscriptionStatusCard';
-import { useSubscription } from '../../context/SubscriptionContext';
 
 const drawerWidth = 240;
 
@@ -34,77 +38,93 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { isPremium } = useSubscription();
-  const premium = isPremium(); 
   const navigate = useNavigate();
   const { t } = useTranslation();
+  
   const { user } = useAuthContext();
+  const { hasAccess } = useSubscription();
+  
   const userRole = user?.role;
+  const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
 
-  const [openReports, setOpenReports] = useState(false);
-  const [openAdmin, setOpenAdmin] = useState(false);
-  const [openPayments, setOpenPayments] = useState(false);
+  // State for nested menus
+  const [openStates, setOpenStates] = useState({
+    reports: false,
+    admin: false,
+    payments: false,
+  });
 
-  const menuItems = [
+  const toggleNested = (key) => {
+    setOpenStates(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // --- ORGANIZED MENU STRUCTURE ---
+
+  // 1. Core Operations (Daily workflow)
+  const mainItems = [
     { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' },
-    { text: 'productsOverview.title', icon: <ShoppingCartIcon />, path: '/products' },
-    { text: 'inventory', icon: <InventoryIcon />, path: '/stock'},
-    { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
-    { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery' , protected: true},
+    { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
+    { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery', requiredTier: 'STARTER' },
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
-    { text: 'receiving', icon: <InventoryIcon />, path: '/receivings', protected: true },
   ];
 
-  const adminOwnerMenuItems = [
-    { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers', protected: true },
-    { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders', protected: true },
+  // 2. Inventory & Supply Chain
+  const inventoryItems = [
+    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' },
+    { text: 'productsOverview.title', icon: <ShoppingCartIcon />, path: '/products' },
+    { text: 'inventory', icon: <InventoryIcon />, path: '/stock' },
+    { text: 'receiving', icon: <InventoryIcon />, path: '/receivings', requiredTier: 'PRO' },
+    { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers', requiredTier: 'STARTER' },
+    { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders', requiredTier: 'PRO' },
+  ];
+
+  // 3. Strategic & Financial (Admin/Owner only)
+  const adminItems = [
     {
       text: 'payments',
       icon: <PaymentIcon />,
       nested: true,
-      open: openPayments,
-      onClick: () => setOpenPayments((prev) => !prev),
+      open: openStates.payments,
+      onClick: () => toggleNested('payments'),
       children: [
         { text: 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
-        { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments' , protected: true},
+        { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       ],
     },
-    { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics', protected: true },
-    { text: 'lowStockAlerts', icon: <InventoryIcon />, path: '/low-stock-alerts', protected: true },
+    { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics', requiredTier: 'PRO' },
+    { text: 'lowStockAlerts', icon: <InventoryIcon />, path: '/low-stock-alerts', requiredTier: 'STARTER' },
     {
       text: 'reports',
       icon: <AssessmentIcon />,
       nested: true,
-      protected: true, 
-      open: openReports,
-      onClick: () => setOpenReports((prev) => !prev),
+      requiredTier: 'PRO',
+      open: openStates.reports,
+      onClick: () => toggleNested('reports'),
       children: [
-        { text: 'overview', icon: <AssessmentIcon />, path: '/reports' ,protected: true},
-        { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily', protected: true },
-        { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary', protected: true },
-        { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', protected: true },
+        { text: 'overview', icon: <AssessmentIcon />, path: '/reports', requiredTier: 'PRO' },
+        { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
+        { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
+        { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
       ],
     },
-    { text: 'backup', icon: <BackupIcon />, path: '/backup' , protected: true},
     {
       text: 'admin',
       icon: <PeopleIcon />,
       nested: true,
-      open: openAdmin,
-      onClick: () => setOpenAdmin((prev) => !prev),
+      open: openStates.admin,
+      onClick: () => toggleNested('admin'),
       children: [
         { text: 'users', icon: <PeopleIcon />, path: '/admin/users' },
-        { text: 'payroll.title', icon: <PaymentsIcon />, path: '/admin/payroll' , protected: true},
-        { text: 'auditLogs', icon: <NotificationsIcon />, path: '/audit', protected: true },
-        { text: 'notifications', icon: <NotificationsIcon />, path: '/notifications' , protected: true},
+        { text: 'payroll.title', icon: <PaymentsIcon />, path: '/admin/payroll', requiredTier: 'ENTERPRISE' },
+        { text: 'auditLogs', icon: <NotificationsIcon />, path: '/audit', requiredTier: 'ENTERPRISE' },
+        { text: 'notifications', icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
+        { text: 'Shop Setting', icon: <Settings />, path: '/admin/settings' },
+        {text: 'Billing & Plans', icon: <AccountBalanceWallet />, path: '/admin/billing'}
       ],
     },
+    { text: 'backup', icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
   ];
-
-  const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
-  const aboutUsItem = { text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' };
 
   const activeStyle = {
     backgroundColor: 'primary.main',
@@ -114,7 +134,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   };
 
   const renderItem = (item, isNested = false) => {
-    const isLocked = item.protected && !premium;
+    // New Tier Access Check
+    const isLocked = !hasAccess(item.requiredTier);
     const isActuallyActive = location.pathname === item.path;
     
     return (
@@ -124,28 +145,26 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           to={isLocked ? undefined : item.path}
           onClick={() => {
             if (isLocked) {
-              navigate('/pricing');
+              navigate('/pricing', { state: { requiredTier: item.requiredTier } });
             }
-            if (isMobile) {
-              onDrawerToggle(); // Close drawer on mobile after clicking
-            }
+            if (isMobile) onDrawerToggle();
           }}
           sx={{
             borderRadius: '8px',
-            margin: '4px 8px',
+            margin: '2px 8px',
             pl: isNested ? 6 : 2,
-            opacity: isLocked ? 0.7 : 1,
+            opacity: isLocked ? 0.6 : 1,
             ...(isActuallyActive && !isLocked ? activeStyle : {}),
           }}
         >
-          <ListItemIcon sx={{ minWidth: 40, color: (isActuallyActive && !isLocked) ? 'inherit' : '#1976d2' }}>
+          <ListItemIcon sx={{ minWidth: 40, color: (isActuallyActive && !isLocked) ? 'inherit' : 'primary.main' }}>
             {item.icon}
           </ListItemIcon>
           <ListItemText 
             primary={t(item.text)} 
-            primaryTypographyProps={{ fontWeight: (isActuallyActive && !isLocked) ? 700 : 500 }}
+            primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: (isActuallyActive && !isLocked) ? 700 : 500 }}
           />
-          {isLocked && <LockIcon sx={{ fontSize: 16, color: '#bf953f', ml: 1 }} />}
+          {isLocked && <LockIcon sx={{ fontSize: 14, color: '#bf953f', ml: 1 }} />}
         </ListItemButton>
       </ListItem>
     );
@@ -157,13 +176,13 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         <React.Fragment key={item.text}>
           <ListItemButton
             onClick={item.onClick}
-            sx={{ borderRadius: '8px', margin: '4px 8px', opacity: (item.protected && !premium) ? 0.7 : 1 }}
+            sx={{ borderRadius: '8px', margin: '2px 8px', opacity: !hasAccess(item.requiredTier) ? 0.6 : 1 }}
           >
-            <ListItemIcon sx={{ minWidth: 40, color: '#1976d2' }}>
+            <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
               {item.icon}
             </ListItemIcon>
-            <ListItemText primary={t(item.text)} />
-            {item.protected && !premium && <LockIcon sx={{ fontSize: 16, color: '#bf953f', mr: 1 }} />}
+            <ListItemText primary={t(item.text)} primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }} />
+            {!hasAccess(item.requiredTier) && <LockIcon sx={{ fontSize: 14, color: '#bf953f', mr: 1 }} />}
             {item.open ? <ExpandLess /> : <ExpandMore />}
           </ListItemButton>
           <Collapse in={item.open} timeout="auto" unmountOnExit>
@@ -178,21 +197,41 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     );
 
   const drawerContent = (
-    <>
-      <Toolbar />
-      <SubscriptionStatusCard />
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        <List>
-          {renderMenu(menuItems)}
-          {isAdminOrOwner && <Divider sx={{ my: 1 }} />}
-          {isAdminOrOwner && renderMenu(adminOwnerMenuItems)}
-        </List>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Toolbar sx={{ justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }}>
+        BILLING APP
+      </Toolbar>
+      
+      <Box sx={{ px: 1 }}>
+        <SubscriptionStatusCard />
       </Box>
+
+      <Box sx={{ flex: 1, overflowY: 'auto', mt: 1 }}>
+        <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.core', 'Operations')}</ListSubheader>}>
+          {renderMenu(mainItems)}
+        </List>
+        
+        <Divider sx={{ my: 1, mx: 2 }} />
+        
+        <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.inventory', 'Stock & Supply')}</ListSubheader>}>
+          {renderMenu(inventoryItems)}
+        </List>
+
+        {isAdminOrOwner && (
+          <>
+            <Divider sx={{ my: 1, mx: 2 }} />
+            <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.management', 'Management')}</ListSubheader>}>
+              {renderMenu(adminItems)}
+            </List>
+          </>
+        )}
+      </Box>
+
       <Divider />
-      <List sx={{ mt: 'auto', p: 0 }}>
-        {renderItem(aboutUsItem)}
+      <List sx={{ p: 0 }}>
+        {renderItem({ text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' })}
       </List>
-    </>
+    </Box>
   );
 
   return (
@@ -206,11 +245,9 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#f5f5f5',
-            color: '#333',
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
+            backgroundColor: '#ffffff',
+            borderRight: '1px solid #e2e8f0',
+            boxShadow: 'none'
           },
         }}
         anchor="left"
