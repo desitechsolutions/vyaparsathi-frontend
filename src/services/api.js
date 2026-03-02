@@ -3,11 +3,10 @@ import endpoints from './endpoints';
 import { signalApiActivity } from '../utils/auth';
 import 'react-toastify/dist/ReactToastify.css';
 
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  // Crucial: This allows the browser to send/receive the HTTP-Only cookie
   withCredentials: true, 
 });
 
@@ -29,7 +28,7 @@ const processQueue = (error, token = null) => {
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token && !config.url.includes('/api/auth/refresh')) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -37,56 +36,13 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle Token Expiration (401)
+// --- RESPONSE INTERCEPTOR ---
 API.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // If the error is 401 (Unauthorized) and we haven't tried to retry yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      
-      // If the error happened on the refresh or login endpoint itself, don't retry (prevents infinite loops)
-      if (originalRequest.url.includes('/api/auth/refresh') || originalRequest.url.includes('/api/auth/login')) {
-        return Promise.reject(error);
-      }
-
-      originalRequest._retry = true;
-
-      try {
-        console.log('[API Interceptor] Token expired. Attempting silent refresh...');
-        
-        // Call the refresh endpoint
-        const res = await axios.post(
-          `${API.defaults.baseURL}/api/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-
-        const { accessToken } = res.data;
-
-        // 1. Save new token
-        localStorage.setItem('token', accessToken);
-        
-        // 2. Update global headers for future requests
-        API.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-        
-        // 3. Update current failed request header and retry it
-        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-        return API(originalRequest);
-        
-      } catch (refreshError) {
-        console.error('[API Interceptor] Refresh failed. Redirecting to login.');
-        
-        // Dispatch custom event to notify AuthContext to log out
-        window.dispatchEvent(new CustomEvent('appSessionExpired', { 
-          detail: { reason: 'Your session has expired. Please log in again.' } 
-        }));
-        
-        return Promise.reject(refreshError);
-      }
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn('API 401 received');
     }
-
     return Promise.reject(error);
   }
 );
@@ -350,6 +306,11 @@ export const fetchPaymentsSummary = (from, to) => {
   }
   return API.get(endpoints.reports.paymentsSummary());
 };
+export const downloadAuditPack = (from, to) =>
+  API.get(endpoints.reports.exportAuditPack(from, to), {
+    responseType: 'blob', 
+    timeout: 60000        
+  });
 export const generateInvoice = ({ saleId, invoiceNo }) =>
   API.get(endpoints.generateInvoice({ saleId, invoiceNo }), { responseType: 'arraybuffer' });
 
@@ -473,6 +434,15 @@ export const submitPaymentUtr = (paymentData) =>
   API.post('/api/subscriptions/verify-payment', paymentData).then(res => res.data);
 export const fetchSubscriptionStatus = () => 
   API.get('/api/subscriptions/status').then(res => res.data);
+export const fetchMyPaymentHistory = () => 
+  API.get('/api/subscriptions/my-payments').then(res => res.data);
+export const cancelSubscription = () => 
+  API.post('/api/subscriptions/cancel').then(res => res.data);
+export const downloadInvoice = (paymentId) => {
+    return API.get(`/api/invoices/subscription/${paymentId}`, {
+        responseType: 'blob',
+    });
+};
 
 // --- PLATFORM ADMIN ACTIONS ---
 
@@ -488,6 +458,15 @@ export const rejectPayment = (verificationId, reason) =>
   API.get('/api/subscriptions/platform/stats').then(res => res.data);
 export const fetchPlatformRevenueHistory = (days = 30) => 
   API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
+
+export const fetchActivePricingPlans = () => 
+  API.get('/api/pricing/active').then(res => res.data);
+
+export const updatePlanConfig = (planDto) => 
+  API.put('/api/pricing/admin/update', planDto).then(res => res.data);
+
+export const fetchPlanDetailsByTier = (tier) => 
+  API.get(`/api/pricing/admin/${tier}`).then(res => res.data);
 
 // --- SUPPORT & CHAT ---
 

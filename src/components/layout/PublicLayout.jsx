@@ -30,7 +30,7 @@ const PublicLayout = () => {
           pt: { xs: 10, md: 12 },
           pb: { xs: 6, md: 8 },
           display: 'flex', 
-          alignItems: { xs: 'flex-start', md: 'center' }, // Center vertically on laptop
+          alignItems: 'flex-start',
           minHeight: 'auto'
         }}
       >

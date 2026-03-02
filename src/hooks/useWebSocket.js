@@ -9,8 +9,8 @@ const useWebSocket = (shopId) => {
   const [connected, setConnected] = useState(false);
   const [notifications, setNotifications] = useState([]);
   
-  // State for typing indicators
-  const [typingStatus, setTypingStatus] = useState({ isTyping: false, user: '' });
+  // State for typing indicators - Added shopId to state for filtering
+  const [typingStatus, setTypingStatus] = useState({ isTyping: false, user: '', shopId: null });
   
   const stompClientRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -19,28 +19,24 @@ const useWebSocket = (shopId) => {
 
   /**
    * Helper to send typing events.
-   * @param {boolean} isTyping - Whether the user is typing
-   * @param {string} userName - The name of the person typing
-   * @param {number} targetShopId - The numeric ID of the shop (Required for Admin)
    */
-  const sendTypingStatus = (isTyping, userName, targetShopId = null) => {
+  const sendTypingStatus = (isTypingValue, userName, targetShopId = null) => {
     if (stompClientRef.current && stompClientRef.current.connected) {
-      // Logic: If Admin, use targetShopId. If Shop Owner, use hook's shopId.
       const numericId = shopId === 'ADMIN_SUPER' ? targetShopId : shopId;
 
-      // Validation: Backend TypingDTO["shopId"] is a Long. Do not send if null or NaN.
-      if (!numericId || isNaN(numericId)) {
-        return; 
-      }
+      if (!numericId || isNaN(numericId)) return;
 
       const destination = shopId === 'ADMIN_SUPER' ? `/app/admin/typing` : `/app/shop/typing`;
       
+      // LOG THIS: See if it's true or false right before sending
+      console.log("SENDING TO SERVER:", isTypingValue);
+
       stompClientRef.current.publish({
         destination,
         body: JSON.stringify({ 
-          shopId: Number(numericId), // Force numeric type for Jackson deserialization
-          userName, 
-          isTyping 
+          shopId: Number(numericId),
+          userName: userName,
+          isTyping: Boolean(isTypingValue) // Ensure this is exactly 'isTyping'
         })
       });
     }
@@ -51,8 +47,10 @@ const useWebSocket = (shopId) => {
     if (!token) return;
 
     let isMounted = true;
-    const socket = new SockJS(`${API_BASE_URL}/ws`);
-
+   const socket = new SockJS(`${API_BASE_URL}/ws`, null, {
+      withCredentials: true,
+      transports: ['websocket', 'xhr-streaming', 'xhr-polling']
+    });
     const client = new Client({
       webSocketFactory: () => socket,
       connectHeaders: {
@@ -60,7 +58,9 @@ const useWebSocket = (shopId) => {
         authorization: `Bearer ${token}` 
       },
       reconnectDelay: 5000,
-      debug: () => {},
+      debug: (msg) => {
+        // console.log(msg); // Enable this if you need to see raw frames
+      },
 
       onConnect: () => {
         if (!isMounted) return;
@@ -78,16 +78,25 @@ const useWebSocket = (shopId) => {
         client.subscribe(typingTopic, (message) => {
           try {
             const data = JSON.parse(message.body);
+            
+            /**
+             * ✅ CRITICAL FIX:
+             * Jackson serializes Java 'boolean isTyping' as JSON key 'typing'.
+             * We check both to be safe, but 'data.typing' is what your logs show.
+             */
+            console.log(data);
+            const currentlyTyping = data.typing !== undefined ? data.typing : data.isTyping;
+
             setTypingStatus({
-            isTyping: data.isTyping,
-            user: data.userName,
-            shopId: data.shopId
+              isTyping: currentlyTyping === true,
+              user: data.userName || data.user,
+              shopId: data.shopId ? Number(data.shopId) : null
             });
 
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            if (data.isTyping) {
+            if (currentlyTyping) {
               typingTimeoutRef.current = setTimeout(() => {
-                setTypingStatus({ isTyping: false, user: '' });
+                setTypingStatus({ isTyping: false, user: '', shopId: null });
               }, 3000);
             }
           } catch (err) {
@@ -96,7 +105,7 @@ const useWebSocket = (shopId) => {
         });
 
         // ===== 2. SHOP USER NOTIFICATIONS =====
-        if (shopId && !isNaN(shopId)) {
+        if (shopId && shopId !== 'ADMIN_SUPER' && !isNaN(shopId)) {
           client.subscribe(`/topic/shop/${shopId}/notifications`, (message) => {
             try {
               const data = JSON.parse(message.body);
@@ -108,7 +117,7 @@ const useWebSocket = (shopId) => {
         }
 
         // ===== 3. SUPER ADMIN / TECH SUPPORT TOPIC =====
-        if (!shopId || shopId === 'ADMIN_SUPER') {
+        if (shopId === 'ADMIN_SUPER') {
           client.subscribe(`/topic/admin/support`, (message) => {
             try {
               const data = JSON.parse(message.body);

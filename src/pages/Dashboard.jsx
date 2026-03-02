@@ -24,6 +24,7 @@ import {
   Stack,
   Tooltip as MuiTooltip,
   Alert,
+  LinearProgress,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -39,6 +40,9 @@ import {
   WhatsApp as WhatsAppIcon,
   Inventory as InventoryIcon,
   Refresh as RefreshIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as UncheckedIcon,
+  Settings as SettingsIcon,
 } from "@mui/icons-material";
 import {
   LineChart,
@@ -157,16 +161,71 @@ const Dashboard = () => {
     to: dayjs().format("YYYY-MM-DD"),
   });
 
-  const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [todayModalOpen, setTodayModalOpen] = useState(false);
-
-  // Growth percentages from backend
   const [salesGrowth, setSalesGrowth] = useState(0);
   const [profitGrowth, setProfitGrowth] = useState(0);
+
+const setupChecklist = useMemo(() => {
+  if (!shop) return [];
+
+  return [
+    {
+      id: "business",
+      label: "Business Info",
+      items: [
+        !!shop.name,
+        !!shop.code,
+        !!shop.industryType,
+        !!shop.state,
+      ],
+      weight: 30,
+    },
+    {
+      id: "branding",
+      label: "Branding",
+      items: [
+        !!shop.logoPath,
+        !!shop.brandColor,
+      ],
+      weight: 25,
+    },
+    {
+      id: "compliance",
+      label: "Compliance",
+      items: [
+        !!shop.gstin,
+        !!shop.address,
+      ],
+      weight: 20,
+    },
+    {
+      id: "finance",
+      label: "Bank & Signature",
+      items: [
+        !!shop.bankDetails && shop.bankDetails.trim().length > 10,
+        !!shop.signaturePath,
+      ],
+      weight: 25,
+    },
+  ];
+}, [shop]);
+
+  const profileCompletion = useMemo(() => {
+  if (!setupChecklist.length) return 0;
+
+  return setupChecklist.reduce((acc, section) => {
+    const completedItems = section.items.filter(Boolean).length;
+    const sectionCompletion =
+      (completedItems / section.items.length) * section.weight;
+
+    return acc + sectionCompletion;
+  }, 0);
+}, [setupChecklist]);
 
   const fetchDashboardData = useCallback(
     async (fromDate, toDate) => {
@@ -269,6 +328,95 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3.5, lg: 4 }, bgcolor: "#f8fafc", minHeight: "100vh" }}>
+      
+{profileCompletion < 100 && !isLoading && (
+  <Paper
+    elevation={0}
+    sx={{
+      px: 2,
+      py: 1.5,
+      mb: 3,
+      borderRadius: 3,
+      border: "1px solid #e5e7eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: "#ffffff",
+      transition: "all 0.2s ease",
+      "&:hover": {
+        boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+      },
+    }}
+  >
+    <Stack direction="row" spacing={2} alignItems="center">
+      
+      {/* Compact Circular Progress */}
+      <Box sx={{ position: "relative", display: "inline-flex" }}>
+        <CircularProgress
+          variant="determinate"
+          value={100}
+          size={42}
+          thickness={3}
+          sx={{ color: "#f1f5f9", position: "absolute" }}
+        />
+        <CircularProgress
+          variant="determinate"
+          value={profileCompletion}
+          size={42}
+          thickness={4}
+          sx={{
+            color:
+              profileCompletion > 80
+                ? "#10b981"
+                : profileCompletion > 40
+                ? "#3b82f6"
+                : "#f59e0b",
+            strokeLinecap: "round",
+          }}
+        />
+        <Box
+          sx={{
+            inset: 0,
+            position: "absolute",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 800, fontSize: "0.7rem" }}
+          >
+            {Math.round(profileCompletion)}%
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Text Content */}
+      <Box>
+        <Typography fontWeight={700} fontSize="0.85rem">
+          Complete Your Business Profile
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Finalize your branding and bank details to generate professional, GST-compliant invoices.
+        </Typography>
+      </Box>
+    </Stack>
+
+    <Button
+      size="small"
+      onClick={() => navigate("/admin/settings")}
+      sx={{
+        textTransform: "none",
+        fontWeight: 700,
+        borderRadius: 2,
+        minWidth: "auto",
+      }}
+    >
+      Complete
+    </Button>
+  </Paper>
+)}
       {/* Professional Shop Header */}
       {shop && (
         <Paper
@@ -431,7 +579,6 @@ const Dashboard = () => {
           </Grid>
 
           <Grid container spacing={3}>
-            {/* Revenue Chart */}
             <Grid item xs={12} lg={8}>
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0" }} elevation={0}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
@@ -477,14 +624,12 @@ const Dashboard = () => {
               </Paper>
             </Grid>
 
-            {/* Insights & Alerts Panel */}
             <Grid item xs={12} lg={4}>
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0", height: "100%" }} elevation={0}>
                 <Typography variant="h6" fontWeight={700} mb={2.5} color="#1e293b">
                   {t('dashboardPage.quickInsights')}
                 </Typography>
 
-                {/* Critical Alert Banner */}
                 {criticalCount > 0 && (
                   <Alert
                     severity="error"
@@ -506,7 +651,6 @@ const Dashboard = () => {
                   </Alert>
                 )}
 
-                {/* Inventory Alerts Card */}
                 <Box sx={{ mb: 3.5 }}>
                   <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.5} sx={{ textTransform: "uppercase", letterSpacing: "0.6px" }}>
                     {t('dashboardPage.inventoryStatus')}
@@ -552,7 +696,6 @@ const Dashboard = () => {
                   </Paper>
                 </Box>
 
-                {/* Top Debtors */}
                 <Box>
                   <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.5} sx={{ textTransform: "uppercase", letterSpacing: "0.6px" }}>
                     {t('dashboardPage.topOutstanding')}

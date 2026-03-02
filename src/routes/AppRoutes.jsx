@@ -38,6 +38,7 @@ import UserManagementPage from '../pages/UserManagementPage';
 import Notifications from '../pages/Notifications';
 import Receiving from '../pages/Receiving';
 import ShopGuard from '../components/guards/ShopGuard';
+import TierGuard from '../components/guards/TierGuard'; // Added TierGuard
 import HsnSummary from '../pages/reports/HsnSummary';
 import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
@@ -52,6 +53,10 @@ import { useAuthContext } from '../context/AuthContext';
 import AdminSupport from '../pages/admin/AdminSupport';
 import GlobalShopManagement from '../pages/admin/GlobalShopManagement';
 import SystemUserManagement from '../pages/admin/SystemUserManagement';
+import SettingsPage from '../pages/SettingsPage';
+import NotFound from '../pages/NotFound';
+import BillingDashboard from '../components/subscriptions/BillingDashboard';
+import PlanConfigManager from '../pages/admin/PlanConfigManager';
 
 function AppRoutes() {
   const { user } = useAuthContext();
@@ -83,6 +88,7 @@ function AppRoutes() {
             <Route path="shops" element={<GlobalShopManagement />} />
             <Route path="support" element={<AdminSupport />} />
             <Route path="users" element={<SystemUserManagement />} />
+             <Route path="plans" element={<PlanConfigManager />} />
           </Route>
         )}
 
@@ -98,6 +104,7 @@ function AppRoutes() {
               </PrivateRoute>
             }
           >
+            {/* PUBLIC WITHIN APP (No Tier Required) */}
             <Route path="/pricing" element={<PricingPage />} />
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -106,40 +113,48 @@ function AppRoutes() {
             <Route path="customers" element={<Customers />} />
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
             <Route path="sales" element={<Sales />} />
-            <Route path="delivery" element={<DeliveryManagement />} />
             <Route path="expenses" element={<Expenses />} />
-            <Route path="low-stock-alerts" element={<LowStockAlerts />} />
-            <Route path="backup" element={<Backup />} />
             <Route path="products" element={<ProductOverview />} />
             <Route path="customer-payments" element={<CustomerPaymentPage />} />
-            <Route path="supplier-payments" element={<SupplierPaymentPage />} />
             <Route path="about-us" element={<AboutUs />} />
-            <Route path="analytics" element={<AnalyticsDashboard />} />
-            <Route path="purchase-orders" element={<PurchaseOrders />} />
-            <Route path="receiving/:poId" element={<ReceivingPage />} />
-            <Route path="suppliers" element={<Suppliers />} />
             <Route path="admin/users" element={<UserManagementPage />} />
-            <Route path="admin/payroll" element={<PayrollDashboard />} />
-            
-            <Route path="reports" element={<ReportsIndex />} />
-            <Route path="reports/daily" element={<DailyReport />} />
-            <Route path="reports/sales-summary" element={<SalesSummary />} />
-            <Route path="reports/gst-summary" element={<GstSummary />} />
-            <Route path="reports/gst-breakdown" element={<GstBreakdown />} />
-            <Route path="reports/items-sold" element={<ItemsSold />} />
-            <Route path="reports/category-sales" element={<CategorySales />} />
-            <Route path="reports/customer-sales" element={<CustomerSales />} />
-            <Route path="reports/expenses-summary" element={<ExpensesSummary />} />
-            <Route path="reports/payments-summary" element={<PaymentsSummary />} />
-            <Route path="receivings" element={<Receiving />} />
-            
-            <Route path="reports/tax-compliance" element={<TaxComplianceHub />} />
-            <Route path="compliance/hsn" element={<HsnSummary />} />
-            <Route path="audit" element={<AuditLogs />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="/payroll/history/:staffId" element={<PaymentHistoryPage />} />
+            <Route path="admin/settings" element={<SettingsPage />} />
+            <Route path="admin/billing" element={<BillingDashboard />} />
 
-            <Route path="*" element={<div>Page Not Found</div>} />
+            {/* STARTER TIER & ABOVE */}
+            <Route path="delivery" element={<TierGuard requiredTier="STARTER"><DeliveryManagement /></TierGuard>} />
+            <Route path="suppliers" element={<TierGuard requiredTier="STARTER"><Suppliers /></TierGuard>} />
+            <Route path="low-stock-alerts" element={<TierGuard requiredTier="STARTER"><LowStockAlerts /></TierGuard>} />
+            <Route path="notifications" element={<TierGuard requiredTier="STARTER"><Notifications /></TierGuard>} />
+
+            {/* PRO TIER & ABOVE */}
+            <Route path="analytics" element={<TierGuard requiredTier="PRO"><AnalyticsDashboard /></TierGuard>} />
+            <Route path="purchase-orders" element={<TierGuard requiredTier="PRO"><PurchaseOrders /></TierGuard>} />
+            <Route path="receivings" element={<TierGuard requiredTier="PRO"><Receiving /></TierGuard>} />
+            <Route path="receiving/:poId" element={<TierGuard requiredTier="PRO"><ReceivingPage /></TierGuard>} />
+            <Route path="supplier-payments" element={<TierGuard requiredTier="PRO"><SupplierPaymentPage /></TierGuard>} />
+            <Route path="backup" element={<TierGuard requiredTier="PRO"><Backup /></TierGuard>} />
+            
+            {/* Reports Group (PRO Tier) */}
+            <Route path="reports" element={<TierGuard requiredTier="PRO"><ReportsIndex /></TierGuard>} />
+            <Route path="reports/daily" element={<TierGuard requiredTier="PRO"><DailyReport /></TierGuard>} />
+            <Route path="reports/sales-summary" element={<TierGuard requiredTier="PRO"><SalesSummary /></TierGuard>} />
+            <Route path="reports/gst-summary" element={<TierGuard requiredTier="PRO"><GstSummary /></TierGuard>} />
+            <Route path="reports/gst-breakdown" element={<TierGuard requiredTier="PRO"><GstBreakdown /></TierGuard>} />
+            <Route path="reports/items-sold" element={<TierGuard requiredTier="PRO"><ItemsSold /></TierGuard>} />
+            <Route path="reports/category-sales" element={<TierGuard requiredTier="PRO"><CategorySales /></TierGuard>} />
+            <Route path="reports/customer-sales" element={<TierGuard requiredTier="PRO"><CustomerSales /></TierGuard>} />
+            <Route path="reports/expenses-summary" element={<TierGuard requiredTier="PRO"><ExpensesSummary /></TierGuard>} />
+            <Route path="reports/payments-summary" element={<TierGuard requiredTier="PRO"><PaymentsSummary /></TierGuard>} />
+
+            {/* ENTERPRISE TIER ONLY */}
+            <Route path="admin/payroll" element={<TierGuard requiredTier="ENTERPRISE"><PayrollDashboard /></TierGuard>} />
+            <Route path="/payroll/history/:staffId" element={<TierGuard requiredTier="ENTERPRISE"><PaymentHistoryPage /></TierGuard>} />
+            <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
+            <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />
+            <Route path="audit" element={<TierGuard requiredTier="ENTERPRISE"><AuditLogs /></TierGuard>} />
+
+           <Route path="*" element={<NotFound />} />
           </Route>
         )}
 
