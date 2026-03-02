@@ -196,43 +196,63 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       )
     );
 
-  const drawerContent = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Toolbar sx={{ justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }}>
-        BILLING APP
-      </Toolbar>
-      
-      <Box sx={{ px: 1 }}>
-        <SubscriptionStatusCard />
-      </Box>
-
-      <Box sx={{ flex: 1, overflowY: 'auto', mt: 1 }}>
-        <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.core', 'Operations')}</ListSubheader>}>
-          {renderMenu(mainItems)}
-        </List>
-        
-        <Divider sx={{ my: 1, mx: 2 }} />
-        
-        <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.inventory', 'Stock & Supply')}</ListSubheader>}>
-          {renderMenu(inventoryItems)}
-        </List>
-
-        {isAdminOrOwner && (
-          <>
-            <Divider sx={{ my: 1, mx: 2 }} />
-            <List subheader={<ListSubheader sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>{t('sidebar.management', 'Management')}</ListSubheader>}>
-              {renderMenu(adminItems)}
-            </List>
-          </>
-        )}
-      </Box>
-
-      <Divider />
-      <List sx={{ p: 0 }}>
-        {renderItem({ text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' })}
-      </List>
+const drawerContent = (
+  <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Toolbar sx={{ justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }}>
+      BILLING APP
+    </Toolbar>
+    
+    <Box sx={{ px: 1 }}>
+      <SubscriptionStatusCard />
     </Box>
-  );
+
+    <Box sx={{ flex: 1, overflowY: 'auto', mt: 1 }}>
+      {/* ADD disableSticky TO ALL SUBHEADERS BELOW */}
+      
+      <List 
+        subheader={
+          <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px', mt: 1 }}>
+            {t('sidebar.core', 'Operations')}
+          </ListSubheader>
+        }
+      >
+        {renderMenu(mainItems)}
+      </List>
+      
+      <Divider sx={{ my: 1, mx: 2 }} />
+      
+      <List 
+        subheader={
+          <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
+            {t('sidebar.inventory', 'Stock & Supply')}
+          </ListSubheader>
+        }
+      >
+        {renderMenu(inventoryItems)}
+      </List>
+
+      {isAdminOrOwner && (
+        <>
+          <Divider sx={{ my: 1, mx: 2 }} />
+          <List 
+            subheader={
+              <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
+                {t('sidebar.management', 'Management')}
+              </ListSubheader>
+            }
+          >
+            {renderMenu(adminItems)}
+          </List>
+        </>
+      )}
+    </Box>
+
+    <Divider />
+    <List sx={{ p: 0 }}>
+      {renderItem({ text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' })}
+    </List>
+  </Box>
+);
 
   return (
     <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>

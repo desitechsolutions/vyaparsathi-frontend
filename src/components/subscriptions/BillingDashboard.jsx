@@ -7,7 +7,7 @@ import {
   Divider, Stack, LinearProgress, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, IconButton,
   Alert, AlertTitle, Dialog, DialogTitle, DialogContent, 
-  DialogContentText, DialogActions, Tooltip, Skeleton, Avatar
+  DialogContentText, DialogActions, Tooltip, Skeleton, Avatar, CircularProgress,Snackbar
 } from '@mui/material';
 import { 
   History, CreditCard, EventRepeat, CancelOutlined, 
@@ -17,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { fetchMyPaymentHistory, cancelSubscription } from '../../services/api';
+import { fetchMyPaymentHistory, cancelSubscription, downloadInvoice } from '../../services/api';
 
 const BillingDashboard = () => {
   const { subscription, getStatus, getDaysRemaining, getCurrentCycle, loading: subLoading, refreshStatus } = useSubscription();
@@ -26,6 +26,8 @@ const BillingDashboard = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [payments, setPayments] = useState([]);
   const [fetchingPayments, setFetchingPayments] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const status = getStatus();
   const daysRemaining = getDaysRemaining();
@@ -52,7 +54,28 @@ const BillingDashboard = () => {
             await refreshStatus(); 
         } catch (err) {
             console.error("Cancellation error:", err);
-            alert("Failed to cancel subscription. Please contact support.");
+            setSnackbar({ open: true, message: `Failed to cancel subscription. Please contact support!`, severity: 'error' });
+        }
+    };
+
+    const handleDownloadInvoice = async (paymentId, utr) => {
+        setDownloadingId(paymentId);
+        try {
+            const response = await downloadInvoice(paymentId);
+            // Create a blob from the response and trigger download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Invoice_${utr || paymentId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (err) {
+            console.error("Download failed:", err);
+            setSnackbar({ open: true, message: `Could not download invoice. Please try again later!`, severity: 'error' });
+            
+        } finally {
+            setDownloadingId(null);
         }
     };
 
@@ -102,7 +125,7 @@ const BillingDashboard = () => {
             <Button 
                 variant="contained" 
                 startIcon={<AutoAwesome />} 
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/pricing', { state: { from: 'billing' } })}
                 sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', px: 3, bgcolor: '#2563EB', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
             >
                 Upgrade Plan
@@ -169,7 +192,7 @@ const BillingDashboard = () => {
               <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="center">
                 <Button 
                     variant="outlined"
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/pricing', { state: { from: 'billing' } })}
                     sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none', px: 3 }}
                 >
                     Change Plan
@@ -231,7 +254,7 @@ const BillingDashboard = () => {
                 <Button 
                     fullWidth 
                     variant="contained" 
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/pricing', { state: { from: 'billing' } })}
                     sx={{ bgcolor: '#FFF', color: '#1E293B', fontWeight: 800, textTransform: 'none', '&:hover': { bgcolor: '#F1F5F9' } }}
                 >
                     Upgrade to Pro
@@ -312,15 +335,15 @@ const BillingDashboard = () => {
                       />
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Download PDF">
+                      <Tooltip title={row.status === 'APPROVED' ? "Download Invoice" : "Invoice unavailable"}>
                         <span>
                             <IconButton 
                                 size="small" 
                                 color="primary" 
-                                disabled={row.status !== 'APPROVED'} 
-                                /**onClick={() => handleDownloadInvoice(row.id)}**/
+                                disabled={row.status !== 'APPROVED' || downloadingId === row.id} 
+                                onClick={() => handleDownloadInvoice(row.id, row.utrNumber)}
                                 >
-                                <GetApp />
+                                {downloadingId === row.id ? <CircularProgress size={20} /> : <GetApp />}
                             </IconButton>
                         </span>
                       </Tooltip>
