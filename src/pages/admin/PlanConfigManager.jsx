@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Typography, Card, CardContent, Button, Stack, 
-  Divider, CircularProgress, TextField, Switch,
-  FormControlLabel, Chip, InputAdornment, Zoom, Snackbar, Alert, IconButton,Paper
+  CircularProgress, TextField, Switch,
+  FormControlLabel, Chip, InputAdornment, Zoom, Snackbar, Alert, IconButton, Paper, MenuItem
 } from '@mui/material';
 import { 
   Save as SaveIcon, 
   AutoAwesome as MagicIcon,
-  List as ListIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  ShoppingCart as SalesIcon,
+  Inventory as ItemsIcon,
+  Group as PeopleIcon,
+  Add as AddIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 
 import { 
@@ -17,19 +21,35 @@ import {
   fetchPlanDetailsByTier 
 } from '../../services/api';
 
+// Tiers matching your Backend Enum
+const TIER_OPTIONS = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE', 'CUSTOM'];
+
 const PlanConfigManager = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(null); 
   const [refreshing, setRefreshing] = useState(null);
-  
   const [notify, setNotify] = useState({ open: false, message: '', severity: 'success' });
+  
+  // State for creating a new plan
+  const [isAdding, setIsAdding] = useState(false);
+  const [newPlan, setNewPlan] = useState({
+    tier: '',
+    displayName: '',
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    maxSalesPerMonth: 0,
+    maxItems: 0,
+    maxStaffUsers: 0,
+    features: [],
+    isActive: true,
+    isPopular: false
+  });
 
   useEffect(() => {
     loadPlans();
   }, []);
 
-  // 1. Uses fetchActivePricingPlans (Bulk Load)
   const loadPlans = async () => {
     setLoading(true);
     try {
@@ -42,13 +62,16 @@ const PlanConfigManager = () => {
     }
   };
 
-  // 2. Uses fetchPlanDetailsByTier (Single Refresh)
   const refreshSingleTier = async (tier) => {
     setRefreshing(tier);
     try {
       const updatedPlan = await fetchPlanDetailsByTier(tier);
-      setPlans(prev => prev.map(p => p.tier === tier ? updatedPlan : p));
-      setNotify({ open: true, message: `${tier} data refreshed`, severity: 'info' });
+      setPlans(prev => {
+        const exists = prev.find(p => p.tier === tier);
+        if (exists) return prev.map(p => p.tier === tier ? updatedPlan : p);
+        return [...prev, updatedPlan];
+      });
+      setNotify({ open: true, message: `${tier} updated`, severity: 'info' });
     } catch (err) {
       setNotify({ open: true, message: 'Refresh failed', severity: 'error' });
     } finally {
@@ -60,29 +83,39 @@ const PlanConfigManager = () => {
     setPlans(prev => prev.map(p => p.tier === tier ? { ...p, [field]: value } : p));
   };
 
-  const handleFeatureAdd = (tier, feature) => {
+  const handleFeatureAdd = (tier, feature, isNew = false) => {
     if (!feature.trim()) return;
+    if (isNew) {
+        setNewPlan(prev => ({ ...prev, features: [...prev.features, feature] }));
+        return;
+    }
     setPlans(prev => prev.map(p => 
       p.tier === tier ? { ...p, features: [...(p.features || []), feature] } : p
     ));
   };
 
-  const handleFeatureRemove = (tier, index) => {
+  const handleFeatureRemove = (tier, index, isNew = false) => {
+    if (isNew) {
+        setNewPlan(prev => ({ ...prev, features: prev.features.filter((_, i) => i !== index) }));
+        return;
+    }
     setPlans(prev => prev.map(p => 
       p.tier === tier ? { ...p, features: p.features.filter((_, i) => i !== index) } : p
     ));
   };
 
-  // 3. Uses updatePlanConfig (Save)
-  const onSave = async (plan) => {
+  const onSave = async (plan, isNewRequest = false) => {
     setSaving(plan.tier);
     try {
       await updatePlanConfig(plan);
-      setNotify({ open: true, message: `${plan.displayName} updated successfully!`, severity: 'success' });
-      // Optional: Refresh from server after save to ensure sync
+      setNotify({ open: true, message: `${plan.displayName} saved!`, severity: 'success' });
+      if (isNewRequest) {
+        setIsAdding(false);
+        setNewPlan({ tier: '', displayName: '', monthlyPrice: 0, yearlyPrice: 0, maxSalesPerMonth: 0, maxItems: 0, maxStaffUsers: 0, features: [], isActive: true, isPopular: false });
+      }
       refreshSingleTier(plan.tier);
     } catch (err) {
-      setNotify({ open: true, message: 'Failed to update plan.', severity: 'error' });
+      setNotify({ open: true, message: 'Save failed.', severity: 'error' });
     } finally {
       setSaving(null);
     }
@@ -102,20 +135,72 @@ const PlanConfigManager = () => {
             Plan Master Control
           </Typography>
           <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
-            Configure live pricing and features for the VyaparSathi ecosystem
+            Configure live pricing and system limits for the VyaparSathi ecosystem
           </Typography>
         </Box>
-        <Button 
-          startIcon={<RefreshIcon />} 
-          onClick={loadPlans}
-          sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.1)' }}
-          variant="outlined"
-        >
-          Reload All
-        </Button>
+        <Stack direction="row" spacing={2}>
+            <Button 
+            startIcon={<AddIcon />} 
+            onClick={() => setIsAdding(true)}
+            sx={{ bgcolor: '#38bdf8', color: '#0f172a', fontWeight: 800, '&:hover': { bgcolor: '#0ea5e9'} }}
+            variant="contained"
+            >
+            Add Plan
+            </Button>
+            <Button 
+            startIcon={<RefreshIcon />} 
+            onClick={loadPlans}
+            sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.1)' }}
+            variant="outlined"
+            >
+            Reload All
+            </Button>
+        </Stack>
       </Stack>
 
       <Grid container spacing={3}>
+        {/* NEW PLAN FORM CARD */}
+        {isAdding && (
+            <Grid item xs={12} lg={4}>
+                <Zoom in={true}>
+                    <Card sx={{ bgcolor: '#0f172a', color: 'white', borderRadius: 5, border: '2px dashed #38bdf8' }}>
+                        <CardContent sx={{ p: 4 }}>
+                            <Stack spacing={3}>
+                                <Stack direction="row" justifyContent="space-between">
+                                    <Typography variant="h6" sx={{ color: '#38bdf8', fontWeight: 900 }}>NEW PLAN</Typography>
+                                    <IconButton onClick={() => setIsAdding(false)} sx={{ color: 'white' }}><CloseIcon /></IconButton>
+                                </Stack>
+                                <TextField
+                                    select label="Tier Type" fullWidth
+                                    value={newPlan.tier}
+                                    onChange={(e) => setNewPlan({...newPlan, tier: e.target.value})}
+                                    sx={{ '& label': { color: '#38bdf8' }, '& .MuiInputBase-root': { color: 'white' } }}
+                                >
+                                    {TIER_OPTIONS.filter(t => !plans.some(p => p.tier === t)).map(opt => (
+                                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <TextField
+                                    label="Display Name" fullWidth
+                                    value={newPlan.displayName}
+                                    onChange={(e) => setNewPlan({...newPlan, displayName: e.target.value})}
+                                    sx={{ '& label': { color: 'white' }, '& input': { color: 'white' } }}
+                                />
+                                <Button 
+                                    variant="contained" fullWidth 
+                                    onClick={() => onSave(newPlan, true)}
+                                    disabled={!newPlan.tier || !newPlan.displayName}
+                                    sx={{ bgcolor: '#38bdf8', color: '#0f172a', fontWeight: 900 }}
+                                >
+                                    INITIALIZE PLAN
+                                </Button>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Zoom>
+            </Grid>
+        )}
+
         {plans.map((plan) => (
           <Grid item xs={12} lg={4} key={plan.tier}>
             <Zoom in={true}>
@@ -159,7 +244,7 @@ const PlanConfigManager = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
                         <TextField
-                          label="Monthly"
+                          label="Monthly Price"
                           type="number"
                           fullWidth
                           value={plan.monthlyPrice || 0}
@@ -170,7 +255,7 @@ const PlanConfigManager = () => {
                       </Grid>
                       <Grid item xs={6}>
                         <TextField
-                          label="Yearly"
+                          label="Yearly Price"
                           type="number"
                           fullWidth
                           value={plan.yearlyPrice || 0}
@@ -180,6 +265,43 @@ const PlanConfigManager = () => {
                         />
                       </Grid>
                     </Grid>
+
+                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.03)', p: 2, borderRadius: 3, border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 900, mb: 1, display: 'block', letterSpacing: 1 }}>
+                        SYSTEM CONSTRAINTS
+                      </Typography>
+                      <Stack spacing={2}>
+                        <TextField
+                          label="Max Sales / Month"
+                          size="small"
+                          type="number"
+                          value={plan.maxSalesPerMonth || 0}
+                          onChange={(e) => handleUpdateField(plan.tier, 'maxSalesPerMonth', parseInt(e.target.value))}
+                          InputProps={{ startAdornment: <InputAdornment position="start"><SalesIcon sx={{ color: '#818cf8', fontSize: 18 }} /></InputAdornment> }}
+                          sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                        />
+                        <Stack direction="row" spacing={2}>
+                          <TextField
+                            label="Max Items"
+                            size="small"
+                            type="number"
+                            value={plan.maxItems || 0}
+                            onChange={(e) => handleUpdateField(plan.tier, 'maxItems', parseInt(e.target.value))}
+                            InputProps={{ startAdornment: <InputAdornment position="start"><ItemsIcon sx={{ color: '#f472b6', fontSize: 18 }} /></InputAdornment> }}
+                            sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                          />
+                          <TextField
+                            label="Max Staff"
+                            size="small"
+                            type="number"
+                            value={plan.maxStaffUsers || 0}
+                            onChange={(e) => handleUpdateField(plan.tier, 'maxStaffUsers', parseInt(e.target.value))}
+                            InputProps={{ startAdornment: <InputAdornment position="start"><PeopleIcon sx={{ color: '#2dd4bf', fontSize: 18 }} /></InputAdornment> }}
+                            sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                          />
+                        </Stack>
+                      </Stack>
+                    </Box>
 
                     <Paper sx={{ bgcolor: 'rgba(0,0,0,0.2)', p: 1, borderRadius: 3 }}>
                       <Stack direction="row" justifyContent="space-around">

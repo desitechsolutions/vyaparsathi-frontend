@@ -306,6 +306,11 @@ export const fetchPaymentsSummary = (from, to) => {
   }
   return API.get(endpoints.reports.paymentsSummary());
 };
+export const downloadAuditPack = (from, to) =>
+  API.get(endpoints.reports.exportAuditPack(from, to), {
+    responseType: 'blob', 
+    timeout: 60000        
+  });
 export const generateInvoice = ({ saleId, invoiceNo }) =>
   API.get(endpoints.generateInvoice({ saleId, invoiceNo }), { responseType: 'arraybuffer' });
 
@@ -433,6 +438,11 @@ export const fetchMyPaymentHistory = () =>
   API.get('/api/subscriptions/my-payments').then(res => res.data);
 export const cancelSubscription = () => 
   API.post('/api/subscriptions/cancel').then(res => res.data);
+export const downloadInvoice = (paymentId) => {
+    return API.get(`/api/invoices/subscription/${paymentId}`, {
+        responseType: 'blob',
+    });
+};
 
 // --- PLATFORM ADMIN ACTIONS ---
 

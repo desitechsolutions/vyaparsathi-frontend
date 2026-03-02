@@ -102,6 +102,7 @@ const endpoints = {
   from && to
     ? `${API_BASE}/reports/payments-summary?from=${from}&to=${to}`
     : `${API_BASE}/reports/payments-summary`,
+    exportAuditPack: (from, to) => `${API_BASE}/reports/export-audit-pack?from=${from}&to=${to}`,
   },
 
   expenses: `${API_BASE}/expenses`,
