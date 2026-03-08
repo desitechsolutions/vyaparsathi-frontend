@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
   Box, Collapse, Tooltip, Paper, Chip,
-  Alert
+  Alert, ToggleButton, ToggleButtonGroup, InputAdornment
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -12,6 +12,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
+import MedicationIcon from '@mui/icons-material/Medication';
+import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 
 const ItemSection = ({
   variants,
@@ -35,14 +37,45 @@ const ItemSection = ({
   error,
   substitutes,
   onSelectSubstitute,
+  isPharmacy,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSubstitutes, setShowSubstitutes] = useState(false);
+  // Pharmacy: selling mode — 'PACK' = sell as strip/box, 'LOOSE' = sell individual tablets
+  const [sellingMode, setSellingMode] = useState('PACK');
+  const [packSize, setPackSize] = useState(10);
 
   // Drug schedule info for the selected variant
   const drugSchedule = selectedVariant?.drugSchedule;
   const isControlledDrug = drugSchedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(drugSchedule);
   const isNarcotic = drugSchedule === 'SCHEDULE_X' || drugSchedule === 'SCHEDULE_H1';
+
+  // Pharmacy loose selling: calculate per-tablet price
+  const basePrice = selectedVariant?.pricePerUnit || 0;
+  const looseUnitPrice = sellingMode === 'LOOSE' && packSize > 0
+    ? parseFloat((basePrice / packSize).toFixed(2))
+    : basePrice;
+
+  // When selling mode or pack size changes, update item price if a variant is selected
+  const handleSellingModeChange = (_, newMode) => {
+    if (!newMode) return;
+    setSellingMode(newMode);
+    if (selectedVariant) {
+      const newPrice = newMode === 'LOOSE' && packSize > 0
+        ? parseFloat((selectedVariant.pricePerUnit / packSize).toFixed(2))
+        : selectedVariant.pricePerUnit;
+      setItem(prev => ({ ...prev, unitPrice: newPrice, sellingMode: newMode }));
+    }
+  };
+
+  const handlePackSizeChange = (e) => {
+    const size = Math.max(1, parseInt(e.target.value) || 1);
+    setPackSize(size);
+    if (selectedVariant && sellingMode === 'LOOSE') {
+      const newPrice = parseFloat((selectedVariant.pricePerUnit / size).toFixed(2));
+      setItem(prev => ({ ...prev, unitPrice: newPrice }));
+    }
+  };
 
   // 1. React-Select Custom Styling
   const customSelectStyles = {
@@ -108,9 +141,9 @@ const handleChange = (key, selectedOption, isMulti) => {
           {/* HEADER SECTION */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <SearchIcon color="primary" fontSize="large" />
+              {isPharmacy ? <LocalPharmacyIcon color="primary" fontSize="large" /> : <SearchIcon color="primary" fontSize="large" />}
               <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.5px' }}>
-                Inventory Search
+                {isPharmacy ? 'Medicine Search' : 'Inventory Search'}
               </Typography>
             </Box>
             
@@ -139,24 +172,28 @@ const handleChange = (key, selectedOption, isMulti) => {
           {/* TIER 1: PRIMARY SEARCH (NAME & SKU) */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} md={6}>
-              <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>PRODUCT NAME</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>
+                {isPharmacy ? 'MEDICINE NAME' : 'PRODUCT NAME'}
+              </Typography>
               <Select
                 options={uniqueNames}
                 value={uniqueNames.find(opt => opt.value === searchParams.name) || null}
                 onChange={(opt) => handleChange('name', opt, false)}
-                placeholder="Search by product name..."
+                placeholder={isPharmacy ? 'Search by medicine name...' : 'Search by product name...'}
                 isClearable
                 styles={customSelectStyles}
                 menuPortalTarget={document.body}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>SKU IDENTIFIER</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>
+                {isPharmacy ? 'BATCH / SKU' : 'SKU IDENTIFIER'}
+              </Typography>
               <Select
                 options={uniqueSkus}
                 value={uniqueSkus.find(opt => opt.value === searchParams.sku) || null}
                 onChange={(opt) => handleChange('sku', opt, false)}
-                placeholder="Scan or type SKU..."
+                placeholder={isPharmacy ? 'Search by batch or SKU...' : 'Scan or type SKU...'}
                 isClearable
                 styles={customSelectStyles}
                 menuPortalTarget={document.body}
@@ -220,12 +257,13 @@ value={
           {/* ITEM SELECTION AREA */}
           <Box sx={{ mt: 4, mb: 2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip label="Step 2" size="small" color="primary" /> Select Specific Variant
+              <Chip label="Step 2" size="small" color="primary" />
+              {isPharmacy ? 'Select Medicine / Variant' : 'Select Specific Variant'}
             </Typography>
             <Select
               options={variants}
               onChange={handleVariantSelect}
-              placeholder="Finalize item selection..."
+              placeholder={isPharmacy ? 'Select medicine, strength or batch...' : 'Finalize item selection...'}
               value={selectedVariant}
               isClearable
               styles={{
@@ -242,6 +280,64 @@ value={
             />
           </Box>
 
+          {/* PHARMACY: LOOSE TABLETS SELLING MODE */}
+          {isPharmacy && selectedVariant && (
+            <Box sx={{ mt: 2, p: 2, borderRadius: 3, bgcolor: '#f0fdf4', border: '1px solid #86efac' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <MedicationIcon color="success" fontSize="small" />
+                <Typography variant="subtitle2" fontWeight={700} color="success.dark">
+                  Dispensing Mode
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <ToggleButtonGroup
+                  value={sellingMode}
+                  exclusive
+                  onChange={handleSellingModeChange}
+                  size="small"
+                  sx={{ bgcolor: 'white', borderRadius: 2 }}
+                >
+                  <ToggleButton value="PACK" sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}>
+                    Strip / Box
+                  </ToggleButton>
+                  <ToggleButton value="LOOSE" sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}>
+                    Loose Tablets
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                {sellingMode === 'LOOSE' && (
+                  <TextField
+                    label="Tablets per strip"
+                    type="number"
+                    size="small"
+                    value={packSize}
+                    onChange={handlePackSizeChange}
+                    inputProps={{ min: 1, max: 1000 }}
+                    sx={{ width: 160, bgcolor: 'white' }}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">tabs</InputAdornment>,
+                    }}
+                  />
+                )}
+
+                {sellingMode === 'LOOSE' && (
+                  <Chip
+                    label={`₹${looseUnitPrice} per tablet`}
+                    color="success"
+                    size="small"
+                    variant="outlined"
+                    icon={<MedicationIcon />}
+                  />
+                )}
+              </Box>
+              {sellingMode === 'LOOSE' && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Strip price ₹{basePrice} ÷ {packSize} tabs = ₹{looseUnitPrice}/tablet. Enter number of tablets in Qty.
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {/* ITEM DETAILS & ADD BUTTON */}
           <Box sx={{ 
             mt: 3, 
@@ -254,13 +350,22 @@ value={
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} md={7}>
                 <Grid container spacing={1}>
-                  {[
-                    { label: 'SKU', val: item.sku },
-                    { label: 'Price', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
-                    { label: 'Stock', val: item.currentStock },
-                    { label: 'Color', val: item.color },
-                    { label: 'Size', val: item.size }
-                  ].map((d, i) => (
+                  {(isPharmacy
+                    ? [
+                        { label: 'SKU / Batch', val: item.sku },
+                        { label: sellingMode === 'LOOSE' ? 'Per Tablet' : 'Per Strip', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
+                        { label: 'Stock (strips)', val: item.currentStock },
+                        { label: 'Strength', val: item.size },
+                        { label: 'Brand', val: item.color },
+                      ]
+                    : [
+                        { label: 'SKU', val: item.sku },
+                        { label: 'Price', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
+                        { label: 'Stock', val: item.currentStock },
+                        { label: 'Color', val: item.color },
+                        { label: 'Size', val: item.size },
+                      ]
+                  ).map((d, i) => (
                     <Grid item xs={4} key={i}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{d.label}</Typography>
                       <Typography variant="body1" sx={{ fontWeight: 700, color: '#1e3a8a' }}>{d.val || '—'}</Typography>
@@ -271,14 +376,17 @@ value={
 
               <Grid item xs={6} md={2}>
                 <TextField
-                  label="Qty"
+                  label={isPharmacy && sellingMode === 'LOOSE' ? 'Tablets' : 'Qty'}
                   type="number"
                   fullWidth
                   variant="outlined"
                   value={item.qty}
                   onChange={(e) => setItem({ ...item, qty: e.target.value })}
                   onFocus={(e) => e.target.select()}
-                  InputProps={{ sx: { borderRadius: 2, bgcolor: 'white', fontWeight: 800 } }}
+                  InputProps={{
+                    sx: { borderRadius: 2, bgcolor: 'white', fontWeight: 800 },
+                    ...(isPharmacy && sellingMode === 'LOOSE' ? { endAdornment: <InputAdornment position="end">tab</InputAdornment> } : {}),
+                  }}
                 />
               </Grid>
 
@@ -298,7 +406,7 @@ value={
                     boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)' 
                   }}
                 >
-                  Add Item
+                  {isPharmacy && sellingMode === 'LOOSE' ? 'Dispense Loose' : 'Add Item'}
                 </Button>
               </Grid>
             </Grid>

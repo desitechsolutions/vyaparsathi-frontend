@@ -25,14 +25,6 @@ import {
   DRUG_SCHEDULES,
 } from '../../../ui/constants';
 
-const DRUG_SCHEDULES = [
-  { value: 'OTC', label: 'OTC (Over the Counter)' },
-  { value: 'NON_SCHEDULED', label: 'Non-Scheduled' },
-  { value: 'SCHEDULE_H', label: 'Schedule H (Prescription Required)' },
-  { value: 'SCHEDULE_H1', label: 'Schedule H1 (Stricter Control)' },
-  { value: 'SCHEDULE_X', label: 'Schedule X (Narcotic/Psychotropic)' },
-];
-
 const STORAGE_REQUIREMENTS = [
   'Room Temperature',
   'Cool Place (8–25°C)',
