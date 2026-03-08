@@ -52,8 +52,10 @@ const ItemSection = ({
 
   // Pharmacy loose selling: calculate per-tablet price
   const basePrice = selectedVariant?.pricePerUnit || 0;
+  const calcLooseUnitPrice = (price, size) =>
+    parseFloat((price / Math.max(1, size)).toFixed(2));
   const looseUnitPrice = sellingMode === 'LOOSE' && packSize > 0
-    ? parseFloat((basePrice / packSize).toFixed(2))
+    ? calcLooseUnitPrice(basePrice, packSize)
     : basePrice;
 
   // When selling mode or pack size changes, update item price if a variant is selected
@@ -61,8 +63,8 @@ const ItemSection = ({
     if (!newMode) return;
     setSellingMode(newMode);
     if (selectedVariant) {
-      const newPrice = newMode === 'LOOSE' && packSize > 0
-        ? parseFloat((selectedVariant.pricePerUnit / packSize).toFixed(2))
+      const newPrice = newMode === 'LOOSE'
+        ? calcLooseUnitPrice(selectedVariant.pricePerUnit, packSize)
         : selectedVariant.pricePerUnit;
       setItem(prev => ({ ...prev, unitPrice: newPrice, sellingMode: newMode }));
     }
@@ -72,7 +74,7 @@ const ItemSection = ({
     const size = Math.max(1, parseInt(e.target.value) || 1);
     setPackSize(size);
     if (selectedVariant && sellingMode === 'LOOSE') {
-      const newPrice = parseFloat((selectedVariant.pricePerUnit / size).toFixed(2));
+      const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, size);
       setItem(prev => ({ ...prev, unitPrice: newPrice }));
     }
   };
@@ -385,7 +387,7 @@ value={
                   onFocus={(e) => e.target.select()}
                   InputProps={{
                     sx: { borderRadius: 2, bgcolor: 'white', fontWeight: 800 },
-                    ...(isPharmacy && sellingMode === 'LOOSE' ? { endAdornment: <InputAdornment position="end">tab</InputAdornment> } : {}),
+                    ...(isPharmacy && sellingMode === 'LOOSE' ? { endAdornment: <InputAdornment position="end">tabs</InputAdornment> } : {}),
                   }}
                 />
               </Grid>

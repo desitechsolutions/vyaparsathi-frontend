@@ -139,7 +139,7 @@ const Customers = () => {
       sortable: false,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
-          <Tooltip title={isPharmacy ? 'View Dues' : 'View Dues'}><IconButton size="small" color="info" onClick={() => navigate(`/customer-details/${params.row.id}/dues`)}><StatementIcon /></IconButton></Tooltip>
+          <Tooltip title="View Dues"><IconButton size="small" color="info" onClick={() => navigate(`/customer-details/${params.row.id}/dues`)}><StatementIcon /></IconButton></Tooltip>
           <Tooltip title={isPharmacy ? 'Edit Patient' : 'View/Edit Profile'}><IconButton size="small" color="primary" onClick={() => { setEditingCustomer(params.row); setFormData({ ...initialFormState, ...params.row }); setIsDialogOpen(true); }}><EditIcon /></IconButton></Tooltip>
           <Tooltip title="WhatsApp"><IconButton size="small" color="success" onClick={() => window.open(`https://wa.me/91${params.row.phone}`, '_blank')}><WhatsAppIcon /></IconButton></Tooltip>
         </Stack>

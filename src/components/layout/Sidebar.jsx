@@ -103,12 +103,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       { text: 'Narcotics Register', icon: <AssessmentIcon />, path: '/reports/narcotics-register', requiredTier: 'PRO' },
       { text: 'Purchase Register', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
     ] : []),
-    // Non-pharmacy reports
-    ...(!isPharmacy ? [
-      { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
-    ] : [
-      { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
-    ]),
+    { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
   ];
 
   // 3. Strategic & Financial (Admin/Owner only)
@@ -121,9 +116,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       onClick: () => toggleNested('payments'),
       children: [
         { text: isPharmacy ? 'Patient Payments' : 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
-        ...(!isPharmacy ? [{ text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' }] : [
-          { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
-        ]),
+        { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       ],
     },
     { text: 'analytics', icon: <TrendingUpOutlinedIcon />, path: '/analytics', requiredTier: 'PRO' },
