@@ -58,7 +58,9 @@ const resources = {
       notifications: 'Notifications',
       common:{
         cancel: 'Cancel',
-         close: "Close",
+        close: "Close",
+        yes: 'Yes',
+        no: 'No',
       },
 
       dashboardPage: {
@@ -184,13 +186,15 @@ const resources = {
           lowStockThreshold: 'Low Stock Threshold',
           lowStockHelper: "You'll be alerted when stock drops below this value.",
           uploadPhoto: 'Upload Photo (optional)',
-          hsnCode: 'HSN Code',
           dosageForm: 'Dosage Form',
           storageReq: 'Storage Req.',
-          manufacturer: 'Manufacturer / Marketing Company',
-          manufacturerPlaceholder: 'e.g. Sun Pharma, Cipla',
           drugSchedule: 'Drug Schedule',
           drugScheduleNone: 'Not Applicable / Unclassified',
+          requiresPrescription: 'Requires Prescription',
+          mrp: 'MRP (Max Retail Price)',
+          batchNumber: 'Batch / Lot Number',
+          manufacturingDate: 'Mfg. Date',
+          expiryDate: 'Expiry Date',
         },
         variant: {
           variantsCount: '{{count}} Variant',
@@ -219,6 +223,8 @@ const resources = {
           outOfStock: 'Out of Stock',
           gstRate: 'GST Rate',
           noVariantsFound: 'No variants found for this item.',
+          batchNumber: 'Batch',
+          expiryDate: 'Expiry',
           tooltips: {
             cannotDeleteStock: 'Cannot delete variant while stock is present',
             deleteVariant: 'Permanently remove this variant',
@@ -632,6 +638,8 @@ const resources = {
       common:{
         cancel: 'रद्द करें',
         close: "बंद करें",
+        yes: 'हाँ',
+        no: 'नहीं',
       },
       itemsPage: {
         title: 'आइटम्स',
@@ -704,13 +712,15 @@ const resources = {
           lowStockThreshold: 'लो स्टॉक थ्रेशोल्ड',
           lowStockHelper: "स्टॉक इस मान से नीचे जाने पर आपको अलर्ट किया जाएगा।",
           uploadPhoto: 'फोटो अपलोड करें (वैकल्पिक)',
-          hsnCode: 'HSN कोड',
           dosageForm: 'खुराक का रूप',
           storageReq: 'भंडारण आवश्यकता',
-          manufacturer: 'निर्माता / मार्केटिंग कंपनी',
-          manufacturerPlaceholder: 'जैसे. Sun Pharma, Cipla',
           drugSchedule: 'दवा अनुसूची',
           drugScheduleNone: 'लागू नहीं / अवर्गीकृत',
+          requiresPrescription: 'प्रिस्क्रिप्शन आवश्यक',
+          mrp: 'MRP (अधिकतम खुदरा मूल्य)',
+          batchNumber: 'बैच / लॉट नंबर',
+          manufacturingDate: 'निर्माण तिथि',
+          expiryDate: 'समाप्ति तिथि',
         },
         variant: {
           variantsCount: '{{count}} वेरिएंट',
@@ -739,6 +749,8 @@ const resources = {
           outOfStock: 'स्टॉक खत्म',
           gstRate: 'GST दर',
           noVariantsFound: 'इस आइटम के लिए कोई वेरिएंट नहीं मिला।',
+          batchNumber: 'बैच',
+          expiryDate: 'समाप्ति',
           tooltips: {
             cannotDeleteStock: 'स्टॉक मौजूद होने पर वेरिएंट नहीं हटाया जा सकता',
             deleteVariant: 'इस वेरिएंट को स्थायी रूप से हटाएं',
@@ -873,6 +885,7 @@ const resources = {
           batchNumber: 'बैच / लॉट नंबर',
           expiryDate: 'समाप्ति तिथि',
           reason: 'परिवर्तन का कारण',
+          from: 'से',
           to: 'तक',
           format:'फाइल फॉर्मेट',
           reportType:'रिपोर्ट का प्रकार',

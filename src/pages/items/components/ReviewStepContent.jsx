@@ -129,9 +129,18 @@ export default function ReviewStepContent({
               />
               <DetailRow label={t('itemsPage.form.brandName')} value={itemFormData.brandName} />
               <Divider />
-              {/* Using generic attribute names stored in itemFormData */}
               <DetailRow label={labels.attr1} value={itemFormData.attribute1} />
               <DetailRow label={labels.attr2} value={itemFormData.attribute2} />
+              {/* Pharmacy-specific item fields */}
+              {shopCategory === 'PHARMACY' && itemFormData.drugSchedule && (
+                <DetailRow label={t('itemsPage.form.drugSchedule')} value={itemFormData.drugSchedule.replace(/_/g, ' ')} />
+              )}
+              {shopCategory === 'PHARMACY' && (
+                <DetailRow
+                  label={t('itemsPage.form.requiresPrescription')}
+                  value={itemFormData.requiresPrescription ? t('common.yes') : t('common.no')}
+                />
+              )}
             </Stack>
 
             {itemFormData.description && (

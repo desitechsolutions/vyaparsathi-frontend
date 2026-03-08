@@ -174,6 +174,38 @@ export default function VariantDetailDisplay({
                       {labels.secondary(variant)} • {variant.unit}
                     </Typography>
 
+                    {/* Pharmacy-specific variant info */}
+                    {shopCategory === 'PHARMACY' && (variant.batchNumber || variant.expiryDate || variant.mrp) && (
+                      <Box sx={{ mb: 1, p: 1, bgcolor: '#f0fdf4', borderRadius: 1.5, border: '1px solid #bbf7d0' }}>
+                        {variant.mrp && (
+                          <Typography variant="caption" sx={{ display: 'block', color: '#166534', fontWeight: 700 }}>
+                            MRP: ₹{variant.mrp}
+                          </Typography>
+                        )}
+                        {variant.batchNumber && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {t('itemsPage.variant.batchNumber')}: {variant.batchNumber}
+                          </Typography>
+                        )}
+                        {variant.expiryDate && (() => {
+                          const isExpired = new Date(variant.expiryDate) < new Date();
+                          return (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                display: 'block',
+                                color: isExpired ? '#dc2626' : '#374151',
+                                fontWeight: isExpired ? 800 : 400,
+                              }}
+                            >
+                              {t('itemsPage.variant.expiryDate')}: {new Date(variant.expiryDate).toLocaleDateString()}
+                              {isExpired && ' ⚠️ EXPIRED'}
+                            </Typography>
+                          );
+                        })()}
+                      </Box>
+                    )}
+
                     <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
 
                     <Stack direction="row" justifyContent="space-between" alignItems="center">

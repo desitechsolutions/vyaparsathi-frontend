@@ -230,12 +230,18 @@ export default function useItemsLogic() {
       brandName: item.brandName || '',
       attribute1: item.attribute1 || '',
       attribute2: item.attribute2 || '',
+      drugSchedule: item.drugSchedule || '',
+      requiresPrescription: !!item.requiresPrescription,
     });
 
     setVariantList(item.variants.map(v => ({
       ...v,
       photoUrl: v.photoPath,
-      lowStockThreshold: v.lowStockThreshold || '5'
+      lowStockThreshold: v.lowStockThreshold || '5',
+      batchNumber: v.batchNumber || '',
+      manufacturingDate: v.manufacturingDate || '',
+      expiryDate: v.expiryDate || '',
+      mrp: v.mrp || '',
     })));
 
     setSelectedItemId(itemId);

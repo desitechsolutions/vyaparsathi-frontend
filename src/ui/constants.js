@@ -303,11 +303,10 @@ export const variantUsage = {
 
 export const DRUG_SCHEDULES = [
   { value: 'OTC', label: 'OTC — Over The Counter' },
+  { value: 'NON_SCHEDULED', label: 'Non-Scheduled — Prescription (Unclassified)' },
   { value: 'SCHEDULE_H', label: 'Schedule H — Prescription Required' },
-  { value: 'SCHEDULE_H1', label: 'Schedule H1 — Controlled Prescription' },
+  { value: 'SCHEDULE_H1', label: 'Schedule H1 — Stringent Prescription (3rd-gen antibiotics, anti-TB)' },
   { value: 'SCHEDULE_X', label: 'Schedule X — Narcotic / Psychotropic' },
-  { value: 'SCHEDULE_G', label: 'Schedule G — Caution (Supervision)' },
-  { value: 'AYURVEDIC', label: 'Ayurvedic / Herbal' },
 ];
 
 
