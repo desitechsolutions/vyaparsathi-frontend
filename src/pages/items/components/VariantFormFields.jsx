@@ -6,13 +6,13 @@ import {
   Typography,
   Button,
   IconButton,
-  Tooltip,
   Box,
   Autocomplete,
   TextField,
   Stack,
   alpha,
   Card,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -21,6 +21,7 @@ import {
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
+  ContentCopy as DuplicateIcon,
 } from '@mui/icons-material';
 
 import { styled } from '@mui/material/styles';
@@ -30,6 +31,7 @@ import {
   variantModels,
   variantFits,
   shopUnits,
+  resolveIndustry
 } from '../../../ui/constants';
 import { flattenOptions } from '../utils/flattenOptions';
 import { API_BASE_URL } from '../../../services/api';
@@ -51,7 +53,6 @@ export default function VariantFormFields({
   currentVariant,
   setCurrentVariant,
   variantList,
-  setVariantList,
   editingVariantIndex,
   setEditingVariantIndex,
   handleCurrentVariantChange,
@@ -63,52 +64,33 @@ export default function VariantFormFields({
   const { t } = useTranslation();
   const isEditing = editingVariantIndex !== null;
 
+  const industryRoot = shopCategory || "GENERAL";
+  console.log("VariantFormFields rendered", shopCategory);
+
   // --- DYNAMIC INDUSTRY CONFIG ---
-  // Maps the 4 generic variant fields to industry terminology
   const industryConfig = {
-    CLOTHING: {
-      labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') },
-    },
-    ELECTRONICS: {
-      labels: { size: 'Storage/Capacity', color: 'Color/Finish', design: 'Model/Version', fit: 'Connectivity' },
-    },
-    HARDWARE: {
-      labels: { size: 'Dimensions/Size', color: 'Material/Finish', design: 'Grade', fit: 'Mounting Type' },
-    },
-    PHARMACY: {
-      labels: { size: 'Strength (mg/ml)', color: 'Visual Ref/Strip', design: 'Type (Generic/Brand)', fit: 'Usage/Route' },
-    },
-    GROCERY: {
-      labels: { size: 'Weight/Volume', color: 'Origin/Brand', design: 'Grade/Quality', fit: 'Shelf Life' },
-    },
-    AUTOMOBILE: {
-      labels: { size: 'Specs/Dimensions', color: 'Finish/Color', design: 'Part Number', fit: 'Vehicle Position' },
-    },
-    STATIONERY: {
-      labels: { size: 'Dimensions/GSM', color: 'Ink/Color', design: 'Binding/Type', fit: 'Layout' },
-    },
-    FOOTWEAR: {
-      labels: { size: 'Size (UK/EU)', color: 'Color', design: 'Style/Collection', fit: 'Width Fit' },
-    },
-    FURNITURE: {
-      labels: { size: 'Dimensions (WxHxD)', color: 'Wood Finish/Fabric', design: 'Style', fit: 'Assembly Type' },
-    },
-    JEWELLERY: {
-      labels: { size: 'Length/Size', color: 'Metal Tone', design: 'Pattern', fit: 'Clasp Type' },
-    }
+    CLOTHING: { labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') } },
+    ELECTRONICS: { labels: { size: 'Storage', color: 'Finish', design: 'Model', fit: 'Connectivity' } },
+    HARDWARE: { labels: { size: 'Dimensions', color: 'Finish', design: 'Grade', fit: 'Mounting' } },
+    PHARMACY: { labels: { size: 'Strength', color: 'Visual', design: 'Brand Type', fit: 'Usage' } },
+    GROCERY: { labels: { size: 'Weight/Vol', color: 'Origin', design: 'Quality', fit: 'Dietary' } },
+    AUTOMOBILE: { labels: { size: 'Specs', color: 'Color', design: 'Part No', fit: 'Position' } },
+    STATIONERY: { labels: { size: 'GSM/Size', color: 'Ink/Color', design: 'Binding', fit: 'Layout' } },
+    FOOTWEAR: { labels: { size: 'Size', color: 'Color', design: 'Collection', fit: 'Width' } },
+    FURNITURE: { labels: { size: 'Dimensions', color: 'Finish', design: 'Style', fit: 'Assembly' } },
+    JEWELLERY: { labels: { size: 'Length/Size', color: 'Tone', design: 'Pattern', fit: 'Clasp' } }
   };
 
-  const config = industryConfig[shopCategory] || industryConfig.CLOTHING;
+  const config = industryConfig[industryRoot] || industryConfig.CLOTHING;
 
-  // Helper to get options safely from constants
-  const getOptions = (source, category) => flattenOptions(source[category] || []);
+  const getOptions = (source, root) => flattenOptions(source[root] || []);
 
   const options = {
-    size: getOptions(variantSpecs, shopCategory),
-    color: getOptions(variantColors, shopCategory),
-    design: getOptions(variantModels, shopCategory),
-    fit: getOptions(variantFits, shopCategory),
-    unit: shopUnits[shopCategory] || ['PIECE']
+    size: getOptions(variantSpecs, industryRoot),
+    color: getOptions(variantColors, industryRoot),
+    design: getOptions(variantModels, industryRoot),
+    fit: getOptions(variantFits, industryRoot),
+    unit: shopUnits[industryRoot] || ['PIECE']
   };
 
   const inputSx = {
@@ -130,51 +112,31 @@ export default function VariantFormFields({
     setCurrentVariant((prev) => ({ ...prev, [field]: newInputValue }));
   };
 
+  const handleDuplicateVariant = (index) => {
+    const sourceVariant = variantList[index];
+    setCurrentVariant({ ...sourceVariant }); 
+    setEditingVariantIndex(null); 
+  };
+
   const getVariantForm = () => (
     <Grid container spacing={2}>
-      <Grid item xs={12} sm={6}>
-        <Autocomplete
-          freeSolo
-          options={options.size}
-          value={currentVariant.size || ''}
-          onChange={handleFreeSoloChange('size')}
-          onInputChange={handleFreeSoloInput('size')}
-          renderInput={(params) => <TextField {...params} label={config.labels.size} sx={inputSx} />}
-        />
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <Autocomplete
-          freeSolo
-          options={options.color}
-          value={currentVariant.color || ''}
-          onChange={handleFreeSoloChange('color')}
-          onInputChange={handleFreeSoloInput('color')}
-          renderInput={(params) => <TextField {...params} label={config.labels.color} sx={inputSx} />}
-        />
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <Autocomplete
-          freeSolo
-          options={options.design}
-          value={currentVariant.design || ''}
-          onChange={handleFreeSoloChange('design')}
-          onInputChange={handleFreeSoloInput('design')}
-          renderInput={(params) => <TextField {...params} label={config.labels.design} sx={inputSx} />}
-        />
-      </Grid>
-
-      <Grid item xs={12} sm={6}>
-        <Autocomplete
-          freeSolo
-          options={options.fit}
-          value={currentVariant.fit || ''}
-          onChange={handleFreeSoloChange('fit')}
-          onInputChange={handleFreeSoloInput('fit')}
-          renderInput={(params) => <TextField {...params} label={config.labels.fit} sx={inputSx} />}
-        />
-      </Grid>
+      {[
+        { id: 'size', opt: options.size },
+        { id: 'color', opt: options.color },
+        { id: 'design', opt: options.design },
+        { id: 'fit', opt: options.fit },
+      ].map((field) => (
+        <Grid item xs={12} sm={6} key={field.id}>
+          <Autocomplete
+            freeSolo
+            options={field.opt}
+            value={currentVariant[field.id] || ''}
+            onChange={handleFreeSoloChange(field.id)}
+            onInputChange={handleFreeSoloInput(field.id)}
+            renderInput={(params) => <TextField {...params} label={config.labels[field.id]} sx={inputSx} />}
+          />
+        </Grid>
+      ))}
 
       <Grid item xs={12} sm={6}>
         <Autocomplete
@@ -193,10 +155,13 @@ export default function VariantFormFields({
           name="pricePerUnit"
           type="number"
           value={currentVariant.pricePerUnit || ''}
-          onChange={handleCurrentVariantChange}
-          required
-          fullWidth
-          sx={inputSx}
+          onChange={(e) => {
+            const value = parseFloat(e.target.value);
+            if (value < 0) return; 
+            handleCurrentVariantChange(e);
+          }}
+          required fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0 } }} 
         />
       </Grid>
 
@@ -206,9 +171,13 @@ export default function VariantFormFields({
           name="gstRate"
           type="number"
           value={currentVariant.gstRate || ''}
-          onChange={handleCurrentVariantChange}
-          fullWidth
-          sx={inputSx}
+          onChange={(e) => {
+            const value = parseFloat(e.target.value);
+            if (value < 0) return; 
+            handleCurrentVariantChange(e);
+          }}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, max: 100 } }}
         />
       </Grid>
 
@@ -219,8 +188,7 @@ export default function VariantFormFields({
           type="number"
           value={currentVariant.lowStockThreshold || ''}
           onChange={handleCurrentVariantChange}
-          fullWidth
-          sx={inputSx}
+          fullWidth sx={inputSx}
           InputProps={{ inputProps: { min: 0 } }}
         />
       </Grid>
@@ -262,9 +230,7 @@ export default function VariantFormFields({
               {isEditing ? t('itemsPage.variant.editTitle') : t('itemsPage.variant.addTitle')}
             </Typography>
           </Stack>
-
           {getVariantForm()}
-
           <Button
             variant="contained"
             startIcon={isEditing ? <SaveIcon /> : <AddIcon />}
@@ -282,8 +248,7 @@ export default function VariantFormFields({
         <Typography variant="overline" fontWeight={800} color="text.secondary" sx={{ letterSpacing: 1 }}>
           {t('itemsPage.variant.currentVariants')} ({variantList.length})
         </Typography>
-
-        <Box sx={{ mt: 2, maxHeight: '550px', overflowY: 'auto', pr: 1 }}>
+        <Box sx={{ mt: 2, maxHeight: '650px', overflowY: 'auto', pr: 1 }}>
           {variantList.length > 0 ? (
             <Stack spacing={2}>
               {variantList.map((variant, index) => (
@@ -292,21 +257,32 @@ export default function VariantFormFields({
                   bgcolor: editingVariantIndex === index ? '#f0f9ff' : 'white' }}>
                   <Grid container alignItems="center">
                     <Grid item xs>
-                      <Typography variant="subtitle2" fontWeight={900}>
-                        ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: '#64748b' }}>/ {variant.unit}</small>
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                        {variant.size || '—'} • {variant.color || '—'} • {variant.design || 'Standard'}
-                      </Typography>
-                    </Grid>
-                    <Grid item>
-                      <Stack direction="row" spacing={0.5}>
-                        <IconButton size="small" color="primary" onClick={() => handleEditVariantInList(index)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteVariantInList(index)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={900}>
+                            ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: '#64748b' }}>/ {variant.unit}</small>
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                            {[variant.size, variant.color, variant.design, variant.fit].filter(Boolean).join(' • ') || 'Standard'}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={0.5}>
+                          <Tooltip title="Duplicate">
+                            <IconButton size="small" color="info" onClick={() => handleDuplicateVariant(index)}>
+                              <DuplicateIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton size="small" color="primary" onClick={() => handleEditVariantInList(index)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => handleDeleteVariantInList(index)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </Stack>
                     </Grid>
                   </Grid>

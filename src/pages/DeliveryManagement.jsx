@@ -19,12 +19,12 @@ import {
 import PrintableDelivery from '../components/PrintableDelivery';
 
 const statusConfig = {
-  PENDING: { label: "Pending", color: "default", icon: <AccessTime fontSize="small" /> },
-  PACKED: { label: "Packed", color: "warning", icon: <Inbox fontSize="small" /> },
-  OUT_FOR_DELIVERY: { label: "Out for Delivery", color: "info", icon: <LocalShipping fontSize="small" /> },
-  IN_TRANSIT: { label: "In Transit", color: "secondary", icon: <LocalShipping fontSize="small" /> },
-  DELIVERED: { label: "Delivered", color: "success", icon: <CheckCircle fontSize="small" /> },
-  CANCELLED: { label: "Cancelled", color: "error", icon: <Close fontSize="small" /> }
+  PENDING: { label: "Pending", color: "default", icon: <AccessTime fontSize="small" />, order: 1 },
+  PACKED: { label: "Packed", color: "warning", icon: <Inbox fontSize="small" />, order: 2 },
+  OUT_FOR_DELIVERY: { label: "Out for Delivery", color: "info", icon: <LocalShipping fontSize="small" />, order: 3 },
+  IN_TRANSIT: { label: "In Transit", color: "secondary", icon: <LocalShipping fontSize="small" />, order: 4 },
+  DELIVERED: { label: "Delivered", color: "success", icon: <CheckCircle fontSize="small" />, order: 5 },
+  CANCELLED: { label: "Cancelled", color: "error", icon: <Close fontSize="small" />, order: 0 }
 };
 
 const DeliveryManagement = () => {
@@ -49,8 +49,8 @@ const DeliveryManagement = () => {
   const printRef = useRef();
 
   // --- Data Loading ---
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (updateSelectedId = null) => {
+    setLoading(updateSelectedId ? false : true); 
     try {
       const [deliveriesRes, personsRes] = await Promise.all([fetchDeliveries(), fetchDeliveryPersons()]);
       const normalizedDeliveries = deliveriesRes.data.map(d => ({
@@ -59,6 +59,11 @@ const DeliveryManagement = () => {
       }));
       setDeliveries(normalizedDeliveries);
       setDeliveryPersons(personsRes.data);
+
+      if (updateSelectedId) {
+        const updated = normalizedDeliveries.find(d => d.deliveryId === updateSelectedId);
+        if (updated) setSelectedDelivery(updated);
+      }
     } catch (error) {
       showSnackbar("Failed to load delivery data.", "error");
     } finally {
@@ -125,7 +130,6 @@ const DeliveryManagement = () => {
     setEditMode(false);
     setAssignMode(false);
     setUpdateStatus("");
-    // Reset assign person fields
     setAssignPerson({ name: "", phone: "", notes: "" });
   };
 
@@ -134,7 +138,6 @@ const DeliveryManagement = () => {
     setIsSubmitting(true);
     try {
       let personToAssign = assignPerson;
-      // If no ID, it means it's a new person typed in
       if (!personToAssign.id) {
         const newPersonRes = await createDeliveryPerson({
           name: assignPerson.name,
@@ -146,21 +149,43 @@ const DeliveryManagement = () => {
       await assignDeliveryPerson(selectedDelivery.deliveryId, personToAssign);
       showSnackbar("Person assigned successfully", "success");
       setAssignMode(false);
-      loadData();
+      await loadData(selectedDelivery.deliveryId);
     } catch (e) { showSnackbar("Assignment failed", "error"); }
     finally { setIsSubmitting(false); }
   };
 
   const handleUpdateStatus = async () => {
-    if (!updateStatus) return;
+    if (!updateStatus || updateStatus === selectedDelivery.deliveryStatus) return;
     setIsSubmitting(true);
     try {
       await updateDeliveryStatus(selectedDelivery.deliveryId, updateStatus, "Admin");
       showSnackbar("Status updated", "success");
       setUpdateStatus("");
-      loadData();
+      await loadData(selectedDelivery.deliveryId);
     } catch (e) { showSnackbar("Update failed", "error"); }
     finally { setIsSubmitting(false); }
+  };
+
+  // Fix: Prevent moving after Delivered and prevent same-status updates
+  const canTransitionTo = (targetStatus) => {
+    if (!selectedDelivery) return true;
+    
+    const currentStatus = selectedDelivery.deliveryStatus;
+    
+    // 1. Prevent updating to the exact same status
+    if (targetStatus === currentStatus) return false;
+
+    // 2. Prevent any changes if already Delivered or Cancelled (Terminal states)
+    if (currentStatus === 'DELIVERED' || currentStatus === 'CANCELLED') return false;
+
+    const currentOrder = statusConfig[currentStatus]?.order || 0;
+    const targetOrder = statusConfig[targetStatus]?.order || 0;
+    
+    // Allow cancellation only if not delivered
+    if (targetStatus === 'CANCELLED') return true;
+
+    // Only allow forward progression
+    return targetOrder > currentOrder;
   };
 
   const csvHeaders = [
@@ -184,7 +209,6 @@ const DeliveryManagement = () => {
         <Alert severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>{snackbar.message}</Alert>
       </Snackbar>
 
-      {/* Header Section */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a237e' }}>Delivery Management</Typography>
@@ -198,7 +222,6 @@ const DeliveryManagement = () => {
         </Stack>
       </Box>
 
-      {/* Mini Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
           { label: 'Total Shipments', val: stats.total, color: '#1a237e', icon: <LocalShipping /> },
@@ -219,7 +242,6 @@ const DeliveryManagement = () => {
         ))}
       </Grid>
 
-      {/* Filter Section */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e0e4e8' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
@@ -242,7 +264,6 @@ const DeliveryManagement = () => {
         </Grid>
       </Paper>
 
-      {/* Table Section */}
       <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e8' }}>
         <Table stickyHeader size="medium">
           <TableHead>
@@ -290,7 +311,6 @@ const DeliveryManagement = () => {
         </Table>
       </TableContainer>
 
-      {/* Details Drawer */}
       <Drawer 
         anchor="right" 
         open={drawerOpen} 
@@ -299,8 +319,8 @@ const DeliveryManagement = () => {
           sx: { 
             width: { xs: "100vw", sm: 450 }, 
             p: 0,
-            mt: '64px', // FIX: Pushes drawer down so header wording isn't hidden
-            height: 'calc(100% - 64px)' // Ensures it doesn't overflow bottom
+            mt: '64px',
+            height: 'calc(100% - 64px)'
           } 
         }}
       >
@@ -315,7 +335,6 @@ const DeliveryManagement = () => {
             </Box>
 
             <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
-              {/* Customer Info Card */}
               <Card variant="outlined" sx={{ mb: 3, borderRadius: 2 }}>
                 <CardContent>
                   <Typography variant="subtitle2" color="primary" gutterBottom>Customer Information</Typography>
@@ -329,31 +348,39 @@ const DeliveryManagement = () => {
                 </CardContent>
               </Card>
 
-              {/* Status Update Section */}
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Fulfillment Status</Typography>
               <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                 <FormControl fullWidth size="small">
                   <Select value={updateStatus} onChange={e => setUpdateStatus(e.target.value)} displayEmpty>
                     <MenuItem value="" disabled>Change Status...</MenuItem>
-                    {Object.entries(statusConfig).map(([k, v]) => <MenuItem key={k} value={k}>{v.label}</MenuItem>)}
+                    {Object.entries(statusConfig).map(([k, v]) => (
+                      <MenuItem key={k} value={k} disabled={!canTransitionTo(k)}>
+                        {v.label} {k === selectedDelivery.deliveryStatus ? "(Current)" : !canTransitionTo(k) ? "(Restricted)" : ""}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
-                <Button variant="contained" disabled={!updateStatus || isSubmitting} onClick={handleUpdateStatus}>Update</Button>
+                <Button 
+                    variant="contained" 
+                    disabled={!updateStatus || updateStatus === selectedDelivery.deliveryStatus || isSubmitting} 
+                    onClick={handleUpdateStatus}
+                >
+                    Update
+                </Button>
               </Stack>
 
-              {/* Assignment Section */}
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Delivery Agent</Typography>
               {!assignMode ? (
                 <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2">
                     {selectedDelivery.deliveryPerson ? selectedDelivery.deliveryPerson.name : 'No agent assigned'}
                   </Typography>
-                  <Button size="small" onClick={() => setAssignMode(true)}>{selectedDelivery.deliveryPerson ? 'Change' : 'Assign'}</Button>
+                  <Button size="small" onClick={() => setAssignMode(true)} disabled={selectedDelivery.deliveryStatus === 'DELIVERED'}>{selectedDelivery.deliveryPerson ? 'Change' : 'Assign'}</Button>
                 </Box>
               ) : (
                 <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2 }}>
                   <Autocomplete 
-                    freeSolo // FIX: Allows typing custom names not in the DB
+                    freeSolo 
                     options={deliveryPersons} 
                     getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.name || ""} 
                     onInputChange={(e, v) => setAssignPerson(p => ({ ...p, name: v }))}
@@ -376,10 +403,9 @@ const DeliveryManagement = () => {
                 </Box>
               )}
 
-              {/* Status History Timeline */}
               <Typography variant="subtitle2" sx={{ mt: 4, mb: 1, fontWeight: 'bold' }}>History</Typography>
               <Box sx={{ pl: 2, borderLeft: '2px solid #e0e0e0' }}>
-                {selectedDelivery.statusHistory?.map((h, i) => (
+                {selectedDelivery.statusHistory?.slice().reverse().map((h, i) => (
                   <Box key={i} sx={{ position: 'relative', mb: 2, pl: 2 }}>
                     <Box sx={{ position: 'absolute', left: -25, top: 4, width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main' }} />
                     <Typography variant="caption" color="text.secondary">{dayjs(h.changedAt).format('DD MMM, hh:mm A')}</Typography>
