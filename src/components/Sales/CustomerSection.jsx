@@ -68,19 +68,27 @@ const CustomerSection = ({
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
             <ReceiptIcon color="primary" /> Transaction Details
+            {isPharmacy && (
+              <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <LocalHospitalIcon color="primary" fontSize="small" />
+                <Typography variant="caption" color="primary" fontWeight={700}>Pharmacy Sale</Typography>
+              </Box>
+            )}
           </Typography>
 
           <Grid container spacing={3}>
-            {/* Customer Selection */}
+            {/* Customer/Patient Selection */}
             <Grid item xs={12} md={7}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>SELECT CUSTOMER</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
+                {isPharmacy ? 'SELECT PATIENT' : 'SELECT CUSTOMER'}
+              </Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                 <Box sx={{ flexGrow: 1 }}>
                   <Select
                     options={customers}
                     value={selectedCustomer}
                     onChange={handleCustomerSelect}
-                    placeholder="Search name, phone, or GST..."
+                    placeholder={isPharmacy ? 'Search patient name or phone...' : 'Search name, phone, or GST...'}
                     isSearchable
                     isClearable
                     styles={{
@@ -95,7 +103,7 @@ const CustomerSection = ({
                     menuPortalTarget={document.body}
                   />
                 </Box>
-                <Tooltip title="Add New Customer">
+                <Tooltip title={isPharmacy ? 'Register New Patient' : 'Add New Customer'}>
                   <Button 
                     variant="contained" 
                     onClick={() => setOpenCustomerModal(true)}
@@ -273,10 +281,11 @@ const CustomerSection = ({
         </CardContent>
       </Card>
 
-      {/* NEW CUSTOMER MODAL WITH VALIDATION */}
+      {/* NEW CUSTOMER / PATIENT MODAL WITH VALIDATION */}
       <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
-          <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Create New Customer
+          <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
@@ -308,11 +317,21 @@ const CustomerSection = ({
             <Grid item xs={12} sm={6}>
               <TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} />
-            </Grid>
+            {!isPharmacy && (
+              <Grid item xs={12} sm={6}>
+                <TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} />
+              </Grid>
+            )}
             <Grid item xs={12}>
-              <TextField label="Notes" fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} />
+              <TextField
+                label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'}
+                fullWidth
+                multiline
+                rows={2}
+                value={newCustomerData.notes}
+                onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })}
+                placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''}
+              />
             </Grid>
           </Grid>
         </DialogContent>
@@ -323,7 +342,7 @@ const CustomerSection = ({
             variant="contained" 
             disabled={!isNewCustomerValid()}
           >
-            Save Customer
+            {isPharmacy ? 'Register Patient' : 'Save Customer'}
           </Button>
         </DialogActions>
       </Dialog>

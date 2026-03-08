@@ -14,9 +14,10 @@ import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { buildSalePayload }  from '../utils/salesUtils';
 import { 
   fetchCustomers, createSale, fetchItemVariants, createCustomer, 
-  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes, fetchShop
+  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes
 } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
+import { useShop } from '../context/ShopContext';
 import PersonIcon from '@mui/icons-material/Person';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -77,17 +78,11 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const [editIndex, setEditIndex] = useState(null);
   const [itemError, setItemError] = useState('');
 
-  // Pharmacy-specific state
-  const [isPharmacy, setIsPharmacy] = useState(false);
+  // Pharmacy-specific state — get isPharmacy from context
+  const { isPharmacy } = useShop();
   const [drugAlertOpen, setDrugAlertOpen] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
   const [substitutes, setSubstitutes] = useState([]);
-
-  useEffect(() => {
-    fetchShop().then(res => {
-      if (res?.data?.category === 'PHARMACY') setIsPharmacy(true);
-    }).catch(() => {});
-  }, []);
 
   // --- RESUME DRAFT LOGIC ---
   const handleLoadDraft = useCallback(async (id) => {
@@ -338,7 +333,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
       setCustomers([...customers, newCust]); setSelectedCustomer(newCust);
       setFormData(prev => ({ ...prev, customerId: res.data.id }));
       setOpenCustomerModal(false);
-      setSnackbar({ open: true, message: 'Customer added!', severity: 'success' });
+      setSnackbar({ open: true, message: isPharmacy ? 'Patient registered!' : 'Customer added!', severity: 'success' });
     } catch { setSnackbar({ open: true, message: 'Failed to add customer.', severity: 'error' }); }
   };
 
@@ -439,6 +434,7 @@ const handleSubmitSale = async (payload) => {
                 error={itemError} editIndex={editIndex}
                 proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
                 substitutes={substitutes}
+                isPharmacy={isPharmacy}
                 onSelectSubstitute={(sub) => {
                   setSelectedVariant(sub);
                   setItem({ ...initialItem, id: sub.id, sku: sub.sku, qty: '1', unitPrice: sub.pricePerUnit, itemName: sub.itemName, currentStock: sub.currentStock, drugSchedule: sub.drugSchedule });
