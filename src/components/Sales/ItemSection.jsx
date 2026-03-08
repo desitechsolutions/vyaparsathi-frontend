@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
-  Box, Collapse, IconButton, Tooltip, Divider, Paper, Chip 
+  Box, Collapse, Tooltip, Paper, Chip,
+  Alert
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -9,6 +10,8 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
 
 const ItemSection = ({
   variants,
@@ -30,8 +33,16 @@ const ItemSection = ({
   handleAddItem,
   handleResetFilters,
   error,
+  substitutes,
+  onSelectSubstitute,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSubstitutes, setShowSubstitutes] = useState(false);
+
+  // Drug schedule info for the selected variant
+  const drugSchedule = selectedVariant?.drugSchedule;
+  const isControlledDrug = drugSchedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(drugSchedule);
+  const isNarcotic = drugSchedule === 'SCHEDULE_X' || drugSchedule === 'SCHEDULE_H1';
 
   // 1. React-Select Custom Styling
   const customSelectStyles = {
@@ -292,6 +303,63 @@ value={
               </Grid>
             </Grid>
           </Box>
+
+          {/* DRUG SCHEDULE WARNING */}
+          {selectedVariant && isControlledDrug && (
+            <Alert
+              severity={isNarcotic ? 'error' : 'warning'}
+              icon={<WarningAmberIcon />}
+              sx={{ mt: 2, borderRadius: 2, fontWeight: 600 }}
+              action={
+                isNarcotic && (
+                  <Chip label="Narcotics Log" size="small" color="error" variant="outlined" />
+                )
+              }
+            >
+              {drugSchedule === 'SCHEDULE_X'
+                ? 'Schedule X (Narcotic): Mandatory prescription required. This sale will be logged in the Narcotics Register.'
+                : drugSchedule === 'SCHEDULE_H1'
+                ? 'Schedule H1: Stricter prescription control. Verify patient details before adding.'
+                : 'Schedule H Drug: Prescription required. Confirm the customer has a valid prescription.'}
+            </Alert>
+          )}
+
+          {/* SUBSTITUTE SUGGESTIONS */}
+          {substitutes && substitutes.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Button
+                size="small"
+                startIcon={<SyncAltIcon />}
+                color="info"
+                variant="outlined"
+                onClick={() => setShowSubstitutes(!showSubstitutes)}
+                sx={{ borderRadius: 2, fontWeight: 700 }}
+              >
+                {substitutes.length} Substitute{substitutes.length > 1 ? 's' : ''} Available
+              </Button>
+              <Collapse in={showSubstitutes}>
+                <Paper variant="outlined" sx={{ mt: 1, p: 2, borderRadius: 2, bgcolor: '#f0f9ff', borderColor: '#bfdbfe' }}>
+                  <Typography variant="caption" fontWeight={800} color="info.main" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Same Composition — Substitute Options
+                  </Typography>
+                  <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {substitutes.map((sub) => (
+                      <Tooltip key={sub.id} title={`Stock: ${sub.currentStock} | ₹${sub.pricePerUnit}`}>
+                        <Chip
+                          label={`${sub.itemName} — ₹${sub.pricePerUnit}`}
+                          size="small"
+                          color={sub.currentStock > 0 ? 'success' : 'default'}
+                          variant="outlined"
+                          onClick={() => onSelectSubstitute && onSelectSubstitute(sub)}
+                          sx={{ cursor: 'pointer', fontWeight: 600 }}
+                        />
+                      </Tooltip>
+                    ))}
+                  </Box>
+                </Paper>
+              </Collapse>
+            </Box>
+          )}
 
           {error && (
             <Box sx={{ mt: 2, p: 1.5, bgcolor: '#fef2f2', borderRadius: 2, border: '1px solid #fee2e2' }}>

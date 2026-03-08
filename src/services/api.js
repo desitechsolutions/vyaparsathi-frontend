@@ -497,6 +497,20 @@ export const toggleShopStatus = (shopId, active) =>
   });
 };
 
+// --- PHARMA REPORTS ---
+
+export const fetchExpiryReport = (days) =>
+  API.get(endpoints.reports.expiryReport(days)).then(r => r.data);
+
+export const fetchNarcoticsRegister = (from, to) =>
+  API.get(endpoints.reports.narcoticsRegister(from, to)).then(r => r.data);
+
+export const fetchPurchaseRegister = (from, to) =>
+  API.get(endpoints.reports.purchaseRegister(from, to)).then(r => r.data);
+
+export const fetchItemSubstitutes = (itemId) =>
+  API.get(endpoints.itemSubstitutes(itemId)).then(r => r.data);
+
 // --- USER MANAGEMENT ---
 
 export const fetchUsers = () =>

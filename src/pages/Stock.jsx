@@ -18,7 +18,7 @@ import {
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', expiryDate: '', costPerUnit: '', reason: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '', mfgDate: '', expiryDate: '' };
 
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
@@ -92,7 +92,15 @@ const Stock = () => {
     }
     setIsSubmitting(true);
     try {
-      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null, expiryDate: formData.expiryDate || null });
+      const payload = {
+        itemVariantId: formData.itemVariantId,
+        quantity: Number(formData.quantity),
+        costPerUnit: Number(formData.costPerUnit),
+        batch: formData.batch || null,
+        mfgDate: formData.mfgDate || null,
+        expiryDate: formData.expiryDate || null,
+      };
+      await addStock(payload);
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
@@ -241,7 +249,31 @@ const Stock = () => {
           </Tooltip>
         </Stack>
       ),
-    }
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'Expiry',
+      flex: 0.9, minWidth: 130,
+      renderCell: (params) => {
+        const expiry = params.value;
+        if (!expiry) return <Typography variant="caption" color="text.disabled">N/A</Typography>;
+        const today = new Date();
+        const expiryDate = new Date(expiry);
+        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        let color = 'success.main';
+        let bg = '#f0fdf4';
+        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        return (
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
+            <Typography variant="caption" fontWeight={700} color={color}>
+              {daysLeft <= 0 ? 'EXPIRED' : daysLeft <= 90 ? `${daysLeft}d left` : new Date(expiry).toLocaleDateString('en-IN')}
+            </Typography>
+          </Box>
+        );
+      },
+    },
   ];
 
   return (
@@ -460,14 +492,30 @@ const Stock = () => {
               value={formData.batch} 
               onChange={(e) => setFormData({ ...formData, batch: e.target.value })} 
             />
-            <TextField
-              fullWidth
-              label={t('stock.form.expiryDate')}
-              type="date"
-              value={formData.expiryDate}
-              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Mfg Date"
+                  type="date"
+                  value={formData.mfgDate || ''}
+                  onChange={(e) => setFormData({ ...formData, mfgDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Manufacturing date"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Expiry Date"
+                  type="date"
+                  value={formData.expiryDate || ''}
+                  onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Leave blank if not applicable"
+                />
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
