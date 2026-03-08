@@ -183,6 +183,8 @@ export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchStock = () => API.get(endpoints.fetchStock);
 export const fetchLowStockAlerts = () =>
   API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+export const fetchExpiryAlerts = (daysBeforeExpiry = 90) =>
+  API.get('/api/stock/expiry-alerts', { params: { daysBeforeExpiry }, meta: { background: true } });
 export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) => 
