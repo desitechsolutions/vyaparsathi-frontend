@@ -18,7 +18,7 @@ import {
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', expiryDate: '', costPerUnit: '', reason: '' };
 
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
@@ -92,7 +92,7 @@ const Stock = () => {
     }
     setIsSubmitting(true);
     try {
-      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null });
+      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null, expiryDate: formData.expiryDate || null });
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
@@ -459,6 +459,14 @@ const Stock = () => {
               label={t('stock.form.batchNumber')} 
               value={formData.batch} 
               onChange={(e) => setFormData({ ...formData, batch: e.target.value })} 
+            />
+            <TextField
+              fullWidth
+              label={t('stock.form.expiryDate')}
+              type="date"
+              value={formData.expiryDate}
+              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
             />
           </Stack>
         </DialogContent>

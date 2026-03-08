@@ -13,6 +13,9 @@ import {
   alpha,
   Card,
   Tooltip,
+  Divider,
+  Chip,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -31,7 +34,6 @@ import {
   variantModels,
   variantFits,
   shopUnits,
-  resolveIndustry
 } from '../../../ui/constants';
 import { flattenOptions } from '../utils/flattenOptions';
 import { API_BASE_URL } from '../../../services/api';
@@ -192,6 +194,76 @@ export default function VariantFormFields({
           InputProps={{ inputProps: { min: 0 } }}
         />
       </Grid>
+
+      {/* Pharmacy-specific variant fields */}
+      {shopCategory === 'PHARMACY' && (
+        <>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }}>
+              <Chip
+                label={t('itemsPage.sections.pharmacyDetails')}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Divider>
+          </Grid>
+
+          {/* MRP */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.mrp')}
+              name="mrp"
+              type="number"
+              value={currentVariant.mrp || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                inputProps: { min: 0 }
+              }}
+            />
+          </Grid>
+
+          {/* Batch Number */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.batchNumber')}
+              name="batchNumber"
+              value={currentVariant.batchNumber || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+            />
+          </Grid>
+
+          {/* Manufacturing Date */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.manufacturingDate')}
+              name="manufacturingDate"
+              type="date"
+              value={currentVariant.manufacturingDate || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          {/* Expiry Date */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.expiryDate')}
+              name="expiryDate"
+              type="date"
+              value={currentVariant.expiryDate || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </>
+      )}
 
       <Grid item xs={12}>
         <Button
