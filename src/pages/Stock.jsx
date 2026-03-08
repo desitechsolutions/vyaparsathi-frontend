@@ -10,16 +10,16 @@ import {
   Add as AddIcon, Inventory as InventoryIcon, TrendingDown, TrendingUp,
   WarningAmber, Search, AttachMoney, ShowChart, BarChart, 
   History as HistoryIcon, SettingsSuggest, FileDownload, InfoOutlined as InfoIcon,
+  DateRange as DateRangeIcon, Assessment
 } from '@mui/icons-material';
 import { 
   fetchStock, addStock, fetchItemVariants, 
   adjustStock, fetchStockMovements, exportStockReport 
 } from '../services/api';
-import { useTranslation } from 'react-i18next'; // ← added
+import { useTranslation } from 'react-i18next';
 
 const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '' };
 
-// Helper for consistent Indian Currency Formatting
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
     maximumFractionDigits: 2,
@@ -27,7 +27,7 @@ const formatCurrency = (val) =>
   });
 
 const Stock = () => {
-  const { t } = useTranslation(); // ← added
+  const { t } = useTranslation();
 
   const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +36,16 @@ const Stock = () => {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  
+  // Export State
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportConfig, setExportConfig] = useState({
+    reportType: 'current', // 'current' or 'movement'
+    startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    format: 'excel'
+  });
+
   const [formData, setFormData] = useState(initialFormState);
   const [selectedHistory, setSelectedHistory] = useState([]);
   const [error, setError] = useState(null);
@@ -52,7 +62,7 @@ const Stock = () => {
       }
       setItemVariants(variantsRes.data);
     } catch (err) { 
-      setError(t('stock.errorFetch')); // ← translated
+      setError(t('stock.errorFetch'));
     } finally { setLoading(false); }
   };
 
@@ -77,13 +87,13 @@ const Stock = () => {
 
   const handleSubmit = async () => {
     if (!formData.itemVariantId || !formData.quantity || !formData.costPerUnit) {
-      setError(t('stock.errorRequiredFields')); // ← translated
+      setError(t('stock.errorRequiredFields'));
       return;
     }
     setIsSubmitting(true);
     try {
       await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null });
-      setSuccessMsg(t('stock.successAdd')); // ← translated
+      setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
     finally { setIsSubmitting(false); }
@@ -91,27 +101,58 @@ const Stock = () => {
 
   const handleAdjustSubmit = async () => {
     if (!formData.itemVariantId || !formData.quantity || !formData.reason) {
-      setError(t('stock.errorRequiredFields')); // ← translated
+      setError(t('stock.errorRequiredFields'));
       return;
     }
     setIsSubmitting(true);
     try {
       await adjustStock({ itemVariantId: formData.itemVariantId, adjustmentQuantity: Number(formData.quantity), reason: formData.reason });
-      setSuccessMsg(t('stock.successAdjust')); // ← translated
+      setSuccessMsg(t('stock.successAdjust'));
       setAdjustOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdjust')); }
     finally { setIsSubmitting(false); }
   };
 
-  const handleExport = async (format) => {
+  const handleExport = async () => {
+    setIsSubmitting(true);
     try {
-      const response = await exportStockReport(format);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      let response;
+      let filename;
+      
+      if (exportConfig.reportType === 'movement') {
+        const startIso = `${exportConfig.startDate}T00:00:00`;
+        const endIso = `${exportConfig.endDate}T23:59:59`;
+        response = await exportStockReport(startIso, endIso, exportConfig.format);
+        filename = `Stock_Movements_${exportConfig.startDate}_to_${exportConfig.endDate}`;
+      } else {
+        // Logic for Current Stock Export 
+        // Note: If you have a separate exportCurrentStock API, call it here.
+        // Otherwise, this uses the movement report with a wide range or specialized endpoint.
+        response = await exportStockReport(null, null, exportConfig.format); 
+        filename = `Current_Inventory_Status_${new Date().toISOString().split('T')[0]}`;
+      }
+
+      const blob = new Blob([response.data], { 
+        type: exportConfig.format === 'excel' 
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+          : exportConfig.format === 'pdf' ? 'application/pdf' : 'text/csv' 
+      });
+
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${t('stock.exportFilename')}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`);
-      document.body.appendChild(link); link.click();
-    } catch (err) { setError(t('stock.errorExport')); }
+      const ext = exportConfig.format === 'excel' ? 'xlsx' : exportConfig.format;
+      link.setAttribute('download', `${filename}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setExportDialogOpen(false);
+      setSuccessMsg(t('stock.successExport') || 'Report downloaded successfully');
+    } catch (err) { 
+      setError(t('stock.errorExport')); 
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const viewHistory = async (variantId) => {
@@ -216,7 +257,7 @@ const Stock = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => handleExport('excel')} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>
               {t('stock.actions.export')}
             </Button>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>
@@ -284,6 +325,75 @@ const Stock = () => {
           </Box>
         </Paper>
       </Container>
+
+      {/* Export Selection Dialog */}
+      <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+                <Assessment color="primary" />
+                <Typography variant="h6" fontWeight={900}>{t('stock.actions.export') || 'Generate Report'}</Typography>
+            </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label={t('stock.form.reportType') || 'Report Type'}
+              value={exportConfig.reportType}
+              onChange={(e) => setExportConfig({ ...exportConfig, reportType: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="current">{t('stock.form.reportSummary') || 'Current Inventory Summary'}</MenuItem>
+              <MenuItem value="movement">{t('stock.form.auditLogReport') || 'Stock Movement Audit Log'}</MenuItem>
+            </TextField>
+
+            {exportConfig.reportType === 'movement' && (
+              <>
+                <TextField
+                  label={t('stock.form.from') || 'From Date'}
+                  type="date"
+                  value={exportConfig.startDate}
+                  onChange={(e) => setExportConfig({ ...exportConfig, startDate: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label={t('stock.form.to') || 'To Date'}
+                  type="date"
+                  value={exportConfig.endDate}
+                  onChange={(e) => setExportConfig({ ...exportConfig, endDate: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+              </>
+            )}
+
+            <TextField
+              select
+              label={t('stock.form.format') || 'File Format'}
+              value={exportConfig.format}
+              onChange={(e) => setExportConfig({ ...exportConfig, format: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="excel">Excel (.xlsx)</MenuItem>
+              <MenuItem value="csv">CSV (.csv)</MenuItem>
+              <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => setExportDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleExport} 
+            disabled={isSubmitting} 
+            startIcon={isSubmitting ? <CircularProgress size={20} /> : <FileDownload />}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {t('stock.actions.downloadReport') || 'Download'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Add Stock Dialog */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
