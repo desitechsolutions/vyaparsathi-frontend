@@ -70,6 +70,7 @@ export default function ExpiryReport() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadReport(days); }, [days]);
 
   const expired = (data || []).filter(r => getExpiryStatus(r.expiryDate).daysLeft < 0);
@@ -228,10 +229,12 @@ export default function ExpiryReport() {
   );
 }
 
+const STAT_CARD_BG = { error: '#fee2e2', warning: '#fef3c7', success: '#dcfce7' };
+
 const StatCard = ({ icon, color, label, value, desc }) => (
   <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-      <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: `${color === 'error' ? '#fee2e2' : color === 'warning' ? '#fef3c7' : '#dcfce7'}`, color: `${color}.main` }}>
+      <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: STAT_CARD_BG[color] || '#f1f5f9', color: `${color}.main` }}>
         {icon}
       </Avatar>
       <Box>

@@ -92,7 +92,15 @@ const Stock = () => {
     }
     setIsSubmitting(true);
     try {
-      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null, mfgDate: formData.mfgDate || null, expiryDate: formData.expiryDate || null });
+      const payload = {
+        itemVariantId: formData.itemVariantId,
+        quantity: Number(formData.quantity),
+        costPerUnit: Number(formData.costPerUnit),
+        batch: formData.batch || null,
+        mfgDate: formData.mfgDate || null,
+        expiryDate: formData.expiryDate || null,
+      };
+      await addStock(payload);
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
@@ -505,7 +513,6 @@ const Stock = () => {
                   onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   helperText="Leave blank if not applicable"
-                  inputProps={{ min: new Date().toISOString().split('T')[0] }}
                 />
               </Grid>
             </Grid>

@@ -68,7 +68,7 @@ export default function NarcoticsRegister() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadReport(); }, []);
+  useEffect(() => { loadReport(); }, [from, to]);
 
   const scheduleXCount = (data || []).filter(r => r.drugSchedule === 'SCHEDULE_X').length;
   const scheduleH1Count = (data || []).filter(r => r.drugSchedule === 'SCHEDULE_H1').length;

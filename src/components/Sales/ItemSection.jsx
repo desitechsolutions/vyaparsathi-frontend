@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
-  Box, Collapse, IconButton, Tooltip, Divider, Paper, Chip,
-  Alert, Dialog, DialogTitle, DialogContent, DialogActions
+  Box, Collapse, Tooltip, Paper, Chip,
+  Alert
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -41,7 +41,6 @@ const ItemSection = ({
 
   // Drug schedule info for the selected variant
   const drugSchedule = selectedVariant?.drugSchedule;
-  const requiresPrescription = selectedVariant?.requiresPrescription;
   const isControlledDrug = drugSchedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(drugSchedule);
   const isNarcotic = drugSchedule === 'SCHEDULE_X' || drugSchedule === 'SCHEDULE_H1';
 
@@ -345,15 +344,16 @@ value={
                   </Typography>
                   <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {substitutes.map((sub) => (
-                      <Chip
-                        key={sub.id}
-                        label={`${sub.itemName} — ₹${sub.pricePerUnit} (${sub.currentStock} in stock)`}
-                        size="small"
-                        color={sub.currentStock > 0 ? 'success' : 'default'}
-                        variant="outlined"
-                        onClick={() => onSelectSubstitute && onSelectSubstitute(sub)}
-                        sx={{ cursor: 'pointer', fontWeight: 600 }}
-                      />
+                      <Tooltip key={sub.id} title={`Stock: ${sub.currentStock} | ₹${sub.pricePerUnit}`}>
+                        <Chip
+                          label={`${sub.itemName} — ₹${sub.pricePerUnit}`}
+                          size="small"
+                          color={sub.currentStock > 0 ? 'success' : 'default'}
+                          variant="outlined"
+                          onClick={() => onSelectSubstitute && onSelectSubstitute(sub)}
+                          sx={{ cursor: 'pointer', fontWeight: 600 }}
+                        />
+                      </Tooltip>
                     ))}
                   </Box>
                 </Paper>

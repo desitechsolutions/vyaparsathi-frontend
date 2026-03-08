@@ -56,7 +56,7 @@ export default function PurchaseRegister() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadReport(); }, []);
+  useEffect(() => { loadReport(); }, [from, to]);
 
   const totalValue = (data || []).reduce((sum, r) => sum + Number(r.totalCost || 0), 0);
   const uniqueSuppliers = new Set((data || []).map(r => r.supplierName)).size;
