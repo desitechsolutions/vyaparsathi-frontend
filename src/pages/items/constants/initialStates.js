@@ -42,4 +42,9 @@ export const initialItemFormData = {
   // ELECTRONICS: attr1 = Build Material, attr2 = Warranty Period
   attribute1: '', 
   attribute2: '',
+
+  // Pharmacy-specific fields
+  hsnCode: '',         // HSN code for GST compliance (e.g., "3004" for medicines)
+  manufacturer: '',    // Manufacturer / marketing company name
+  drugSchedule: '',    // Drug schedule classification (OTC, SCHEDULE_H, SCHEDULE_H1, etc.)
 };

@@ -31,7 +31,6 @@ import {
   variantModels,
   variantFits,
   shopUnits,
-  resolveIndustry
 } from '../../../ui/constants';
 import { flattenOptions } from '../utils/flattenOptions';
 import { API_BASE_URL } from '../../../services/api';

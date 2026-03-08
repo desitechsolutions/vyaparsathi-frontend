@@ -294,3 +294,37 @@ export const variantUsage = {
 
   GENERAL: ['Daily Use','Professional','Industrial','Household']
 };
+
+
+
+// ===============================
+// 9. DRUG SCHEDULES (PHARMACY)
+// ===============================
+
+export const DRUG_SCHEDULES = [
+  { value: 'OTC', label: 'OTC — Over The Counter' },
+  { value: 'SCHEDULE_H', label: 'Schedule H — Prescription Required' },
+  { value: 'SCHEDULE_H1', label: 'Schedule H1 — Controlled Prescription' },
+  { value: 'SCHEDULE_X', label: 'Schedule X — Narcotic / Psychotropic' },
+  { value: 'SCHEDULE_G', label: 'Schedule G — Caution (Supervision)' },
+  { value: 'AYURVEDIC', label: 'Ayurvedic / Herbal' },
+];
+
+
+
+// ===============================
+// 10. INDUSTRY RESOLVER HELPER
+// ===============================
+
+/**
+ * Resolves the root industry name from a category name string.
+ * Falls back to 'GENERAL' if no match is found.
+ */
+export const resolveIndustry = (categoryName = '') => {
+  const name = categoryName.toUpperCase();
+  const industries = Object.keys({
+    CLOTHING: 1, FOOTWEAR: 1, ELECTRONICS: 1, HARDWARE: 1, PHARMACY: 1,
+    GROCERY: 1, AUTOMOBILE: 1, STATIONERY: 1, FURNITURE: 1, JEWELLERY: 1,
+  });
+  return industries.find((ind) => name.includes(ind)) || 'GENERAL';
+};

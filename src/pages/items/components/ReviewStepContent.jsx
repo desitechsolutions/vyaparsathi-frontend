@@ -128,10 +128,20 @@ export default function ReviewStepContent({
                 value={selectedCategory?.parentName ? `${selectedCategory.parentName} > ${categoryName}` : categoryName} 
               />
               <DetailRow label={t('itemsPage.form.brandName')} value={itemFormData.brandName} />
+              {itemFormData.hsnCode && (
+                <DetailRow label={t('itemsPage.form.hsnCode')} value={itemFormData.hsnCode} />
+              )}
               <Divider />
               {/* Using generic attribute names stored in itemFormData */}
               <DetailRow label={labels.attr1} value={itemFormData.attribute1} />
               <DetailRow label={labels.attr2} value={itemFormData.attribute2} />
+              {/* Pharmacy-specific fields */}
+              {shopCategory === 'PHARMACY' && itemFormData.manufacturer && (
+                <DetailRow label={t('itemsPage.form.manufacturer')} value={itemFormData.manufacturer} />
+              )}
+              {shopCategory === 'PHARMACY' && itemFormData.drugSchedule && (
+                <DetailRow label={t('itemsPage.form.drugSchedule')} value={itemFormData.drugSchedule.replace(/_/g, ' ')} />
+              )}
             </Stack>
 
             {itemFormData.description && (

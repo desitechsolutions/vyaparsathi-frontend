@@ -7,11 +7,15 @@ import {
   Typography,
   Box,
   ListSubheader,
+  MenuItem,
+  Divider,
+  Chip,
 } from '@mui/material';
 
 import { 
   variantMaterials, 
-  variantUsage 
+  variantUsage,
+  DRUG_SCHEDULES,
 } from '../../../ui/constants';
 
 export default function ItemDetailsForm({
@@ -22,13 +26,15 @@ export default function ItemDetailsForm({
 }) {
   const { t } = useTranslation();
 
+  const isPharmacy = shopCategory === 'PHARMACY';
+
   // --- DYNAMIC INDUSTRY CONFIG ---
   // This maps the generic attribute fields to industry-specific terminology
   const industryLabels = {
     CLOTHING:    { attr1: t('itemsPage.form.fabric'), attr2: t('itemsPage.form.season') },
     ELECTRONICS: { attr1: 'Build Material', attr2: 'Warranty Period' },
     HARDWARE:    { attr1: 'Primary Material', attr2: 'Usage Environment' },
-    PHARMACY:    { attr1: 'Dosage Form', attr2: 'Storage Req.' },
+    PHARMACY:    { attr1: t('itemsPage.form.dosageForm'), attr2: t('itemsPage.form.storageReq') },
     GROCERY:     { attr1: 'Packaging Type', attr2: 'Dietary Info' },
     AUTOMOBILE:  { attr1: 'Material Type', attr2: 'Vehicle Compatibility' },
     STATIONERY:  { attr1: 'Material', attr2: 'Intended Use' },
@@ -136,7 +142,22 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Attribute 1 (Fabric/Material/Dosage) */}
+        {/* HSN Code (shown for all industries, especially important for pharmacy) */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label={t('itemsPage.form.hsnCode')}
+            name="hsnCode"
+            value={itemFormData.hsnCode || ''}
+            onChange={handleChange}
+            fullWidth
+            variant="outlined"
+            placeholder={isPharmacy ? 'e.g. 3004' : 'e.g. 6109'}
+            sx={inputSx}
+            inputProps={{ maxLength: 8 }}
+          />
+        </Grid>
+
+        {/* Attribute 1 (Fabric/Material/Dosage Form) */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
@@ -156,7 +177,7 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Attribute 2 (Season/Warranty/Storage) */}
+        {/* Attribute 2 (Season/Warranty/Storage Req.) */}
         <Grid item xs={12} sm={6}>
           <Autocomplete
             freeSolo
@@ -175,6 +196,60 @@ export default function ItemDetailsForm({
             )}
           />
         </Grid>
+
+        {/* Pharmacy-specific fields */}
+        {isPharmacy && (
+          <>
+            <Grid item xs={12}>
+              <Divider sx={{ my: 0.5 }}>
+                <Chip
+                  label={t('itemsPage.sections.pharmacyDetails')}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+                />
+              </Divider>
+            </Grid>
+
+            {/* Manufacturer */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label={t('itemsPage.form.manufacturer')}
+                name="manufacturer"
+                value={itemFormData.manufacturer || ''}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+                placeholder={t('itemsPage.form.manufacturerPlaceholder')}
+                sx={inputSx}
+              />
+            </Grid>
+
+            {/* Drug Schedule */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label={t('itemsPage.form.drugSchedule')}
+                name="drugSchedule"
+                value={itemFormData.drugSchedule || ''}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+                sx={inputSx}
+              >
+                <MenuItem value="">
+                  <em>{t('itemsPage.form.drugScheduleNone')}</em>
+                </MenuItem>
+                {DRUG_SCHEDULES.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </>
+        )}
 
         {/* Description */}
         <Grid item xs={12}>

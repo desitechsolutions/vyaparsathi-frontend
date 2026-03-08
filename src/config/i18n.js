@@ -184,6 +184,13 @@ const resources = {
           lowStockThreshold: 'Low Stock Threshold',
           lowStockHelper: "You'll be alerted when stock drops below this value.",
           uploadPhoto: 'Upload Photo (optional)',
+          hsnCode: 'HSN Code',
+          dosageForm: 'Dosage Form',
+          storageReq: 'Storage Req.',
+          manufacturer: 'Manufacturer / Marketing Company',
+          manufacturerPlaceholder: 'e.g. Sun Pharma, Cipla',
+          drugSchedule: 'Drug Schedule',
+          drugScheduleNone: 'Not Applicable / Unclassified',
         },
         variant: {
           variantsCount: '{{count}} Variant',
@@ -225,7 +232,8 @@ const resources = {
           standardDesign: 'Standard Design',
         },
         sections: {
-          basicInfo: 'Basic Information'
+          basicInfo: 'Basic Information',
+          pharmacyDetails: 'Pharmacy Details',
         },
         actions: {
           addItem: 'Add Item',
@@ -344,6 +352,7 @@ const resources = {
           purchaseCost: 'Purchase Cost',
           quantity: 'Quantity',
           batchNumber: 'Batch / Lot Number',
+          expiryDate: 'Expiry Date',
           reason: 'Reason for Change',
           from: 'From',
           to: 'To',
@@ -695,6 +704,13 @@ const resources = {
           lowStockThreshold: 'लो स्टॉक थ्रेशोल्ड',
           lowStockHelper: "स्टॉक इस मान से नीचे जाने पर आपको अलर्ट किया जाएगा।",
           uploadPhoto: 'फोटो अपलोड करें (वैकल्पिक)',
+          hsnCode: 'HSN कोड',
+          dosageForm: 'खुराक का रूप',
+          storageReq: 'भंडारण आवश्यकता',
+          manufacturer: 'निर्माता / मार्केटिंग कंपनी',
+          manufacturerPlaceholder: 'जैसे. Sun Pharma, Cipla',
+          drugSchedule: 'दवा अनुसूची',
+          drugScheduleNone: 'लागू नहीं / अवर्गीकृत',
         },
         variant: {
           variantsCount: '{{count}} वेरिएंट',
@@ -736,7 +752,8 @@ const resources = {
           standardDesign: 'स्टैंडर्ड डिज़ाइन',
         },
         sections: {
-          basicInfo: 'बुनियादी जानकारी'
+          basicInfo: 'बुनियादी जानकारी',
+          pharmacyDetails: 'फार्मेसी विवरण',
         },
         actions: {
           addItem: 'आइटम जोड़ें',
@@ -854,8 +871,8 @@ const resources = {
           purchaseCost: 'खरीद लागत',
           quantity: 'मात्रा',
           batchNumber: 'बैच / लॉट नंबर',
+          expiryDate: 'समाप्ति तिथि',
           reason: 'परिवर्तन का कारण',
-          from: 'से',
           to: 'तक',
           format:'फाइल फॉर्मेट',
           reportType:'रिपोर्ट का प्रकार',
