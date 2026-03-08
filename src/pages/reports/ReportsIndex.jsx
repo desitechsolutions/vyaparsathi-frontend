@@ -2,12 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Container, Grid, Card, CardContent, 
-  CardActionArea, Avatar, Stack
+  CardActionArea, Avatar, Stack, Divider, Chip
 } from '@mui/material';
 import {
   Today, BarChart, RequestPage, ListAlt, 
   Category, Group, ReceiptLong, Payments, 
-  Assessment, ChevronRight
+  Assessment, ChevronRight, EventBusy, GppMaybe, LocalShipping
 } from '@mui/icons-material';
 
 const reportLinks = [
@@ -22,8 +22,58 @@ const reportLinks = [
   { title: 'Payments Summary', desc: 'Cash vs Digital collection split', icon: <Payments />, path: 'payments-summary', color: '#2dd4bf' },
 ];
 
+const pharmaReportLinks = [
+  { title: 'Expiry Report', desc: 'Stock expiring in 30, 60, or 90 days', icon: <EventBusy />, path: 'expiry-report', color: '#dc2626' },
+  { title: 'Narcotics Register', desc: 'Mandatory Schedule H/X drug log', icon: <GppMaybe />, path: 'narcotics-register', color: '#7c3aed' },
+  { title: 'Purchase Register', desc: 'Batch-supplier traceability for recalls', icon: <LocalShipping />, path: 'purchase-register', color: '#0891b2' },
+];
+
 const ReportsIndex = () => {
   const navigate = useNavigate();
+
+  const renderCard = (report) => (
+    <Grid item xs={12} sm={6} md={4} key={report.path}>
+      <Card 
+        elevation={0} 
+        sx={{ 
+          borderRadius: 4, 
+          border: '1px solid #e2e8f0', 
+          transition: '0.3s',
+          '&:hover': { 
+            transform: 'translateY(-5px)', 
+            boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
+            borderColor: report.color 
+          } 
+        }}
+      >
+        <CardActionArea onClick={() => navigate(report.path)} sx={{ p: 1 }}>
+          <CardContent>
+            <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+              <Avatar 
+                sx={{ 
+                  bgcolor: `${report.color}15`, 
+                  color: report.color,
+                  width: 48,
+                  height: 48
+                }}
+              >
+                {report.icon}
+              </Avatar>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
+                  {report.title}
+                </Typography>
+              </Box>
+              <ChevronRight sx={{ color: '#cbd5e1' }} />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              {report.desc}
+            </Typography>
+          </CardContent>
+        </CardActionArea>
+      </Card>
+    </Grid>
+  );
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 6 }}>
@@ -38,50 +88,18 @@ const ReportsIndex = () => {
         </Box>
 
         <Grid container spacing={3}>
-          {reportLinks.map((report) => (
-            <Grid item xs={12} sm={6} md={4} key={report.path}>
-              <Card 
-                elevation={0} 
-                sx={{ 
-                  borderRadius: 4, 
-                  border: '1px solid #e2e8f0', 
-                  transition: '0.3s',
-                  '&:hover': { 
-                    transform: 'translateY(-5px)', 
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
-                    borderColor: report.color 
-                  } 
-                }}
-              >
-                <CardActionArea onClick={() => navigate(report.path)} sx={{ p: 1 }}>
-                  <CardContent>
-                    <Stack direction="row" spacing={2} alignItems="center" mb={2}>
-                      <Avatar 
-                        sx={{ 
-                          bgcolor: `${report.color}15`, 
-                          color: report.color,
-                          width: 48,
-                          height: 48
-                        }}
-                      >
-                        {report.icon}
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
-                          {report.title}
-                        </Typography>
-                      </Box>
-                      <ChevronRight sx={{ color: '#cbd5e1' }} />
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      {report.desc}
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          ))}
+          {reportLinks.map(renderCard)}
         </Grid>
+
+        {/* Pharma Reports Section */}
+        <Box sx={{ mt: 6 }}>
+          <Divider sx={{ mb: 4 }}>
+            <Chip label="Pharmacy & Compliance Reports" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+          </Divider>
+          <Grid container spacing={3}>
+            {pharmaReportLinks.map(renderCard)}
+          </Grid>
+        </Box>
       </Container>
     </Box>
   );

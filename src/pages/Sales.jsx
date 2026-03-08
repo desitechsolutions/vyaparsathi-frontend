@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Box, Snackbar, Alert, CircularProgress, Divider, Chip, Container, 
-  Typography, Paper, Button, Tooltip, Stack
+  Typography, Paper, Button, Tooltip, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -13,13 +14,14 @@ import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { buildSalePayload }  from '../utils/salesUtils';
 import { 
   fetchCustomers, createSale, fetchItemVariants, createCustomer, 
-  draftSale, getSaleById, completeDraftSale 
+  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes, fetchShop
 } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 const SIDEBAR_WIDTH = '280px'; 
 
@@ -41,6 +43,7 @@ const initialFormData = {
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: "PACKED",
+  doctorName: '', patientName: '',
 };
 
 const Sales = () => {
@@ -73,6 +76,18 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [editIndex, setEditIndex] = useState(null);
   const [itemError, setItemError] = useState('');
+
+  // Pharmacy-specific state
+  const [isPharmacy, setIsPharmacy] = useState(false);
+  const [drugAlertOpen, setDrugAlertOpen] = useState(false);
+  const [pendingItem, setPendingItem] = useState(null);
+  const [substitutes, setSubstitutes] = useState([]);
+
+  useEffect(() => {
+    fetchShop().then(res => {
+      if (res?.data?.category === 'PHARMACY') setIsPharmacy(true);
+    }).catch(() => {});
+  }, []);
 
   // --- RESUME DRAFT LOGIC ---
   const handleLoadDraft = useCallback(async (id) => {
@@ -245,21 +260,33 @@ const tabValue = tabParam === "history" ? 1 : 0;
       return;
     }
 
+    // Show drug schedule warning for controlled drugs (pharmacy mode)
+    const schedule = item.drugSchedule || selectedVariant?.drugSchedule;
+    if (isPharmacy && schedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(schedule)) {
+      setPendingItem({ ...item, qty: quantity });
+      setDrugAlertOpen(true);
+      return;
+    }
+
+    doAddItem({ ...item, qty: quantity });
+  };
+
+  const doAddItem = (itemToAdd) => {
     let newItems;
     if (editIndex !== null) {
       newItems = [...formData.items];
-      newItems[editIndex] = { ...item, qty: quantity };
+      newItems[editIndex] = itemToAdd;
     } else {
-      const existingIdx = formData.items.findIndex(it => it.id === item.id);
+      const existingIdx = formData.items.findIndex(it => it.id === itemToAdd.id);
       if (existingIdx !== -1) {
         newItems = [...formData.items];
-        newItems[existingIdx].qty += quantity;
+        newItems[existingIdx].qty += itemToAdd.qty;
       } else {
-        newItems = [...formData.items, { ...item, qty: quantity }];
+        newItems = [...formData.items, itemToAdd];
       }
     }
     setFormData({ ...formData, items: newItems });
-    setItem(initialItem); setSelectedVariant(null); setEditIndex(null);
+    setItem(initialItem); setSelectedVariant(null); setEditIndex(null); setSubstitutes([]);
   };
 
   const handleEditItem = (index) => {
@@ -278,8 +305,19 @@ const tabValue = tabParam === "history" ? 1 : 0;
       setSelectedVariant(opt);
       setItem({
         ...initialItem, id: opt.id, sku: opt.sku, qty: '1', unitPrice: opt.pricePerUnit,
-        itemName: opt.itemName, color: opt.color, size: opt.size, currentStock: opt.currentStock
+        itemName: opt.itemName, color: opt.color, size: opt.size, currentStock: opt.currentStock,
+        drugSchedule: opt.drugSchedule, requiresPrescription: opt.requiresPrescription,
       });
+      // Load substitutes when item is out of stock or has composition data
+      if (opt.itemId && (opt.currentStock === 0 || opt.currentStock < 1)) {
+        fetchItemSubstitutes(opt.itemId)
+          .then(data => setSubstitutes(Array.isArray(data) ? data : []))
+          .catch(() => setSubstitutes([]));
+      } else {
+        setSubstitutes([]);
+      }
+    } else {
+      setSubstitutes([]);
     }
   };
 
@@ -380,6 +418,7 @@ const handleSubmitSale = async (payload) => {
                 newCustomerData={newCustomerData} setNewCustomerData={setNewCustomerData}
                 handleCustomerSelect={handleCustomerSelect} handleNewCustomer={handleNewCustomer}
                 openCustomerModal={openCustomerModal} setOpenCustomerModal={setOpenCustomerModal}
+                isPharmacy={isPharmacy}
               />
             </Paper>
 
@@ -399,6 +438,12 @@ const handleSubmitSale = async (payload) => {
                 handleSearchParamChange={handleSearchParamChange} handleAddItem={handleAddItem}
                 error={itemError} editIndex={editIndex}
                 proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
+                substitutes={substitutes}
+                onSelectSubstitute={(sub) => {
+                  setSelectedVariant(sub);
+                  setItem({ ...initialItem, id: sub.id, sku: sub.sku, qty: '1', unitPrice: sub.pricePerUnit, itemName: sub.itemName, currentStock: sub.currentStock, drugSchedule: sub.drugSchedule });
+                  setSubstitutes([]);
+                }}
               />
             </Paper>
 
@@ -545,6 +590,53 @@ const handleSubmitSale = async (payload) => {
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
+
+      {/* Drug Schedule Alert Dialog */}
+      <Dialog open={drugAlertOpen} onClose={() => setDrugAlertOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#fff7ed', color: '#92400e' }}>
+          <WarningAmberIcon sx={{ color: '#d97706' }} />
+          {pendingItem?.drugSchedule === 'SCHEDULE_X' ? 'Narcotic Drug — Strict Control' : 'Controlled Drug — Prescription Required'}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            <strong>{pendingItem?.itemName}</strong> is classified as <strong>{pendingItem?.drugSchedule?.replace('_', ' ')}</strong>.
+          </Typography>
+          {pendingItem?.drugSchedule === 'SCHEDULE_X' && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              This sale will be recorded in the Narcotics Register as required by law. Ensure the patient has a valid prescription with doctor details.
+            </Alert>
+          )}
+          {pendingItem?.drugSchedule === 'SCHEDULE_H1' && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Schedule H1 drugs require strict verification. Confirm the patient has a valid prescription before proceeding.
+            </Alert>
+          )}
+          {pendingItem?.drugSchedule === 'SCHEDULE_H' && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              This drug requires a valid prescription. Verify before adding to the bill.
+            </Alert>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            By clicking "Confirm & Add", you confirm that a valid prescription has been checked.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => { setDrugAlertOpen(false); setPendingItem(null); }} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              setDrugAlertOpen(false);
+              if (pendingItem) doAddItem(pendingItem);
+              setPendingItem(null);
+            }}
+          >
+            Confirm & Add
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

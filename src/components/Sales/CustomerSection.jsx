@@ -14,6 +14,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import HomeIcon from '@mui/icons-material/Home';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 
 const CustomerSection = ({
   customers,
@@ -26,6 +27,7 @@ const CustomerSection = ({
   handleNewCustomer,
   openCustomerModal,
   setOpenCustomerModal,
+  isPharmacy,
 }) => {
 
   // Validation: Check if GST is required but customer doesn't have one
@@ -151,6 +153,41 @@ const CustomerSection = ({
           </Grid>
 
           <Divider sx={{ my: 3 }} />
+
+          {/* Pharma: Doctor Reference & Patient Notes */}
+          {isPharmacy && (
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <LocalHospitalIcon color="primary" fontSize="small" />
+                <Typography variant="subtitle2" fontWeight={700} color="primary">
+                  Prescription Details
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Prescribing Doctor"
+                    fullWidth
+                    value={formData.doctorName || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, doctorName: e.target.value }))}
+                    placeholder="Dr. Sharma (optional)"
+                    InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontSize: '0.85rem' }}>Dr.</Typography> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Patient Name / ID"
+                    fullWidth
+                    value={formData.patientName || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))}
+                    placeholder="For chronic medication tracking"
+                    helperText="Links sale to patient history"
+                  />
+                </Grid>
+              </Grid>
+              <Divider sx={{ mt: 2 }} />
+            </Box>
+          )}
 
           {/* Delivery Section */}
           <Box>
