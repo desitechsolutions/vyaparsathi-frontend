@@ -103,7 +103,15 @@ const endpoints = {
     ? `${API_BASE}/reports/payments-summary?from=${from}&to=${to}`
     : `${API_BASE}/reports/payments-summary`,
     exportAuditPack: (from, to) => `${API_BASE}/reports/export-audit-pack?from=${from}&to=${to}`,
+  // Pharma-specific reports
+  expiryReport: (days) => `${API_BASE}/reports/expiry-report?days=${days}`,
+  narcoticsRegister: (from, to) => `${API_BASE}/reports/narcotics-register?from=${from}&to=${to}`,
+  purchaseRegister: (from, to) => `${API_BASE}/reports/purchase-register?from=${from}&to=${to}`,
   },
+
+  // Pharma-specific endpoints
+  itemSubstitutes: (itemId) => `${API_BASE}/catalog/${itemId}/substitutes`,
+  itemVariantsByComposition: (composition) => `${API_BASE}/item-variants/filter?composition=${encodeURIComponent(composition)}`,
 
   expenses: `${API_BASE}/expenses`,
   backup: {

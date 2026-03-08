@@ -9,6 +9,10 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     status: status,   // "DRAFT" or "COMPLETED"
 
+    // Pharma fields
+    doctorName: formData.doctorName || null,
+    patientName: formData.patientName || null,
+
     items: (formData.items || []).map(si => {
       let vId = si.id || si.variantId;
       const cleanId = (vId !== "" && vId !== null && vId !== undefined) ? Number(vId) : null;

@@ -7,12 +7,39 @@ import {
   Typography,
   Box,
   ListSubheader,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Switch,
+  Chip,
+  Divider,
 } from '@mui/material';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 import { 
   variantMaterials, 
   variantUsage 
 } from '../../../ui/constants';
+
+const DRUG_SCHEDULES = [
+  { value: 'OTC', label: 'OTC (Over the Counter)' },
+  { value: 'NON_SCHEDULED', label: 'Non-Scheduled' },
+  { value: 'SCHEDULE_H', label: 'Schedule H (Prescription Required)' },
+  { value: 'SCHEDULE_H1', label: 'Schedule H1 (Stricter Control)' },
+  { value: 'SCHEDULE_X', label: 'Schedule X (Narcotic/Psychotropic)' },
+];
+
+const STORAGE_REQUIREMENTS = [
+  'Room Temperature',
+  'Cool Place (8–25°C)',
+  'Refrigerated (2–8°C)',
+  'Frozen (Below 0°C)',
+  'Keep Away from Light',
+  'Keep Away from Moisture',
+];
 
 export default function ItemDetailsForm({
   shopCategory = 'CLOTHING', 
@@ -191,6 +218,128 @@ export default function ItemDetailsForm({
             sx={inputSx}
           />
         </Grid>
+
+        {/* ---- PHARMACY-SPECIFIC FIELDS ---- */}
+        {shopCategory === 'PHARMACY' && (
+          <>
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }}>
+                <Chip
+                  icon={<MedicalServicesIcon fontSize="small" />}
+                  label="Pharmacy Details"
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              </Divider>
+            </Grid>
+
+            {/* Composition / Salt */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Composition / Salt (e.g., Paracetamol 500mg)"
+                name="composition"
+                value={itemFormData.composition || ''}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+                placeholder="Generic name & strength for substitute search"
+                sx={inputSx}
+                helperText="Used for substitute drug suggestions"
+              />
+            </Grid>
+
+            {/* HSN Code */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="HSN Code"
+                name="hsnCode"
+                value={itemFormData.hsnCode || ''}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+                placeholder="e.g., 3004"
+                sx={inputSx}
+                helperText="Required for GST filing"
+              />
+            </Grid>
+
+            {/* Drug Schedule */}
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined" sx={inputSx}>
+                <InputLabel>Drug Schedule</InputLabel>
+                <Select
+                  name="drugSchedule"
+                  value={itemFormData.drugSchedule || 'OTC'}
+                  label="Drug Schedule"
+                  onChange={handleChange}
+                >
+                  {DRUG_SCHEDULES.map((ds) => (
+                    <MenuItem key={ds.value} value={ds.value}>
+                      {ds.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Storage Requirement */}
+            <Grid item xs={12} sm={6}>
+              <Autocomplete
+                freeSolo
+                options={STORAGE_REQUIREMENTS}
+                value={itemFormData.storageRequirement || ''}
+                onInputChange={(_, newValue) =>
+                  setItemFormData((prev) => ({ ...prev, storageRequirement: newValue }))
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Storage Requirement"
+                    variant="outlined"
+                    sx={inputSx}
+                    helperText="e.g., Refrigerated, Schedule H label"
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Requires Prescription Toggle */}
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', p: 1.5, borderRadius: 2, border: '1px solid', borderColor: itemFormData.requiresPrescription ? 'warning.main' : '#e2e8f0', bgcolor: itemFormData.requiresPrescription ? '#fff7ed' : '#f8fafc' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={!!itemFormData.requiresPrescription}
+                      onChange={(e) => setItemFormData((prev) => ({ ...prev, requiresPrescription: e.target.checked }))}
+                      color="warning"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <WarningAmberIcon fontSize="small" sx={{ color: itemFormData.requiresPrescription ? 'warning.main' : 'text.disabled' }} />
+                      <Typography variant="body2" fontWeight={600}>Requires Prescription</Typography>
+                    </Box>
+                  }
+                />
+              </Box>
+            </Grid>
+
+            {/* Schedule Drug Warning Banner */}
+            {(itemFormData.drugSchedule === 'SCHEDULE_H' || itemFormData.drugSchedule === 'SCHEDULE_H1' || itemFormData.drugSchedule === 'SCHEDULE_X') && (
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: '#fef3c7', borderRadius: 2, border: '1px solid #fcd34d', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <WarningAmberIcon sx={{ color: '#d97706' }} />
+                  <Typography variant="body2" fontWeight={700} color="#92400e">
+                    {itemFormData.drugSchedule === 'SCHEDULE_X'
+                      ? 'Schedule X Drug: Strict narcotics control. All sales will be logged in the Narcotics Register.'
+                      : 'Schedule H Drug: Prescription mandatory. Customer will be warned at point of sale.'}
+                  </Typography>
+                </Box>
+              </Grid>
+            )}
+          </>
+        )}
       </Grid>
     </Box>
   );
