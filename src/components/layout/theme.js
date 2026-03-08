@@ -2,11 +2,10 @@ import { createTheme, responsiveFontSizes } from '@mui/material/styles';
 
 let theme = createTheme({
   typography: {
-    // This sets the base logic
     h1: {
       fontSize: '3rem',
       '@media (max-width:600px)': {
-        fontSize: '2rem', // Automatically shrinks on mobile
+        fontSize: '2rem',
       },
     },
     h2: {
@@ -20,7 +19,6 @@ let theme = createTheme({
     MuiContainer: {
       styleOverrides: {
         root: {
-          // Standardize horizontal padding for all pages
           paddingLeft: '16px',
           paddingRight: '16px',
           '@media (min-width:600px)': {
@@ -33,7 +31,6 @@ let theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          // Ensure cards never overflow their parents on small screens
           maxWidth: '100%',
         },
       },
@@ -41,5 +38,5 @@ let theme = createTheme({
   },
 });
 
-theme = responsiveFontSizes(theme); // This magic function automates most of it
+theme = responsiveFontSizes(theme);
 export default theme;

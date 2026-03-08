@@ -43,6 +43,7 @@ const INDUSTRIES = [
   { value: 'CLOTHING', label: 'Clothing & Apparel' },
   { value: 'ELECTRONICS', label: 'Electronics & Mobiles' },
   { value: 'HARDWARE', label: 'Hardware & Electricals' },
+  { value: 'PHARMACY', label: 'Medical Pharmacy' },
   { value: 'GENERAL', label: 'General Store / Others' },
 ];
 

@@ -285,13 +285,14 @@ const resources = {
         errorRequiredFields: 'Please fill in all required fields.',
         errorAdd: 'Failed to add stock.',
         errorAdjust: 'Failed to adjust stock.',
-        errorExport: 'Export failed.',
+        errorExport: 'Failed to download report. Please try again.',
         errorHistory: 'Failed to load history.',
         successAdd: 'Stock entry recorded successfully!',
         successAdjust: 'Stock adjustment applied successfully!',
         exportFilename: 'Inventory_Report',
         noData: 'No stock entries found',
         sort: 'Sort',
+        successExport:'Report downloaded successfully!',
         columns: {
           productDetails: 'Product Details',
           inventoryStatus: 'Inventory Status',
@@ -320,7 +321,9 @@ const resources = {
           addNewStock: 'Add New Stock',
           analytics: 'Analytics',
           completeEntry: 'Complete Entry',
-          applyAdjustment: 'Apply Adjustment'
+          applyAdjustment: 'Apply Adjustment',
+          downloadReport:'Download'
+
         },
         dialog: {
           addStockTitle: 'Record Stock Purchase',
@@ -341,7 +344,14 @@ const resources = {
           purchaseCost: 'Purchase Cost',
           quantity: 'Quantity',
           batchNumber: 'Batch / Lot Number',
-          reason: 'Reason for Change'
+          reason: 'Reason for Change',
+          from: 'From',
+          to: 'To',
+          format:'File Format',
+          reportType:'Report Type',
+          reportSummary:'Current Inventory Summary',
+          auditLogReport:'Stock Movement Audit Log'
+
         },
         reason: {
           damaged: 'Damaged / Expired',
@@ -786,13 +796,14 @@ const resources = {
         errorRequiredFields: 'कृपया सभी आवश्यक फ़ील्ड भरें।',
         errorAdd: 'स्टॉक जोड़ने में विफल।',
         errorAdjust: 'स्टॉक समायोजन में विफल।',
-        errorExport: 'निर्यात विफल।',
+        errorExport: 'रिपोर्ट डाउनलोड करने में असफल। कृपया दोबारा प्रयास करें।',
         errorHistory: 'इतिहास लोड करने में विफल।',
         successAdd: 'स्टॉक प्रविष्टि सफलतापूर्वक दर्ज की गई!',
         successAdjust: 'स्टॉक समायोजन सफलतापूर्वक लागू किया गया!',
         exportFilename: 'इन्वेंटरी_रिपोर्ट',
         noData: 'कोई स्टॉक प्रविष्टि नहीं मिली',
         sort: 'क्रमबद्ध करें',
+        successExport:'रिपोर्ट सफलतापूर्वक डाउनलोड हो गई!',
         columns: {
           productDetails: 'उत्पाद विवरण',
           inventoryStatus: 'इन्वेंटरी स्थिति',
@@ -821,7 +832,8 @@ const resources = {
           addNewStock: 'नया स्टॉक जोड़ें',
           analytics: 'विश्लेषण',
           completeEntry: 'प्रविष्टि पूरी करें',
-          applyAdjustment: 'समायोजन लागू करें'
+          applyAdjustment: 'समायोजन लागू करें',
+          downloadReport:'डाउनलोड करें'
         },
         dialog: {
           addStockTitle: 'स्टॉक खरीद दर्ज करें',
@@ -842,7 +854,13 @@ const resources = {
           purchaseCost: 'खरीद लागत',
           quantity: 'मात्रा',
           batchNumber: 'बैच / लॉट नंबर',
-          reason: 'परिवर्तन का कारण'
+          reason: 'परिवर्तन का कारण',
+          from: 'से',
+          to: 'तक',
+          format:'फाइल फॉर्मेट',
+          reportType:'रिपोर्ट का प्रकार',
+          reportSummary:'वर्तमान इन्वेंटरी सारांश',
+          auditLogReport:'स्टॉक मूवमेंट ऑडिट लॉग'
         },
         reason: {
           damaged: 'क्षतिग्रस्त / समाप्त',

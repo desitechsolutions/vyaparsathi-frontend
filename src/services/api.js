@@ -186,7 +186,7 @@ export const fetchLowStockAlerts = () =>
 export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) => 
-  API.get(`/api/stock/movements/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
+  API.get(`/api/stock/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
 
 // --- CUSTOMERS ---
 
@@ -487,6 +487,13 @@ export const fetchGlobalShopSummary = (page = 0, size = 20, sort = 'createdAt,de
 export const toggleShopStatus = (shopId, active) => 
   API.patch(`/api/admin/shops/${shopId}/status?active=${active}`)
     .then(res => res.data);
+
+  export const fetchFileBlob = (path) => {
+  return API.get(`/api/files/display`, {
+    params: { path },
+    responseType: 'blob',
+  });
+};
 
 // --- USER MANAGEMENT ---
 

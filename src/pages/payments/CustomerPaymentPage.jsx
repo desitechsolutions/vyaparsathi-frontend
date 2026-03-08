@@ -209,7 +209,12 @@ const CustomerPaymentPage = () => {
       loadData();
       fetchHistoryAndBalance();
     } catch (e) {
-      setSnackbar({ open: true, message: 'Transaction failed', severity: 'error' });
+       let errorMessage = 'Transaction failed. Please try again.';
+  
+      if (e.response?.data?.message) {
+        errorMessage = e.response.data.message;
+      }
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
     } finally { setSubmitting(false); }
   };
 

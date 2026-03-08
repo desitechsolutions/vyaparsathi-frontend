@@ -389,7 +389,7 @@ export default function ItemsPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 700, borderRadius: 2 }}>
-            {t('itemsPage.actions.close')}
+            {t('common.close')}
           </Button>
         </DialogActions>
       </Dialog>
