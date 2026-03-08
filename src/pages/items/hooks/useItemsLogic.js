@@ -230,9 +230,6 @@ export default function useItemsLogic() {
       brandName: item.brandName || '',
       attribute1: item.attribute1 || '',
       attribute2: item.attribute2 || '',
-      hsnCode: item.hsnCode || '',
-      manufacturer: item.manufacturer || '',
-      drugSchedule: item.drugSchedule || '',
     });
 
     setVariantList(item.variants.map(v => ({
