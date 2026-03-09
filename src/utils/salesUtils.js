@@ -21,7 +21,10 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
         itemName: si.itemName,
         qty: Number(si.qty),
         unitPrice: Number(si.unitPrice),
-        discount: Number(si.discount || 0)
+        discount: Number(si.discount || 0),
+        // Loose-medicine dispensing — required for correct stock deduction on the backend
+        isLooseSale: si.sellingMode === 'LOOSE',
+        loosePackSize: si.sellingMode === 'LOOSE' ? Number(si.packSizeUsed || 0) : null,
       };
     }),
 

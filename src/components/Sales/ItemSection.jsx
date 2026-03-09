@@ -66,7 +66,12 @@ const ItemSection = ({
       const newPrice = newMode === 'LOOSE'
         ? calcLooseUnitPrice(selectedVariant.pricePerUnit, packSize)
         : selectedVariant.pricePerUnit;
-      setItem(prev => ({ ...prev, unitPrice: newPrice, sellingMode: newMode }));
+      setItem(prev => ({
+       ...prev,
+       unitPrice: newPrice,
+       sellingMode: newMode,
+       packSizeUsed: newMode === 'LOOSE' ? packSize : null,
+     }));
     }
   };
 
@@ -75,7 +80,7 @@ const ItemSection = ({
     setPackSize(size);
     if (selectedVariant && sellingMode === 'LOOSE') {
       const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, size);
-      setItem(prev => ({ ...prev, unitPrice: newPrice }));
+      setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: size }));
     }
   };
 
