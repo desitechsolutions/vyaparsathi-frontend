@@ -35,6 +35,7 @@ const initialCustomer = {
   name: '', phone: '', addressLine1: '', addressLine2: '', city: '',
   state: '', postalCode: '', country: '', gstNumber: '', panNumber: '',
   notes: '', creditBalance: 0,
+  age: '', gender: '', isChronicPatient: false,
 };
 
 const initialFormData = {
@@ -44,7 +45,7 @@ const initialFormData = {
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: "PACKED",
-  doctorName: '', patientName: '',
+  doctorName: '', doctorRegistrationNumber: '', patientName: '',
 };
 
 const Sales = () => {
@@ -196,7 +197,25 @@ const tabValue = tabParam === "history" ? 1 : 0;
   };
 
   // Memoized Search Options
-  const uniqueNames = useMemo(() => [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))], [variants]);
+  // Pharmacy: unique names include composition in label for smart search
+  const uniqueNames = useMemo(() => {
+    if (isPharmacy) {
+      const nameMap = new Map();
+      variants.forEach(v => {
+        if (v.itemName && !nameMap.has(v.itemName)) {
+          nameMap.set(v.itemName, v.composition || '');
+        }
+      });
+      return [
+        { value: '', label: 'All Names' },
+        ...[...nameMap.entries()].map(([name, comp]) => ({
+          value: name,
+          label: comp ? `${name} (${comp})` : name,
+        })),
+      ];
+    }
+    return [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))];
+  }, [variants, isPharmacy]);
   const uniqueSkus = useMemo(() => [{ value: '', label: 'All SKUs' }, ...[...new Set(variants.map(v => v.sku).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueColors = useMemo(() => [{ value: '', label: 'All Colors' }, ...[...new Set(variants.map(v => v.color).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
   const uniqueSizes = useMemo(() => [{ value: '', label: 'All Sizes' }, ...[...new Set(variants.map(v => v.size).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
@@ -548,7 +567,27 @@ const handleSubmitSale = async (payload) => {
                       size="large" 
                       endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ChevronRightIcon />}
                       disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid() || loading}
-                      onClick={() => setShowReviewPage(true)}
+                      onClick={() => {
+                        // Schedule H1/X legal compliance: doctor + patient details required
+                        const hasControlledDrug = isPharmacy && formData.items.some(it =>
+                          ['SCHEDULE_H1', 'SCHEDULE_X'].includes(it.drugSchedule)
+                        );
+                        if (hasControlledDrug) {
+                          const missing = [];
+                          if (!formData.doctorName?.trim()) missing.push('Doctor Name');
+                          if (!formData.doctorRegistrationNumber?.trim()) missing.push('Doctor Registration No.');
+                          if (!formData.patientName?.trim()) missing.push('Patient Name');
+                          if (missing.length > 0) {
+                            setSnackbar({
+                              open: true,
+                              message: `Schedule H1/X drugs require: ${missing.join(', ')}. Please fill in Prescription Details.`,
+                              severity: 'error',
+                            });
+                            return;
+                          }
+                        }
+                        setShowReviewPage(true);
+                      }}
                       sx={{ 
                         px: { xs: 3, md: 6 }, 
                         py: 1.5,

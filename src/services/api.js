@@ -189,7 +189,8 @@ export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) => 
   API.get(`/api/stock/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
-export const fetchBatchWiseStock = () => API.get('/api/stock/batch-wise');
+export const fetchBatchWiseStock = (variantId = null) =>
+  API.get('/api/stock/batch-wise', variantId ? { params: { variantId } } : {});
 export const downloadStockImportTemplate = () =>
   API.get('/api/stock/import/template', { responseType: 'blob' });
 export const importStockFromExcel = (file) => {
