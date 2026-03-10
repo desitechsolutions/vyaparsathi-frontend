@@ -33,6 +33,7 @@ const ReviewPaymentPage = ({
   onCancel,
   setError,
   loading,
+  isPharmacy,
 }) => {
   const [paymentMethods, setPaymentMethods] = useState([
     { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
@@ -52,6 +53,14 @@ const ReviewPaymentPage = ({
   // =======================
   const subtotal = parseFloat(formData.totalAmount) || 0;
   const discountedTotal = (subtotal - discount);
+
+  // Issue 5: Calculate total GST from item-level gstRate
+  const totalGst = (formData.items || []).reduce((sum, item) => {
+    if (formData.isGstRequired !== 'yes') return sum;
+    const rate = Number(item.gstRate) || 0;
+    const lineTotal = Number(item.qty) * Number(item.unitPrice);
+    return sum + (lineTotal * rate / 100);
+  }, 0);
 
   // Automatic allocation of advance
   const advanceApplied = Math.min(availableAdvance, discountedTotal);
@@ -159,19 +168,42 @@ const ReviewPaymentPage = ({
                 <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Product Details</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
+                    {formData.isGstRequired === 'yes' && (
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>GST</TableCell>
+                    )}
                     <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {formData.items.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
-                        <Typography variant="caption" color="textSecondary">{item.sku} | {item.size}</Typography>
-                      </TableCell>
-                      <TableCell align="center">{item.qty}</TableCell>
-                      <TableCell align="right">₹{(item.qty * item.unitPrice).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {formData.items.map((item, idx) => {
+                    const lineTotal = Number(item.qty) * Number(item.unitPrice);
+                    const gstAmt = formData.isGstRequired === 'yes'
+                      ? lineTotal * (Number(item.gstRate) || 0) / 100
+                      : 0;
+                    const mrpDiscount = item.mrp && Number(item.unitPrice) < Number(item.mrp)
+                      ? ((Number(item.mrp) - Number(item.unitPrice)) / Number(item.mrp) * 100).toFixed(1)
+                      : null;
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
+                          <Typography variant="caption" color="textSecondary">{item.sku} | {item.size}</Typography>
+                          {/* Issue 1: Show MRP discount % */}
+                          {mrpDiscount && (
+                            <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 700 }}>
+                              {mrpDiscount}% off MRP ₹{Number(item.mrp).toFixed(2)}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="center">{item.qty}</TableCell>
+                        {formData.isGstRequired === 'yes' && (
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontSize: '0.75rem' }}>
+                            {Number(item.gstRate) > 0 ? `₹${gstAmt.toFixed(2)} (${item.gstRate}%)` : '—'}
+                          </TableCell>
+                        )}
+                        <TableCell align="right">₹{lineTotal.toFixed(2)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -235,6 +267,16 @@ const ReviewPaymentPage = ({
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography sx={{ color: '#4ade80' }}>Advance Applied</Typography>
                       <Typography sx={{ fontWeight: 600, color: '#4ade80' }}>- ₹{advanceApplied.toFixed(2)}</Typography>
+                    </Box>
+                  )}
+
+                  {/* Issue 5: Show GST total when applicable */}
+                  {formData.isGstRequired === 'yes' && totalGst > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#93c5fd', opacity: 0.9 }}>
+                        {isPharmacy ? 'Inclusive GST' : 'Total GST'}
+                      </Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#93c5fd' }}>₹{totalGst.toFixed(2)}</Typography>
                     </Box>
                   )}
 

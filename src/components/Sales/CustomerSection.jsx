@@ -33,8 +33,9 @@ const CustomerSection = ({
   // Validation: Check if GST is required but customer doesn't have one
   const isGstMissing = formData.isGstRequired === 'yes' && selectedCustomer && !selectedCustomer.gstNumber;
 
-  // Logic to determine if GST selection should be disabled
-  const isGstDisabled = !selectedCustomer || !selectedCustomer.gstNumber;
+  // Issue 5: For pharmacy, GST is always applicable (medicine has GST by law),
+  // regardless of whether the customer has a GSTIN on file.
+  const isGstDisabled = isPharmacy ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
   const handleGstToggle = (e) => {
     if (e.target.value === 'yes' && isGstDisabled) {
       // Logic handled by the 'disabled' prop on Radio, but this is a safety check
@@ -114,8 +115,8 @@ const CustomerSection = ({
                 </Tooltip>
               </Box>
               
-              {/* GST Warning Logic */}
-              <Collapse in={isGstMissing}>
+              {/* GST Warning Logic — only relevant for non-pharmacy (pharmacy has item-level GST) */}
+              <Collapse in={isGstMissing && !isPharmacy}>
                 <Alert 
                   severity="warning" 
                   icon={<WarningAmberIcon fontSize="inherit" />}
@@ -129,7 +130,7 @@ const CustomerSection = ({
             {/* GST & Amount */}
             <Grid item xs={12} md={5}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
-                INVOICE TYPE {isGstDisabled && "(GST requires customer GSTIN)"}
+                INVOICE TYPE {!isPharmacy && isGstDisabled && "(GST requires customer GSTIN)"}
               </Typography>
               <RadioGroup
                   row
@@ -142,8 +143,8 @@ const CustomerSection = ({
                     <FormControlLabel 
                       value="yes" 
                       control={<Radio size="small" />} 
-                      label="Tax (GST)" 
-                      disabled={isGstDisabled} // Locks the option
+                      label={isPharmacy ? "Inclusive GST (Medicine)" : "Tax (GST)"}
+                      disabled={isGstDisabled}
                     />
                   </Tooltip>
                 </RadioGroup>
