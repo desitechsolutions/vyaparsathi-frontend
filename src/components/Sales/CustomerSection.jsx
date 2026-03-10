@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, 
   TextField, Typography, Box, Checkbox, FormControl, InputLabel, 
-  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse
+  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch
 } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -15,6 +15,8 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import HomeIcon from '@mui/icons-material/Home';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const CustomerSection = ({
   customers,
@@ -29,6 +31,44 @@ const CustomerSection = ({
   setOpenCustomerModal,
   isPharmacy,
 }) => {
+  // Prescription capture state
+  const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  // prescriptionImage stores the captured image as a base64 data URL.
+  // TODO: Upload this to the backend (e.g., POST /api/sales/{saleId}/prescription) and link to the sale record.
+  const [prescriptionImage, setPrescriptionImage] = useState(null);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const openCamera = async () => {
+    setPrescriptionDialogOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch {
+      // Camera not available — user can still upload manually
+    }
+  };
+
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setPrescriptionDialogOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+      setPrescriptionImage(canvas.toDataURL('image/jpeg'));
+    }
+    closeCamera();
+  };
 
   // Validation: Check if GST is required but customer doesn't have one
   const isGstMissing = formData.isGstRequired === 'yes' && selectedCustomer && !selectedCustomer.gstNumber;
@@ -163,7 +203,6 @@ const CustomerSection = ({
 
           <Divider sx={{ my: 3 }} />
 
-          {/* Pharma: Doctor Reference & Patient Notes */}
           {isPharmacy && (
             <Box sx={{ mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -171,19 +210,47 @@ const CustomerSection = ({
                 <Typography variant="subtitle2" fontWeight={700} color="primary">
                   Prescription Details
                 </Typography>
+                {/* Capture Prescription Button */}
+                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {prescriptionImage && (
+                    <Tooltip title="Prescription captured">
+                      <CheckCircleIcon color="success" fontSize="small" />
+                    </Tooltip>
+                  )}
+                  <Button
+                    size="small"
+                    variant={prescriptionImage ? 'outlined' : 'contained'}
+                    color={prescriptionImage ? 'success' : 'primary'}
+                    startIcon={<CameraAltIcon />}
+                    onClick={openCamera}
+                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                  >
+                    {prescriptionImage ? 'Re-capture Rx' : 'Capture Prescription'}
+                  </Button>
+                </Box>
               </Box>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     label="Prescribing Doctor"
                     fullWidth
                     value={formData.doctorName || ''}
                     onChange={e => setFormData(prev => ({ ...prev, doctorName: e.target.value }))}
-                    placeholder="Dr. Sharma (optional)"
+                    placeholder="Dr. Sharma"
                     InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontSize: '0.85rem' }}>Dr.</Typography> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Doctor Reg. No."
+                    fullWidth
+                    value={formData.doctorRegistrationNumber || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, doctorRegistrationNumber: e.target.value }))}
+                    placeholder="MCI-12345"
+                    helperText="Required for Schedule H1/X drugs"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     label="Patient Name / ID"
                     fullWidth
@@ -312,6 +379,50 @@ const CustomerSection = ({
                 onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} 
               />
             </Grid>
+            {isPharmacy && (
+              <>
+                <Grid item xs={6} sm={4}>
+                  <TextField
+                    label="Age"
+                    type="number"
+                    fullWidth
+                    value={newCustomerData.age || ''}
+                    onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })}
+                    inputProps={{ min: 0, max: 130 }}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Gender</InputLabel>
+                    <MuiSelect
+                      value={newCustomerData.gender || ''}
+                      label="Gender"
+                      onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}
+                    >
+                      <MenuItem value="MALE">Male</MenuItem>
+                      <MenuItem value="FEMALE">Female</MenuItem>
+                      <MenuItem value="OTHER">Other</MenuItem>
+                    </MuiSelect>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={!!newCustomerData.isChronicPatient}
+                        onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })}
+                        color="warning"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" fontWeight={600}>
+                        Chronic Patient
+                      </Typography>
+                    }
+                  />
+                </Grid>
+              </>
+            )}
             <Grid item xs={12}>
               <TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} />
             </Grid>
@@ -344,6 +455,40 @@ const CustomerSection = ({
             disabled={!isNewCustomerValid()}
           >
             {isPharmacy ? 'Register Patient' : 'Save Customer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PRESCRIPTION CAPTURE DIALOG */}
+      <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}>
+          <CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
+          Capture Prescription
+        </DialogTitle>
+        <DialogContent dividers sx={{ textAlign: 'center' }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }}
+          />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          {!cameraStream && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Camera access is required to capture a prescription photo.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={closeCamera} color="inherit">Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={<CameraAltIcon />}
+            onClick={capturePhoto}
+            disabled={!cameraStream}
+          >
+            Capture Photo
           </Button>
         </DialogActions>
       </Dialog>

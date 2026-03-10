@@ -25,6 +25,7 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     // Pharma fields
     doctorName: formData.doctorName || null,
+    doctorRegistrationNumber: formData.doctorRegistrationNumber || null,
     patientName: formData.patientName || null,
 
     items: (formData.items || []).map(si => {
@@ -39,6 +40,9 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
         // Loose-medicine dispensing — required for correct stock deduction on the backend
         isLooseSale: si.sellingMode === 'LOOSE',
         loosePackSize: si.sellingMode === 'LOOSE' ? Number(si.packSizeUsed || 0) : null,
+        // Batch tracking for pharmacy compliance
+        batchNumber: si.batchNumber || null,
+        expiryDate: si.expiryDate || null,
       };
     }),
 

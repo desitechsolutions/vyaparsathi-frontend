@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
   Box, Collapse, Tooltip, Paper, Chip,
-  Alert, ToggleButton, ToggleButtonGroup, InputAdornment
+  Alert, ToggleButton, ToggleButtonGroup, InputAdornment, CircularProgress
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -15,6 +15,7 @@ import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MedicationIcon from '@mui/icons-material/Medication';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
+import { fetchBatchWiseStock } from '../../services/api';
 
 const DEFAULT_PACK_SIZE = 10; // default tablets-per-strip when backend packSize is not set
 
@@ -48,8 +49,12 @@ const ItemSection = ({
   // Pharmacy: selling mode — 'PACK' = sell as strip/box, 'LOOSE' = sell individual tablets
   const [sellingMode, setSellingMode] = useState('PACK');
   const [packSize, setPackSize] = useState(DEFAULT_PACK_SIZE);
+  // Pharmacy: batch selection
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [loadingBatches, setLoadingBatches] = useState(false);
 
-  // Issue 3: When a new variant is selected, seed packSize from backend or fall back to DEFAULT_PACK_SIZE
+  // Issue 1: When a new variant is selected, seed packSize from backend or fall back to DEFAULT_PACK_SIZE
   useEffect(() => {
     if (selectedVariant) {
       const backendPackSize = Number(selectedVariant.packSize) || DEFAULT_PACK_SIZE;
@@ -59,9 +64,32 @@ const ItemSection = ({
         const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, backendPackSize);
         setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: backendPackSize }));
       }
+      // Issue 1: Fetch batch-wise stock for this variant (pharmacy only)
+      if (isPharmacy) {
+        setLoadingBatches(true);
+        setSelectedBatch(null);
+        fetchBatchWiseStock(selectedVariant.id)
+          .then(res => {
+            const allBatches = Array.isArray(res.data) ? res.data : [];
+            // Client-side filter by variantId as a safety net in case the backend returns
+            // all batches (when the endpoint does not support variantId filtering).
+            const variantBatches = allBatches
+              .filter(b => !b.itemVariantId || Number(b.itemVariantId) === Number(selectedVariant.id))
+              .filter(b => b.batchNumber); // Only batches with a batch number
+            setBatches(variantBatches);
+          })
+          .catch(() => setBatches([]))
+          .finally(() => setLoadingBatches(false));
+      } else {
+        setBatches([]);
+        setSelectedBatch(null);
+      }
+    } else {
+      setBatches([]);
+      setSelectedBatch(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVariant?.id]);
+  }, [selectedVariant?.id, isPharmacy]);
 
   // Drug schedule info for the selected variant
   const drugSchedule = selectedVariant?.drugSchedule;
@@ -99,6 +127,56 @@ const ItemSection = ({
     if (selectedVariant && sellingMode === 'LOOSE') {
       const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, size);
       setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: size }));
+    }
+  };
+
+  // Issue 1: Parse Java LocalDate (array or string) to a formatted display string
+  const parseBatchDate = (d) => {
+    if (!d) return null;
+    if (Array.isArray(d)) {
+      const [y, m, day] = d;
+      return new Date(y, m - 1, day);
+    }
+    return new Date(d);
+  };
+
+  const formatBatchDate = (d) => {
+    const parsed = parseBatchDate(d);
+    if (!parsed || isNaN(parsed)) return '?';
+    return parsed.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  };
+
+  // Issue 1: Build batch options for the Select dropdown
+  const buildBatchLabel = (b, daysLeft, expiryLabel) => {
+    const expiryStatus = daysLeft === null ? '' : daysLeft <= 0 ? ' ⚠️ EXPIRED' : daysLeft <= 30 ? ' ⚠️ <30d' : '';
+    // Backend may return quantity as 'quantity' or 'totalQuantity' depending on endpoint
+    const stock = b.quantity ?? b.totalQuantity ?? '?';
+    return `Batch: ${b.batchNumber} | Exp: ${expiryLabel}${expiryStatus} | MRP: ₹${Number(b.mrp || 0).toFixed(2)} | Stock: ${stock}`;
+  };
+
+  const batchOptions = batches.map(b => {
+    const expDate = parseBatchDate(b.expiryDate);
+    const daysLeft = expDate ? Math.floor((expDate - new Date()) / 86400000) : null;
+    const expiryLabel = b.expiryDate ? formatBatchDate(b.expiryDate) : 'No expiry';
+    return {
+      value: b.batchNumber,
+      label: buildBatchLabel(b, daysLeft, expiryLabel),
+      ...b,
+      _daysLeft: daysLeft,
+    };
+  });
+
+  const handleBatchSelect = (opt) => {
+    setSelectedBatch(opt);
+    if (opt) {
+      setItem(prev => ({
+        ...prev,
+        batchNumber: opt.batchNumber,
+        expiryDate: opt.expiryDate,
+        mrp: opt.mrp || prev.mrp,
+      }));
+    } else {
+      setItem(prev => ({ ...prev, batchNumber: null, expiryDate: null }));
     }
   };
 
@@ -331,6 +409,52 @@ value={
               menuPortalTarget={document.body}
             />
           </Box>
+
+          {/* PHARMACY: BATCH SELECTION */}
+          {isPharmacy && selectedVariant && (
+            <Box sx={{ mt: 2, mb: 1, p: 2, borderRadius: 3, bgcolor: '#fffbeb', border: '1px solid #fde68a' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Chip label="Step 3" size="small" color="warning" />
+                <Typography variant="subtitle2" fontWeight={700} color="warning.dark">
+                  Select Batch
+                </Typography>
+                {loadingBatches && <CircularProgress size={16} sx={{ ml: 1 }} />}
+              </Box>
+              {batches.length === 0 && !loadingBatches ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No batch data found for this item. You can proceed without selecting a batch.
+                </Alert>
+              ) : (
+                <Select
+                  options={batchOptions}
+                  value={selectedBatch}
+                  onChange={handleBatchSelect}
+                  placeholder="Select batch (Expiry Date, MRP)..."
+                  isClearable
+                  isLoading={loadingBatches}
+                  styles={{
+                    control: (base, state) => ({
+                      ...base,
+                      borderRadius: '8px',
+                      borderColor: state.isFocused ? '#f59e0b' : '#fcd34d',
+                      boxShadow: state.isFocused ? '0 0 0 1px #f59e0b' : 'none',
+                      minHeight: '44px',
+                    }),
+                    option: (base, { data }) => ({
+                      ...base,
+                      color: data._daysLeft !== null && data._daysLeft <= 0
+                        ? '#dc2626'
+                        : data._daysLeft !== null && data._daysLeft <= 30
+                        ? '#d97706'
+                        : base.color,
+                    }),
+                    menuPortal: base => ({ ...base, zIndex: 9999 }),
+                  }}
+                  menuPortalTarget={document.body}
+                />
+              )}
+            </Box>
+          )}
 
           {/* PHARMACY: LOOSE TABLETS SELLING MODE */}
           {isPharmacy && selectedVariant && (
