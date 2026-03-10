@@ -189,6 +189,16 @@ export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) => 
   API.get(`/api/stock/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
+export const fetchBatchWiseStock = () => API.get('/api/stock/batch-wise');
+export const downloadStockImportTemplate = () =>
+  API.get('/api/stock/import/template', { responseType: 'blob' });
+export const importStockFromExcel = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/api/stock/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 // --- CUSTOMERS ---
 

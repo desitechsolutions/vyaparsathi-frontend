@@ -1,21 +1,25 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
   CircularProgress, Box, Typography, Container, Alert, Autocomplete,
   InputAdornment, Paper, Chip, Stack, Snackbar, Grid, Card, CardContent,
-  LinearProgress, Divider, Tooltip, IconButton, MenuItem,
+  LinearProgress, Divider, Tooltip, IconButton, MenuItem, Tab, Tabs,
 } from '@mui/material';
 import {
   Add as AddIcon, Inventory as InventoryIcon, TrendingDown, TrendingUp,
   WarningAmber, Search, AttachMoney, ShowChart, BarChart, 
   History as HistoryIcon, SettingsSuggest, FileDownload, InfoOutlined as InfoIcon,
-  DateRange as DateRangeIcon, Assessment
+  DateRange as DateRangeIcon, Assessment, Upload as UploadIcon,
+  FileUpload as FileUploadIcon, Download as DownloadTemplateIcon,
+  LayersOutlined as BatchIcon,
 } from '@mui/icons-material';
 import { 
   fetchStock, addStock, fetchItemVariants, 
-  adjustStock, fetchStockMovements, exportStockReport 
+  adjustStock, fetchStockMovements, exportStockReport,
+  fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
 } from '../services/api';
+import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
 const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '', mfgDate: '', expiryDate: '' };
@@ -28,14 +32,25 @@ const formatCurrency = (val) =>
 
 const Stock = () => {
   const { t } = useTranslation();
+  const { isPharmacy } = useShop();
 
   const [stock, setStock] = useState([]);
+  const [batchStock, setBatchStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  // 0 = Summary view, 1 = Batch-wise view (pharmacy only)
+  const [viewTab, setViewTab] = useState(0);
+
+  // Import state (pharmacy only)
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importResult, setImportResult] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
   
   // Export State
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -56,11 +71,19 @@ const Stock = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [stockRes, variantsRes] = await Promise.all([fetchStock(), fetchItemVariants()]);
+      const promises = [fetchStock(), fetchItemVariants()];
+      if (isPharmacy) promises.push(fetchBatchWiseStock());
+      const [stockRes, variantsRes, batchRes] = await Promise.all(promises);
       if (Array.isArray(stockRes.data)) {
         setStock(stockRes.data.map((item) => ({ ...item, id: item.itemVariantId })));
       }
       setItemVariants(variantsRes.data);
+      if (batchRes && Array.isArray(batchRes.data)) {
+        setBatchStock(batchRes.data.map((b, i) => ({
+          ...b,
+          id: `${b.itemVariantId}-${b.batchNumber || 'nobatch'}-${i}`,
+        })));
+      }
     } catch (err) { 
       setError(t('stock.errorFetch'));
     } finally { setLoading(false); }
@@ -170,6 +193,45 @@ const Stock = () => {
     } catch (err) { setError(t('stock.errorHistory')); }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await downloadStockImportTemplate();
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'stock_import_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      setError('Failed to download template');
+    }
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importFile) { setError('Please select an Excel file to import.'); return; }
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const res = await importStockFromExcel(importFile);
+      setImportResult(res.data);
+      if (res.data.errorCount === 0) {
+        setSuccessMsg(`Import successful! ${res.data.successCount} rows imported.`);
+        setImportDialogOpen(false);
+        loadData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Import failed. Please check your file and try again.');
+    } finally {
+      setIsImporting(false);
+      setImportFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const columns = [
     {
       field: 'itemName',
@@ -273,6 +335,99 @@ const Stock = () => {
           </Box>
         );
       },
+    },
+  ];
+
+  // Batch-wise columns for pharmacy
+  const batchColumns = [
+    {
+      field: 'itemName',
+      headerName: 'Medicine / Product',
+      flex: 1.5, minWidth: 200,
+      renderCell: (params) => (
+        <Box sx={{ py: 1 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>{params.value}</Typography>
+          <Typography variant="caption" color="text.secondary">SKU: {params.row.sku}</Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'batchNumber',
+      headerName: 'Batch / Lot No.',
+      flex: 1, minWidth: 130,
+      renderCell: (params) => (
+        <Chip
+          label={params.value || 'No Batch'}
+          size="small"
+          icon={<BatchIcon />}
+          variant="outlined"
+          color={params.value ? 'primary' : 'default'}
+          sx={{ fontWeight: 700 }}
+        />
+      ),
+    },
+    {
+      field: 'quantity',
+      headerName: 'Qty in Batch',
+      flex: 0.8, minWidth: 120,
+      renderCell: (params) => (
+        <Box sx={{ width: '100%' }}>
+          <Typography
+            variant="body2"
+            fontWeight={800}
+            color={Number(params.value) < 10 ? 'error.main' : 'success.main'}
+          >
+            {Number(params.value || 0)} {params.row.unit}
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min((Number(params.value) / 100) * 100, 100)}
+            color={Number(params.value) < 10 ? 'error' : 'primary'}
+            sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9', mt: 0.5 }}
+          />
+        </Box>
+      ),
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'Expiry Date',
+      flex: 1, minWidth: 140,
+      renderCell: (params) => {
+        const expiry = params.value;
+        if (!expiry) return <Typography variant="caption" color="text.disabled">N/A</Typography>;
+        const today = new Date();
+        const expiryDate = new Date(expiry);
+        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        let color = 'success.main';
+        let bg = '#f0fdf4';
+        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        return (
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
+            <Typography variant="caption" fontWeight={700} color={color}>
+              {new Date(expiry).toLocaleDateString('en-IN')}
+              {daysLeft <= 0 ? ' — EXPIRED' : daysLeft <= 90 ? ` (${daysLeft}d)` : ''}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'costPerUnit',
+      headerName: 'Cost/Unit',
+      flex: 0.8, minWidth: 110,
+      renderCell: (params) => (
+        <Typography variant="body2" color="text.secondary">₹{formatCurrency(params.value)}</Typography>
+      ),
+    },
+    {
+      field: 'mrp',
+      headerName: 'MRP',
+      flex: 0.8, minWidth: 100,
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={700}>₹{formatCurrency(params.value)}</Typography>
+      ),
     },
   ];
 
