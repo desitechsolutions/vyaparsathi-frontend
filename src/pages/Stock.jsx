@@ -22,7 +22,7 @@ import {
 import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '', mfgDate: '', expiryDate: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '', manufacturingDate: '', expiryDate: '' };
 
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
@@ -120,7 +120,7 @@ const Stock = () => {
         quantity: Number(formData.quantity),
         costPerUnit: Number(formData.costPerUnit),
         batch: formData.batch || null,
-        mfgDate: formData.mfgDate || null,
+        manufacturingDate: formData.manufacturingDate || null,
         expiryDate: formData.expiryDate || null,
       };
       await addStock(payload);
@@ -207,24 +207,24 @@ const Stock = () => {
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      setError('Failed to download template');
+      setError(t('stock.import.failedToDownload'));
     }
   };
 
   const handleImportSubmit = async () => {
-    if (!importFile) { setError('Please select an Excel file to import.'); return; }
+    if (!importFile) { setError(t('stock.import.selectFileError')); return; }
     setIsImporting(true);
     setImportResult(null);
     try {
       const res = await importStockFromExcel(importFile);
       setImportResult(res.data);
       if (res.data.errorCount === 0) {
-        setSuccessMsg(`Import successful! ${res.data.successCount} rows imported.`);
+        setSuccessMsg(t('stock.import.successCount', { count: res.data.successCount }));
         setImportDialogOpen(false);
         loadData();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Import failed. Please check your file and try again.');
+      setError(err.response?.data?.message || t('stock.import.importFailed'));
     } finally {
       setIsImporting(false);
       setImportFile(null);
@@ -455,7 +455,7 @@ const Stock = () => {
                 onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
                 sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}
               >
-                Bulk Import
+                {t('stock.actions.bulkImport')}
               </Button>
             )}
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>
@@ -499,8 +499,8 @@ const Stock = () => {
                 onChange={(_, v) => setViewTab(v)}
                 sx={{ px: 2, '& .MuiTab-root': { fontWeight: 700 } }}
               >
-                <Tab label="Summary View" />
-                <Tab label="Batch-wise View" icon={<BatchIcon fontSize="small" />} iconPosition="start" />
+                <Tab label={t('stock.tabs.summaryView')} />
+                <Tab label={t('stock.tabs.batchWiseView')} icon={<BatchIcon fontSize="small" />} iconPosition="start" />
               </Tabs>
             </Box>
           )}
@@ -550,7 +550,7 @@ const Stock = () => {
                 disableRowSelectionOnClick
                 rowHeight={70}
                 sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }}
-                localeText={{ noRowsLabel: 'No batch stock found' }}
+                localeText={{ noRowsLabel: t('stock.noBatchStock') }}
               />
             </Box>
           )}
@@ -562,13 +562,13 @@ const Stock = () => {
         <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <FileUploadIcon color="secondary" />
-            <Typography variant="h6" fontWeight={900}>Bulk Stock Import</Typography>
+            <Typography variant="h6" fontWeight={900}>{t('stock.import.dialogTitle')}</Typography>
           </Stack>
         </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <Alert severity="info" sx={{ borderRadius: 2 }}>
-              Download the template, fill in your stock data, then upload the completed file.
+              {t('stock.import.infoText')}
             </Alert>
             <Button
               variant="outlined"
@@ -576,7 +576,7 @@ const Stock = () => {
               onClick={handleDownloadTemplate}
               sx={{ borderRadius: 2, fontWeight: 700, alignSelf: 'flex-start' }}
             >
-              Download Import Template (.xlsx)
+              {t('stock.import.downloadTemplate')}
             </Button>
             <Box
               sx={{
@@ -600,7 +600,7 @@ const Stock = () => {
               />
               <UploadIcon sx={{ fontSize: 40, color: importFile ? 'success.main' : 'text.secondary', mb: 1 }} />
               <Typography variant="subtitle2" fontWeight={700} color={importFile ? 'success.main' : 'text.secondary'}>
-                {importFile ? importFile.name : 'Click to select Excel file (.xlsx)'}
+                {importFile ? importFile.name : t('stock.import.clickToSelect')}
               </Typography>
               {importFile && (
                 <Typography variant="caption" color="text.secondary">
@@ -611,8 +611,8 @@ const Stock = () => {
             {importResult && (
               <Box>
                 <Alert severity={importResult.errorCount === 0 ? 'success' : 'warning'} sx={{ borderRadius: 2, mb: 1 }}>
-                  {importResult.successCount} rows imported successfully
-                  {importResult.errorCount > 0 ? `, ${importResult.errorCount} rows had errors` : ''}
+                  {t('stock.import.successCount', { count: importResult.successCount })}
+                  {importResult.errorCount > 0 ? `, ${t('stock.import.errorCount', { count: importResult.errorCount })}` : ''}
                 </Alert>
                 {importResult.errors && importResult.errors.length > 0 && (
                   <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, maxHeight: 200, overflowY: 'auto' }}>
@@ -627,7 +627,7 @@ const Stock = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
           <Button onClick={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}>
-            {importResult?.errorCount === 0 ? 'Close' : 'Cancel'}
+            {importResult?.errorCount === 0 ? t('common.close') : t('common.cancel')}
           </Button>
           <Button
             variant="contained"
@@ -636,7 +636,7 @@ const Stock = () => {
             startIcon={isImporting ? <CircularProgress size={20} /> : <FileUploadIcon />}
             sx={{ borderRadius: 2, fontWeight: 700 }}
           >
-            {isImporting ? 'Importing...' : 'Import Stock'}
+            {isImporting ? t('stock.import.importing') : t('stock.import.importStock')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -781,8 +781,8 @@ const Stock = () => {
                   fullWidth
                   label="Mfg Date"
                   type="date"
-                  value={formData.mfgDate || ''}
-                  onChange={(e) => setFormData({ ...formData, mfgDate: e.target.value })}
+                  value={formData.manufacturingDate || ''}
+                  onChange={(e) => setFormData({ ...formData, manufacturingDate: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   helperText="Manufacturing date"
                 />

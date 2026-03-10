@@ -21,8 +21,10 @@ import {
   fetchReceivingByPoNumber, fetchReceivingTicketById,
   fetchReceivingById, pendingPurchaseOrders, fetchAllTickets // Added fetchAllTickets (assumed API)
 } from '../services/api';
+import { useShop } from '../context/ShopContext';
 
 const Receiving = () => {
+  const { isPharmacy } = useShop();
   // View State
   const [view, setView] = useState('list'); // 'list', 'create', 'details', 'receive_goods', 'edit_receive_goods', 'ticket_form', 'ticket_list'
   const [receivings, setReceivings] = useState([]);
@@ -168,6 +170,7 @@ const Receiving = () => {
                   getReceivings={api.getReceivings} 
                   getReceivingById={fetchReceivingById}
                   getPoItems={api.getPoItems}
+                  isPharmacy={isPharmacy}
                   onSubmit={async (dto) => {
                     setLoading(true);
                     try {

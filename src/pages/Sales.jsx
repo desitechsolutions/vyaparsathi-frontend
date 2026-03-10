@@ -71,7 +71,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
 
   const [searchParams, setSearchParams] = useState({
     name: '', sku: '', color: [], size: [], design: '',
-    category: '', fabric: '', season: '', fit: '',
+    category: '', fabric: '', season: '', fit: '', composition: '',
   });
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -205,6 +205,8 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const uniqueFabrics = useMemo(() => [{ value: '', label: 'All Fabrics' }, ...[...new Set(variants.map(v => v.fabric).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
   const uniqueSeasons = useMemo(() => [{ value: '', label: 'All Seasons' }, ...[...new Set(variants.map(v => v.season).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueFits = useMemo(() => [{ value: '', label: 'All Fits' }, ...[...new Set(variants.map(v => v.fit).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
+  // Pharmacy-specific: unique active compositions
+  const uniqueCompositions = useMemo(() => [{ value: '', label: 'All Compositions' }, ...[...new Set(variants.map(v => v.composition).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
 
   const filteredVariants = useMemo(() => {
     return variants.filter(v => {
@@ -217,6 +219,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
       if (searchParams.fabric && v.fabric !== searchParams.fabric) return false;
       if (searchParams.season && v.season !== searchParams.season) return false;
       if (searchParams.fit && v.fit !== searchParams.fit) return false;
+      if (searchParams.composition && v.composition !== searchParams.composition) return false;
       return true;
     });
   }, [variants, searchParams]);
@@ -428,6 +431,7 @@ const handleSubmitSale = async (payload) => {
                 uniqueColors={uniqueColors} uniqueSizes={uniqueSizes} uniqueDesigns={uniqueDesigns}
                 uniqueCategory={uniqueCategory} uniqueFabrics={uniqueFabrics}
                 uniqueSeasons={uniqueSeasons} uniqueFits={uniqueFits}
+                uniqueCompositions={uniqueCompositions}
                 handleResetFilters={handleResetFilters}
                 searchParams={searchParams} handleVariantSelect={handleVariantSelect}
                 handleSearchParamChange={handleSearchParamChange} handleAddItem={handleAddItem}
