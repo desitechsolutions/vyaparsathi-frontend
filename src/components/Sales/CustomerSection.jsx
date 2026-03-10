@@ -43,7 +43,11 @@ const CustomerSection = ({
   // Jewellery: PAN mandatory when cash sale > ₹2,00,000 (IT Act Sec. 269ST)
   const PAN_THRESHOLD = 200000;
   const isHighValueJewellery = isJewellery && Number(formData.totalAmount) >= PAN_THRESHOLD;
+  // PAN format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F)
+  const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const isPanFormatValid = !formData.buyerPan?.trim() || PAN_REGEX.test(formData.buyerPan.trim());
   const isPanMissing = isHighValueJewellery && !formData.buyerPan?.trim();
+  const isPanError = isPanMissing || (formData.buyerPan?.trim() && !isPanFormatValid);
 
   const openCamera = async () => {
     setPrescriptionDialogOpen(true);
@@ -282,12 +286,14 @@ const CustomerSection = ({
               {/* PAN Alert for high-value cash transactions */}
               {isHighValueJewellery && (
                 <Alert
-                  severity={isPanMissing ? 'warning' : 'success'}
+                  severity={isPanMissing ? 'warning' : (isPanError ? 'error' : 'success')}
                   sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }}
-                  icon={isPanMissing ? <WarningAmberIcon /> : undefined}
+                  icon={(isPanMissing || isPanError) ? <WarningAmberIcon /> : undefined}
                 >
                   {isPanMissing
                     ? 'PAN required: Sale amount ≥ ₹2,00,000. Collecting buyer PAN is mandatory under IT Act Sec. 269ST.'
+                    : isPanError
+                    ? 'Invalid PAN format. PAN must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F).'
                     : `PAN captured: ${formData.buyerPan} ✓`}
                 </Alert>
               )}
@@ -305,8 +311,14 @@ const CustomerSection = ({
                     onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))}
                     placeholder="ABCDE1234F"
                     inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }}
-                    error={isPanMissing}
-                    helperText={isHighValueJewellery ? 'Mandatory for transactions ≥ ₹2,00,000' : 'Optional for smaller transactions'}
+                    error={isPanError}
+                    helperText={
+                      isPanError && formData.buyerPan?.trim()
+                        ? 'Invalid format — must be AAAAA9999A (5 letters, 4 digits, 1 letter)'
+                        : isHighValueJewellery
+                        ? 'Mandatory for transactions ≥ ₹2,00,000'
+                        : 'Optional for smaller transactions'
+                    }
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>

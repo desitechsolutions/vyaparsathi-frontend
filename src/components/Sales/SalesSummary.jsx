@@ -278,7 +278,9 @@ const SalesSummary = ({
           <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', bgcolor: '#f8fafc' }}>
             <Box sx={{ width: { xs: '100%', md: '340px' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" color="text.secondary">Subtotal (Metal + Stone):</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {isJewellery ? 'Subtotal (Metal + Stone):' : 'Subtotal:'}
+                </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</Typography>
               </Box>
               {/* Jewellery: Making charges subtotal line */}

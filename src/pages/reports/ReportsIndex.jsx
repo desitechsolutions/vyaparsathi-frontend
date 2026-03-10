@@ -32,7 +32,7 @@ const pharmaReportLinks = [
 ];
 
 const jewelleryReportLinks = [
-  { title: 'High-Value Transactions', desc: 'Sales ≥ ₹2L with PAN records (IT Act Sec. 269ST)', icon: <DiamondIcon />, path: 'hsn-summary', color: '#7c3aed' },
+  { title: 'High-Value Transactions', desc: 'Sales ≥ ₹2L with PAN records (IT Act Sec. 269ST)', icon: <DiamondIcon />, path: 'high-value-transactions', color: '#7c3aed' },
   { title: 'Purchase Register', desc: 'Gold/silver purchase receipts & purity records', icon: <LocalShipping />, path: 'purchase-register', color: '#d97706' },
 ];
 
