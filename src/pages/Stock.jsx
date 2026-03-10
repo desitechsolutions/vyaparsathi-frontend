@@ -443,10 +443,21 @@ const Stock = () => {
               {t('stock.subtitle')}
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} flexWrap="wrap">
             <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>
               {t('stock.actions.export')}
             </Button>
+            {isPharmacy && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<FileUploadIcon />}
+                onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
+                sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}
+              >
+                Bulk Import
+              </Button>
+            )}
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>
               {t('stock.actions.addNewStock')}
             </Button>
@@ -481,6 +492,18 @@ const Stock = () => {
         </Grid>
 
         <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          {isPharmacy && (
+            <Box sx={{ borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }}>
+              <Tabs
+                value={viewTab}
+                onChange={(_, v) => setViewTab(v)}
+                sx={{ px: 2, '& .MuiTab-root': { fontWeight: 700 } }}
+              >
+                <Tab label="Summary View" />
+                <Tab label="Batch-wise View" icon={<BatchIcon fontSize="small" />} iconPosition="start" />
+              </Tabs>
+            </Box>
+          )}
           <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }} spacing={2} justifyContent="space-between">
             <TextField 
               size="small" 
@@ -496,22 +519,127 @@ const Stock = () => {
               {t('stock.actions.analytics')}
             </Button>
           </Stack>
-          <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
-            <DataGrid 
-              rows={filteredRows} 
-              columns={columns} 
-              loading={loading} 
-              disableRowSelectionOnClick 
-              rowHeight={75} 
-              sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} 
-              localeText={{
-                noRowsLabel: t('stock.noData'),
-                columnHeaderSortIconLabel: t('stock.sort'),
-              }}
-            />
-          </Box>
+          {(!isPharmacy || viewTab === 0) && (
+            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+              <DataGrid 
+                rows={filteredRows} 
+                columns={columns} 
+                loading={loading} 
+                disableRowSelectionOnClick 
+                rowHeight={75} 
+                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} 
+                localeText={{
+                  noRowsLabel: t('stock.noData'),
+                  columnHeaderSortIconLabel: t('stock.sort'),
+                }}
+              />
+            </Box>
+          )}
+          {isPharmacy && viewTab === 1 && (
+            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+              <DataGrid
+                rows={batchStock.filter(
+                  (b) =>
+                    !searchText ||
+                    (b.itemName && b.itemName.toLowerCase().includes(searchText.toLowerCase())) ||
+                    (b.sku && b.sku.toLowerCase().includes(searchText.toLowerCase())) ||
+                    (b.batchNumber && b.batchNumber.toLowerCase().includes(searchText.toLowerCase()))
+                )}
+                columns={batchColumns}
+                loading={loading}
+                disableRowSelectionOnClick
+                rowHeight={70}
+                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }}
+                localeText={{ noRowsLabel: 'No batch stock found' }}
+              />
+            </Box>
+          )}
         </Paper>
       </Container>
+
+      {/* Bulk Import Dialog (pharmacy only) */}
+      <Dialog open={importDialogOpen} onClose={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FileUploadIcon color="secondary" />
+            <Typography variant="h6" fontWeight={900}>Bulk Stock Import</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              Download the template, fill in your stock data, then upload the completed file.
+            </Alert>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadTemplateIcon />}
+              onClick={handleDownloadTemplate}
+              sx={{ borderRadius: 2, fontWeight: 700, alignSelf: 'flex-start' }}
+            >
+              Download Import Template (.xlsx)
+            </Button>
+            <Box
+              sx={{
+                border: '2px dashed #94a3b8',
+                borderRadius: 3,
+                p: 3,
+                textAlign: 'center',
+                bgcolor: importFile ? '#f0fdf4' : '#f8fafc',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': { borderColor: '#6366f1', bgcolor: '#f5f3ff' },
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+              <UploadIcon sx={{ fontSize: 40, color: importFile ? 'success.main' : 'text.secondary', mb: 1 }} />
+              <Typography variant="subtitle2" fontWeight={700} color={importFile ? 'success.main' : 'text.secondary'}>
+                {importFile ? importFile.name : 'Click to select Excel file (.xlsx)'}
+              </Typography>
+              {importFile && (
+                <Typography variant="caption" color="text.secondary">
+                  {(importFile.size / 1024).toFixed(1)} KB
+                </Typography>
+              )}
+            </Box>
+            {importResult && (
+              <Box>
+                <Alert severity={importResult.errorCount === 0 ? 'success' : 'warning'} sx={{ borderRadius: 2, mb: 1 }}>
+                  {importResult.successCount} rows imported successfully
+                  {importResult.errorCount > 0 ? `, ${importResult.errorCount} rows had errors` : ''}
+                </Alert>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, maxHeight: 200, overflowY: 'auto' }}>
+                    {importResult.errors.map((e, i) => (
+                      <Typography key={i} variant="caption" color="error" display="block">• {e}</Typography>
+                    ))}
+                  </Paper>
+                )}
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}>
+            {importResult?.errorCount === 0 ? 'Close' : 'Cancel'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleImportSubmit}
+            disabled={!importFile || isImporting}
+            startIcon={isImporting ? <CircularProgress size={20} /> : <FileUploadIcon />}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {isImporting ? 'Importing...' : 'Import Stock'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Export Selection Dialog */}
       <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
