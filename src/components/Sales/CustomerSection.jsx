@@ -33,6 +33,8 @@ const CustomerSection = ({
 }) => {
   // Prescription capture state
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  // prescriptionImage stores the captured image as a base64 data URL.
+  // TODO: Upload this to the backend (e.g., POST /api/sales/{saleId}/prescription) and link to the sale record.
   const [prescriptionImage, setPrescriptionImage] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
   const videoRef = useRef(null);

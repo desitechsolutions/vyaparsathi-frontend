@@ -71,7 +71,8 @@ const ItemSection = ({
         fetchBatchWiseStock(selectedVariant.id)
           .then(res => {
             const allBatches = Array.isArray(res.data) ? res.data : [];
-            // Filter batches for this variant (backend may return all or filtered)
+            // Client-side filter by variantId as a safety net in case the backend returns
+            // all batches (when the endpoint does not support variantId filtering).
             const variantBatches = allBatches
               .filter(b => !b.itemVariantId || Number(b.itemVariantId) === Number(selectedVariant.id))
               .filter(b => b.batchNumber); // Only batches with a batch number
@@ -146,14 +147,20 @@ const ItemSection = ({
   };
 
   // Issue 1: Build batch options for the Select dropdown
+  const buildBatchLabel = (b, daysLeft, expiryLabel) => {
+    const expiryStatus = daysLeft === null ? '' : daysLeft <= 0 ? ' ⚠️ EXPIRED' : daysLeft <= 30 ? ' ⚠️ <30d' : '';
+    // Backend may return quantity as 'quantity' or 'totalQuantity' depending on endpoint
+    const stock = b.quantity ?? b.totalQuantity ?? '?';
+    return `Batch: ${b.batchNumber} | Exp: ${expiryLabel}${expiryStatus} | MRP: ₹${Number(b.mrp || 0).toFixed(2)} | Stock: ${stock}`;
+  };
+
   const batchOptions = batches.map(b => {
     const expDate = parseBatchDate(b.expiryDate);
     const daysLeft = expDate ? Math.floor((expDate - new Date()) / 86400000) : null;
     const expiryLabel = b.expiryDate ? formatBatchDate(b.expiryDate) : 'No expiry';
-    const expiryStatus = daysLeft === null ? '' : daysLeft <= 0 ? ' ⚠️ EXPIRED' : daysLeft <= 30 ? ' ⚠️ <30d' : '';
     return {
       value: b.batchNumber,
-      label: `Batch: ${b.batchNumber} | Exp: ${expiryLabel}${expiryStatus} | MRP: ₹${Number(b.mrp || 0).toFixed(2)} | Stock: ${b.quantity ?? b.totalQuantity ?? '?'}`,
+      label: buildBatchLabel(b, daysLeft, expiryLabel),
       ...b,
       _daysLeft: daysLeft,
     };

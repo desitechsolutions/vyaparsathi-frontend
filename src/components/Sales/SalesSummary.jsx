@@ -245,12 +245,9 @@ const SalesSummary = ({
               </Box>
               {/* Issue 5: Pharmacy GST shown as breakdown below Grand Total (inclusive) */}
               {isPharmacy && formData.isGstRequired === 'yes' && totalGst > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
                     (incl. Tax ₹{totalGst.toFixed(2)})
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    GST Included
                   </Typography>
                 </Box>
               )}
