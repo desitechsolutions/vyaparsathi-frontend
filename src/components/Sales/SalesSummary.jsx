@@ -9,6 +9,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import SaveAsIcon from '@mui/icons-material/SaveAs'; // Added icon
+import { calcMrpDiscountPct } from '../../utils/salesUtils';
 
 const SalesSummary = ({
   formData,
@@ -119,9 +120,7 @@ const SalesSummary = ({
                     const gstAmt = formData.isGstRequired === 'yes'
                       ? lineTotal * (Number(saleItem.gstRate) || 0) / 100
                       : 0;
-                    const mrpDiscount = saleItem.mrp && Number(saleItem.unitPrice) < Number(saleItem.mrp)
-                      ? ((Number(saleItem.mrp) - Number(saleItem.unitPrice)) / Number(saleItem.mrp) * 100).toFixed(1)
-                      : null;
+                    const mrpDiscount = calcMrpDiscountPct(saleItem.mrp, saleItem.unitPrice);
                     return (
                       <TableRow key={index} hover>
                         <TableCell>

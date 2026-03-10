@@ -1,3 +1,17 @@
+/**
+ * Calculate the discount percentage of selling price below MRP.
+ * Returns null when MRP is not set or selling price is not below MRP.
+ * @param {number|string} mrp - Maximum Retail Price
+ * @param {number|string} unitPrice - Actual selling price
+ * @returns {string|null} discount percentage string like "20.0", or null
+ */
+export const calcMrpDiscountPct = (mrp, unitPrice) => {
+  const m = Number(mrp);
+  const p = Number(unitPrice);
+  if (!m || p >= m) return null;
+  return ((m - p) / m * 100).toFixed(1);
+};
+
 export const buildSalePayload = (formData, selectedCustomer, paymentMethods, status) => {
 
   return {

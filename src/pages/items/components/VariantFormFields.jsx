@@ -274,7 +274,7 @@ export default function VariantFormFields({
               value={currentVariant.packSize || ''}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);
-                if (value < 0) return;
+                if (value < 1) return;
                 handleCurrentVariantChange(e);
               }}
               fullWidth sx={inputSx}

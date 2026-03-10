@@ -14,6 +14,9 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MedicationIcon from '@mui/icons-material/Medication';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import { calcMrpDiscountPct } from '../../utils/salesUtils';
+
+const DEFAULT_PACK_SIZE = 10; // default tablets-per-strip when backend packSize is not set
 
 const ItemSection = ({
   variants,
@@ -44,12 +47,12 @@ const ItemSection = ({
   const [showSubstitutes, setShowSubstitutes] = useState(false);
   // Pharmacy: selling mode — 'PACK' = sell as strip/box, 'LOOSE' = sell individual tablets
   const [sellingMode, setSellingMode] = useState('PACK');
-  const [packSize, setPackSize] = useState(10);
+  const [packSize, setPackSize] = useState(DEFAULT_PACK_SIZE);
 
-  // Issue 3: When a new variant is selected, seed packSize from backend or fall back to 10
+  // Issue 3: When a new variant is selected, seed packSize from backend or fall back to DEFAULT_PACK_SIZE
   useEffect(() => {
     if (selectedVariant) {
-      const backendPackSize = Number(selectedVariant.packSize) || 10;
+      const backendPackSize = Number(selectedVariant.packSize) || DEFAULT_PACK_SIZE;
       setPackSize(backendPackSize);
       // If currently in LOOSE mode, recalculate unit price with new pack size
       if (sellingMode === 'LOOSE') {
@@ -397,7 +400,7 @@ value={
             display: selectedVariant ? 'block' : 'none'
           }}>
             {/* Issue 1: Show MRP discount % when selling below MRP */}
-            {isPharmacy && selectedVariant?.mrp && Number(item.unitPrice) < Number(selectedVariant.mrp) && (
+            {isPharmacy && selectedVariant?.mrp && calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice) !== null && (
               <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Chip
                   label={`MRP ₹${Number(selectedVariant.mrp).toFixed(2)}`}
@@ -406,7 +409,7 @@ value={
                   sx={{ color: '#64748b', borderColor: '#94a3b8', fontWeight: 600 }}
                 />
                 <Chip
-                  label={`${((Number(selectedVariant.mrp) - Number(item.unitPrice)) / Number(selectedVariant.mrp) * 100).toFixed(1)}% below MRP`}
+                  label={`${calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice)}% below MRP`}
                   size="small"
                   color="success"
                   sx={{ fontWeight: 700 }}

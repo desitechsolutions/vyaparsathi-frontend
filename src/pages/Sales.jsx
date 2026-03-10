@@ -327,7 +327,8 @@ const tabValue = tabParam === "history" ? 1 : 0;
     setFormData(prev => ({
       ...prev,
       customerId: opt?.value || '',
-      // Issue 4: auto-populate patientName for pharmacy when a patient is selected
+      // Issue 4: auto-populate patientName for pharmacy when a patient is selected.
+      // Customers are labeled as "Name | Phone: 9999..." — split to get just the name.
       ...(isPharmacy && opt ? { patientName: opt.name || opt.label?.split(' | ')[0] || '' } : {}),
     }));
   };

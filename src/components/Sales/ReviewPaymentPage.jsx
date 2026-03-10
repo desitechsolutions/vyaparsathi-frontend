@@ -12,7 +12,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PaymentIcon from '@mui/icons-material/Payment';
 import HomeIcon from '@mui/icons-material/Home';
 
-import { buildSalePayload }  from '../../utils/salesUtils';
+import { buildSalePayload, calcMrpDiscountPct }  from '../../utils/salesUtils';
 
 const paymentMethodOptions = [
   { value: 'CASH', label: 'Cash' },
@@ -179,9 +179,7 @@ const ReviewPaymentPage = ({
                     const gstAmt = formData.isGstRequired === 'yes'
                       ? lineTotal * (Number(item.gstRate) || 0) / 100
                       : 0;
-                    const mrpDiscount = item.mrp && Number(item.unitPrice) < Number(item.mrp)
-                      ? ((Number(item.mrp) - Number(item.unitPrice)) / Number(item.mrp) * 100).toFixed(1)
-                      : null;
+                    const mrpDiscount = calcMrpDiscountPct(item.mrp, item.unitPrice);
                     return (
                       <TableRow key={idx}>
                         <TableCell>
