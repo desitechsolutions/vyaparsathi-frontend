@@ -305,8 +305,26 @@ const resources = {
         successAdjust: 'Stock adjustment applied successfully!',
         exportFilename: 'Inventory_Report',
         noData: 'No stock entries found',
+        noBatchStock: 'No batch stock found',
         sort: 'Sort',
         successExport:'Report downloaded successfully!',
+        tabs: {
+          summaryView: 'Summary View',
+          batchWiseView: 'Batch-wise View',
+        },
+        import: {
+          dialogTitle: 'Bulk Stock Import',
+          infoText: 'Download the template, fill in your stock data, then upload the completed file.',
+          downloadTemplate: 'Download Import Template (.xlsx)',
+          clickToSelect: 'Click to select Excel file (.xlsx)',
+          importing: 'Importing...',
+          importStock: 'Import Stock',
+          successCount: '{{count}} rows imported successfully',
+          errorCount: '{{count}} rows had errors',
+          failedToDownload: 'Failed to download template',
+          selectFileError: 'Please select an Excel file to import.',
+          importFailed: 'Import failed. Please check your file and try again.',
+        },
         columns: {
           productDetails: 'Product Details',
           inventoryStatus: 'Inventory Status',
@@ -336,8 +354,8 @@ const resources = {
           analytics: 'Analytics',
           completeEntry: 'Complete Entry',
           applyAdjustment: 'Apply Adjustment',
-          downloadReport:'Download'
-
+          downloadReport:'Download',
+          bulkImport: 'Bulk Import',
         },
         dialog: {
           addStockTitle: 'Record Stock Purchase',
@@ -831,8 +849,26 @@ const resources = {
         successAdjust: 'स्टॉक समायोजन सफलतापूर्वक लागू किया गया!',
         exportFilename: 'इन्वेंटरी_रिपोर्ट',
         noData: 'कोई स्टॉक प्रविष्टि नहीं मिली',
+        noBatchStock: 'कोई बैच स्टॉक नहीं मिला',
         sort: 'क्रमबद्ध करें',
         successExport:'रिपोर्ट सफलतापूर्वक डाउनलोड हो गई!',
+        tabs: {
+          summaryView: 'सारांश दृश्य',
+          batchWiseView: 'बैच-वार दृश्य',
+        },
+        import: {
+          dialogTitle: 'बल्क स्टॉक आयात',
+          infoText: 'टेम्पलेट डाउनलोड करें, स्टॉक डेटा भरें, फिर फाइल अपलोड करें।',
+          downloadTemplate: 'आयात टेम्पलेट डाउनलोड करें (.xlsx)',
+          clickToSelect: 'Excel फाइल (.xlsx) चुनने के लिए क्लिक करें',
+          importing: 'आयात हो रहा है...',
+          importStock: 'स्टॉक आयात करें',
+          successCount: '{{count}} पंक्तियाँ सफलतापूर्वक आयात हुईं',
+          errorCount: '{{count}} पंक्तियों में त्रुटि',
+          failedToDownload: 'टेम्पलेट डाउनलोड करने में विफल',
+          selectFileError: 'कृपया आयात के लिए Excel फाइल चुनें।',
+          importFailed: 'आयात विफल। कृपया फाइल जांचें और पुनः प्रयास करें।',
+        },
         columns: {
           productDetails: 'उत्पाद विवरण',
           inventoryStatus: 'इन्वेंटरी स्थिति',
@@ -862,7 +898,8 @@ const resources = {
           analytics: 'विश्लेषण',
           completeEntry: 'प्रविष्टि पूरी करें',
           applyAdjustment: 'समायोजन लागू करें',
-          downloadReport:'डाउनलोड करें'
+          downloadReport:'डाउनलोड करें',
+          bulkImport: 'बल्क आयात',
         },
         dialog: {
           addStockTitle: 'स्टॉक खरीद दर्ज करें',

@@ -28,7 +28,7 @@ const statusChipColor = (status) => {
   }
 };
 
-const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById, getPoItems }) => {
+const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById, getPoItems, isPharmacy }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [receivingOptions, setReceivingOptions] = useState([]);
   const [selectedReceivingId, setSelectedReceivingId] = useState('');
@@ -83,7 +83,11 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
           sessionReceived: 0,
           sessionDamaged: 0,
           sessionRejected: 0,
-          sessionNotes: ''
+          sessionNotes: '',
+          // Pharmacy batch tracking
+          batchNumber: item.batchNumber || '',
+          manufacturingDate: item.manufacturingDate || '',
+          expiryDate: item.expiryDate || '',
         };
       });
 
@@ -155,7 +159,13 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
             notes: item.sessionNotes,
             isOveraged: isOver,
             overageReason: isOver ? overageAudit?.overageReason : null,
-            overageNotes: isOver ? overageAudit?.overageNotes : null
+            overageNotes: isOver ? overageAudit?.overageNotes : null,
+            // Pharmacy fields — only sent when isPharmacy to keep payload clean
+            ...(isPharmacy && {
+              batchNumber: item.batchNumber || null,
+              manufacturingDate: item.manufacturingDate || null,
+              expiryDate: item.expiryDate || null,
+            }),
           };
         })
       };
@@ -252,6 +262,55 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
                         }}
                       />
                     </Grid>
+                    {isPharmacy && (
+                      <>
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 0.5 }}>
+                            <Chip label="Batch / Expiry Info" size="small" color="primary" variant="outlined" />
+                          </Divider>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="Batch No."
+                            size="small"
+                            fullWidth
+                            value={item.batchNumber}
+                            onChange={(e) => {
+                              const updated = receiveData.map(i => i.id === item.id ? { ...i, batchNumber: e.target.value } : i);
+                              setReceiveData(updated);
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="Mfg Date"
+                            type="date"
+                            size="small"
+                            fullWidth
+                            value={item.manufacturingDate || ''}
+                            InputLabelProps={{ shrink: true }}
+                            onChange={(e) => {
+                              const updated = receiveData.map(i => i.id === item.id ? { ...i, manufacturingDate: e.target.value } : i);
+                              setReceiveData(updated);
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <TextField
+                            label="Expiry Date"
+                            type="date"
+                            size="small"
+                            fullWidth
+                            value={item.expiryDate || ''}
+                            InputLabelProps={{ shrink: true }}
+                            onChange={(e) => {
+                              const updated = receiveData.map(i => i.id === item.id ? { ...i, expiryDate: e.target.value } : i);
+                              setReceiveData(updated);
+                            }}
+                          />
+                        </Grid>
+                      </>
+                    )}
                   </Grid>
 
                   <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1, display: 'flex', justifyContent: 'space-between' }}>

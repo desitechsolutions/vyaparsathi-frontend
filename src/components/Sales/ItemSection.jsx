@@ -29,6 +29,7 @@ const ItemSection = ({
   uniqueFabrics,
   uniqueSeasons,
   uniqueFits,
+  uniqueCompositions,
   searchParams,
   handleVariantSelect,
   handleSearchParamChange,
@@ -178,7 +179,7 @@ const handleChange = (key, selectedOption, isMulti) => {
 
           {/* TIER 1: PRIMARY SEARCH (NAME & SKU) */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={isPharmacy ? 4 : 6}>
               <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>
                 {isPharmacy ? 'MEDICINE NAME' : 'PRODUCT NAME'}
               </Typography>
@@ -192,7 +193,7 @@ const handleChange = (key, selectedOption, isMulti) => {
                 menuPortalTarget={document.body}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={isPharmacy ? 4 : 6}>
               <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>
                 {isPharmacy ? 'BATCH / SKU' : 'SKU IDENTIFIER'}
               </Typography>
@@ -206,6 +207,22 @@ const handleChange = (key, selectedOption, isMulti) => {
                 menuPortalTarget={document.body}
               />
             </Grid>
+            {isPharmacy && (
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" sx={{ fontWeight: 700, ml: 1, color: 'text.secondary' }}>
+                  COMPOSITION / SALT
+                </Typography>
+                <Select
+                  options={uniqueCompositions || []}
+                  value={(uniqueCompositions || []).find(opt => opt.value === searchParams.composition) || null}
+                  onChange={(opt) => handleChange('composition', opt, false)}
+                  placeholder="Search by composition..."
+                  isClearable
+                  styles={customSelectStyles}
+                  menuPortalTarget={document.body}
+                />
+              </Grid>
+            )}
           </Grid>
 
           {/* TIER 2: SMART FILTER BAR (CATEGORY, COLOR, SIZE) */}
@@ -364,6 +381,7 @@ value={
                         { label: 'Stock (strips)', val: item.currentStock },
                         { label: 'Strength', val: item.size },
                         { label: 'Brand', val: item.color },
+                        ...(selectedVariant?.composition ? [{ label: 'Composition', val: selectedVariant.composition }] : []),
                       ]
                     : [
                         { label: 'SKU', val: item.sku },
@@ -373,9 +391,9 @@ value={
                         { label: 'Size', val: item.size },
                       ]
                   ).map((d, i) => (
-                    <Grid item xs={4} key={i}>
+                    <Grid item xs={isPharmacy && d.label === 'Composition' ? 12 : 4} key={i}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{d.label}</Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, color: '#1e3a8a' }}>{d.val || '—'}</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: '#1e3a8a', wordBreak: 'break-word' }}>{d.val || '—'}</Typography>
                     </Grid>
                   ))}
                 </Grid>
