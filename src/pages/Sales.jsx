@@ -79,8 +79,8 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const [editIndex, setEditIndex] = useState(null);
   const [itemError, setItemError] = useState('');
 
-  // Pharmacy-specific state — get isPharmacy from context
-  const { isPharmacy } = useShop();
+  // Industry context
+  const { isPharmacy, isJewellery, industryType } = useShop();
   const [drugAlertOpen, setDrugAlertOpen] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
   const [substitutes, setSubstitutes] = useState([]);
@@ -327,6 +327,20 @@ const tabValue = tabParam === "history" ? 1 : 0;
         // Issue 1 & 5: carry MRP and GST rate per variant
         mrp: opt.mrp || null,
         gstRate: opt.gstRate || 0,
+        // Jewellery fields
+        weightGrams: opt.weightGrams || null,
+        netWeightGrams: opt.netWeightGrams || null,
+        metalPurity: opt.metalPurity || null,
+        hallmarkNo: opt.hallmarkNo || null,
+        makingChargesPerGram: opt.makingChargesPerGram || null,
+        makingChargesPct: opt.makingChargesPct || null,
+        stoneWeightCarats: opt.stoneWeightCarats || null,
+        // Electronics fields
+        serialNumber: opt.serialNumber || null,
+        warrantyMonths: opt.warrantyMonths || null,
+        // Automobile fields
+        partNumber: opt.partNumber || null,
+        partOrigin: opt.partOrigin || null,
       });
       // Load substitutes when item is out of stock or has composition data
       if (opt.itemId && (opt.currentStock === 0 || opt.currentStock < 1)) {
@@ -445,6 +459,7 @@ const handleSubmitSale = async (payload) => {
                 handleCustomerSelect={handleCustomerSelect} handleNewCustomer={handleNewCustomer}
                 openCustomerModal={openCustomerModal} setOpenCustomerModal={setOpenCustomerModal}
                 isPharmacy={isPharmacy}
+                isJewellery={isJewellery}
               />
             </Paper>
 
@@ -467,6 +482,7 @@ const handleSubmitSale = async (payload) => {
                 proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
                 substitutes={substitutes}
                 isPharmacy={isPharmacy}
+                industryType={industryType}
                 onSelectSubstitute={(sub) => {
                   setSelectedVariant(sub);
                   setItem({ ...initialItem, id: sub.id, sku: sub.sku, qty: '1', unitPrice: sub.pricePerUnit, itemName: sub.itemName, currentStock: sub.currentStock, drugSchedule: sub.drugSchedule });
@@ -485,13 +501,13 @@ const handleSubmitSale = async (payload) => {
                 setFormData={setFormData}
                 selectedCustomer={selectedCustomer} 
                 setItem={setItem}
-                // --- ADD THESE MISSING PROPS ---
-                setShowReviewPage={setShowReviewPage}    // Function to show the review page
-                handleCustomerSelect={handleCustomerSelect} // Function to reset/select customer
-                setSelectedVariant={setSelectedVariant}  // Function to reset selected variant
-                setSearchParams={setSearchParams}        // From useSearchParams hook
+                setShowReviewPage={setShowReviewPage}
+                handleCustomerSelect={handleCustomerSelect}
+                setSelectedVariant={setSelectedVariant}
+                setSearchParams={setSearchParams}
                 proceedDisabledTooltip="Please select a customer and add items to proceed."
                 isPharmacy={isPharmacy}
+                isJewellery={isJewellery}
               />
             </Paper>
             {/* PROFESSIONAL STICKY ACTION BAR */}
