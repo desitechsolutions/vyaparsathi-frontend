@@ -43,6 +43,7 @@ const ItemSection = ({
   substitutes,
   onSelectSubstitute,
   isPharmacy,
+  industryType,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSubstitutes, setShowSubstitutes] = useState(false);
@@ -222,30 +223,119 @@ const handleChange = (key, selectedOption, isMulti) => {
   }
 };
 
-  // 2. Filter Groups — labels are pharmacy-aware
-  const mainFilters = isPharmacy
-    ? [
+  // 2. Filter Groups — industry-aware labels
+  const industry = industryType || (isPharmacy ? 'PHARMACY' : 'GENERAL');
+
+  const INDUSTRY_FILTER_CONFIG = {
+    PHARMACY: {
+      main: [
         { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
         { label: 'Strength / Size', key: 'size', options: uniqueSizes, multi: true },
         { label: 'Manufacturer', key: 'color', options: uniqueColors, multi: true },
-      ]
-    : [
-        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
-        { label: 'Colors', key: 'color', options: uniqueColors, multi: true },
-        { label: 'Sizes', key: 'size', options: uniqueSizes, multi: true },
-      ];
-
-  const advancedFilters = isPharmacy
-    ? [
+      ],
+      advanced: [
         { label: 'Brand Type', key: 'design', options: uniqueDesigns },
         { label: 'Usage / Form', key: 'fit', options: uniqueFits },
-      ]
-    : [
-        { label: 'Design', key: 'design', options: uniqueDesigns },
+      ],
+    },
+    CLOTHING: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Size', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Color', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Design / Print', key: 'design', options: uniqueDesigns },
         { label: 'Fabric', key: 'fabric', options: uniqueFabrics },
         { label: 'Season', key: 'season', options: uniqueSeasons },
         { label: 'Fit', key: 'fit', options: uniqueFits },
-      ];
+      ],
+    },
+    ELECTRONICS: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Storage / Config', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Finish / Color', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Model', key: 'design', options: uniqueDesigns },
+        { label: 'Connectivity', key: 'fit', options: uniqueFits },
+      ],
+    },
+    HARDWARE: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Dimensions / Size', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Finish / Material', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Grade', key: 'design', options: uniqueDesigns },
+        { label: 'Mounting / Type', key: 'fit', options: uniqueFits },
+      ],
+    },
+    AUTOMOBILE: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Specs / Size', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Color', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Part No. / Model', key: 'design', options: uniqueDesigns },
+        { label: 'Position (Front/Rear)', key: 'fit', options: uniqueFits },
+      ],
+    },
+    STATIONERY: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Size / GSM', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Ink / Color', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Binding / Type', key: 'design', options: uniqueDesigns },
+        { label: 'Layout', key: 'fit', options: uniqueFits },
+      ],
+    },
+    JEWELLERY: {
+      main: [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Size / Length', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Tone / Metal', key: 'color', options: uniqueColors, multi: true },
+      ],
+      advanced: [
+        { label: 'Pattern / Design', key: 'design', options: uniqueDesigns },
+        { label: 'Clasp / Closure', key: 'fit', options: uniqueFits },
+      ],
+    },
+  };
+
+  const filterConfig = INDUSTRY_FILTER_CONFIG[industry] || {
+    main: [
+      { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+      { label: 'Colors', key: 'color', options: uniqueColors, multi: true },
+      { label: 'Sizes', key: 'size', options: uniqueSizes, multi: true },
+    ],
+    advanced: [
+      { label: 'Design', key: 'design', options: uniqueDesigns },
+      { label: 'Fabric', key: 'fabric', options: uniqueFabrics },
+      { label: 'Season', key: 'season', options: uniqueSeasons },
+      { label: 'Fit', key: 'fit', options: uniqueFits },
+    ],
+  };
+
+  const mainFilters = filterConfig.main;
+  const advancedFilters = filterConfig.advanced;
+
+  // Industry-aware header text
+  const INDUSTRY_HEADER = {
+    PHARMACY: 'Medicine Search',
+    CLOTHING: 'Clothing & Apparel Search',
+    ELECTRONICS: 'Electronics Search',
+    HARDWARE: 'Hardware & Building Materials',
+    AUTOMOBILE: 'Auto Parts Search',
+    STATIONERY: 'Stationery Search',
+    JEWELLERY: 'Jewellery Search',
+  };
+  const headerTitle = INDUSTRY_HEADER[industry] || 'Inventory Search';
 
   return (
     <Grid item xs={12}>
@@ -257,7 +347,7 @@ const handleChange = (key, selectedOption, isMulti) => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               {isPharmacy ? <LocalPharmacyIcon color="primary" fontSize="large" /> : <SearchIcon color="primary" fontSize="large" />}
               <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.5px' }}>
-                {isPharmacy ? 'Medicine Search' : 'Inventory Search'}
+                {headerTitle}
               </Typography>
             </Box>
             

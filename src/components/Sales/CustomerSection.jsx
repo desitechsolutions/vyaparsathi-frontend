@@ -30,15 +30,20 @@ const CustomerSection = ({
   openCustomerModal,
   setOpenCustomerModal,
   isPharmacy,
+  isJewellery,
 }) => {
   // Prescription capture state
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
   // prescriptionImage stores the captured image as a base64 data URL.
-  // TODO: Upload this to the backend (e.g., POST /api/sales/{saleId}/prescription) and link to the sale record.
   const [prescriptionImage, setPrescriptionImage] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Jewellery: PAN mandatory when cash sale > ₹2,00,000 (IT Act Sec. 269ST)
+  const PAN_THRESHOLD = 200000;
+  const isHighValueJewellery = isJewellery && Number(formData.totalAmount) >= PAN_THRESHOLD;
+  const isPanMissing = isHighValueJewellery && !formData.buyerPan?.trim();
 
   const openCamera = async () => {
     setPrescriptionDialogOpen(true);
@@ -75,7 +80,8 @@ const CustomerSection = ({
 
   // Issue 5: For pharmacy, GST is always applicable (medicine has GST by law),
   // regardless of whether the customer has a GSTIN on file.
-  const isGstDisabled = isPharmacy ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
+  // For jewellery, GST at 3% is also always applicable.
+  const isGstDisabled = (isPharmacy || isJewellery) ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
   const handleGstToggle = (e) => {
     if (e.target.value === 'yes' && isGstDisabled) {
       // Logic handled by the 'disabled' prop on Radio, but this is a safety check
@@ -113,6 +119,11 @@ const CustomerSection = ({
               <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <LocalHospitalIcon color="primary" fontSize="small" />
                 <Typography variant="caption" color="primary" fontWeight={700}>Pharmacy Sale</Typography>
+              </Box>
+            )}
+            {isJewellery && (
+              <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#7c3aed', fontWeight: 700 }}>💎 Jewellery Sale</Typography>
               </Box>
             )}
           </Typography>
@@ -167,10 +178,10 @@ const CustomerSection = ({
               </Collapse>
             </Grid>
 
-            {/* GST & Amount */}
-            <Grid item xs={12} md={5}>
+          {/* ---- INVOICE TYPE — Jewellery label ---- */}
+          <Grid item xs={12} md={5}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
-                INVOICE TYPE {!isPharmacy && isGstDisabled && "(GST requires customer GSTIN)"}
+                INVOICE TYPE {!isPharmacy && !isJewellery && isGstDisabled && "(GST requires customer GSTIN)"}
               </Typography>
               <RadioGroup
                   row
@@ -183,7 +194,7 @@ const CustomerSection = ({
                     <FormControlLabel 
                       value="yes" 
                       control={<Radio size="small" />} 
-                      label={isPharmacy ? "Inclusive GST (Medicine)" : "Tax (GST)"}
+                      label={isPharmacy ? "Inclusive GST (Medicine)" : isJewellery ? "GST @ 3% (Jewellery)" : "Tax (GST)"}
                       disabled={isGstDisabled}
                     />
                   </Tooltip>
@@ -258,6 +269,68 @@ const CustomerSection = ({
                     onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))}
                     placeholder="For chronic medication tracking"
                     helperText="Links sale to patient history"
+                  />
+                </Grid>
+              </Grid>
+              <Divider sx={{ mt: 2 }} />
+            </Box>
+          )}
+
+          {/* ---- JEWELLERY: High-Value Transaction PAN Capture ---- */}
+          {isJewellery && (
+            <Box sx={{ mb: 2 }}>
+              {/* PAN Alert for high-value cash transactions */}
+              {isHighValueJewellery && (
+                <Alert
+                  severity={isPanMissing ? 'warning' : 'success'}
+                  sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }}
+                  icon={isPanMissing ? <WarningAmberIcon /> : undefined}
+                >
+                  {isPanMissing
+                    ? 'PAN required: Sale amount ≥ ₹2,00,000. Collecting buyer PAN is mandatory under IT Act Sec. 269ST.'
+                    : `PAN captured: ${formData.buyerPan} ✓`}
+                </Alert>
+              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#7c3aed' }}>
+                  💎 Jewellery Buyer Details
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Buyer PAN"
+                    fullWidth
+                    value={formData.buyerPan || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))}
+                    placeholder="ABCDE1234F"
+                    inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }}
+                    error={isPanMissing}
+                    helperText={isHighValueJewellery ? 'Mandatory for transactions ≥ ₹2,00,000' : 'Optional for smaller transactions'}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Buyer Aadhaar (last 4 digits)"
+                    fullWidth
+                    value={formData.buyerAadhaarLast4 || ''}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setFormData(prev => ({ ...prev, buyerAadhaarLast4: val }));
+                    }}
+                    placeholder="XXXX"
+                    inputProps={{ maxLength: 4 }}
+                    helperText="Optional — for KYC records"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Purpose / Occasion"
+                    fullWidth
+                    value={formData.jewelleryPurpose || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))}
+                    placeholder="e.g., Wedding, Birthday Gift"
+                    helperText="Printed on invoice"
                   />
                 </Grid>
               </Grid>

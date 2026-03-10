@@ -240,6 +240,12 @@ const resources = {
         sections: {
           basicInfo: 'Basic Information',
           pharmacyDetails: 'Pharmacy Details',
+          jewelleryDetails: 'Jewellery Details (BIS / Hallmark)',
+          electronicsDetails: 'Electronics Details',
+          automobileDetails: 'Automobile Part Details',
+          clothingDetails: 'Clothing Details',
+          hardwareDetails: 'Hardware Details',
+          stationeryDetails: 'Stationery / Education Details',
         },
         actions: {
           addItem: 'Add Item',

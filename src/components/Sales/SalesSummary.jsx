@@ -29,6 +29,7 @@ const SalesSummary = ({
   handleSaveDraft,
   proceedDisabledTooltip,
   isPharmacy,
+  isJewellery,
 }) => {
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -94,6 +95,32 @@ const SalesSummary = ({
     setDiscount(0);
   };
 
+  // Jewellery: compute making charges for a cart line item
+  // Uses variant-level makingChargesPerGram (flat) or makingChargesPct (%) of unitPrice
+  const calcMakingCharges = (saleItem) => {
+    const qty = Number(saleItem.qty) || 0;
+    const netWt = Number(saleItem.netWeightGrams) || Number(saleItem.weightGrams) || 0;
+    const perGram = Number(saleItem.makingChargesPerGram) || 0;
+    const pct = Number(saleItem.makingChargesPct) || 0;
+    const unitPrice = Number(saleItem.unitPrice) || 0;
+
+    // Flat per-gram takes priority if set; otherwise use percentage of line total
+    if (perGram > 0 && netWt > 0) {
+      return perGram * netWt * qty;
+    }
+    if (pct > 0) {
+      return (pct / 100) * unitPrice * qty;
+    }
+    return 0;
+  };
+
+  // Total making charges across all jewellery items in cart
+  const totalMakingCharges = useMemo(() => {
+    if (!isJewellery) return 0;
+    return formData.items.reduce((sum, item) => sum + calcMakingCharges(item), 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.items, isJewellery]);
+
   const subtotal = useMemo(() =>
     formData.items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.unitPrice)), 0),
     [formData.items]
@@ -115,7 +142,10 @@ const SalesSummary = ({
     }, 0);
   }, [formData.items, formData.isGstRequired, isPharmacy]);
 
-  const netTotal = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
+  const netTotal = useMemo(
+    () => Math.max(0, subtotal + totalMakingCharges - discount),
+    [subtotal, totalMakingCharges, discount]
+  );
   // Issue 5: Round to nearest rupee for pharmacy
   const netPayable = useMemo(() => isPharmacy ? Math.round(netTotal) : netTotal, [netTotal, isPharmacy]);
 
@@ -150,20 +180,23 @@ const SalesSummary = ({
             <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead sx={{ bgcolor: '#f1f5f9' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Item Details</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Unit Price</TableCell>
-                    {isPharmacy && (
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>Expiry</TableCell>
-                    )}
-                    {formData.isGstRequired === 'yes' && !isPharmacy && (
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>GST</TableCell>
-                    )}
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Item Details</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                      {isJewellery && (
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#7c3aed' }}>Making Charges</TableCell>
+                      )}
+                      {isPharmacy && (
+                        <TableCell align="center" sx={{ fontWeight: 700 }}>Expiry</TableCell>
+                      )}
+                      {formData.isGstRequired === 'yes' && !isPharmacy && (
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>GST</TableCell>
+                      )}
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
                 <TableBody>
                   {formData.items.map((saleItem, index) => {
                     const lineTotal = Number(saleItem.qty) * Number(saleItem.unitPrice);
@@ -171,14 +204,20 @@ const SalesSummary = ({
                       ? lineTotal * (Number(saleItem.gstRate) || 0) / 100
                       : 0;
                     const mrpDiscount = calcMrpDiscountPct(saleItem.mrp, saleItem.unitPrice);
+                    const lineMakingCharges = isJewellery ? calcMakingCharges(saleItem) : 0;
                     return (
                       <TableRow key={index} hover>
                         <TableCell>
-                          <Tooltip title={<Box sx={{ p: 0.5 }}>SKU: {saleItem.sku}{saleItem.batchNumber ? ` | Batch: ${saleItem.batchNumber}` : ''}</Box>} arrow>
+                          <Tooltip title={<Box sx={{ p: 0.5 }}>SKU: {saleItem.sku}{saleItem.batchNumber ? ` | Batch: ${saleItem.batchNumber}` : ''}{saleItem.hallmarkNo ? ` | HUID: ${saleItem.hallmarkNo}` : ''}</Box>} arrow>
                             <Box>
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>{saleItem.itemName}</Typography>
                               <Typography variant="caption" color="text.secondary">{saleItem.color} / {saleItem.size}</Typography>
-                              {mrpDiscount && (
+                              {isJewellery && saleItem.weightGrams && (
+                                <Typography variant="caption" sx={{ display: 'block', color: '#7c3aed', fontWeight: 700 }}>
+                                  Wt: {saleItem.weightGrams}g{saleItem.metalPurity ? ` | ${saleItem.metalPurity}` : ''}
+                                </Typography>
+                              )}
+                              {mrpDiscount && !isJewellery && (
                                 <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 700 }}>
                                   {mrpDiscount}% off MRP ₹{Number(saleItem.mrp).toFixed(2)}
                                 </Typography>
@@ -188,6 +227,30 @@ const SalesSummary = ({
                         </TableCell>
                         <TableCell align="center">{saleItem.qty}</TableCell>
                         <TableCell align="right">₹{Number(saleItem.unitPrice).toFixed(2)}</TableCell>
+                        {/* Jewellery: Making charges column */}
+                        {isJewellery && (
+                          <TableCell align="right" sx={{ color: '#7c3aed', fontSize: '0.75rem', fontWeight: 600 }}>
+                            {lineMakingCharges > 0 ? (
+                              <Box>
+                                <Typography variant="caption" fontWeight={700} color="secondary.dark">
+                                  ₹{lineMakingCharges.toFixed(2)}
+                                </Typography>
+                                {saleItem.makingChargesPerGram > 0 && saleItem.netWeightGrams > 0 && (
+                                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                    ₹{saleItem.makingChargesPerGram}/g × {saleItem.netWeightGrams}g
+                                  </Typography>
+                                )}
+                                {saleItem.makingChargesPct > 0 && !saleItem.makingChargesPerGram && (
+                                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                    {saleItem.makingChargesPct}% of value
+                                  </Typography>
+                                )}
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" color="text.disabled">—</Typography>
+                            )}
+                          </TableCell>
+                        )}
                         {/* Issue 3: Expiry traffic light column (pharmacy only) */}
                         {isPharmacy && (
                           <TableCell align="center">
@@ -213,11 +276,20 @@ const SalesSummary = ({
           )}
 
           <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', bgcolor: '#f8fafc' }}>
-            <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+            <Box sx={{ width: { xs: '100%', md: '340px' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" color="text.secondary">Subtotal:</Typography>
+                <Typography variant="body2" color="text.secondary">Subtotal (Metal + Stone):</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</Typography>
               </Box>
+              {/* Jewellery: Making charges subtotal line */}
+              {isJewellery && totalMakingCharges > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="secondary.dark" fontWeight={600}>Making Charges:</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#7c3aed' }}>
+                    +₹{totalMakingCharges.toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">Discount:</Typography>
                 <TextField

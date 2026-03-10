@@ -7,8 +7,11 @@ import {
 import {
   Today, BarChart, RequestPage, ListAlt, 
   Category, Group, ReceiptLong, Payments, 
-  Assessment, ChevronRight, EventBusy, GppMaybe, LocalShipping
+  Assessment, ChevronRight, EventBusy, GppMaybe, LocalShipping,
+  Diamond as DiamondIcon,
+  ElectricalServices, DirectionsCar, Checkroom,
 } from '@mui/icons-material';
+import { useShop } from '../../context/ShopContext';
 
 const reportLinks = [
   { title: 'Daily Report', desc: 'Real-time daily sales & transactions', icon: <Today />, path: 'daily', color: '#3b82f6' },
@@ -28,8 +31,36 @@ const pharmaReportLinks = [
   { title: 'Purchase Register', desc: 'Batch-supplier traceability for recalls', icon: <LocalShipping />, path: 'purchase-register', color: '#0891b2' },
 ];
 
+const jewelleryReportLinks = [
+  { title: 'High-Value Transactions', desc: 'Sales ≥ ₹2L with PAN records (IT Act Sec. 269ST)', icon: <DiamondIcon />, path: 'hsn-summary', color: '#7c3aed' },
+  { title: 'Purchase Register', desc: 'Gold/silver purchase receipts & purity records', icon: <LocalShipping />, path: 'purchase-register', color: '#d97706' },
+];
+
+const electronicsReportLinks = [
+  { title: 'Purchase Register', desc: 'IMEI/serial number intake & supplier traceability', icon: <ElectricalServices />, path: 'purchase-register', color: '#0891b2' },
+];
+
+const automobileReportLinks = [
+  { title: 'Purchase Register', desc: 'Part number & OEM supplier traceability', icon: <DirectionsCar />, path: 'purchase-register', color: '#92400e' },
+];
+
+const clothingReportLinks = [
+  { title: 'Items Sold', desc: 'Size-wise & color-wise garment sales', icon: <Checkroom />, path: 'items-sold', color: '#be185d' },
+];
+
+const INDUSTRY_SECTION_CONFIG = {
+  PHARMACY: { links: pharmaReportLinks, label: 'Pharmacy & Compliance Reports', color: 'primary' },
+  JEWELLERY: { links: jewelleryReportLinks, label: 'Jewellery & Compliance Reports', color: 'secondary' },
+  ELECTRONICS: { links: electronicsReportLinks, label: 'Electronics Reports', color: 'info' },
+  AUTOMOBILE: { links: automobileReportLinks, label: 'Automobile Parts Reports', color: 'warning' },
+  CLOTHING: { links: clothingReportLinks, label: 'Clothing & Apparel Reports', color: 'success' },
+};
+
 const ReportsIndex = () => {
   const navigate = useNavigate();
+  const { industryType } = useShop();
+
+  const industrySectionConfig = INDUSTRY_SECTION_CONFIG[industryType];
 
   const renderCard = (report) => (
     <Grid item xs={12} sm={6} md={4} key={report.path}>
@@ -91,13 +122,32 @@ const ReportsIndex = () => {
           {reportLinks.map(renderCard)}
         </Grid>
 
-        {/* Pharma Reports Section */}
+        {/* Industry-Specific Reports Section */}
+        {industrySectionConfig && (
+          <Box sx={{ mt: 6 }}>
+            <Divider sx={{ mb: 4 }}>
+              <Chip
+                label={industrySectionConfig.label}
+                color={industrySectionConfig.color}
+                variant="outlined"
+                sx={{ fontWeight: 700 }}
+              />
+            </Divider>
+            <Grid container spacing={3}>
+              {industrySectionConfig.links.map(renderCard)}
+            </Grid>
+          </Box>
+        )}
+
+        {/* HSN Summary — shown for all industries for GST compliance */}
         <Box sx={{ mt: 6 }}>
           <Divider sx={{ mb: 4 }}>
-            <Chip label="Pharmacy & Compliance Reports" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+            <Chip label="GST Compliance Reports" color="default" variant="outlined" sx={{ fontWeight: 700 }} />
           </Divider>
           <Grid container spacing={3}>
-            {pharmaReportLinks.map(renderCard)}
+            {[
+              { title: 'HSN Summary', desc: 'HSN-wise taxable value & GST for GSTR-1 filing', icon: <Assessment />, path: 'hsn-summary', color: '#0f766e' },
+            ].map(renderCard)}
           </Grid>
         </Box>
       </Container>
