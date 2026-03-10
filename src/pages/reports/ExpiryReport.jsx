@@ -14,12 +14,41 @@ import dayjs from 'dayjs';
 
 const DAYS_OPTIONS = [30, 60, 90];
 
-const formatDate = (d) => d ? dayjs(d).format('DD MMM YYYY') : '—';
+/**
+ * Parse a date value that may be:
+ * - A string "2024-12-31" (Jackson with JavaTimeModule)
+ * - An array [2024, 12, 31] (Jackson without JavaTimeModule, Java LocalDate default)
+ * - Already a Date object
+ */
+const parseLocalDate = (d) => {
+  if (!d) return null;
+  if (Array.isArray(d)) {
+    // Java LocalDate serialized as [year, month, day] — month is 1-based
+    const [year, month, day] = d;
+    return dayjs(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+  }
+  return dayjs(d);
+};
 
-const getExpiryStatus = (expiryDate) => {
+const formatDate = (d) => {
+  if (!d) return '—';
+  const parsed = parseLocalDate(d);
+  return parsed && parsed.isValid() ? parsed.format('DD MMM YYYY') : '—';
+};
+
+const getExpiryStatus = (expiryDate, daysToExpiry) => {
+  // Prefer backend-computed daysToExpiry when available
+  if (daysToExpiry !== undefined && daysToExpiry !== null) {
+    const daysLeft = Number(daysToExpiry);
+    if (daysLeft < 0) return { label: 'Expired', color: 'error', daysLeft };
+    if (daysLeft <= 30) return { label: `${daysLeft}d left`, color: 'error', daysLeft };
+    if (daysLeft <= 60) return { label: `${daysLeft}d left`, color: 'warning', daysLeft };
+    return { label: `${daysLeft}d left`, color: 'success', daysLeft };
+  }
   if (!expiryDate) return { label: 'N/A', color: 'default' };
   const today = dayjs();
-  const expiry = dayjs(expiryDate);
+  const expiry = parseLocalDate(expiryDate);
+  if (!expiry || !expiry.isValid()) return { label: 'N/A', color: 'default' };
   const daysLeft = expiry.diff(today, 'day');
   if (daysLeft < 0) return { label: 'Expired', color: 'error', daysLeft };
   if (daysLeft <= 30) return { label: `${daysLeft}d left`, color: 'error', daysLeft };
@@ -35,7 +64,7 @@ const downloadCSV = (data, days) => {
     ...(data || []).map(r => [
       r.itemName, r.sku, r.batchNumber,
       formatDate(r.manufacturingDate), formatDate(r.expiryDate),
-      getExpiryStatus(r.expiryDate).daysLeft ?? '—',
+      getExpiryStatus(r.expiryDate, r.daysToExpiry).daysLeft ?? '—',
       r.quantity, r.unit
     ])
   ];
@@ -73,9 +102,9 @@ export default function ExpiryReport() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadReport(days); }, [days]);
 
-  const expired = (data || []).filter(r => getExpiryStatus(r.expiryDate).daysLeft < 0);
+  const expired = (data || []).filter(r => getExpiryStatus(r.expiryDate, r.daysToExpiry).daysLeft < 0);
   const expiringSoon = (data || []).filter(r => {
-    const { daysLeft } = getExpiryStatus(r.expiryDate);
+    const { daysLeft } = getExpiryStatus(r.expiryDate, r.daysToExpiry);
     return daysLeft >= 0 && daysLeft <= 30;
   });
 
@@ -184,7 +213,7 @@ export default function ExpiryReport() {
                 </TableHead>
                 <TableBody>
                   {data.map((row, idx) => {
-                    const status = getExpiryStatus(row.expiryDate);
+                    const status = getExpiryStatus(row.expiryDate, row.daysToExpiry);
                     return (
                       <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
                         <TableCell>

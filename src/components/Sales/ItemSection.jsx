@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
   Box, Collapse, Tooltip, Paper, Chip,
@@ -14,6 +14,9 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MedicationIcon from '@mui/icons-material/Medication';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import { calcMrpDiscountPct } from '../../utils/salesUtils';
+
+const DEFAULT_PACK_SIZE = 10; // default tablets-per-strip when backend packSize is not set
 
 const ItemSection = ({
   variants,
@@ -44,7 +47,21 @@ const ItemSection = ({
   const [showSubstitutes, setShowSubstitutes] = useState(false);
   // Pharmacy: selling mode — 'PACK' = sell as strip/box, 'LOOSE' = sell individual tablets
   const [sellingMode, setSellingMode] = useState('PACK');
-  const [packSize, setPackSize] = useState(10);
+  const [packSize, setPackSize] = useState(DEFAULT_PACK_SIZE);
+
+  // Issue 3: When a new variant is selected, seed packSize from backend or fall back to DEFAULT_PACK_SIZE
+  useEffect(() => {
+    if (selectedVariant) {
+      const backendPackSize = Number(selectedVariant.packSize) || DEFAULT_PACK_SIZE;
+      setPackSize(backendPackSize);
+      // If currently in LOOSE mode, recalculate unit price with new pack size
+      if (sellingMode === 'LOOSE') {
+        const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, backendPackSize);
+        setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: backendPackSize }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVariant?.id]);
 
   // Drug schedule info for the selected variant
   const drugSchedule = selectedVariant?.drugSchedule;
@@ -127,19 +144,30 @@ const handleChange = (key, selectedOption, isMulti) => {
   }
 };
 
-  // 2. Filter Groups
-  const mainFilters = [
-    { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
-    { label: 'Colors', key: 'color', options: uniqueColors, multi: true },
-    { label: 'Sizes', key: 'size', options: uniqueSizes, multi: true },
-  ];
+  // 2. Filter Groups — labels are pharmacy-aware
+  const mainFilters = isPharmacy
+    ? [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Strength / Size', key: 'size', options: uniqueSizes, multi: true },
+        { label: 'Manufacturer', key: 'color', options: uniqueColors, multi: true },
+      ]
+    : [
+        { label: 'Category', key: 'category', options: uniqueCategory, multi: false },
+        { label: 'Colors', key: 'color', options: uniqueColors, multi: true },
+        { label: 'Sizes', key: 'size', options: uniqueSizes, multi: true },
+      ];
 
-  const advancedFilters = [
-    { label: 'Design', key: 'design', options: uniqueDesigns },
-    { label: 'Fabric', key: 'fabric', options: uniqueFabrics },
-    { label: 'Season', key: 'season', options: uniqueSeasons },
-    { label: 'Fit', key: 'fit', options: uniqueFits },
-  ];
+  const advancedFilters = isPharmacy
+    ? [
+        { label: 'Brand Type', key: 'design', options: uniqueDesigns },
+        { label: 'Usage / Form', key: 'fit', options: uniqueFits },
+      ]
+    : [
+        { label: 'Design', key: 'design', options: uniqueDesigns },
+        { label: 'Fabric', key: 'fabric', options: uniqueFabrics },
+        { label: 'Season', key: 'season', options: uniqueSeasons },
+        { label: 'Fit', key: 'fit', options: uniqueFits },
+      ];
 
   return (
     <Grid item xs={12}>
@@ -371,6 +399,23 @@ value={
             border: '1px solid #bfdbfe',
             display: selectedVariant ? 'block' : 'none'
           }}>
+            {/* Issue 1: Show MRP discount % when selling below MRP */}
+            {isPharmacy && selectedVariant?.mrp && calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice) !== null && (
+              <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip
+                  label={`MRP ₹${Number(selectedVariant.mrp).toFixed(2)}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ color: '#64748b', borderColor: '#94a3b8', fontWeight: 600 }}
+                />
+                <Chip
+                  label={`${calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice)}% below MRP`}
+                  size="small"
+                  color="success"
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+            )}
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} md={7}>
                 <Grid container spacing={1}>

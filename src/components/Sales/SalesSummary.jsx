@@ -9,6 +9,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import SaveAsIcon from '@mui/icons-material/SaveAs'; // Added icon
+import { calcMrpDiscountPct } from '../../utils/salesUtils';
 
 const SalesSummary = ({
   formData,
@@ -25,6 +26,7 @@ const SalesSummary = ({
   handleEditItem,
   handleSaveDraft, // New Prop added
   proceedDisabledTooltip,
+  isPharmacy,
 }) => {
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
 
@@ -57,6 +59,16 @@ const SalesSummary = ({
     formData.items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.unitPrice)), 0),
     [formData.items]
   );
+
+  // Issue 5: Calculate total GST from item-level gstRate when GST is enabled
+  const totalGst = useMemo(() => {
+    if (formData.isGstRequired !== 'yes') return 0;
+    return formData.items.reduce((sum, item) => {
+      const rate = Number(item.gstRate) || 0;
+      const lineTotal = Number(item.qty) * Number(item.unitPrice);
+      return sum + (lineTotal * rate / 100);
+    }, 0);
+  }, [formData.items, formData.isGstRequired]);
 
   const netTotal = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
 
@@ -95,30 +107,51 @@ const SalesSummary = ({
                     <TableCell sx={{ fontWeight: 700 }}>Item Details</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                    {formData.isGstRequired === 'yes' && (
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>GST</TableCell>
+                    )}
                     <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {formData.items.map((saleItem, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell>
-                        <Tooltip title={<Box sx={{ p: 0.5 }}>SKU: {saleItem.sku}</Box>} arrow>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{saleItem.itemName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{saleItem.color} / {saleItem.size}</Typography>
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="center">{saleItem.qty}</TableCell>
-                      <TableCell align="right">₹{Number(saleItem.unitPrice).toFixed(2)}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>₹{(saleItem.qty * saleItem.unitPrice).toFixed(2)}</TableCell>
-                      <TableCell align="center">
-                        <IconButton color="primary" size="small" onClick={() => handleEditItem(index)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton color="error" size="small" onClick={() => handleRemoveItem(index)}><DeleteIcon fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {formData.items.map((saleItem, index) => {
+                    const lineTotal = Number(saleItem.qty) * Number(saleItem.unitPrice);
+                    const gstAmt = formData.isGstRequired === 'yes'
+                      ? lineTotal * (Number(saleItem.gstRate) || 0) / 100
+                      : 0;
+                    const mrpDiscount = calcMrpDiscountPct(saleItem.mrp, saleItem.unitPrice);
+                    return (
+                      <TableRow key={index} hover>
+                        <TableCell>
+                          <Tooltip title={<Box sx={{ p: 0.5 }}>SKU: {saleItem.sku}</Box>} arrow>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>{saleItem.itemName}</Typography>
+                              <Typography variant="caption" color="text.secondary">{saleItem.color} / {saleItem.size}</Typography>
+                              {/* Issue 1: Show MRP discount % */}
+                              {mrpDiscount && (
+                                <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 700 }}>
+                                  {mrpDiscount}% off MRP ₹{Number(saleItem.mrp).toFixed(2)}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="center">{saleItem.qty}</TableCell>
+                        <TableCell align="right">₹{Number(saleItem.unitPrice).toFixed(2)}</TableCell>
+                        {formData.isGstRequired === 'yes' && (
+                          <TableCell align="right" sx={{ color: '#2e7d32', fontSize: '0.75rem' }}>
+                            {Number(saleItem.gstRate) > 0 ? `₹${gstAmt.toFixed(2)} (${saleItem.gstRate}%)` : '—'}
+                          </TableCell>
+                        )}
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>₹{lineTotal.toFixed(2)}</TableCell>
+                        <TableCell align="center">
+                          <IconButton color="primary" size="small" onClick={() => handleEditItem(index)}><EditIcon fontSize="small" /></IconButton>
+                          <IconButton color="error" size="small" onClick={() => handleRemoveItem(index)}><DeleteIcon fontSize="small" /></IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Box>
@@ -139,6 +172,17 @@ const SalesSummary = ({
                   sx={{ width: 80 }}
                 />
               </Box>
+              {/* Issue 5: Show GST total when GST is enabled */}
+              {formData.isGstRequired === 'yes' && totalGst > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {isPharmacy ? 'Inclusive GST:' : 'Total GST:'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                    ₹{totalGst.toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
               <Divider sx={{ my: 1 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Grand Total:</Typography>

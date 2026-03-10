@@ -7,9 +7,11 @@ import {
 } from '@mui/material';
 import {
   ArrowBack, WhatsApp, LocationOn, Phone,
-  PictureAsPdf, Refresh, ReceiptLong, AccountBalanceWallet, Payments
+  PictureAsPdf, Refresh, ReceiptLong, AccountBalanceWallet, Payments,
+  LocalHospital, MedicalServices, Medication
 } from '@mui/icons-material';
 import { fetchCustomerDues, fetchCustomerLedger } from '../services/api';
+import { useShop } from '../context/ShopContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -50,6 +52,7 @@ const formatBalancePDF = (amount) => {
 const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isPharmacy } = useShop();
   const companyName = "DesiTech Solutions"; // Set your company name here
 
   const today = new Date().toISOString().split('T')[0];
@@ -186,8 +189,13 @@ const CustomerDetails = () => {
         <Stack direction="row" spacing={2} alignItems="center">
           <IconButton onClick={() => navigate('/customers')} sx={{ bgcolor: 'white', boxShadow: 1 }}><ArrowBack /></IconButton>
           <Box>
-            <Typography variant="h5" fontWeight={700}>{customer.customerName}</Typography>
-            <Typography variant="body2" color="text.secondary">Customer Profile & Ledger Summary</Typography>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              {isPharmacy && <LocalHospital color="primary" fontSize="small" />}
+              <Typography variant="h5" fontWeight={700}>{customer.customerName}</Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              {isPharmacy ? 'Patient Profile & Prescription History' : 'Customer Profile & Ledger Summary'}
+            </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1.5}>
@@ -233,13 +241,30 @@ const CustomerDetails = () => {
 
         <Grid item xs={12} md={3}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e4e7' }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Customer Details</Typography>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {isPharmacy ? 'Patient Details' : 'Customer Details'}
+            </Typography>
             <Stack spacing={2} sx={{ mt: 2 }}>
               <Stack direction="row" spacing={1}><Phone fontSize="small" color="disabled"/><Typography variant="body2">{customer.phone || 'N/A'}</Typography></Stack>
               <Stack direction="row" spacing={1}><LocationOn fontSize="small" color="disabled"/><Typography variant="body2">{customer.city || 'N/A'}</Typography></Stack>
-              <Divider />
-              <Typography variant="caption" color="text.secondary">GST Number</Typography>
-              <Typography variant="body2" fontWeight={600}>{customer.gstin || 'Unregistered'}</Typography>
+              {isPharmacy ? (
+                <>
+                  <Divider />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Medication fontSize="small" color="primary" />
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Medical Notes</Typography>
+                  </Stack>
+                  <Typography variant="body2" sx={{ color: '#374151', fontStyle: customer.notes ? 'normal' : 'italic' }}>
+                    {customer.notes || 'No medical notes on file'}
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Divider />
+                  <Typography variant="caption" color="text.secondary">GST Number</Typography>
+                  <Typography variant="body2" fontWeight={600}>{customer.gstin || 'Unregistered'}</Typography>
+                </>
+              )}
             </Stack>
           </Paper>
         </Grid>
@@ -247,8 +272,8 @@ const CustomerDetails = () => {
         <Grid item xs={12} md={9}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e7', overflow: 'hidden' }}>
             <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'white' }}>
-              <Tab label="Pending Invoices" />
-              <Tab label="Sales History" />
+              <Tab label={isPharmacy ? 'Unpaid Bills' : 'Pending Invoices'} />
+              <Tab label={isPharmacy ? 'Purchase History' : 'Sales History'} icon={isPharmacy ? <MedicalServices fontSize="small" /> : undefined} iconPosition="start" />
               <Tab label="Statement (Ledger)" />
             </Tabs>
 
@@ -277,6 +302,7 @@ const CustomerDetails = () => {
                         <TableCell>Invoice</TableCell>
                         <TableCell align="right">Amount</TableCell>
                         <TableCell align="right">{tabValue === 0 ? 'Balance Due' : 'Status'}</TableCell>
+                        {isPharmacy && tabValue === 1 && <TableCell>Doctor / Patient</TableCell>}
                         <TableCell align="center">Action</TableCell>
                       </>
                     )}
@@ -296,6 +322,18 @@ const CustomerDetails = () => {
                       <TableCell><Typography variant="body2" fontWeight={600}>{due.invoiceNo}</Typography><Typography variant="caption" color="text.secondary">{new Date(due.date).toLocaleDateString()}</Typography></TableCell>
                       <TableCell align="right">{formatCurrency(due.totalAmount)}</TableCell>
                       <TableCell align="right"><Chip size="small" label={due.dueAmount <= 0 ? 'Settled' : 'Partial'} color={due.dueAmount <= 0 ? 'success' : 'warning'} /></TableCell>
+                      {isPharmacy && (
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {due.doctorName ? `Dr. ${due.doctorName}` : '—'}
+                          </Typography>
+                          {due.patientName && due.patientName !== due.customerName && (
+                            <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                              {due.patientName}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell align="center"><Button size="small" onClick={() => navigate(`/sales?tab=history&search=${due.invoiceNo}`)}>View</Button></TableCell>
                     </TableRow>
                   ))}

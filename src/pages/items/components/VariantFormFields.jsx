@@ -16,6 +16,8 @@ import {
   Divider,
   Chip,
   InputAdornment,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -261,6 +263,52 @@ export default function VariantFormFields({
               fullWidth sx={inputSx}
               InputLabelProps={{ shrink: true }}
             />
+          </Grid>
+
+          {/* Pack Size — shown when unit suggests strips/boxes or isLooseMedicine is true */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Pack Size (tablets/units per strip)"
+              name="packSize"
+              type="number"
+              value={currentVariant.packSize || ''}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value < 1) return;
+                handleCurrentVariantChange(e);
+              }}
+              fullWidth sx={inputSx}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">units</InputAdornment>,
+                inputProps: { min: 1 }
+              }}
+              helperText="e.g. 10 for a strip of 10 tablets"
+            />
+          </Grid>
+
+          {/* Is Loose Medicine toggle */}
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', pt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={!!currentVariant.isLooseMedicine}
+                    onChange={(e) =>
+                      setCurrentVariant((prev) => ({ ...prev, isLooseMedicine: e.target.checked }))
+                    }
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={700}>Loose Medicine</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Can be dispensed as individual units (tablets, capsules)
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
           </Grid>
         </>
       )}

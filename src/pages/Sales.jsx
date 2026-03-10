@@ -305,6 +305,9 @@ const tabValue = tabParam === "history" ? 1 : 0;
         ...initialItem, id: opt.id, sku: opt.sku, qty: '1', unitPrice: opt.pricePerUnit,
         itemName: opt.itemName, color: opt.color, size: opt.size, currentStock: opt.currentStock,
         drugSchedule: opt.drugSchedule, requiresPrescription: opt.requiresPrescription,
+        // Issue 1 & 5: carry MRP and GST rate per variant
+        mrp: opt.mrp || null,
+        gstRate: opt.gstRate || 0,
       });
       // Load substitutes when item is out of stock or has composition data
       if (opt.itemId && (opt.currentStock === 0 || opt.currentStock < 1)) {
@@ -321,7 +324,13 @@ const tabValue = tabParam === "history" ? 1 : 0;
 
   const handleCustomerSelect = (opt) => {
     setSelectedCustomer(opt);
-    setFormData(prev => ({ ...prev, customerId: opt?.value || '' }));
+    setFormData(prev => ({
+      ...prev,
+      customerId: opt?.value || '',
+      // Issue 4: auto-populate patientName for pharmacy when a patient is selected.
+      // Customers are labeled as "Name | Phone: 9999..." — split to get just the name.
+      ...(isPharmacy && opt ? { patientName: opt.name || opt.label?.split(' | ')[0] || '' } : {}),
+    }));
   };
 
   const handleSearchParamChange = (field, opt) => {
@@ -463,6 +472,7 @@ const handleSubmitSale = async (payload) => {
                 setSelectedVariant={setSelectedVariant}  // Function to reset selected variant
                 setSearchParams={setSearchParams}        // From useSearchParams hook
                 proceedDisabledTooltip="Please select a customer and add items to proceed."
+                isPharmacy={isPharmacy}
               />
             </Paper>
             {/* PROFESSIONAL STICKY ACTION BAR */}
@@ -573,6 +583,7 @@ const handleSubmitSale = async (payload) => {
             onCancel={() => setShowReviewPage(false)}
             setError={msg => setSnackbar({ open: true, message: msg, severity: 'error' })}
             loading={loading}
+            isPharmacy={isPharmacy}
           />
         )}
 
