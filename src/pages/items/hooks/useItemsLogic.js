@@ -314,8 +314,9 @@ export default function useItemsLogic() {
     if (!existingItem) return;
 
     if (mode === 'update') {
-      // Preserve any variants the user already added in the add-item flow
-      const pendingVariants = [...variantList];
+      // Preserve any variants the user already added in the add-item flow.
+      // Deep-copy each object so downstream mutations can't affect both arrays.
+      const pendingVariants = variantList.map((v) => ({ ...v }));
       handleDialogClose();
 
       // Reload the existing item's data into the edit form

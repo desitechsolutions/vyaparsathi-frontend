@@ -190,10 +190,19 @@ export default function SupplierPaymentPage() {
       );
       const payDate = h.paymentDate ? new Date(h.paymentDate) : null;
       const matchFrom = !historyDateFrom || (payDate && payDate >= new Date(historyDateFrom));
-      const matchTo = !historyDateTo || (payDate && payDate <= new Date(historyDateTo + 'T23:59:59'));
+      // Use end-of-day in local time by constructing a date at 23:59:59.999
+      const toEnd = historyDateTo ? new Date(historyDateTo) : null;
+      if (toEnd) toEnd.setHours(23, 59, 59, 999);
+      const matchTo = !historyDateTo || (payDate && payDate <= toEnd);
       return matchMode && matchSearch && matchFrom && matchTo;
     });
   }, [history, historyModeFilter, historySearch, historyDateFrom, historyDateTo, suppliers]);
+
+  // --- Pending PO count (memoised to avoid re-filtering on every render) ---
+  const pendingPOCount = useMemo(
+    () => allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length,
+    [allPOs]
+  );
 
   // --- View PO Items ---
   const handleViewPOItems = useCallback(async (po) => {
@@ -207,11 +216,21 @@ export default function SupplierPaymentPage() {
     }
   }, []);
 
+  // Escape HTML entities to prevent XSS when writing to the print window
+  const escapeHtml = (str) =>
+    String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
   // --- Print Receipt in a separate window so only the voucher is printed ---
   const handlePrintReceipt = useCallback(() => {
     if (!receiptData) return;
     const win = window.open('', '_blank', 'width=480,height=700');
     if (!win) return;
+    const amt = Number(receiptData.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     win.document.write(`<!DOCTYPE html>
 <html><head><title>Payment Voucher</title>
 <style>
@@ -233,25 +252,25 @@ export default function SupplierPaymentPage() {
 </style></head><body>
 <div class="header">
   <h1>Payment Voucher</h1>
-  <p>VyaparSathi — Supplier Payment Receipt</p>
+  <p>VyaparSathi &#8212; Supplier Payment Receipt</p>
 </div>
 <div class="amount">
-  <div class="val">&#8377;${Number(receiptData.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+  <div class="val">&#8377;${escapeHtml(amt)}</div>
   <div class="lbl">Payment Recorded Successfully</div>
 </div>
 <hr/>
-<div class="row"><span class="label">Supplier</span><span class="value">${receiptData.supplierName || ''}</span></div>
-<div class="row"><span class="label">Payment Date</span><span class="value">${receiptData.date || ''}</span></div>
-<div class="row"><span class="label">Transaction ID</span><span class="value">${receiptData.id || 'N/A'}</span></div>
-<div class="row"><span class="label">Payment Mode</span><span class="value">${receiptData.mode || ''}</span></div>
-<div class="row"><span class="label">Ref / UTR Number</span><span class="value">${receiptData.ref || 'N/A'}</span></div>
-${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${receiptData.notes}</div>` : ''}
+<div class="row"><span class="label">Supplier</span><span class="value">${escapeHtml(receiptData.supplierName)}</span></div>
+<div class="row"><span class="label">Payment Date</span><span class="value">${escapeHtml(receiptData.date)}</span></div>
+<div class="row"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receiptData.id || 'N/A')}</span></div>
+<div class="row"><span class="label">Payment Mode</span><span class="value">${escapeHtml(receiptData.mode)}</span></div>
+<div class="row"><span class="label">Ref / UTR Number</span><span class="value">${escapeHtml(receiptData.ref || 'N/A')}</span></div>
+${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(receiptData.notes)}</div>` : ''}
 <div class="footer">This is a computer-generated receipt. No signature required.</div>
 </body></html>`);
     win.document.close();
     win.focus();
     win.print();
-  }, [receiptData]);
+  }, [receiptData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Submit Payment ---
   const handlePaymentSubmit = async () => {
@@ -536,7 +555,7 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${receiptData.
               textColor="primary"
               indicatorColor="primary"
             >
-              <Tab label={`Pending POs (${allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length})`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
+              <Tab label={`Pending POs (${pendingPOCount})`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
               <Tab label={`Payment History${selectedSupplierId && history.length ? ` (${history.length})` : ''}`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
             </Tabs>
 
