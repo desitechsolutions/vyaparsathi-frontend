@@ -447,12 +447,14 @@ useEffect(() => {
   );
 
   return (
-    <StyledModal open={open} onClose={onClose}>
-      <ModalContent>
-        {mode === 'view' ? renderViewMode() : renderFormMode()}
-      </ModalContent>
+    <>
+      <StyledModal open={open} onClose={onClose}>
+        <ModalContent>
+          {mode === 'view' ? renderViewMode() : renderFormMode()}
+        </ModalContent>
+      </StyledModal>
 
-      {/* Inline Create Supplier Dialog */}
+      {/* Inline Create Supplier Dialog — rendered outside StyledModal so Modal has a single child */}
       <Dialog
         open={createSupplierDialog}
         onClose={() => setCreateSupplierDialog(false)}
@@ -523,7 +525,7 @@ useEffect(() => {
           </Button>
         </DialogActions>
       </Dialog>
-    </StyledModal>
+    </>
   );
 };
 
