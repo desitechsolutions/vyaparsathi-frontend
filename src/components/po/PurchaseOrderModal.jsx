@@ -3,8 +3,8 @@ import {
   Modal, Box, Typography, Grid, TextField, Button, IconButton, List, ListItem, CircularProgress, Autocomplete, InputAdornment, Divider, Chip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import { styled } from '@mui/system';
-import { Add as AddIcon, Delete as DeleteIcon, NoteAdd as NoteAddIcon, Send as SendIcon } from '@mui/icons-material';
-import { fetchItemVariants, fetchItemVariantById } from '../../services/api';
+import { Add as AddIcon, Delete as DeleteIcon, NoteAdd as NoteAddIcon, Send as SendIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material';
+import { fetchItemVariants, fetchItemVariantById, createSupplier } from '../../services/api';
 
 const StyledModal = styled(Modal)({
   display: 'flex',
@@ -34,7 +34,7 @@ const initialFormState = {
   totalAmount: '0.00',
 };
 
-const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSuppliers, showSnackbar, onSubmitPO }) => {
+const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSuppliers: allSuppliersProp, showSnackbar, onSubmitPO }) => {
   const [formPo, setFormPo] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState({});
   const [itemVariantOptions, setItemVariantOptions] = useState({});
@@ -42,8 +42,36 @@ const PurchaseOrderModal = ({ open, onClose, mode, selectedPo, onSubmit, allSupp
   const [submitDialog, setSubmitDialog] = useState(false);
   const [isSubmittingPO, setIsSubmittingPO] = useState(false);
 
+  // Inline Supplier Creation
+  const [allSuppliers, setAllSuppliers] = useState(allSuppliersProp || []);
+  const [createSupplierDialog, setCreateSupplierDialog] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({ name: '', phone: '', email: '', address: '', gstin: '' });
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+
   const lastSearchRef = useRef({});
   const wasOpen = useRef(false);
+
+  // Sync allSuppliers when prop changes (parent refreshes after new supplier added)
+  useEffect(() => {
+    setAllSuppliers(allSuppliersProp || []);
+  }, [allSuppliersProp]);
+
+  const handleCreateSupplier = async () => {
+    if (!supplierForm.name.trim()) return;
+    setIsCreatingSupplier(true);
+    try {
+      const newSupplier = await createSupplier(supplierForm);
+      setAllSuppliers(prev => [...prev, newSupplier]);
+      setFormPo(prev => ({ ...prev, supplier: newSupplier }));
+      setCreateSupplierDialog(false);
+      setSupplierForm({ name: '', phone: '', email: '', address: '', gstin: '' });
+      showSnackbar('Supplier created successfully!', 'success');
+    } catch (err) {
+      showSnackbar('Failed to create supplier. Please try again.', 'error');
+    } finally {
+      setIsCreatingSupplier(false);
+    }
+  };
 
   const isDraft = formPo.status === 'DRAFT' || mode === 'create';
   const isReadOnly = mode === 'view' || (!isDraft && mode === 'edit');
@@ -266,21 +294,60 @@ useEffect(() => {
               <TextField label="PO Number" name="poNumber" value={formPo.poNumber} onChange={handleFormChange} fullWidth error={!!formErrors.poNumber} helperText={formErrors.poNumber} disabled={mode === 'edit' || isReadOnly} required />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <Autocomplete
-                options={allSuppliers}
-                value={formPo.supplier || null}
-                getOptionLabel={(option) => {
-                  if (!option) return '';
-                  if (!option.name) return '';
-                  const city = option.address ? option.address.split(',')[1]?.trim() : '';
-                  const details = [city, option.phone].filter(Boolean).join(', ');
-                  return `${option.name}${details ? ` (${details})` : ''}`;
-                }}
-                onChange={isReadOnly ? undefined : handleSupplierChange}
-                isOptionEqualToValue={(option, value) => option?.id === value?.id}
-                renderInput={(params) => <TextField {...params} label="Supplier" error={!!formErrors.supplier} helperText={formErrors.supplier} required />}
-                disabled={isReadOnly}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={allSuppliers}
+                  value={formPo.supplier || null}
+                  getOptionLabel={(option) => {
+                    if (!option) return '';
+                    if (!option.name) return '';
+                    const city = option.address ? option.address.split(',')[1]?.trim() : '';
+                    const details = [city, option.phone].filter(Boolean).join(', ');
+                    return `${option.name}${details ? ` (${details})` : ''}`;
+                  }}
+                  onChange={isReadOnly ? undefined : handleSupplierChange}
+                  isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Supplier"
+                      error={!!formErrors.supplier}
+                      helperText={
+                        formErrors.supplier
+                          ? formErrors.supplier
+                          : allSuppliers.length === 0
+                          ? 'No suppliers yet — use the "New" button to create one'
+                          : ''
+                      }
+                      required
+                    />
+                  )}
+                  disabled={isReadOnly}
+                  noOptionsText={
+                    <Button
+                      size="small"
+                      startIcon={<PersonAddIcon />}
+                      onClick={() => setCreateSupplierDialog(true)}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Create New Supplier
+                    </Button>
+                  }
+                />
+                {!isReadOnly && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PersonAddIcon />}
+                    onClick={() => setCreateSupplierDialog(true)}
+                    sx={{ mt: 0.5, whiteSpace: 'nowrap', minWidth: 'auto', fontWeight: 700, borderRadius: 2 }}
+                    title="Create New Supplier"
+                  >
+                    New
+                  </Button>
+                )}
+              </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField label="Order Date" type="date" name="orderDate" value={formPo.orderDate} onChange={handleFormChange} fullWidth InputLabelProps={{ shrink: true }} error={!!formErrors.orderDate} helperText={formErrors.orderDate} required disabled={isReadOnly} />
@@ -384,6 +451,78 @@ useEffect(() => {
       <ModalContent>
         {mode === 'view' ? renderViewMode() : renderFormMode()}
       </ModalContent>
+
+      {/* Inline Create Supplier Dialog */}
+      <Dialog
+        open={createSupplierDialog}
+        onClose={() => setCreateSupplierDialog(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonAddIcon color="primary" />
+          Create New Supplier
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth required
+                label="Supplier Name"
+                value={supplierForm.name}
+                onChange={e => setSupplierForm(p => ({ ...p, name: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={supplierForm.phone}
+                onChange={e => setSupplierForm(p => ({ ...p, phone: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={supplierForm.email}
+                onChange={e => setSupplierForm(p => ({ ...p, email: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Address"
+                value={supplierForm.address}
+                onChange={e => setSupplierForm(p => ({ ...p, address: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="GSTIN"
+                value={supplierForm.gstin}
+                onChange={e => setSupplierForm(p => ({ ...p, gstin: e.target.value }))}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setCreateSupplierDialog(false)} color="secondary">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateSupplier}
+            disabled={isCreatingSupplier || !supplierForm.name.trim()}
+            startIcon={isCreatingSupplier ? <CircularProgress size={18} color="inherit" /> : <PersonAddIcon />}
+          >
+            {isCreatingSupplier ? 'Creating...' : 'Create Supplier'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </StyledModal>
   );
 };

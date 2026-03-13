@@ -28,6 +28,9 @@ const endpoints = {
   // Supplier endpoints
   suppliers: `${API_BASE}/suppliers`,
   supplierById: (id) => `${API_BASE}/suppliers/${id}`,
+  supplierPayments: `${API_BASE}/supplier-payments`,
+  supplierPaymentsBulk: `${API_BASE}/supplier-payments/bulk`,
+  supplierPaymentsSummary: (purchaseOrderId) => `${API_BASE}/supplier-payments/summary?purchaseOrderId=${purchaseOrderId}`,
 
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
@@ -43,6 +46,7 @@ const endpoints = {
 
   fetchItemVariants: `${API_BASE}/item-variants/filter`,
   createItemVariant: `${API_BASE}/item-variants`,
+  itemVariantById: (id) => `${API_BASE}/item-variants/${id}`,
 
 
   fetchCategorySales: `${API_BASE}/reports/category-sales`,

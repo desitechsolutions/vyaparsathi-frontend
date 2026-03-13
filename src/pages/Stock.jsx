@@ -18,11 +18,12 @@ import {
   fetchStock, addStock, fetchItemVariants, 
   adjustStock, fetchStockMovements, exportStockReport,
   fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
+  updateItemVariant,
 } from '../services/api';
 import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '', manufacturingDate: '', expiryDate: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', newRetailPrice: '', reason: '', manufacturingDate: '', expiryDate: '' };
 
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
@@ -124,6 +125,16 @@ const Stock = () => {
         expiryDate: formData.expiryDate || null,
       };
       await addStock(payload);
+      // Optionally update retail/selling price if provided
+      if (formData.newRetailPrice && Number(formData.newRetailPrice) > 0) {
+        const variant = itemVariants.find(v => v.id === formData.itemVariantId);
+        if (variant) {
+          await updateItemVariant(formData.itemVariantId, {
+            ...variant,
+            pricePerUnit: Number(formData.newRetailPrice),
+          });
+        }
+      }
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
@@ -740,9 +751,19 @@ const Stock = () => {
                   {formData.costPerUnit && (
                     <Grid item xs={6} sx={{ textAlign: 'right' }}>
                       <Typography variant="caption">{t('stock.form.estimatedMargin')}</Typography>
-                      <Typography variant="h6" fontWeight={800} color="success.main">
-                        {(((selectedVariant.pricePerUnit - Number(formData.costPerUnit)) / selectedVariant.pricePerUnit) * 100).toFixed(1)}%
-                      </Typography>
+                      {(() => {
+                        const effectiveRetail = formData.newRetailPrice
+                          ? Number(formData.newRetailPrice)
+                          : selectedVariant.pricePerUnit;
+                        const margin = effectiveRetail > 0
+                          ? (((effectiveRetail - Number(formData.costPerUnit)) / effectiveRetail) * 100).toFixed(1)
+                          : '0.0';
+                        return (
+                          <Typography variant="h6" fontWeight={800} color="success.main">
+                            {margin}%
+                          </Typography>
+                        );
+                      })()}
                     </Grid>
                   )}
                 </Grid>
@@ -769,6 +790,20 @@ const Stock = () => {
                 />
               </Grid>
             </Grid>
+            <TextField
+              fullWidth
+              label="Update Retail / Selling Price (optional)"
+              type="number"
+              value={formData.newRetailPrice}
+              onChange={(e) => setFormData({ ...formData, newRetailPrice: e.target.value })}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              helperText={
+                selectedVariant
+                  ? `Current retail price: ₹${formatCurrency(selectedVariant.pricePerUnit)}. Leave blank to keep unchanged.`
+                  : 'Leave blank to keep current retail price unchanged.'
+              }
+              placeholder={selectedVariant ? String(selectedVariant.pricePerUnit || '') : ''}
+            />
             <TextField 
               fullWidth 
               label={t('stock.form.batchNumber')} 
