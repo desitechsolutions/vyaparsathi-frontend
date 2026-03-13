@@ -159,6 +159,20 @@ export const deleteSupplier = (id) =>
 export const getSupplierById = (id) =>
   API.get(endpoints.supplierById(id)).then((r) => r.data);
 
+// --- SUPPLIER PAYMENTS ---
+
+export const recordSupplierPayment = (data) =>
+  API.post(endpoints.supplierPayments, data).then((r) => r.data);
+
+export const recordBulkSupplierPayment = (data) =>
+  API.post(endpoints.supplierPaymentsBulk, data).then((r) => r.data);
+
+export const getSupplierPayments = (params = {}) =>
+  API.get(endpoints.supplierPayments, { params }).then((r) => r.data);
+
+export const getSupplierPaymentSummary = (purchaseOrderId) =>
+  API.get(endpoints.supplierPaymentsSummary(purchaseOrderId)).then((r) => r.data);
+
 // --- ITEMS & VARIANTS ---
 
 export const createItem = (data) => API.post(endpoints.items, data);
@@ -169,6 +183,7 @@ export const fetchCategories = () => API.get(endpoints.fetchCategories);
 
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
+export const updateItemVariant = (id, data) => API.put(`/api/item-variants/${id}`, data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
 };

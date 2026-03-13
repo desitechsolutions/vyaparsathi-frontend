@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, AreaChart, Area, BarChart, Bar, Cell
@@ -8,20 +9,20 @@ import {
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   MenuItem, Select, FormControl, Card, CardContent,
   Avatar, Chip, Stack, Divider, Dialog, DialogTitle, DialogContent, 
-  DialogActions, TextField, LinearProgress, Checkbox,Alert
+  DialogActions, TextField, LinearProgress, Checkbox, Alert, IconButton, Tooltip as MuiTooltip
 } from '@mui/material';
 
 // Icons
 import DownloadIcon from '@mui/icons-material/Download';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import GroupIcon from '@mui/icons-material/Group';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
-import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import SpeedIcon from '@mui/icons-material/Speed';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 // API Services
 import {
@@ -33,22 +34,27 @@ import {
 const CHART_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
 const AnalyticsDashboard = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState({
     demand: [], trends: [], topItems: [], churn: [], purchase: [], seasonal: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [selectedItems, setSelectedItems] = useState([]);
   const [orderModal, setOrderModal] = useState({ open: false, item: null });
+  const [orderQty, setOrderQty] = useState('');
 
   useEffect(() => {
     loadAllData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAllData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const [demand, trends, top, churn, purchase, seasonalRes] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchItemDemand(),
         fetchCustomerTrends(),
         fetchTopItems(),
@@ -57,38 +63,50 @@ const AnalyticsDashboard = () => {
         fetchSeasonalTrends()
       ]);
 
+      const [demandRes, trendsRes, topRes, churnRes, purchaseRes, seasonalRes] = results;
+
+      const safeData = (res) => (res.status === 'fulfilled' ? (res.value?.data || []) : []);
+
       // --- DATA TRANSFORMATION FOR SEASONAL TRENDS ---
-      const transformedSeasonal = (seasonalRes.data || []).map((item, index, array) => {
-        const currentSales = parseInt(item.trendDescription.replace(/[^\d]/g, ''), 10) || 0;
+      const rawSeasonal = safeData(seasonalRes);
+      const transformedSeasonal = rawSeasonal.map((item, index, array) => {
+        const currentSales = parseInt(item.trendDescription?.replace(/[^\d]/g, '') || '0', 10) || 0;
         let growth = 0;
-        
         if (index > 0) {
-          const prevSales = parseInt(array[index - 1].trendDescription.replace(/[^\d]/g, ''), 10) || 0;
+          const prevSales = parseInt(array[index - 1].trendDescription?.replace(/[^\d]/g, '') || '0', 10) || 0;
           if (prevSales > 0) {
             growth = ((currentSales - prevSales) / prevSales) * 100;
           } else if (currentSales > 0) {
-            growth = 100; // From 0 to something is 100% growth
+            growth = 100;
           }
         }
-
         return {
-          month: item.season.split('(')[1]?.replace(')', '') || item.season,
+          month: item.season?.split('(')[1]?.replace(')', '') || item.season || '',
           totalSales: currentSales,
           growth: growth.toFixed(1),
-          rawSeason: item.season
+          rawSeason: item.season || ''
         };
       });
 
       setData({
-        demand: demand.data || [],
-        trends: trends.data || [],
-        topItems: top.data || [],
-        churn: churn.data || [],
-        purchase: purchase.data || [],
+        demand: safeData(demandRes),
+        trends: safeData(trendsRes),
+        topItems: safeData(topRes),
+        churn: safeData(churnRes),
+        purchase: safeData(purchaseRes),
         seasonal: transformedSeasonal
       });
+
+      // Show partial error if some calls failed
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed > 0 && failed === results.length) {
+        setLoadError('Failed to load analytics data. Please check your connection and try again.');
+      } else if (failed > 0) {
+        setLoadError(`${failed} data source(s) failed to load. Some charts may be incomplete.`);
+      }
     } catch (error) {
       console.error("Dashboard Load Error:", error);
+      setLoadError('Failed to load analytics data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -153,16 +171,29 @@ const AnalyticsDashboard = () => {
             </Stack>
             <Typography variant="body1" color="text.secondary">Financial roadmap & behavioral analytics.</Typography>
           </Box>
-          <Paper elevation={0} sx={{ p: 1, display: 'flex', gap: 1, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
-            <FormControl size="small" variant="standard" sx={{ minWidth: 120, px: 2 }}>
-              <Select value={exportFormat} onChange={e => setExportFormat(e.target.value)} disableUnderline sx={{ fontWeight: 600 }}>
-                <MenuItem value="xlsx">Excel (.xlsx)</MenuItem>
-                <MenuItem value="pdf">PDF Report</MenuItem>
-              </Select>
-            </FormControl>
-            <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2 }} onClick={handleExport}>Export Plan</Button>
-          </Paper>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <MuiTooltip title="Refresh Data">
+              <IconButton onClick={loadAllData} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+                <RefreshIcon />
+              </IconButton>
+            </MuiTooltip>
+            <Paper elevation={0} sx={{ p: 1, display: 'flex', gap: 1, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
+              <FormControl size="small" variant="standard" sx={{ minWidth: 120, px: 2 }}>
+                <Select value={exportFormat} onChange={e => setExportFormat(e.target.value)} disableUnderline sx={{ fontWeight: 600 }}>
+                  <MenuItem value="xlsx">Excel (.xlsx)</MenuItem>
+                  <MenuItem value="pdf">PDF Report</MenuItem>
+                </Select>
+              </FormControl>
+              <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2 }} onClick={handleExport}>Export Plan</Button>
+            </Paper>
+          </Stack>
         </Stack>
+
+        {loadError && (
+          <Alert severity="warning" sx={{ mb: 3, borderRadius: 3 }} onClose={() => setLoadError(null)}>
+            {loadError}
+          </Alert>
+        )}
 
         {isLoading ? (
           <Box sx={{ textAlign: 'center', py: 20 }}><CircularProgress thickness={5} size={60} /></Box>
@@ -285,7 +316,12 @@ const AnalyticsDashboard = () => {
                     <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fcfcfc' }}>
                         <Typography variant="h6" fontWeight={700}>Procurement Roadmap</Typography>
                         {selectedItems.length > 0 && (
-                          <Button variant="contained" color="primary" startIcon={<ShoppingCartIcon />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                          <Button
+                            variant="contained" color="primary"
+                            startIcon={<ShoppingCartIcon />}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                            onClick={() => navigate('/purchase-orders')}
+                          >
                             Create Bulk PO ({selectedItems.length} Items)
                           </Button>
                         )}
@@ -311,7 +347,16 @@ const AnalyticsDashboard = () => {
                                         <TableCell align="right"><Chip label={order.suggestedQuantity} size="small" variant="outlined" sx={{ fontWeight: 700 }} /></TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 700, color: 'primary.main' }}>₹{order.estimatedCost?.toLocaleString()}</TableCell>
                                         <TableCell align="right">
-                                            <Button size="small" variant="contained" onClick={() => setOrderModal({ open: true, item: order })} sx={{ borderRadius: 1.5, textTransform: 'none' }}>Order</Button>
+                                            <Button
+                                              size="small" variant="contained"
+                                              onClick={() => {
+                                                setOrderQty(String(order.suggestedQuantity || 1));
+                                                setOrderModal({ open: true, item: order });
+                                              }}
+                                              sx={{ borderRadius: 1.5, textTransform: 'none' }}
+                                            >
+                                              Order
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -330,13 +375,31 @@ const AnalyticsDashboard = () => {
         <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
                 <Typography variant="body2">Confirming order for: <b>{orderModal.item?.itemName}</b></Typography>
-                <TextField fullWidth label="Order Quantity" type="number" defaultValue={orderModal.item?.suggestedQuantity} variant="outlined" />
-                <Alert severity="info" sx={{ borderRadius: 2 }}>Estimated Investment: <b>₹{orderModal.item?.estimatedCost?.toLocaleString()}</b></Alert>
+                <TextField
+                  fullWidth label="Order Quantity" type="number"
+                  value={orderQty}
+                  onChange={e => setOrderQty(e.target.value)}
+                  variant="outlined"
+                  inputProps={{ min: 1 }}
+                />
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  Estimated Investment: <b>₹{orderModal.item?.estimatedCost?.toLocaleString()}</b>
+                </Alert>
             </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
             <Button onClick={() => setOrderModal({ open: false, item: null })} sx={{ color: 'text.secondary' }}>Cancel</Button>
-            <Button variant="contained" startIcon={<ShoppingCartIcon />} sx={{ borderRadius: 2 }}>Generate PO</Button>
+            <Button
+              variant="contained"
+              startIcon={<OpenInNewIcon />}
+              sx={{ borderRadius: 2 }}
+              onClick={() => {
+                setOrderModal({ open: false, item: null });
+                navigate('/purchase-orders');
+              }}
+            >
+              Go to Purchase Orders
+            </Button>
         </DialogActions>
       </Dialog>
     </Box>

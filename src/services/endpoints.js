@@ -28,6 +28,9 @@ const endpoints = {
   // Supplier endpoints
   suppliers: `${API_BASE}/suppliers`,
   supplierById: (id) => `${API_BASE}/suppliers/${id}`,
+  supplierPayments: `${API_BASE}/supplier-payments`,
+  supplierPaymentsBulk: `${API_BASE}/supplier-payments/bulk`,
+  supplierPaymentsSummary: (purchaseOrderId) => `${API_BASE}/supplier-payments/summary?purchaseOrderId=${purchaseOrderId}`,
 
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,

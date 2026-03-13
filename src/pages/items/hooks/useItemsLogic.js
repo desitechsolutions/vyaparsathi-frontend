@@ -40,6 +40,13 @@ export default function useItemsLogic() {
   const [variantsToView, setVariantsToView] = useState({ name: '', variants: [] });
   const [selectedVariantId, setSelectedVariantId] = useState(null);
 
+  // ── Duplicate Item Warning Dialog ──────────────────────
+  const [duplicateWarning, setDuplicateWarning] = useState({
+    open: false,
+    existingItem: null,
+    message: '',
+  });
+
   // ── Form & Multi-step States ───────────────────────────
   const [step, setStep] = useState(0);
   const [itemFormData, setItemFormData] = useState(initialItemFormData);
@@ -193,7 +200,26 @@ export default function useItemsLogic() {
       handleDialogClose();
       loadData();
     } catch (err) {
-      setDialogError(err.response?.data?.message || 'Failed to create item.');
+      const serverMessage = err.response?.data?.message || '';
+      // Check if backend says item with this brand already exists
+      if (
+        serverMessage.toLowerCase().includes('already exists') ||
+        serverMessage.toLowerCase().includes('duplicate')
+      ) {
+        // Try to find the matching existing item in our loaded list
+        const matchingItem = allItems.find(
+          (i) =>
+            i.name?.toLowerCase() === itemFormData.name?.toLowerCase() &&
+            i.brandName?.toLowerCase() === itemFormData.brandName?.toLowerCase()
+        );
+        setDuplicateWarning({
+          open: true,
+          existingItem: matchingItem || null,
+          message: serverMessage || 'An item with this name and brand already exists.',
+        });
+      } else {
+        setDialogError(serverMessage || 'Failed to create item.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -282,6 +308,23 @@ export default function useItemsLogic() {
     setSelectedItemId(null);
   };
 
+  const handleDuplicateViewUpdate = (mode) => {
+    const { existingItem } = duplicateWarning;
+    setDuplicateWarning({ open: false, existingItem: null, message: '' });
+    if (!existingItem) return;
+    handleDialogClose();
+    if (mode === 'update') {
+      handleManageItem(existingItem.id);
+    } else {
+      // 'view' – open view variants dialog
+      handleViewVariants(existingItem);
+    }
+  };
+
+  const closeDuplicateWarning = () => {
+    setDuplicateWarning({ open: false, existingItem: null, message: '' });
+  };
+
   const handleNext = () => {
     if (step === 0 && (!itemFormData.name || !itemFormData.categoryId)) {
       setDialogError('Name and Category are required.');
@@ -316,6 +359,8 @@ export default function useItemsLogic() {
     // Dialog States
     openAddDialog, setOpenAddDialog, openEditDialog, setOpenEditDialog,
     openDeleteConfirm, setOpenDeleteConfirm, openViewVariantsDialog, setOpenViewVariantsDialog,
+    // Duplicate warning
+    duplicateWarning, handleDuplicateViewUpdate, closeDuplicateWarning,
     // Form States
     variantsToView, step, setStep, itemFormData, setItemFormData,
     variantList, setVariantList, currentVariant, setCurrentVariant,
