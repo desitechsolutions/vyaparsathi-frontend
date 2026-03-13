@@ -313,7 +313,13 @@ useEffect(() => {
                       {...params}
                       label="Supplier"
                       error={!!formErrors.supplier}
-                      helperText={formErrors.supplier || (allSuppliers.length === 0 ? 'No suppliers yet — create one →' : '')}
+                      helperText={
+                        formErrors.supplier
+                          ? formErrors.supplier
+                          : allSuppliers.length === 0
+                          ? 'No suppliers yet — use the "New" button to create one'
+                          : ''
+                      }
                       required
                     />
                   )}

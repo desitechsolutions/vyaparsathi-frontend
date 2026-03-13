@@ -47,7 +47,8 @@ const AnalyticsDashboard = () => {
 
   useEffect(() => {
     loadAllData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // loadAllData is defined inside the component and stable — only need to run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAllData = async () => {

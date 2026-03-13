@@ -46,6 +46,7 @@ const endpoints = {
 
   fetchItemVariants: `${API_BASE}/item-variants/filter`,
   createItemVariant: `${API_BASE}/item-variants`,
+  itemVariantById: (id) => `${API_BASE}/item-variants/${id}`,
 
 
   fetchCategorySales: `${API_BASE}/reports/category-sales`,

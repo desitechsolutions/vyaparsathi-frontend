@@ -95,6 +95,11 @@ export default function SupplierPaymentPage() {
   const activeSupplier = useMemo(() =>
     suppliers.find(s => s.id === selectedSupplierId), [selectedSupplierId, suppliers]);
 
+  const getPODue = useCallback(
+    (po) => Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0)),
+    []
+  );
+
   // POs for the selected supplier that are not fully paid (PENDING or PARTIALLY_PAID)
   const supplierPOs = useMemo(() =>
     allPOs.filter(po =>
@@ -106,25 +111,19 @@ export default function SupplierPaymentPage() {
   const totalPayableSelected = useMemo(() => {
     return allPOs
       .filter(po => selectedPOs.includes(po.id))
-      .reduce((sum, po) => {
-        const due = Number(po.totalAmount || 0) - Number(po.paidAmount || 0);
-        return sum + Math.max(0, due);
-      }, 0);
-  }, [selectedPOs, allPOs]);
+      .reduce((sum, po) => sum + getPODue(po), 0);
+  }, [selectedPOs, allPOs, getPODue]);
 
   // Summary stats
   const stats = useMemo(() => {
     const totalPayable = allPOs
       .filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED')
-      .reduce((sum, po) => {
-        const due = Number(po.totalAmount || 0) - Number(po.paidAmount || 0);
-        return sum + Math.max(0, due);
-      }, 0);
+      .reduce((sum, po) => sum + getPODue(po), 0);
     const pendingCount = allPOs.filter(po =>
       po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED'
     ).length;
     return { totalPayable, pendingCount };
-  }, [allPOs]);
+  }, [allPOs, getPODue]);
 
   // --- Submit Payment ---
   const handlePaymentSubmit = async () => {
@@ -324,7 +323,7 @@ export default function SupplierPaymentPage() {
                         </TableHead>
                         <TableBody>
                           {supplierPOs.map(po => {
-                            const due = Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0));
+                            const due = getPODue(po);
                             return (
                               <TableRow
                                 key={po.id} hover
@@ -434,7 +433,7 @@ export default function SupplierPaymentPage() {
                     ) : (
                       allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').map(po => {
                         const supplier = suppliers.find(s => s.id === po.supplierId);
-                        const due = Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0));
+                        const due = getPODue(po);
                         return (
                           <TableRow key={po.id} hover>
                             <TableCell>

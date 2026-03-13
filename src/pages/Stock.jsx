@@ -751,12 +751,19 @@ const Stock = () => {
                   {formData.costPerUnit && (
                     <Grid item xs={6} sx={{ textAlign: 'right' }}>
                       <Typography variant="caption">{t('stock.form.estimatedMargin')}</Typography>
-                      <Typography variant="h6" fontWeight={800} color="success.main">
-                        {(((  (formData.newRetailPrice ? Number(formData.newRetailPrice) : selectedVariant.pricePerUnit)
-                            - Number(formData.costPerUnit)) /
-                            (formData.newRetailPrice ? Number(formData.newRetailPrice) : selectedVariant.pricePerUnit)
-                          ) * 100).toFixed(1)}%
-                      </Typography>
+                      {(() => {
+                        const effectiveRetail = formData.newRetailPrice
+                          ? Number(formData.newRetailPrice)
+                          : selectedVariant.pricePerUnit;
+                        const margin = effectiveRetail > 0
+                          ? (((effectiveRetail - Number(formData.costPerUnit)) / effectiveRetail) * 100).toFixed(1)
+                          : '0.0';
+                        return (
+                          <Typography variant="h6" fontWeight={800} color="success.main">
+                            {margin}%
+                          </Typography>
+                        );
+                      })()}
                     </Grid>
                   )}
                 </Grid>

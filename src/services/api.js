@@ -183,12 +183,12 @@ export const fetchCategories = () => API.get(endpoints.fetchCategories);
 
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
-export const updateItemVariant = (id, data) => API.put(`/api/item-variants/${id}`, data);
+export const updateItemVariant = (id, data) => API.put(endpoints.itemVariantById(id), data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
 };
 export const fetchItemVariantById = async (id) => {
-  const response = await API.get(`/api/item-variants/${id}`);
+  const response = await API.get(endpoints.itemVariantById(id));
   return response.data;
 };
 
