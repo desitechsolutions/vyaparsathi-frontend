@@ -5,19 +5,23 @@ import {
   Checkbox, Chip, Stack, Card, Alert, Snackbar,
   Dialog, DialogTitle, DialogContent, DialogActions,
   IconButton, Badge, Fade, Divider, CircularProgress,
-  Skeleton, Tooltip
+  Skeleton, Tooltip, Tab, Tabs, InputAdornment
 } from '@mui/material';
 import {
-  ReceiptLong, History, Payment, SentimentSatisfiedAlt,
-  FileDownload, AccountBalance,
+  ReceiptLong, Payment, SentimentSatisfiedAlt,
+  AccountBalance,
   CheckCircleOutline, Close, PictureAsPdf, Wallet,
-  Refresh as RefreshIcon, ErrorOutline
+  Refresh as RefreshIcon, ErrorOutline,
+  Visibility as VisibilityIcon, Search as SearchIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 import {
   getSuppliers,
   getPurchaseOrders,
   recordBulkSupplierPayment,
   getSupplierPayments,
+  getPurchaseOrderById,
+  getSupplierPaymentSummary,
 } from '../services/api';
 
 const PAYMENT_MODES = [
@@ -50,6 +54,18 @@ export default function SupplierPaymentPage() {
   const [receiptData, setReceiptData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // --- Tab State (right panel) ---
+  const [activeTab, setActiveTab] = useState(0);
+
+  // --- History search/filter states ---
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyModeFilter, setHistoryModeFilter] = useState('');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+
+  // --- PO Items Dialog ---
+  const [poItemsDialog, setPoItemsDialog] = useState({ open: false, po: null, items: [], loading: false });
+
   // --- Load Data ---
   const loadData = useCallback(async () => {
     setIsLoadingData(true);
@@ -58,8 +74,40 @@ export default function SupplierPaymentPage() {
         getSuppliers(),
         getPurchaseOrders(),
       ]);
-      setSuppliers(Array.isArray(suppliersRes) ? suppliersRes : []);
-      setAllPOs(Array.isArray(posRes) ? posRes : []);
+      const suppliersList = Array.isArray(suppliersRes) ? suppliersRes : [];
+      const posList = Array.isArray(posRes) ? posRes : [];
+
+      setSuppliers(suppliersList);
+
+      // Batch-load payment summaries to get real paymentStatus / paidAmount for each PO.
+      // The backend PurchaseOrderDto does not include paymentStatus, so we call the
+      // summary endpoint per PO in parallel and merge the result in.
+      if (posList.length > 0) {
+        const summaries = await Promise.allSettled(
+          posList.map((po) => getSupplierPaymentSummary(po.id))
+        );
+        const summaryMap = {};
+        summaries.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const s = result.value;
+            summaryMap[s.purchaseOrderId] = s;
+          }
+        });
+        const enriched = posList.map((po) => {
+          const s = summaryMap[po.id];
+          return s
+            ? {
+                ...po,
+                paymentStatus: s.paymentStatus || 'PENDING',
+                paidAmount: Number(s.totalPaid || 0),
+                amountDue: Number(s.amountDue ?? (po.totalAmount - (s.totalPaid || 0))),
+              }
+            : { ...po, paymentStatus: po.paymentStatus || 'PENDING', paidAmount: 0 };
+        });
+        setAllPOs(enriched);
+      } else {
+        setAllPOs([]);
+      }
     } catch (err) {
       console.error('Failed to load data:', err);
       setNotification({ open: true, message: 'Failed to load data. Please refresh.', severity: 'error' });
@@ -96,7 +144,11 @@ export default function SupplierPaymentPage() {
     suppliers.find(s => s.id === selectedSupplierId), [selectedSupplierId, suppliers]);
 
   const getPODue = useCallback(
-    (po) => Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0)),
+    (po) => {
+      // Prefer server-computed amountDue, fall back to totalAmount - paidAmount
+      if (po.amountDue !== undefined) return Math.max(0, Number(po.amountDue));
+      return Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0));
+    },
     []
   );
 
@@ -124,6 +176,82 @@ export default function SupplierPaymentPage() {
     ).length;
     return { totalPayable, pendingCount };
   }, [allPOs, getPODue]);
+
+  // --- Filtered history for the history tab ---
+  const filteredHistory = useMemo(() => {
+    return history.filter((h) => {
+      const matchMode = !historyModeFilter || h.paymentMethod === historyModeFilter;
+      const searchLow = historySearch.toLowerCase();
+      const matchSearch = !historySearch || (
+        (h.reference || '').toLowerCase().includes(searchLow) ||
+        (h.transactionId || '').toLowerCase().includes(searchLow) ||
+        String(h.amount || '').includes(historySearch) ||
+        (suppliers.find(s => s.id === h.supplierId)?.name || '').toLowerCase().includes(searchLow)
+      );
+      const payDate = h.paymentDate ? new Date(h.paymentDate) : null;
+      const matchFrom = !historyDateFrom || (payDate && payDate >= new Date(historyDateFrom));
+      const matchTo = !historyDateTo || (payDate && payDate <= new Date(historyDateTo + 'T23:59:59'));
+      return matchMode && matchSearch && matchFrom && matchTo;
+    });
+  }, [history, historyModeFilter, historySearch, historyDateFrom, historyDateTo, suppliers]);
+
+  // --- View PO Items ---
+  const handleViewPOItems = useCallback(async (po) => {
+    setPoItemsDialog({ open: true, po, items: [], loading: true });
+    try {
+      const detail = await getPurchaseOrderById(po.id);
+      setPoItemsDialog({ open: true, po, items: detail?.items || [], loading: false });
+    } catch (err) {
+      console.error('Failed to load PO items:', err);
+      setPoItemsDialog({ open: true, po, items: [], loading: false });
+    }
+  }, []);
+
+  // --- Print Receipt in a separate window so only the voucher is printed ---
+  const handlePrintReceipt = useCallback(() => {
+    if (!receiptData) return;
+    const win = window.open('', '_blank', 'width=480,height=700');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html><head><title>Payment Voucher</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+  .header { text-align: center; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 900; }
+  .header p  { color: #64748b; font-size: 13px; margin-top: 4px; }
+  .amount    { text-align: center; margin: 20px 0; }
+  .amount .val { font-size: 36px; font-weight: 900; color: #059669; }
+  .amount .lbl { color: #64748b; font-size: 13px; margin-top: 4px; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+  .row .label { color: #64748b; }
+  .row .value { font-weight: 700; }
+  .notes { margin-top: 20px; background: #f8fafc; padding: 12px; border-radius: 6px; font-size: 13px; color: #475569; }
+  .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #94a3b8; }
+  @media print { body { padding: 16px; } }
+</style></head><body>
+<div class="header">
+  <h1>Payment Voucher</h1>
+  <p>VyaparSathi — Supplier Payment Receipt</p>
+</div>
+<div class="amount">
+  <div class="val">&#8377;${Number(receiptData.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+  <div class="lbl">Payment Recorded Successfully</div>
+</div>
+<hr/>
+<div class="row"><span class="label">Supplier</span><span class="value">${receiptData.supplierName || ''}</span></div>
+<div class="row"><span class="label">Payment Date</span><span class="value">${receiptData.date || ''}</span></div>
+<div class="row"><span class="label">Transaction ID</span><span class="value">${receiptData.id || 'N/A'}</span></div>
+<div class="row"><span class="label">Payment Mode</span><span class="value">${receiptData.mode || ''}</span></div>
+<div class="row"><span class="label">Ref / UTR Number</span><span class="value">${receiptData.ref || 'N/A'}</span></div>
+${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${receiptData.notes}</div>` : ''}
+<div class="footer">This is a computer-generated receipt. No signature required.</div>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }, [receiptData]);
 
   // --- Submit Payment ---
   const handlePaymentSubmit = async () => {
@@ -398,19 +526,23 @@ export default function SupplierPaymentPage() {
           </Paper>
         </Grid>
 
-        {/* 3. PENDING POs TABLE + HISTORY (RIGHT) */}
+        {/* 3. RIGHT PANEL: TABS — Pending POs | Payment History */}
         <Grid item xs={12} lg={7}>
-          <Stack spacing={4}>
+          <Card variant="outlined" sx={{ borderRadius: 6, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              sx={{ borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc', px: 2, pt: 1 }}
+              textColor="primary"
+              indicatorColor="primary"
+            >
+              <Tab label={`Pending POs (${allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length})`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
+              <Tab label={`Payment History${selectedSupplierId && history.length ? ` (${history.length})` : ''}`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
+            </Tabs>
 
-            {/* All Pending POs */}
-            <Card variant="outlined" sx={{ borderRadius: 6, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc' }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={900}>Pending Reconciliation</Typography>
-                  <Typography variant="caption" color="text.secondary">All purchase orders pending payment</Typography>
-                </Box>
-              </Box>
-              <TableContainer sx={{ maxHeight: 320 }}>
+            {/* TAB 0 – Pending POs */}
+            {activeTab === 0 && (
+              <TableContainer sx={{ maxHeight: 480 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
@@ -420,12 +552,13 @@ export default function SupplierPaymentPage() {
                       <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Status</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Total</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Balance Due</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Items</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                           <SentimentSatisfiedAlt sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
                           <Typography color="text.secondary">No pending purchase orders. You're all caught up!</Typography>
                         </TableCell>
@@ -463,6 +596,17 @@ export default function SupplierPaymentPage() {
                                 ₹{formatCurrency(due)}
                               </Typography>
                             </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="View PO Items">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewPOItems(po)}
+                                  sx={{ color: '#6366f1' }}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
                           </TableRow>
                         );
                       })
@@ -470,87 +614,208 @@ export default function SupplierPaymentPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </Card>
+            )}
 
-            {/* Payment History */}
-            <Box>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} px={1}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <History fontSize="small" color="action" />
-                  <Typography variant="subtitle1" fontWeight={900}>
-                    {selectedSupplierId ? `${activeSupplier?.name || ''} Payment History` : 'Select a supplier to view history'}
-                  </Typography>
+            {/* TAB 1 – Payment History */}
+            {activeTab === 1 && (
+              <Box sx={{ p: 2 }}>
+                {/* Search / Filter bar */}
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2}>
+                  <TextField
+                    size="small"
+                    placeholder="Search by ref, TXN ID, supplier…"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    sx={{ flex: 2, ...formInputSx }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <TextField
+                    select size="small" label="Mode" sx={{ flex: 1, ...formInputSx }}
+                    value={historyModeFilter} onChange={(e) => setHistoryModeFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Modes</MenuItem>
+                    {PAYMENT_MODES.map(m => (
+                      <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                    ))}
+                  </TextField>
                 </Stack>
-                <Button size="small" startIcon={<FileDownload />} disabled>Export CSV</Button>
-              </Stack>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2} alignItems="center">
+                  <TextField
+                    size="small" type="date" label="From" sx={{ flex: 1, ...formInputSx }}
+                    value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    size="small" type="date" label="To" sx={{ flex: 1, ...formInputSx }}
+                    value={historyDateTo} onChange={(e) => setHistoryDateTo(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  {(historySearch || historyModeFilter || historyDateFrom || historyDateTo) && (
+                    <Button size="small" onClick={() => { setHistorySearch(''); setHistoryModeFilter(''); setHistoryDateFrom(''); setHistoryDateTo(''); }} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      Clear Filters
+                    </Button>
+                  )}
+                </Stack>
 
-              {isLoadingHistory ? (
-                <Stack spacing={2}>
-                  {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={72} sx={{ borderRadius: 4 }} />)}
-                </Stack>
-              ) : history.length === 0 ? (
-                <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
-                  <ErrorOutline sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
-                  <Typography color="text.secondary" variant="body2">
-                    {selectedSupplierId ? 'No payment history for this supplier.' : 'Select a supplier above to see their payment history.'}
-                  </Typography>
-                </Paper>
-              ) : (
-                <Stack spacing={2}>
-                  {history.map((h, idx) => (
-                    <Paper
-                      key={h.id || idx}
-                      variant="outlined"
-                      sx={{ p: 2, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.2s', '&:hover': { borderColor: '#2563eb', bgcolor: '#f8fafc' } }}
-                    >
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Badge color="success" variant="dot" overlap="circular">
-                          <Box sx={{ bgcolor: '#f1f5f9', p: 1.5, borderRadius: 3 }}><ReceiptLong color="action" /></Box>
-                        </Badge>
-                        <Box>
-                          <Typography variant="body2" fontWeight={800}>
-                            {suppliers.find(s => s.id === h.supplierId)?.name || 'Supplier'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            {h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—'}
-                            {h.transactionId ? ` • ${h.transactionId}` : ''}
-                          </Typography>
-                          {h.reference && (
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#6366f1' }}>
-                              Ref: {h.reference}
+                {!selectedSupplierId ? (
+                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
+                    <ErrorOutline sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                    <Typography color="text.secondary" variant="body2">
+                      Select a supplier from the Payment Console to see their payment history.
+                    </Typography>
+                  </Paper>
+                ) : isLoadingHistory ? (
+                  <Stack spacing={2}>
+                    {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={72} sx={{ borderRadius: 4 }} />)}
+                  </Stack>
+                ) : filteredHistory.length === 0 ? (
+                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
+                    <ErrorOutline sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                    <Typography color="text.secondary" variant="body2">
+                      {history.length === 0 ? 'No payment history for this supplier.' : 'No results match your filters.'}
+                    </Typography>
+                  </Paper>
+                ) : (
+                  <Stack spacing={2} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                    {filteredHistory.map((h, idx) => (
+                      <Paper
+                        key={h.id || idx}
+                        variant="outlined"
+                        sx={{ p: 2, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.2s', '&:hover': { borderColor: '#2563eb', bgcolor: '#f8fafc' } }}
+                      >
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Badge color="success" variant="dot" overlap="circular">
+                            <Box sx={{ bgcolor: '#f1f5f9', p: 1.5, borderRadius: 3 }}><ReceiptLong color="action" /></Box>
+                          </Badge>
+                          <Box>
+                            <Typography variant="body2" fontWeight={800}>
+                              {suppliers.find(s => s.id === h.supplierId)?.name || 'Supplier'}
                             </Typography>
-                          )}
-                        </Box>
-                      </Stack>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="subtitle1" fontWeight={900}>₹{formatCurrency(h.amount)}</Typography>
-                        <Stack direction="row" gap={0.5} justifyContent="flex-end">
-                          <Chip
-                            label={PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod || 'N/A'}
-                            size="small" variant="outlined"
-                            sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800 }}
-                          />
-                          <IconButton size="small" onClick={() => setReceiptData({
-                            id: h.transactionId || h.id,
-                            amount: h.amount,
-                            mode: PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod,
-                            supplierName: suppliers.find(s => s.id === h.supplierId)?.name || '',
-                            date: h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—',
-                            ref: h.reference || 'N/A',
-                            notes: h.notes,
-                          })}>
-                            <History sx={{ fontSize: 16 }} />
-                          </IconButton>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—'}
+                              {h.transactionId ? ` • ${h.transactionId}` : ''}
+                            </Typography>
+                            {h.reference && (
+                              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6366f1' }}>
+                                Ref: {h.reference}
+                              </Typography>
+                            )}
+                          </Box>
                         </Stack>
-                      </Box>
-                    </Paper>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          </Stack>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="subtitle1" fontWeight={900}>₹{formatCurrency(h.amount)}</Typography>
+                          <Stack direction="row" gap={0.5} justifyContent="flex-end">
+                            <Chip
+                              label={PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod || 'N/A'}
+                              size="small" variant="outlined"
+                              sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800 }}
+                            />
+                            <Tooltip title="View Receipt">
+                              <IconButton size="small" onClick={() => setReceiptData({
+                                id: h.transactionId || h.id,
+                                amount: h.amount,
+                                mode: PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod,
+                                supplierName: suppliers.find(s => s.id === h.supplierId)?.name || '',
+                                date: h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—',
+                                ref: h.reference || 'N/A',
+                                notes: h.notes,
+                              })}>
+                                <ReceiptLong sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+            )}
+          </Card>
         </Grid>
       </Grid>
+
+      {/* PO ITEMS DIALOG */}
+      <Dialog
+        open={poItemsDialog.open}
+        onClose={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}
+        fullWidth maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 4 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={900}>PO Items</Typography>
+            {poItemsDialog.po && (
+              <Typography variant="caption" color="text.secondary">
+                {poItemsDialog.po.poNumber} — {suppliers.find(s => s.id === poItemsDialog.po?.supplierId)?.name || ''}
+              </Typography>
+            )}
+          </Box>
+          <IconButton onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 0 }}>
+          {poItemsDialog.loading ? (
+            <Stack spacing={1.5} sx={{ p: 2 }}>
+              {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={48} />)}
+            </Stack>
+          ) : poItemsDialog.items.length === 0 ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary" variant="body2">No items found for this PO.</Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Item</TableCell>
+                    <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>SKU</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Unit Cost</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {poItemsDialog.items.map((item, idx) => (
+                    <TableRow key={item.id || idx} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={700}>{item.name || '—'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">{item.sku || '—'}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2">{item.quantity || 0}</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2">₹{formatCurrency(item.unitCost)}</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={800}>
+                          ₹{formatCurrency((item.quantity || 0) * (item.unitCost || 0))}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button variant="outlined" onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })} sx={{ fontWeight: 700, borderRadius: 2 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DIGITAL RECEIPT MODAL */}
       <Dialog open={!!receiptData} onClose={() => setReceiptData(null)} PaperProps={{ sx: { borderRadius: 6, width: '100%', maxWidth: 450, p: 1 } }}>
@@ -591,7 +856,12 @@ export default function SupplierPaymentPage() {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button fullWidth variant="outlined" onClick={() => window.print()} sx={{ borderRadius: 3 }}>
+          <Button
+            fullWidth variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={handlePrintReceipt}
+            sx={{ borderRadius: 3 }}
+          >
             Print Voucher
           </Button>
           <Button fullWidth variant="contained" startIcon={<PictureAsPdf />} sx={{ borderRadius: 3 }} onClick={() => setReceiptData(null)}>
