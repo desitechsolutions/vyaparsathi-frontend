@@ -312,11 +312,42 @@ export default function useItemsLogic() {
     const { existingItem } = duplicateWarning;
     setDuplicateWarning({ open: false, existingItem: null, message: '' });
     if (!existingItem) return;
-    handleDialogClose();
+
     if (mode === 'update') {
-      handleManageItem(existingItem.id);
+      // Preserve any variants the user already added in the add-item flow.
+      // Deep-copy each object so downstream mutations can't affect both arrays.
+      const pendingVariants = variantList.map((v) => ({ ...v }));
+      handleDialogClose();
+
+      // Reload the existing item's data into the edit form
+      const item = allItems.find((i) => i.id === existingItem.id);
+      if (!item) return;
+      setItemFormData({
+        name: item.name || '',
+        description: item.description || '',
+        categoryId: item.categoryId || '',
+        brandName: item.brandName || '',
+        attribute1: item.attribute1 || '',
+        attribute2: item.attribute2 || '',
+        drugSchedule: item.drugSchedule || '',
+        requiresPrescription: !!item.requiresPrescription,
+      });
+      const existingVariants = item.variants.map((v) => ({
+        ...v,
+        photoUrl: v.photoPath,
+        lowStockThreshold: v.lowStockThreshold || '5',
+        batchNumber: v.batchNumber || '',
+        manufacturingDate: v.manufacturingDate || '',
+        expiryDate: v.expiryDate || '',
+        mrp: v.mrp || '',
+      }));
+      // Append user's pending variants (the ones they were adding) after existing ones
+      setVariantList([...existingVariants, ...pendingVariants]);
+      setSelectedItemId(existingItem.id);
+      setOpenEditDialog(true);
     } else {
-      // 'view' – open view variants dialog
+      // 'view' – open the view dialog WITHOUT closing the add-item dialog so that
+      // closing the view dialog returns the user to their in-progress add form.
       handleViewVariants(existingItem);
     }
   };
