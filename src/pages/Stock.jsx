@@ -1,24 +1,29 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
   CircularProgress, Box, Typography, Container, Alert, Autocomplete,
   InputAdornment, Paper, Chip, Stack, Snackbar, Grid, Card, CardContent,
-  LinearProgress, Divider, Tooltip, IconButton, MenuItem,
+  LinearProgress, Divider, Tooltip, IconButton, MenuItem, Tab, Tabs,
 } from '@mui/material';
 import {
   Add as AddIcon, Inventory as InventoryIcon, TrendingDown, TrendingUp,
   WarningAmber, Search, AttachMoney, ShowChart, BarChart, 
   History as HistoryIcon, SettingsSuggest, FileDownload, InfoOutlined as InfoIcon,
-  DateRange as DateRangeIcon, Assessment
+  DateRange as DateRangeIcon, Assessment, Upload as UploadIcon,
+  FileUpload as FileUploadIcon, Download as DownloadTemplateIcon,
+  LayersOutlined as BatchIcon,
 } from '@mui/icons-material';
 import { 
   fetchStock, addStock, fetchItemVariants, 
-  adjustStock, fetchStockMovements, exportStockReport 
+  adjustStock, fetchStockMovements, exportStockReport,
+  fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
+  updateItemVariant,
 } from '../services/api';
+import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
-const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', reason: '' };
+const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', newRetailPrice: '', reason: '', manufacturingDate: '', expiryDate: '' };
 
 const formatCurrency = (val) => 
   Number(val || 0).toLocaleString('en-IN', {
@@ -28,14 +33,25 @@ const formatCurrency = (val) =>
 
 const Stock = () => {
   const { t } = useTranslation();
+  const { isPharmacy } = useShop();
 
   const [stock, setStock] = useState([]);
+  const [batchStock, setBatchStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  // 0 = Summary view, 1 = Batch-wise view (pharmacy only)
+  const [viewTab, setViewTab] = useState(0);
+
+  // Import state (pharmacy only)
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importResult, setImportResult] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
   
   // Export State
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -56,11 +72,19 @@ const Stock = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [stockRes, variantsRes] = await Promise.all([fetchStock(), fetchItemVariants()]);
+      const promises = [fetchStock(), fetchItemVariants()];
+      if (isPharmacy) promises.push(fetchBatchWiseStock());
+      const [stockRes, variantsRes, batchRes] = await Promise.all(promises);
       if (Array.isArray(stockRes.data)) {
         setStock(stockRes.data.map((item) => ({ ...item, id: item.itemVariantId })));
       }
       setItemVariants(variantsRes.data);
+      if (batchRes && Array.isArray(batchRes.data)) {
+        setBatchStock(batchRes.data.map((b, i) => ({
+          ...b,
+          id: `${b.itemVariantId}-${b.batchNumber || 'nobatch'}-${i}`,
+        })));
+      }
     } catch (err) { 
       setError(t('stock.errorFetch'));
     } finally { setLoading(false); }
@@ -92,7 +116,25 @@ const Stock = () => {
     }
     setIsSubmitting(true);
     try {
-      await addStock({ itemVariantId: formData.itemVariantId, quantity: Number(formData.quantity), costPerUnit: Number(formData.costPerUnit), batch: formData.batch || null });
+      const payload = {
+        itemVariantId: formData.itemVariantId,
+        quantity: Number(formData.quantity),
+        costPerUnit: Number(formData.costPerUnit),
+        batch: formData.batch || null,
+        manufacturingDate: formData.manufacturingDate || null,
+        expiryDate: formData.expiryDate || null,
+      };
+      await addStock(payload);
+      // Optionally update retail/selling price if provided
+      if (formData.newRetailPrice && Number(formData.newRetailPrice) > 0) {
+        const variant = itemVariants.find(v => v.id === formData.itemVariantId);
+        if (variant) {
+          await updateItemVariant(formData.itemVariantId, {
+            ...variant,
+            pricePerUnit: Number(formData.newRetailPrice),
+          });
+        }
+      }
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
     } catch (err) { setError(t('stock.errorAdd')); }
@@ -160,6 +202,45 @@ const Stock = () => {
       const res = await fetchStockMovements(variantId);
       setSelectedHistory(res.data); setHistoryOpen(true);
     } catch (err) { setError(t('stock.errorHistory')); }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await downloadStockImportTemplate();
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'stock_import_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      setError(t('stock.import.failedToDownload'));
+    }
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importFile) { setError(t('stock.import.selectFileError')); return; }
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const res = await importStockFromExcel(importFile);
+      setImportResult(res.data);
+      if (res.data.errorCount === 0) {
+        setSuccessMsg(t('stock.import.successCount', { count: res.data.successCount }));
+        setImportDialogOpen(false);
+        loadData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || t('stock.import.importFailed'));
+    } finally {
+      setIsImporting(false);
+      setImportFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const columns = [
@@ -241,7 +322,124 @@ const Stock = () => {
           </Tooltip>
         </Stack>
       ),
-    }
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'Expiry',
+      flex: 0.9, minWidth: 130,
+      renderCell: (params) => {
+        const expiry = params.value;
+        if (!expiry) return <Typography variant="caption" color="text.disabled">N/A</Typography>;
+        const today = new Date();
+        const expiryDate = new Date(expiry);
+        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        let color = 'success.main';
+        let bg = '#f0fdf4';
+        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        return (
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
+            <Typography variant="caption" fontWeight={700} color={color}>
+              {daysLeft <= 0 ? 'EXPIRED' : daysLeft <= 90 ? `${daysLeft}d left` : new Date(expiry).toLocaleDateString('en-IN')}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+  ];
+
+  // Batch-wise columns for pharmacy
+  const batchColumns = [
+    {
+      field: 'itemName',
+      headerName: 'Medicine / Product',
+      flex: 1.5, minWidth: 200,
+      renderCell: (params) => (
+        <Box sx={{ py: 1 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.2 }}>{params.value}</Typography>
+          <Typography variant="caption" color="text.secondary">SKU: {params.row.sku}</Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'batchNumber',
+      headerName: 'Batch / Lot No.',
+      flex: 1, minWidth: 130,
+      renderCell: (params) => (
+        <Chip
+          label={params.value || 'No Batch'}
+          size="small"
+          icon={<BatchIcon />}
+          variant="outlined"
+          color={params.value ? 'primary' : 'default'}
+          sx={{ fontWeight: 700 }}
+        />
+      ),
+    },
+    {
+      field: 'quantity',
+      headerName: 'Qty in Batch',
+      flex: 0.8, minWidth: 120,
+      renderCell: (params) => (
+        <Box sx={{ width: '100%' }}>
+          <Typography
+            variant="body2"
+            fontWeight={800}
+            color={Number(params.value) < 10 ? 'error.main' : 'success.main'}
+          >
+            {Number(params.value || 0)} {params.row.unit}
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min((Number(params.value) / 100) * 100, 100)}
+            color={Number(params.value) < 10 ? 'error' : 'primary'}
+            sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9', mt: 0.5 }}
+          />
+        </Box>
+      ),
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'Expiry Date',
+      flex: 1, minWidth: 140,
+      renderCell: (params) => {
+        const expiry = params.value;
+        if (!expiry) return <Typography variant="caption" color="text.disabled">N/A</Typography>;
+        const today = new Date();
+        const expiryDate = new Date(expiry);
+        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        let color = 'success.main';
+        let bg = '#f0fdf4';
+        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
+        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        return (
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
+            <Typography variant="caption" fontWeight={700} color={color}>
+              {new Date(expiry).toLocaleDateString('en-IN')}
+              {daysLeft <= 0 ? ' — EXPIRED' : daysLeft <= 90 ? ` (${daysLeft}d)` : ''}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'costPerUnit',
+      headerName: 'Cost/Unit',
+      flex: 0.8, minWidth: 110,
+      renderCell: (params) => (
+        <Typography variant="body2" color="text.secondary">₹{formatCurrency(params.value)}</Typography>
+      ),
+    },
+    {
+      field: 'mrp',
+      headerName: 'MRP',
+      flex: 0.8, minWidth: 100,
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={700}>₹{formatCurrency(params.value)}</Typography>
+      ),
+    },
   ];
 
   return (
@@ -256,10 +454,21 @@ const Stock = () => {
               {t('stock.subtitle')}
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} flexWrap="wrap">
             <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>
               {t('stock.actions.export')}
             </Button>
+            {isPharmacy && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<FileUploadIcon />}
+                onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
+                sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}
+              >
+                {t('stock.actions.bulkImport')}
+              </Button>
+            )}
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>
               {t('stock.actions.addNewStock')}
             </Button>
@@ -294,6 +503,18 @@ const Stock = () => {
         </Grid>
 
         <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          {isPharmacy && (
+            <Box sx={{ borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }}>
+              <Tabs
+                value={viewTab}
+                onChange={(_, v) => setViewTab(v)}
+                sx={{ px: 2, '& .MuiTab-root': { fontWeight: 700 } }}
+              >
+                <Tab label={t('stock.tabs.summaryView')} />
+                <Tab label={t('stock.tabs.batchWiseView')} icon={<BatchIcon fontSize="small" />} iconPosition="start" />
+              </Tabs>
+            </Box>
+          )}
           <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }} spacing={2} justifyContent="space-between">
             <TextField 
               size="small" 
@@ -309,22 +530,127 @@ const Stock = () => {
               {t('stock.actions.analytics')}
             </Button>
           </Stack>
-          <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
-            <DataGrid 
-              rows={filteredRows} 
-              columns={columns} 
-              loading={loading} 
-              disableRowSelectionOnClick 
-              rowHeight={75} 
-              sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} 
-              localeText={{
-                noRowsLabel: t('stock.noData'),
-                columnHeaderSortIconLabel: t('stock.sort'),
-              }}
-            />
-          </Box>
+          {(!isPharmacy || viewTab === 0) && (
+            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+              <DataGrid 
+                rows={filteredRows} 
+                columns={columns} 
+                loading={loading} 
+                disableRowSelectionOnClick 
+                rowHeight={75} 
+                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} 
+                localeText={{
+                  noRowsLabel: t('stock.noData'),
+                  columnHeaderSortIconLabel: t('stock.sort'),
+                }}
+              />
+            </Box>
+          )}
+          {isPharmacy && viewTab === 1 && (
+            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+              <DataGrid
+                rows={batchStock.filter(
+                  (b) =>
+                    !searchText ||
+                    (b.itemName && b.itemName.toLowerCase().includes(searchText.toLowerCase())) ||
+                    (b.sku && b.sku.toLowerCase().includes(searchText.toLowerCase())) ||
+                    (b.batchNumber && b.batchNumber.toLowerCase().includes(searchText.toLowerCase()))
+                )}
+                columns={batchColumns}
+                loading={loading}
+                disableRowSelectionOnClick
+                rowHeight={70}
+                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }}
+                localeText={{ noRowsLabel: t('stock.noBatchStock') }}
+              />
+            </Box>
+          )}
         </Paper>
       </Container>
+
+      {/* Bulk Import Dialog (pharmacy only) */}
+      <Dialog open={importDialogOpen} onClose={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FileUploadIcon color="secondary" />
+            <Typography variant="h6" fontWeight={900}>{t('stock.import.dialogTitle')}</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              {t('stock.import.infoText')}
+            </Alert>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadTemplateIcon />}
+              onClick={handleDownloadTemplate}
+              sx={{ borderRadius: 2, fontWeight: 700, alignSelf: 'flex-start' }}
+            >
+              {t('stock.import.downloadTemplate')}
+            </Button>
+            <Box
+              sx={{
+                border: '2px dashed #94a3b8',
+                borderRadius: 3,
+                p: 3,
+                textAlign: 'center',
+                bgcolor: importFile ? '#f0fdf4' : '#f8fafc',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': { borderColor: '#6366f1', bgcolor: '#f5f3ff' },
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+              <UploadIcon sx={{ fontSize: 40, color: importFile ? 'success.main' : 'text.secondary', mb: 1 }} />
+              <Typography variant="subtitle2" fontWeight={700} color={importFile ? 'success.main' : 'text.secondary'}>
+                {importFile ? importFile.name : t('stock.import.clickToSelect')}
+              </Typography>
+              {importFile && (
+                <Typography variant="caption" color="text.secondary">
+                  {(importFile.size / 1024).toFixed(1)} KB
+                </Typography>
+              )}
+            </Box>
+            {importResult && (
+              <Box>
+                <Alert severity={importResult.errorCount === 0 ? 'success' : 'warning'} sx={{ borderRadius: 2, mb: 1 }}>
+                  {t('stock.import.successCount', { count: importResult.successCount })}
+                  {importResult.errorCount > 0 ? `, ${t('stock.import.errorCount', { count: importResult.errorCount })}` : ''}
+                </Alert>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, maxHeight: 200, overflowY: 'auto' }}>
+                    {importResult.errors.map((e, i) => (
+                      <Typography key={i} variant="caption" color="error" display="block">• {e}</Typography>
+                    ))}
+                  </Paper>
+                )}
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}>
+            {importResult?.errorCount === 0 ? t('common.close') : t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleImportSubmit}
+            disabled={!importFile || isImporting}
+            startIcon={isImporting ? <CircularProgress size={20} /> : <FileUploadIcon />}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {isImporting ? t('stock.import.importing') : t('stock.import.importStock')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Export Selection Dialog */}
       <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
@@ -425,9 +751,19 @@ const Stock = () => {
                   {formData.costPerUnit && (
                     <Grid item xs={6} sx={{ textAlign: 'right' }}>
                       <Typography variant="caption">{t('stock.form.estimatedMargin')}</Typography>
-                      <Typography variant="h6" fontWeight={800} color="success.main">
-                        {(((selectedVariant.pricePerUnit - Number(formData.costPerUnit)) / selectedVariant.pricePerUnit) * 100).toFixed(1)}%
-                      </Typography>
+                      {(() => {
+                        const effectiveRetail = formData.newRetailPrice
+                          ? Number(formData.newRetailPrice)
+                          : selectedVariant.pricePerUnit;
+                        const margin = effectiveRetail > 0
+                          ? (((effectiveRetail - Number(formData.costPerUnit)) / effectiveRetail) * 100).toFixed(1)
+                          : '0.0';
+                        return (
+                          <Typography variant="h6" fontWeight={800} color="success.main">
+                            {margin}%
+                          </Typography>
+                        );
+                      })()}
                     </Grid>
                   )}
                 </Grid>
@@ -454,12 +790,50 @@ const Stock = () => {
                 />
               </Grid>
             </Grid>
+            <TextField
+              fullWidth
+              label="Update Retail / Selling Price (optional)"
+              type="number"
+              value={formData.newRetailPrice}
+              onChange={(e) => setFormData({ ...formData, newRetailPrice: e.target.value })}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              helperText={
+                selectedVariant
+                  ? `Current retail price: ₹${formatCurrency(selectedVariant.pricePerUnit)}. Leave blank to keep unchanged.`
+                  : 'Leave blank to keep current retail price unchanged.'
+              }
+              placeholder={selectedVariant ? String(selectedVariant.pricePerUnit || '') : ''}
+            />
             <TextField 
               fullWidth 
               label={t('stock.form.batchNumber')} 
               value={formData.batch} 
               onChange={(e) => setFormData({ ...formData, batch: e.target.value })} 
             />
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Mfg Date"
+                  type="date"
+                  value={formData.manufacturingDate || ''}
+                  onChange={(e) => setFormData({ ...formData, manufacturingDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Manufacturing date"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Expiry Date"
+                  type="date"
+                  value={formData.expiryDate || ''}
+                  onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Leave blank if not applicable"
+                />
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Box, Snackbar, Alert, CircularProgress, Divider, Chip, Container, 
-  Typography, Paper, Button, Tooltip, Stack
+  Typography, Paper, Button, Tooltip, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -13,13 +14,15 @@ import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { buildSalePayload }  from '../utils/salesUtils';
 import { 
   fetchCustomers, createSale, fetchItemVariants, createCustomer, 
-  draftSale, getSaleById, completeDraftSale 
+  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes
 } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
+import { useShop } from '../context/ShopContext';
 import PersonIcon from '@mui/icons-material/Person';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 const SIDEBAR_WIDTH = '280px'; 
 
@@ -32,6 +35,7 @@ const initialCustomer = {
   name: '', phone: '', addressLine1: '', addressLine2: '', city: '',
   state: '', postalCode: '', country: '', gstNumber: '', panNumber: '',
   notes: '', creditBalance: 0,
+  age: '', gender: '', isChronicPatient: false,
 };
 
 const initialFormData = {
@@ -41,6 +45,7 @@ const initialFormData = {
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: "PACKED",
+  doctorName: '', doctorRegistrationNumber: '', patientName: '',
 };
 
 const Sales = () => {
@@ -67,12 +72,18 @@ const tabValue = tabParam === "history" ? 1 : 0;
 
   const [searchParams, setSearchParams] = useState({
     name: '', sku: '', color: [], size: [], design: '',
-    category: '', fabric: '', season: '', fit: '',
+    category: '', fabric: '', season: '', fit: '', composition: '',
   });
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [editIndex, setEditIndex] = useState(null);
   const [itemError, setItemError] = useState('');
+
+  // Industry context
+  const { isPharmacy, isJewellery, industryType } = useShop();
+  const [drugAlertOpen, setDrugAlertOpen] = useState(false);
+  const [pendingItem, setPendingItem] = useState(null);
+  const [substitutes, setSubstitutes] = useState([]);
 
   // --- RESUME DRAFT LOGIC ---
   const handleLoadDraft = useCallback(async (id) => {
@@ -186,7 +197,25 @@ const tabValue = tabParam === "history" ? 1 : 0;
   };
 
   // Memoized Search Options
-  const uniqueNames = useMemo(() => [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))], [variants]);
+  // Pharmacy: unique names include composition in label for smart search
+  const uniqueNames = useMemo(() => {
+    if (isPharmacy) {
+      const nameMap = new Map();
+      variants.forEach(v => {
+        if (v.itemName && !nameMap.has(v.itemName)) {
+          nameMap.set(v.itemName, v.composition || '');
+        }
+      });
+      return [
+        { value: '', label: 'All Names' },
+        ...[...nameMap.entries()].map(([name, comp]) => ({
+          value: name,
+          label: comp ? `${name} (${comp})` : name,
+        })),
+      ];
+    }
+    return [{ value: '', label: 'All Names' }, ...[...new Set(variants.map(v => v.itemName).filter(Boolean))].map(n => ({ value: n, label: n }))];
+  }, [variants, isPharmacy]);
   const uniqueSkus = useMemo(() => [{ value: '', label: 'All SKUs' }, ...[...new Set(variants.map(v => v.sku).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueColors = useMemo(() => [{ value: '', label: 'All Colors' }, ...[...new Set(variants.map(v => v.color).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
   const uniqueSizes = useMemo(() => [{ value: '', label: 'All Sizes' }, ...[...new Set(variants.map(v => v.size).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
@@ -195,6 +224,8 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const uniqueFabrics = useMemo(() => [{ value: '', label: 'All Fabrics' }, ...[...new Set(variants.map(v => v.fabric).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
   const uniqueSeasons = useMemo(() => [{ value: '', label: 'All Seasons' }, ...[...new Set(variants.map(v => v.season).filter(Boolean))].map(s => ({ value: s, label: s }))], [variants]);
   const uniqueFits = useMemo(() => [{ value: '', label: 'All Fits' }, ...[...new Set(variants.map(v => v.fit).filter(Boolean))].map(f => ({ value: f, label: f }))], [variants]);
+  // Pharmacy-specific: unique active compositions
+  const uniqueCompositions = useMemo(() => [{ value: '', label: 'All Compositions' }, ...[...new Set(variants.map(v => v.composition).filter(Boolean))].map(c => ({ value: c, label: c }))], [variants]);
 
   const filteredVariants = useMemo(() => {
     return variants.filter(v => {
@@ -207,6 +238,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
       if (searchParams.fabric && v.fabric !== searchParams.fabric) return false;
       if (searchParams.season && v.season !== searchParams.season) return false;
       if (searchParams.fit && v.fit !== searchParams.fit) return false;
+      if (searchParams.composition && v.composition !== searchParams.composition) return false;
       return true;
     });
   }, [variants, searchParams]);
@@ -245,21 +277,33 @@ const tabValue = tabParam === "history" ? 1 : 0;
       return;
     }
 
+    // Show drug schedule warning for controlled drugs (pharmacy mode)
+    const schedule = item.drugSchedule || selectedVariant?.drugSchedule;
+    if (isPharmacy && schedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(schedule)) {
+      setPendingItem({ ...item, qty: quantity });
+      setDrugAlertOpen(true);
+      return;
+    }
+
+    doAddItem({ ...item, qty: quantity });
+  };
+
+  const doAddItem = (itemToAdd) => {
     let newItems;
     if (editIndex !== null) {
       newItems = [...formData.items];
-      newItems[editIndex] = { ...item, qty: quantity };
+      newItems[editIndex] = itemToAdd;
     } else {
-      const existingIdx = formData.items.findIndex(it => it.id === item.id);
+      const existingIdx = formData.items.findIndex(it => it.id === itemToAdd.id);
       if (existingIdx !== -1) {
         newItems = [...formData.items];
-        newItems[existingIdx].qty += quantity;
+        newItems[existingIdx].qty += itemToAdd.qty;
       } else {
-        newItems = [...formData.items, { ...item, qty: quantity }];
+        newItems = [...formData.items, itemToAdd];
       }
     }
     setFormData({ ...formData, items: newItems });
-    setItem(initialItem); setSelectedVariant(null); setEditIndex(null);
+    setItem(initialItem); setSelectedVariant(null); setEditIndex(null); setSubstitutes([]);
   };
 
   const handleEditItem = (index) => {
@@ -278,14 +322,48 @@ const tabValue = tabParam === "history" ? 1 : 0;
       setSelectedVariant(opt);
       setItem({
         ...initialItem, id: opt.id, sku: opt.sku, qty: '1', unitPrice: opt.pricePerUnit,
-        itemName: opt.itemName, color: opt.color, size: opt.size, currentStock: opt.currentStock
+        itemName: opt.itemName, color: opt.color, size: opt.size, currentStock: opt.currentStock,
+        drugSchedule: opt.drugSchedule, requiresPrescription: opt.requiresPrescription,
+        // Issue 1 & 5: carry MRP and GST rate per variant
+        mrp: opt.mrp || null,
+        gstRate: opt.gstRate || 0,
+        // Jewellery fields
+        weightGrams: opt.weightGrams || null,
+        netWeightGrams: opt.netWeightGrams || null,
+        metalPurity: opt.metalPurity || null,
+        hallmarkNo: opt.hallmarkNo || null,
+        makingChargesPerGram: opt.makingChargesPerGram || null,
+        makingChargesPct: opt.makingChargesPct || null,
+        stoneWeightCarats: opt.stoneWeightCarats || null,
+        // Electronics fields
+        serialNumber: opt.serialNumber || null,
+        warrantyMonths: opt.warrantyMonths || null,
+        // Automobile fields
+        partNumber: opt.partNumber || null,
+        partOrigin: opt.partOrigin || null,
       });
+      // Load substitutes when item is out of stock or has composition data
+      if (opt.itemId && (opt.currentStock === 0 || opt.currentStock < 1)) {
+        fetchItemSubstitutes(opt.itemId)
+          .then(data => setSubstitutes(Array.isArray(data) ? data : []))
+          .catch(() => setSubstitutes([]));
+      } else {
+        setSubstitutes([]);
+      }
+    } else {
+      setSubstitutes([]);
     }
   };
 
   const handleCustomerSelect = (opt) => {
     setSelectedCustomer(opt);
-    setFormData(prev => ({ ...prev, customerId: opt?.value || '' }));
+    setFormData(prev => ({
+      ...prev,
+      customerId: opt?.value || '',
+      // Issue 4: auto-populate patientName for pharmacy when a patient is selected.
+      // Customers are labeled as "Name | Phone: 9999..." — split to get just the name.
+      ...(isPharmacy && opt ? { patientName: opt.name || opt.label?.split(' | ')[0] || '' } : {}),
+    }));
   };
 
   const handleSearchParamChange = (field, opt) => {
@@ -300,7 +378,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
       setCustomers([...customers, newCust]); setSelectedCustomer(newCust);
       setFormData(prev => ({ ...prev, customerId: res.data.id }));
       setOpenCustomerModal(false);
-      setSnackbar({ open: true, message: 'Customer added!', severity: 'success' });
+      setSnackbar({ open: true, message: isPharmacy ? 'Patient registered!' : 'Customer added!', severity: 'success' });
     } catch { setSnackbar({ open: true, message: 'Failed to add customer.', severity: 'error' }); }
   };
 
@@ -380,6 +458,8 @@ const handleSubmitSale = async (payload) => {
                 newCustomerData={newCustomerData} setNewCustomerData={setNewCustomerData}
                 handleCustomerSelect={handleCustomerSelect} handleNewCustomer={handleNewCustomer}
                 openCustomerModal={openCustomerModal} setOpenCustomerModal={setOpenCustomerModal}
+                isPharmacy={isPharmacy}
+                isJewellery={isJewellery}
               />
             </Paper>
 
@@ -394,11 +474,20 @@ const handleSubmitSale = async (payload) => {
                 uniqueColors={uniqueColors} uniqueSizes={uniqueSizes} uniqueDesigns={uniqueDesigns}
                 uniqueCategory={uniqueCategory} uniqueFabrics={uniqueFabrics}
                 uniqueSeasons={uniqueSeasons} uniqueFits={uniqueFits}
+                uniqueCompositions={uniqueCompositions}
                 handleResetFilters={handleResetFilters}
                 searchParams={searchParams} handleVariantSelect={handleVariantSelect}
                 handleSearchParamChange={handleSearchParamChange} handleAddItem={handleAddItem}
                 error={itemError} editIndex={editIndex}
                 proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
+                substitutes={substitutes}
+                isPharmacy={isPharmacy}
+                industryType={industryType}
+                onSelectSubstitute={(sub) => {
+                  setSelectedVariant(sub);
+                  setItem({ ...initialItem, id: sub.id, sku: sub.sku, qty: '1', unitPrice: sub.pricePerUnit, itemName: sub.itemName, currentStock: sub.currentStock, drugSchedule: sub.drugSchedule });
+                  setSubstitutes([]);
+                }}
               />
             </Paper>
 
@@ -412,12 +501,13 @@ const handleSubmitSale = async (payload) => {
                 setFormData={setFormData}
                 selectedCustomer={selectedCustomer} 
                 setItem={setItem}
-                // --- ADD THESE MISSING PROPS ---
-                setShowReviewPage={setShowReviewPage}    // Function to show the review page
-                handleCustomerSelect={handleCustomerSelect} // Function to reset/select customer
-                setSelectedVariant={setSelectedVariant}  // Function to reset selected variant
-                setSearchParams={setSearchParams}        // From useSearchParams hook
+                setShowReviewPage={setShowReviewPage}
+                handleCustomerSelect={handleCustomerSelect}
+                setSelectedVariant={setSelectedVariant}
+                setSearchParams={setSearchParams}
                 proceedDisabledTooltip="Please select a customer and add items to proceed."
+                isPharmacy={isPharmacy}
+                isJewellery={isJewellery}
               />
             </Paper>
             {/* PROFESSIONAL STICKY ACTION BAR */}
@@ -493,7 +583,27 @@ const handleSubmitSale = async (payload) => {
                       size="large" 
                       endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ChevronRightIcon />}
                       disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid() || loading}
-                      onClick={() => setShowReviewPage(true)}
+                      onClick={() => {
+                        // Schedule H1/X legal compliance: doctor + patient details required
+                        const hasControlledDrug = isPharmacy && formData.items.some(it =>
+                          ['SCHEDULE_H1', 'SCHEDULE_X'].includes(it.drugSchedule)
+                        );
+                        if (hasControlledDrug) {
+                          const missing = [];
+                          if (!formData.doctorName?.trim()) missing.push('Doctor Name');
+                          if (!formData.doctorRegistrationNumber?.trim()) missing.push('Doctor Registration No.');
+                          if (!formData.patientName?.trim()) missing.push('Patient Name');
+                          if (missing.length > 0) {
+                            setSnackbar({
+                              open: true,
+                              message: `Schedule H1/X drugs require: ${missing.join(', ')}. Please fill in Prescription Details.`,
+                              severity: 'error',
+                            });
+                            return;
+                          }
+                        }
+                        setShowReviewPage(true);
+                      }}
                       sx={{ 
                         px: { xs: 3, md: 6 }, 
                         py: 1.5,
@@ -528,6 +638,7 @@ const handleSubmitSale = async (payload) => {
             onCancel={() => setShowReviewPage(false)}
             setError={msg => setSnackbar({ open: true, message: msg, severity: 'error' })}
             loading={loading}
+            isPharmacy={isPharmacy}
           />
         )}
 
@@ -545,6 +656,53 @@ const handleSubmitSale = async (payload) => {
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
+
+      {/* Drug Schedule Alert Dialog */}
+      <Dialog open={drugAlertOpen} onClose={() => setDrugAlertOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#fff7ed', color: '#92400e' }}>
+          <WarningAmberIcon sx={{ color: '#d97706' }} />
+          {pendingItem?.drugSchedule === 'SCHEDULE_X' ? 'Narcotic Drug — Strict Control' : 'Controlled Drug — Prescription Required'}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            <strong>{pendingItem?.itemName}</strong> is classified as <strong>{pendingItem?.drugSchedule?.replace('_', ' ')}</strong>.
+          </Typography>
+          {pendingItem?.drugSchedule === 'SCHEDULE_X' && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              This sale will be recorded in the Narcotics Register as required by law. Ensure the patient has a valid prescription with doctor details.
+            </Alert>
+          )}
+          {pendingItem?.drugSchedule === 'SCHEDULE_H1' && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Schedule H1 drugs require strict verification. Confirm the patient has a valid prescription before proceeding.
+            </Alert>
+          )}
+          {pendingItem?.drugSchedule === 'SCHEDULE_H' && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              This drug requires a valid prescription. Verify before adding to the bill.
+            </Alert>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            By clicking "Confirm & Add", you confirm that a valid prescription has been checked.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => { setDrugAlertOpen(false); setPendingItem(null); }} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              setDrugAlertOpen(false);
+              if (pendingItem) doAddItem(pendingItem);
+              setPendingItem(null);
+            }}
+          >
+            Confirm & Add
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

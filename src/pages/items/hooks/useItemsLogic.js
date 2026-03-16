@@ -40,6 +40,13 @@ export default function useItemsLogic() {
   const [variantsToView, setVariantsToView] = useState({ name: '', variants: [] });
   const [selectedVariantId, setSelectedVariantId] = useState(null);
 
+  // ── Duplicate Item Warning Dialog ──────────────────────
+  const [duplicateWarning, setDuplicateWarning] = useState({
+    open: false,
+    existingItem: null,
+    message: '',
+  });
+
   // ── Form & Multi-step States ───────────────────────────
   const [step, setStep] = useState(0);
   const [itemFormData, setItemFormData] = useState(initialItemFormData);
@@ -193,7 +200,26 @@ export default function useItemsLogic() {
       handleDialogClose();
       loadData();
     } catch (err) {
-      setDialogError(err.response?.data?.message || 'Failed to create item.');
+      const serverMessage = err.response?.data?.message || '';
+      // Check if backend says item with this brand already exists
+      if (
+        serverMessage.toLowerCase().includes('already exists') ||
+        serverMessage.toLowerCase().includes('duplicate')
+      ) {
+        // Try to find the matching existing item in our loaded list
+        const matchingItem = allItems.find(
+          (i) =>
+            i.name?.toLowerCase() === itemFormData.name?.toLowerCase() &&
+            i.brandName?.toLowerCase() === itemFormData.brandName?.toLowerCase()
+        );
+        setDuplicateWarning({
+          open: true,
+          existingItem: matchingItem || null,
+          message: serverMessage || 'An item with this name and brand already exists.',
+        });
+      } else {
+        setDialogError(serverMessage || 'Failed to create item.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -230,12 +256,18 @@ export default function useItemsLogic() {
       brandName: item.brandName || '',
       attribute1: item.attribute1 || '',
       attribute2: item.attribute2 || '',
+      drugSchedule: item.drugSchedule || '',
+      requiresPrescription: !!item.requiresPrescription,
     });
 
     setVariantList(item.variants.map(v => ({
       ...v,
       photoUrl: v.photoPath,
-      lowStockThreshold: v.lowStockThreshold || '5'
+      lowStockThreshold: v.lowStockThreshold || '5',
+      batchNumber: v.batchNumber || '',
+      manufacturingDate: v.manufacturingDate || '',
+      expiryDate: v.expiryDate || '',
+      mrp: v.mrp || '',
     })));
 
     setSelectedItemId(itemId);
@@ -276,6 +308,54 @@ export default function useItemsLogic() {
     setSelectedItemId(null);
   };
 
+  const handleDuplicateViewUpdate = (mode) => {
+    const { existingItem } = duplicateWarning;
+    setDuplicateWarning({ open: false, existingItem: null, message: '' });
+    if (!existingItem) return;
+
+    if (mode === 'update') {
+      // Preserve any variants the user already added in the add-item flow.
+      // Deep-copy each object so downstream mutations can't affect both arrays.
+      const pendingVariants = variantList.map((v) => ({ ...v }));
+      handleDialogClose();
+
+      // Reload the existing item's data into the edit form
+      const item = allItems.find((i) => i.id === existingItem.id);
+      if (!item) return;
+      setItemFormData({
+        name: item.name || '',
+        description: item.description || '',
+        categoryId: item.categoryId || '',
+        brandName: item.brandName || '',
+        attribute1: item.attribute1 || '',
+        attribute2: item.attribute2 || '',
+        drugSchedule: item.drugSchedule || '',
+        requiresPrescription: !!item.requiresPrescription,
+      });
+      const existingVariants = item.variants.map((v) => ({
+        ...v,
+        photoUrl: v.photoPath,
+        lowStockThreshold: v.lowStockThreshold || '5',
+        batchNumber: v.batchNumber || '',
+        manufacturingDate: v.manufacturingDate || '',
+        expiryDate: v.expiryDate || '',
+        mrp: v.mrp || '',
+      }));
+      // Append user's pending variants (the ones they were adding) after existing ones
+      setVariantList([...existingVariants, ...pendingVariants]);
+      setSelectedItemId(existingItem.id);
+      setOpenEditDialog(true);
+    } else {
+      // 'view' – open the view dialog WITHOUT closing the add-item dialog so that
+      // closing the view dialog returns the user to their in-progress add form.
+      handleViewVariants(existingItem);
+    }
+  };
+
+  const closeDuplicateWarning = () => {
+    setDuplicateWarning({ open: false, existingItem: null, message: '' });
+  };
+
   const handleNext = () => {
     if (step === 0 && (!itemFormData.name || !itemFormData.categoryId)) {
       setDialogError('Name and Category are required.');
@@ -310,6 +390,8 @@ export default function useItemsLogic() {
     // Dialog States
     openAddDialog, setOpenAddDialog, openEditDialog, setOpenEditDialog,
     openDeleteConfirm, setOpenDeleteConfirm, openViewVariantsDialog, setOpenViewVariantsDialog,
+    // Duplicate warning
+    duplicateWarning, handleDuplicateViewUpdate, closeDuplicateWarning,
     // Form States
     variantsToView, step, setStep, itemFormData, setItemFormData,
     variantList, setVariantList, currentVariant, setCurrentVariant,

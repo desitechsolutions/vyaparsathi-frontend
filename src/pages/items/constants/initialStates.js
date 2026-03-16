@@ -20,6 +20,12 @@ export const initialVariantState = {
   design: '', // Maps to: Model (Elec) / Grade (Hard) / Pattern (Jewel)
   fit: '',    // Maps to: Connectivity (Elec) / Usage (Pharm) / Assembly (Furn)
 
+  // Pharmacy-specific variant fields (ItemVariant entity)
+  batchNumber: '',       // Manufacturer batch/lot number
+  manufacturingDate: '', // Date of manufacture (ISO date string yyyy-MM-dd)
+  expiryDate: '',        // Expiry date (ISO date string yyyy-MM-dd)
+  mrp: '',               // Maximum Retail Price — must not be exceeded
+
   // Media
   photoFile: null,
   photoPreviewUrl: null,
@@ -42,4 +48,8 @@ export const initialItemFormData = {
   // ELECTRONICS: attr1 = Build Material, attr2 = Warranty Period
   attribute1: '', 
   attribute2: '',
+
+  // Pharmacy-specific item fields (Item entity)
+  drugSchedule: '',         // DrugSchedule enum: OTC | NON_SCHEDULED | SCHEDULE_H | SCHEDULE_H1 | SCHEDULE_X
+  requiresPrescription: false, // Whether a prescription is required to sell
 };

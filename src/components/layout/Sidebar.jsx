@@ -7,6 +7,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useShop } from '../../context/ShopContext';
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -29,6 +30,8 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import VerifiedUser from '@mui/icons-material/VerifiedUser';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import { AccountBalanceWallet, Settings } from '@mui/icons-material';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import VaccinesIcon from '@mui/icons-material/Vaccines';
 
 import SubscriptionStatusCard from '../SubscriptionStatusCard';
 
@@ -43,6 +46,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   
   const { user } = useAuthContext();
   const { hasAccess } = useSubscription();
+  const { isPharmacy } = useShop();
   
   const userRole = user?.role;
   const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
@@ -60,23 +64,46 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
   // --- ORGANIZED MENU STRUCTURE ---
 
-  // 1. Core Operations (Daily workflow)
+  // 1. Core Operations (Daily workflow) — dynamic based on industry
   const mainItems = [
     { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
-    { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
-    { text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery', requiredTier: 'STARTER' },
+    // Show "Patients" for pharmacy, "Customers" for others
+    isPharmacy
+      ? { text: 'Patients', icon: <MedicalServicesIcon />, path: '/customers' }
+      : { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
+    // Hide delivery for pharmacy (medicines are typically dispensed in-store)
+    ...(!isPharmacy ? [{ text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery', requiredTier: 'STARTER' }] : []),
     { text: 'expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
   ];
 
   // 2. Inventory & Supply Chain
   const inventoryItems = [
-    { text: 'itemCatalog', icon: <CategoryIcon />, path: '/items' },
+    // Rename "Item Catalog" to "Medicines" for pharmacy
+    {
+      text: isPharmacy ? 'Medicines & Products' : 'itemCatalog',
+      icon: isPharmacy ? <VaccinesIcon /> : <CategoryIcon />,
+      path: '/items',
+    },
     { text: 'productsOverview.title', icon: <ShoppingCartIcon />, path: '/products' },
     { text: 'inventory', icon: <InventoryIcon />, path: '/stock' },
     { text: 'receiving', icon: <InventoryIcon />, path: '/receivings', requiredTier: 'PRO' },
     { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers', requiredTier: 'STARTER' },
     { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders', requiredTier: 'PRO' },
+  ];
+
+  // Build pharmacy-specific or general report children
+  const reportChildren = [
+    { text: 'overview', icon: <AssessmentIcon />, path: '/reports', requiredTier: 'PRO' },
+    { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
+    { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
+    // Pharmacy-only reports
+    ...(isPharmacy ? [
+      { text: 'Expiry Report', icon: <AssessmentIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
+      { text: 'Narcotics Register', icon: <AssessmentIcon />, path: '/reports/narcotics-register', requiredTier: 'PRO' },
+      { text: 'Purchase Register', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
+    ] : []),
+    { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
   ];
 
   // 3. Strategic & Financial (Admin/Owner only)
@@ -88,7 +115,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       open: openStates.payments,
       onClick: () => toggleNested('payments'),
       children: [
-        { text: 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
+        { text: isPharmacy ? 'Patient Payments' : 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
         { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       ],
     },
@@ -101,12 +128,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       requiredTier: 'PRO',
       open: openStates.reports,
       onClick: () => toggleNested('reports'),
-      children: [
-        { text: 'overview', icon: <AssessmentIcon />, path: '/reports', requiredTier: 'PRO' },
-        { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
-        { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
-        { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
-      ],
+      children: reportChildren,
     },
     {
       text: 'admin',
@@ -199,7 +221,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 const drawerContent = (
   <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
     <Toolbar sx={{ justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }}>
-      BILLING APP
+      {isPharmacy ? 'PHARMA POS' : 'BILLING APP'}
     </Toolbar>
     
     <Box sx={{ px: 1 }}>

@@ -58,7 +58,9 @@ const resources = {
       notifications: 'Notifications',
       common:{
         cancel: 'Cancel',
-         close: "Close",
+        close: "Close",
+        yes: 'Yes',
+        no: 'No',
       },
 
       dashboardPage: {
@@ -184,6 +186,15 @@ const resources = {
           lowStockThreshold: 'Low Stock Threshold',
           lowStockHelper: "You'll be alerted when stock drops below this value.",
           uploadPhoto: 'Upload Photo (optional)',
+          dosageForm: 'Dosage Form',
+          storageReq: 'Storage Req.',
+          drugSchedule: 'Drug Schedule',
+          drugScheduleNone: 'Not Applicable / Unclassified',
+          requiresPrescription: 'Requires Prescription',
+          mrp: 'MRP (Max Retail Price)',
+          batchNumber: 'Batch / Lot Number',
+          manufacturingDate: 'Mfg. Date',
+          expiryDate: 'Expiry Date',
         },
         variant: {
           variantsCount: '{{count}} Variant',
@@ -212,6 +223,8 @@ const resources = {
           outOfStock: 'Out of Stock',
           gstRate: 'GST Rate',
           noVariantsFound: 'No variants found for this item.',
+          batchNumber: 'Batch',
+          expiryDate: 'Expiry',
           tooltips: {
             cannotDeleteStock: 'Cannot delete variant while stock is present',
             deleteVariant: 'Permanently remove this variant',
@@ -225,7 +238,14 @@ const resources = {
           standardDesign: 'Standard Design',
         },
         sections: {
-          basicInfo: 'Basic Information'
+          basicInfo: 'Basic Information',
+          pharmacyDetails: 'Pharmacy Details',
+          jewelleryDetails: 'Jewellery Details (BIS / Hallmark)',
+          electronicsDetails: 'Electronics Details',
+          automobileDetails: 'Automobile Part Details',
+          clothingDetails: 'Clothing Details',
+          hardwareDetails: 'Hardware Details',
+          stationeryDetails: 'Stationery / Education Details',
         },
         actions: {
           addItem: 'Add Item',
@@ -291,8 +311,26 @@ const resources = {
         successAdjust: 'Stock adjustment applied successfully!',
         exportFilename: 'Inventory_Report',
         noData: 'No stock entries found',
+        noBatchStock: 'No batch stock found',
         sort: 'Sort',
         successExport:'Report downloaded successfully!',
+        tabs: {
+          summaryView: 'Summary View',
+          batchWiseView: 'Batch-wise View',
+        },
+        import: {
+          dialogTitle: 'Bulk Stock Import',
+          infoText: 'Download the template, fill in your stock data, then upload the completed file.',
+          downloadTemplate: 'Download Import Template (.xlsx)',
+          clickToSelect: 'Click to select Excel file (.xlsx)',
+          importing: 'Importing...',
+          importStock: 'Import Stock',
+          successCount: '{{count}} rows imported successfully',
+          errorCount: '{{count}} rows had errors',
+          failedToDownload: 'Failed to download template',
+          selectFileError: 'Please select an Excel file to import.',
+          importFailed: 'Import failed. Please check your file and try again.',
+        },
         columns: {
           productDetails: 'Product Details',
           inventoryStatus: 'Inventory Status',
@@ -322,8 +360,8 @@ const resources = {
           analytics: 'Analytics',
           completeEntry: 'Complete Entry',
           applyAdjustment: 'Apply Adjustment',
-          downloadReport:'Download'
-
+          downloadReport:'Download',
+          bulkImport: 'Bulk Import',
         },
         dialog: {
           addStockTitle: 'Record Stock Purchase',
@@ -344,6 +382,7 @@ const resources = {
           purchaseCost: 'Purchase Cost',
           quantity: 'Quantity',
           batchNumber: 'Batch / Lot Number',
+          expiryDate: 'Expiry Date',
           reason: 'Reason for Change',
           from: 'From',
           to: 'To',
@@ -623,6 +662,8 @@ const resources = {
       common:{
         cancel: 'रद्द करें',
         close: "बंद करें",
+        yes: 'हाँ',
+        no: 'नहीं',
       },
       itemsPage: {
         title: 'आइटम्स',
@@ -695,6 +736,15 @@ const resources = {
           lowStockThreshold: 'लो स्टॉक थ्रेशोल्ड',
           lowStockHelper: "स्टॉक इस मान से नीचे जाने पर आपको अलर्ट किया जाएगा।",
           uploadPhoto: 'फोटो अपलोड करें (वैकल्पिक)',
+          dosageForm: 'खुराक का रूप',
+          storageReq: 'भंडारण आवश्यकता',
+          drugSchedule: 'दवा अनुसूची',
+          drugScheduleNone: 'लागू नहीं / अवर्गीकृत',
+          requiresPrescription: 'प्रिस्क्रिप्शन आवश्यक',
+          mrp: 'MRP (अधिकतम खुदरा मूल्य)',
+          batchNumber: 'बैच / लॉट नंबर',
+          manufacturingDate: 'निर्माण तिथि',
+          expiryDate: 'समाप्ति तिथि',
         },
         variant: {
           variantsCount: '{{count}} वेरिएंट',
@@ -723,6 +773,8 @@ const resources = {
           outOfStock: 'स्टॉक खत्म',
           gstRate: 'GST दर',
           noVariantsFound: 'इस आइटम के लिए कोई वेरिएंट नहीं मिला।',
+          batchNumber: 'बैच',
+          expiryDate: 'समाप्ति',
           tooltips: {
             cannotDeleteStock: 'स्टॉक मौजूद होने पर वेरिएंट नहीं हटाया जा सकता',
             deleteVariant: 'इस वेरिएंट को स्थायी रूप से हटाएं',
@@ -736,7 +788,8 @@ const resources = {
           standardDesign: 'स्टैंडर्ड डिज़ाइन',
         },
         sections: {
-          basicInfo: 'बुनियादी जानकारी'
+          basicInfo: 'बुनियादी जानकारी',
+          pharmacyDetails: 'फार्मेसी विवरण',
         },
         actions: {
           addItem: 'आइटम जोड़ें',
@@ -802,8 +855,26 @@ const resources = {
         successAdjust: 'स्टॉक समायोजन सफलतापूर्वक लागू किया गया!',
         exportFilename: 'इन्वेंटरी_रिपोर्ट',
         noData: 'कोई स्टॉक प्रविष्टि नहीं मिली',
+        noBatchStock: 'कोई बैच स्टॉक नहीं मिला',
         sort: 'क्रमबद्ध करें',
         successExport:'रिपोर्ट सफलतापूर्वक डाउनलोड हो गई!',
+        tabs: {
+          summaryView: 'सारांश दृश्य',
+          batchWiseView: 'बैच-वार दृश्य',
+        },
+        import: {
+          dialogTitle: 'बल्क स्टॉक आयात',
+          infoText: 'टेम्पलेट डाउनलोड करें, स्टॉक डेटा भरें, फिर फाइल अपलोड करें।',
+          downloadTemplate: 'आयात टेम्पलेट डाउनलोड करें (.xlsx)',
+          clickToSelect: 'Excel फाइल (.xlsx) चुनने के लिए क्लिक करें',
+          importing: 'आयात हो रहा है...',
+          importStock: 'स्टॉक आयात करें',
+          successCount: '{{count}} पंक्तियाँ सफलतापूर्वक आयात हुईं',
+          errorCount: '{{count}} पंक्तियों में त्रुटि',
+          failedToDownload: 'टेम्पलेट डाउनलोड करने में विफल',
+          selectFileError: 'कृपया आयात के लिए Excel फाइल चुनें।',
+          importFailed: 'आयात विफल। कृपया फाइल जांचें और पुनः प्रयास करें।',
+        },
         columns: {
           productDetails: 'उत्पाद विवरण',
           inventoryStatus: 'इन्वेंटरी स्थिति',
@@ -833,7 +904,8 @@ const resources = {
           analytics: 'विश्लेषण',
           completeEntry: 'प्रविष्टि पूरी करें',
           applyAdjustment: 'समायोजन लागू करें',
-          downloadReport:'डाउनलोड करें'
+          downloadReport:'डाउनलोड करें',
+          bulkImport: 'बल्क आयात',
         },
         dialog: {
           addStockTitle: 'स्टॉक खरीद दर्ज करें',
@@ -854,6 +926,7 @@ const resources = {
           purchaseCost: 'खरीद लागत',
           quantity: 'मात्रा',
           batchNumber: 'बैच / लॉट नंबर',
+          expiryDate: 'समाप्ति तिथि',
           reason: 'परिवर्तन का कारण',
           from: 'से',
           to: 'तक',

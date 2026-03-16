@@ -57,6 +57,10 @@ import SettingsPage from '../pages/SettingsPage';
 import NotFound from '../pages/NotFound';
 import BillingDashboard from '../components/subscriptions/BillingDashboard';
 import PlanConfigManager from '../pages/admin/PlanConfigManager';
+import ExpiryReport from '../pages/reports/ExpiryReport';
+import NarcoticsRegister from '../pages/reports/NarcoticsRegister';
+import PurchaseRegister from '../pages/reports/PurchaseRegister';
+import { ShopProvider } from '../context/ShopContext';
 
 function AppRoutes() {
   const { user } = useAuthContext();
@@ -98,10 +102,12 @@ function AppRoutes() {
             path="/"
             element={
               <PrivateRoute>
-                <ShopGuard>
-                  <MainLayout />
-                </ShopGuard>          
-              </PrivateRoute>
+                <ShopProvider> 
+          <ShopGuard>
+            <MainLayout />
+          </ShopGuard>
+        </ShopProvider>
+      </PrivateRoute>
             }
           >
             {/* PUBLIC WITHIN APP (No Tier Required) */}
@@ -146,6 +152,10 @@ function AppRoutes() {
             <Route path="reports/customer-sales" element={<TierGuard requiredTier="PRO"><CustomerSales /></TierGuard>} />
             <Route path="reports/expenses-summary" element={<TierGuard requiredTier="PRO"><ExpensesSummary /></TierGuard>} />
             <Route path="reports/payments-summary" element={<TierGuard requiredTier="PRO"><PaymentsSummary /></TierGuard>} />
+            {/* Pharma Reports (PRO Tier) */}
+            <Route path="reports/expiry-report" element={<TierGuard requiredTier="PRO"><ExpiryReport /></TierGuard>} />
+            <Route path="reports/narcotics-register" element={<TierGuard requiredTier="PRO"><NarcoticsRegister /></TierGuard>} />
+            <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><PurchaseRegister /></TierGuard>} />
 
             {/* ENTERPRISE TIER ONLY */}
             <Route path="admin/payroll" element={<TierGuard requiredTier="ENTERPRISE"><PayrollDashboard /></TierGuard>} />

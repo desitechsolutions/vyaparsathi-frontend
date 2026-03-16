@@ -159,6 +159,20 @@ export const deleteSupplier = (id) =>
 export const getSupplierById = (id) =>
   API.get(endpoints.supplierById(id)).then((r) => r.data);
 
+// --- SUPPLIER PAYMENTS ---
+
+export const recordSupplierPayment = (data) =>
+  API.post(endpoints.supplierPayments, data).then((r) => r.data);
+
+export const recordBulkSupplierPayment = (data) =>
+  API.post(endpoints.supplierPaymentsBulk, data).then((r) => r.data);
+
+export const getSupplierPayments = (params = {}) =>
+  API.get(endpoints.supplierPayments, { params }).then((r) => r.data);
+
+export const getSupplierPaymentSummary = (purchaseOrderId) =>
+  API.get(endpoints.supplierPaymentsSummary(purchaseOrderId)).then((r) => r.data);
+
 // --- ITEMS & VARIANTS ---
 
 export const createItem = (data) => API.post(endpoints.items, data);
@@ -169,11 +183,12 @@ export const fetchCategories = () => API.get(endpoints.fetchCategories);
 
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
+export const updateItemVariant = (id, data) => API.put(endpoints.itemVariantById(id), data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
 };
 export const fetchItemVariantById = async (id) => {
-  const response = await API.get(`/api/item-variants/${id}`);
+  const response = await API.get(endpoints.itemVariantById(id));
   return response.data;
 };
 
@@ -183,10 +198,23 @@ export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchStock = () => API.get(endpoints.fetchStock);
 export const fetchLowStockAlerts = () =>
   API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+export const fetchExpiryAlerts = (daysBeforeExpiry = 90) =>
+  API.get('/api/stock/expiry-alerts', { params: { daysBeforeExpiry }, meta: { background: true } });
 export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) => 
   API.get(`/api/stock/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
+export const fetchBatchWiseStock = (variantId = null) =>
+  API.get('/api/stock/batch-wise', variantId ? { params: { variantId } } : {});
+export const downloadStockImportTemplate = () =>
+  API.get('/api/stock/import/template', { responseType: 'blob' });
+export const importStockFromExcel = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/api/stock/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 // --- CUSTOMERS ---
 
@@ -494,6 +522,20 @@ export const toggleShopStatus = (shopId, active) =>
     responseType: 'blob',
   });
 };
+
+// --- PHARMA REPORTS ---
+
+export const fetchExpiryReport = (days) =>
+  API.get(endpoints.reports.expiryReport(days)).then(r => r.data);
+
+export const fetchNarcoticsRegister = (from, to) =>
+  API.get(endpoints.reports.narcoticsRegister(from, to)).then(r => r.data);
+
+export const fetchPurchaseRegister = (from, to) =>
+  API.get(endpoints.reports.purchaseRegister(from, to)).then(r => r.data);
+
+export const fetchItemSubstitutes = (itemId) =>
+  API.get(endpoints.itemSubstitutes(itemId)).then(r => r.data);
 
 // --- USER MANAGEMENT ---
 

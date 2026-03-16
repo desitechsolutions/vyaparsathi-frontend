@@ -15,7 +15,7 @@ SalesTabs.Panel = ({ value, index, children }) => (
     id={`tabpanel-${index}`}
     aria-labelledby={`tab-${index}`}
   >
-    {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    <Box sx={{ p: 3 }}>{children}</Box>
   </div>
 );
 
