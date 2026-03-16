@@ -47,12 +47,12 @@
     "xlsx-style": "^0.8.13"
   },
   "scripts": {
-    "start": "PORT=$PORT craco start --host 0.0.0.0",
-    "build": "craco build",
-    "prebuild": "mkdir -p node_modules/ajv/dist/compile && cp node_modules/ajv/lib/compile/index.js node_modules/ajv/dist/compile/codegen.js",
-    "test": "craco test",
-    "eject": "react-scripts eject"
-  },
+  "prebuild": "mkdir -p node_modules/ajv/dist/compile && cp node_modules/ajv/lib/compile/index.js node_modules/ajv/dist/compile/codegen.js",
+  "build": "craco build",
+  "start": "node node_modules/@craco/craco/bin/craco.js start --host 0.0.0.0 --port 8080",
+  "test": "craco test",
+  "eject": "react-scripts eject"
+},
   "eslintConfig": {
     "extends": [
       "react-app",
