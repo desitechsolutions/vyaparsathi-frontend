@@ -40,11 +40,17 @@ const LOCALES = [
 ];
 
 const INDUSTRIES = [
+  { value: 'AUTOMOBILE', label: 'AUTOMOBILE' },
   { value: 'CLOTHING', label: 'Clothing & Apparel' },
   { value: 'ELECTRONICS', label: 'Electronics & Mobiles' },
-  { value: 'HARDWARE', label: 'Hardware & Electricals' },
-  { value: 'PHARMACY', label: 'Medical Pharmacy' },
+  { value: 'FOOTWEAR', label: 'FOOTWEAR' },
+  { value: 'FURNITURE', label: 'FURNITURE' },
+  { value: 'GROCERY', label: 'GROCERY' },
   { value: 'GENERAL', label: 'General Store / Others' },
+  { value: 'HARDWARE', label: 'Hardware & Electricals' },
+  { value: 'JEWELLERY', label: 'JEWELLERY' },
+  { value: 'PHARMACY', label: 'Medical Pharmacy' },
+  { value: 'STATIONERY', label: 'STATIONERY' },
 ];
 
 const SetupShop = () => {
