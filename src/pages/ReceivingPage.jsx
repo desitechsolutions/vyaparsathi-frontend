@@ -173,7 +173,10 @@ function DetailsDialog({ open, onClose, row, getPOItemById, onReceivingUpdate })
                 status: i.status || 'PENDING',
                 notes: i.notes || '',
                 damageReason: i.damageReason || '',
-                rejectReason: i.rejectReason || ''
+                rejectReason: i.rejectReason || '',
+                batchNumber: i.batchNumber || '',
+                manufacturingDate: i.manufacturingDate || '',
+                expiryDate: i.expiryDate || '',
             }));
 
             // Fetch previous receivings for this PO, exclude current receiving
@@ -284,7 +287,10 @@ function DetailsDialog({ open, onClose, row, getPOItemById, onReceivingUpdate })
                     putAwayStatus: it.putAwayStatus,
                     notes: it.notes,
                     damageReason: it.damageReason || null,
-                    rejectReason: it.rejectReason || null
+                    rejectReason: it.rejectReason || null,
+                    batchNumber: it.batchNumber || null,
+                    manufacturingDate: it.manufacturingDate || null,
+                    expiryDate: it.expiryDate || null,
                 }))
             };
             const updated = await updateReceiving(row.id, payload);
@@ -383,6 +389,41 @@ function DetailsDialog({ open, onClose, row, getPOItemById, onReceivingUpdate })
                                     <Box sx={{ mt: 2 }}>
                                         <TextField size="small" label="Notes" value={item.notes} onChange={e => handleEditChange(idx, 'notes', e.target.value)} fullWidth />
                                     </Box>
+
+                                    {/* Pharmacy batch fields */}
+                                    <Grid container spacing={1} sx={{ mt: 1 }}>
+                                        <Grid item xs={12} sm={4}>
+                                            <TextField
+                                                size="small"
+                                                label="Batch Number"
+                                                value={item.batchNumber || ''}
+                                                onChange={e => handleEditChange(idx, 'batchNumber', e.target.value)}
+                                                fullWidth
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={4}>
+                                            <TextField
+                                                size="small"
+                                                label="Mfg. Date"
+                                                type="date"
+                                                value={item.manufacturingDate || ''}
+                                                onChange={e => handleEditChange(idx, 'manufacturingDate', e.target.value)}
+                                                fullWidth
+                                                InputLabelProps={{ shrink: true }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={4}>
+                                            <TextField
+                                                size="small"
+                                                label="Expiry Date"
+                                                type="date"
+                                                value={item.expiryDate || ''}
+                                                onChange={e => handleEditChange(idx, 'expiryDate', e.target.value)}
+                                                fullWidth
+                                                InputLabelProps={{ shrink: true }}
+                                            />
+                                        </Grid>
+                                    </Grid>
                                 </Paper>
                             );
                         })}

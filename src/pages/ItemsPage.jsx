@@ -90,6 +90,9 @@ export default function ItemsPage() {
     handleEditVariantInList,
     handleDeleteVariantInList,
     columns,
+    duplicateWarning,
+    handleDuplicateViewUpdate,
+    closeDuplicateWarning,
   } = useItemsLogic();
 
   /**
@@ -390,6 +393,76 @@ export default function ItemsPage() {
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 700, borderRadius: 2 }}>
             {t('common.close')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Duplicate Item Warning Dialog */}
+      <Dialog
+        open={duplicateWarning.open}
+        onClose={closeDuplicateWarning}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pt: 3 }}>
+          <WarningIcon color="warning" sx={{ fontSize: 28 }} />
+          <Typography variant="h6" fontWeight={800}>Item Already Exists</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pb: 1 }}>
+          <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+            {duplicateWarning.message}
+          </Alert>
+          {duplicateWarning.existingItem && (
+            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
+              <Stack spacing={0.5}>
+                <Typography variant="subtitle2" fontWeight={800}>
+                  {duplicateWarning.existingItem.name}
+                </Typography>
+                {duplicateWarning.existingItem.brandName && (
+                  <Typography variant="caption" color="text.secondary">
+                    Brand: {duplicateWarning.existingItem.brandName}
+                  </Typography>
+                )}
+                {duplicateWarning.existingItem.categoryName && (
+                  <Typography variant="caption" color="text.secondary">
+                    Category: {duplicateWarning.existingItem.categoryName}
+                  </Typography>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  Variants: {duplicateWarning.existingItem.variants?.length || 0}
+                </Typography>
+              </Stack>
+            </Box>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Would you like to view the existing item or update it with new variants?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1, bgcolor: '#f8fafc' }}>
+          <Button
+            onClick={closeDuplicateWarning}
+            color="inherit"
+            sx={{ fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => handleDuplicateViewUpdate('view')}
+            disabled={!duplicateWarning.existingItem}
+            sx={{ fontWeight: 700, borderRadius: 2 }}
+          >
+            View Item
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => handleDuplicateViewUpdate('update')}
+            disabled={!duplicateWarning.existingItem}
+            sx={{ fontWeight: 700, borderRadius: 2 }}
+          >
+            Update / Add Variants
           </Button>
         </DialogActions>
       </Dialog>

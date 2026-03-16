@@ -60,6 +60,7 @@ import PlanConfigManager from '../pages/admin/PlanConfigManager';
 import ExpiryReport from '../pages/reports/ExpiryReport';
 import NarcoticsRegister from '../pages/reports/NarcoticsRegister';
 import PurchaseRegister from '../pages/reports/PurchaseRegister';
+import { ShopProvider } from '../context/ShopContext';
 
 function AppRoutes() {
   const { user } = useAuthContext();
@@ -101,10 +102,12 @@ function AppRoutes() {
             path="/"
             element={
               <PrivateRoute>
-                <ShopGuard>
-                  <MainLayout />
-                </ShopGuard>          
-              </PrivateRoute>
+                <ShopProvider> 
+          <ShopGuard>
+            <MainLayout />
+          </ShopGuard>
+        </ShopProvider>
+      </PrivateRoute>
             }
           >
             {/* PUBLIC WITHIN APP (No Tier Required) */}

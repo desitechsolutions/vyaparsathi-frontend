@@ -1,3 +1,17 @@
+/**
+ * Calculate the discount percentage of selling price below MRP.
+ * Returns null when MRP is not set or selling price is not below MRP.
+ * @param {number|string} mrp - Maximum Retail Price
+ * @param {number|string} unitPrice - Actual selling price
+ * @returns {string|null} discount percentage string like "20.0", or null
+ */
+export const calcMrpDiscountPct = (mrp, unitPrice) => {
+  const m = Number(mrp);
+  const p = Number(unitPrice);
+  if (!m || p >= m) return null;
+  return ((m - p) / m * 100).toFixed(1);
+};
+
 export const buildSalePayload = (formData, selectedCustomer, paymentMethods, status) => {
 
   return {
@@ -11,6 +25,7 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     // Pharma fields
     doctorName: formData.doctorName || null,
+    doctorRegistrationNumber: formData.doctorRegistrationNumber || null,
     patientName: formData.patientName || null,
 
     items: (formData.items || []).map(si => {
@@ -21,7 +36,13 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
         itemName: si.itemName,
         qty: Number(si.qty),
         unitPrice: Number(si.unitPrice),
-        discount: Number(si.discount || 0)
+        discount: Number(si.discount || 0),
+        // Loose-medicine dispensing — required for correct stock deduction on the backend
+        isLooseSale: si.sellingMode === 'LOOSE',
+        loosePackSize: si.sellingMode === 'LOOSE' ? Number(si.packSizeUsed || 0) : null,
+        // Batch tracking for pharmacy compliance
+        batchNumber: si.batchNumber || null,
+        expiryDate: si.expiryDate || null,
       };
     }),
 

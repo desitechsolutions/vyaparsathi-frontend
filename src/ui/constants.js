@@ -294,3 +294,125 @@ export const variantUsage = {
 
   GENERAL: ['Daily Use','Professional','Industrial','Household']
 };
+
+
+
+// ===============================
+// 9. DRUG SCHEDULES (PHARMACY)
+// ===============================
+
+export const DRUG_SCHEDULES = [
+  { value: 'OTC', label: 'OTC — Over The Counter' },
+  { value: 'NON_SCHEDULED', label: 'Non-Scheduled — Prescription (Unclassified)' },
+  { value: 'SCHEDULE_H', label: 'Schedule H — Prescription Required' },
+  { value: 'SCHEDULE_H1', label: 'Schedule H1 — Stringent Prescription (3rd-gen antibiotics, anti-TB)' },
+  { value: 'SCHEDULE_X', label: 'Schedule X — Narcotic / Psychotropic' },
+];
+
+
+
+// ===============================
+// 10. INDUSTRY RESOLVER HELPER
+// ===============================
+
+/**
+ * Resolves the root industry name from a category name string.
+ * Falls back to 'GENERAL' if no match is found.
+ */
+export const resolveIndustry = (categoryName = '') => {
+  const name = categoryName.toUpperCase();
+  const industries = Object.keys({
+    CLOTHING: 1, FOOTWEAR: 1, ELECTRONICS: 1, HARDWARE: 1, PHARMACY: 1,
+    GROCERY: 1, AUTOMOBILE: 1, STATIONERY: 1, FURNITURE: 1, JEWELLERY: 1,
+  });
+  return industries.find((ind) => name.includes(ind)) || 'GENERAL';
+};
+
+
+
+// ===============================
+// 11. JEWELLERY CONSTANTS
+// ===============================
+
+export const JEWELLERY_METAL_TYPES = [
+  'Gold', 'Silver', 'Platinum', 'Palladium', 'Diamond Jewellery',
+  'Copper', 'Brass', 'Stainless Steel', 'Fashion / Imitation',
+];
+
+export const JEWELLERY_METAL_PURITIES = [
+  '24K (99.9% Pure Gold)',
+  '22K (91.6% Pure Gold — BIS 916)',
+  '18K (75% Pure Gold — BIS 750)',
+  '14K (58.5% Pure Gold — BIS 585)',
+  '925 Silver (Sterling)',
+  '999 Silver (Fine)',
+  '950 Platinum',
+  '850 Platinum',
+];
+
+export const JEWELLERY_STONE_TYPES = [
+  'No Stone', 'Diamond', 'Ruby', 'Emerald', 'Sapphire',
+  'Pearl', 'Opal', 'Amethyst', 'Topaz', 'Coral',
+  'Kundan', 'Polki', 'Cubic Zirconia', 'Synthetic Stone',
+];
+
+/** Standard Indian GST rates for jewellery per GST Council */
+export const JEWELLERY_GST_RATE = 3; // 3% GST on gold/silver jewellery
+
+
+
+// ===============================
+// 12. ELECTRONICS CONSTANTS
+// ===============================
+
+export const ELECTRONICS_WARRANTY_TERMS = [
+  { value: '0', label: 'No Warranty' },
+  { value: '3', label: '3 Months' },
+  { value: '6', label: '6 Months' },
+  { value: '12', label: '1 Year' },
+  { value: '24', label: '2 Years' },
+  { value: '36', label: '3 Years' },
+  { value: '60', label: '5 Years' },
+];
+
+
+
+// ===============================
+// 13. AUTOMOBILE CONSTANTS
+// ===============================
+
+export const AUTOMOBILE_VEHICLE_TYPES = [
+  'Two Wheeler (Motorcycle)',
+  'Two Wheeler (Scooter)',
+  'Three Wheeler (Auto)',
+  'Four Wheeler (Car)',
+  'Four Wheeler (SUV)',
+  'Light Commercial Vehicle (LCV)',
+  'Heavy Commercial Vehicle (HCV)',
+  'Tractor / Farm Equipment',
+  'Universal Fit',
+];
+
+
+
+// ===============================
+// 14. STANDARD INDIAN GST RATES BY INDUSTRY
+// ===============================
+
+/**
+ * Default GST rates commonly applicable in India for each industry.
+ * These are suggestions; actual rates depend on the specific product/HSN code.
+ */
+export const DEFAULT_GST_RATES = {
+  PHARMACY: [0, 5, 12, 18],
+  GROCERY: [0, 5, 12],
+  CLOTHING: [0, 5, 12],
+  FOOTWEAR: [0, 5, 12],
+  ELECTRONICS: [5, 12, 18, 28],
+  HARDWARE: [5, 12, 18, 28],
+  AUTOMOBILE: [5, 12, 18, 28],
+  STATIONERY: [5, 12, 18],
+  FURNITURE: [5, 12, 18, 28],
+  JEWELLERY: [3],
+  GENERAL: [0, 5, 12, 18, 28],
+};

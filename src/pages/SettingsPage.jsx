@@ -56,6 +56,8 @@ const SettingsPage = () => {
     termsAndConditions: "",
     logoPath: "",
     signaturePath: "",
+    drugLicenseNumber: "",
+    industryType: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -170,6 +172,8 @@ const SettingsPage = () => {
           brandColor: res.data.brandColor || "#2980b9",
           logoPath: res.data.logoPath || "",
           signaturePath: res.data.signaturePath || "",
+          drugLicenseNumber: res.data.drugLicenseNumber || "",
+          industryType: res.data.industryType || "",
         };
         setShopData(data);
         initialDataRef.current = data;
@@ -352,6 +356,19 @@ const SettingsPage = () => {
                   <Grid item xs={12} md={6}>
                     <TextField fullWidth label="GSTIN" name="gstin" value={shopData.gstin} onChange={handleTextChange} />
                   </Grid>
+                  {shopData.industryType === 'PHARMACY' && (
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Drug License Number"
+                        name="drugLicenseNumber"
+                        value={shopData.drugLicenseNumber}
+                        onChange={handleTextChange}
+                        placeholder="e.g. DL-MH-12345"
+                        helperText="Required for pharmacy invoices (printed on every bill)"
+                      />
+                    </Grid>
+                  )}
                   <Grid item xs={12}>
                     <TextField fullWidth label="Address" name="address" multiline rows={2} value={shopData.address} onChange={handleTextChange} />
                   </Grid>

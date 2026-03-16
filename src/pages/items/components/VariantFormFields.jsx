@@ -13,6 +13,12 @@ import {
   alpha,
   Card,
   Tooltip,
+  Divider,
+  Chip,
+  InputAdornment,
+  Switch,
+  FormControlLabel,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -22,6 +28,9 @@ import {
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
   ContentCopy as DuplicateIcon,
+  Diamond as DiamondIcon,
+  ElectricalServices as ElectronicsIcon,
+  DirectionsCar as AutoIcon,
 } from '@mui/icons-material';
 
 import { styled } from '@mui/material/styles';
@@ -31,7 +40,8 @@ import {
   variantModels,
   variantFits,
   shopUnits,
-  resolveIndustry
+  JEWELLERY_METAL_PURITIES,
+  ELECTRONICS_WARRANTY_TERMS,
 } from '../../../ui/constants';
 import { flattenOptions } from '../utils/flattenOptions';
 import { API_BASE_URL } from '../../../services/api';
@@ -192,6 +202,432 @@ export default function VariantFormFields({
           InputProps={{ inputProps: { min: 0 } }}
         />
       </Grid>
+
+      {/* Pharmacy-specific variant fields */}
+      {shopCategory === 'PHARMACY' && (
+        <>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }}>
+              <Chip
+                label={t('itemsPage.sections.pharmacyDetails')}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Divider>
+          </Grid>
+
+          {/* MRP */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.mrp')}
+              name="mrp"
+              type="number"
+              value={currentVariant.mrp || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                inputProps: { min: 0 }
+              }}
+            />
+          </Grid>
+
+          {/* Batch Number */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.batchNumber')}
+              name="batchNumber"
+              value={currentVariant.batchNumber || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+            />
+          </Grid>
+
+          {/* Manufacturing Date */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.manufacturingDate')}
+              name="manufacturingDate"
+              type="date"
+              value={currentVariant.manufacturingDate || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          {/* Expiry Date */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label={t('itemsPage.form.expiryDate')}
+              name="expiryDate"
+              type="date"
+              value={currentVariant.expiryDate || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          {/* Pack Size — shown when unit suggests strips/boxes or isLooseMedicine is true */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Pack Size (tablets/units per strip)"
+              name="packSize"
+              type="number"
+              value={currentVariant.packSize || ''}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value < 1) return;
+                handleCurrentVariantChange(e);
+              }}
+              fullWidth sx={inputSx}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">units</InputAdornment>,
+                inputProps: { min: 1 }
+              }}
+              helperText="e.g. 10 for a strip of 10 tablets"
+            />
+          </Grid>
+
+          {/* Is Loose Medicine toggle */}
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', pt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={!!currentVariant.isLooseMedicine}
+                    onChange={(e) =>
+                      setCurrentVariant((prev) => ({ ...prev, isLooseMedicine: e.target.checked }))
+                    }
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={700}>Loose Medicine</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Can be dispensed as individual units (tablets, capsules)
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
+          </Grid>
+        </>
+      )}
+
+      {/* ---- JEWELLERY-SPECIFIC VARIANT FIELDS ---- */}
+      {shopCategory === 'JEWELLERY' && (
+        <>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }}>
+              <Chip
+                icon={<DiamondIcon fontSize="small" />}
+                label="Jewellery Variant Details"
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Divider>
+          </Grid>
+
+          {/* Gross Weight */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Gross Weight (grams)"
+              name="weightGrams"
+              type="number"
+              value={currentVariant.weightGrams || ''}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value < 0) return;
+                handleCurrentVariantChange(e);
+              }}
+              fullWidth sx={inputSx}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">g</InputAdornment>,
+                inputProps: { min: 0, step: 0.01 }
+              }}
+              helperText="Total weight including stones"
+            />
+          </Grid>
+
+          {/* Net Weight (gold only) */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Net Metal Weight (grams)"
+              name="netWeightGrams"
+              type="number"
+              value={currentVariant.netWeightGrams || ''}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value < 0) return;
+                handleCurrentVariantChange(e);
+              }}
+              fullWidth sx={inputSx}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">g</InputAdornment>,
+                inputProps: { min: 0, step: 0.01 }
+              }}
+              helperText="Weight of metal only (excluding stones)"
+            />
+          </Grid>
+
+          {/* Metal Purity */}
+          <Grid item xs={12} sm={6}>
+            <Autocomplete
+              freeSolo
+              options={JEWELLERY_METAL_PURITIES}
+              value={currentVariant.metalPurity || ''}
+              onChange={(_, v) => setCurrentVariant((prev) => ({ ...prev, metalPurity: v || '' }))}
+              onInputChange={(_, v) => setCurrentVariant((prev) => ({ ...prev, metalPurity: v }))}
+              renderInput={(params) => (
+                <TextField {...params} label="Metal Purity" sx={inputSx} />
+              )}
+            />
+          </Grid>
+
+          {/* Hallmark Number */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Hallmark / HUID Number"
+              name="hallmarkNo"
+              value={currentVariant.hallmarkNo || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              placeholder="6-character alphanumeric HUID"
+              helperText="BIS Hallmark Unique ID (mandatory from Apr 2023)"
+            />
+          </Grid>
+
+          {/* Making Charges Section — both ₹/gram and % of metal value */}
+          <Grid item xs={12}>
+            <Box sx={{ p: 2, bgcolor: '#fdf4ff', borderRadius: 2, border: '1px solid #e9d5ff' }}>
+              <Typography variant="caption" fontWeight={800} color="secondary.dark" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Making Charges
+              </Typography>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                {/* Making Charges per gram */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Making Charges (₹ per gram)"
+                    name="makingChargesPerGram"
+                    type="number"
+                    value={currentVariant.makingChargesPerGram || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (value < 0) return;
+                      handleCurrentVariantChange(e);
+                    }}
+                    fullWidth sx={inputSx}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      inputProps: { min: 0, step: 0.01 }
+                    }}
+                    helperText="Flat rate per gram of net metal weight"
+                  />
+                </Grid>
+
+                {/* Making Charges as % of metal value */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Making Charges (% of metal value)"
+                    name="makingChargesPct"
+                    type="number"
+                    value={currentVariant.makingChargesPct || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (value < 0 || value > 100) return;
+                      handleCurrentVariantChange(e);
+                    }}
+                    fullWidth sx={inputSx}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                      inputProps: { min: 0, max: 100, step: 0.1 }
+                    }}
+                    helperText="% of (metal weight × today's gold rate)"
+                  />
+                </Grid>
+
+                {/* Live preview: calculated making charges when both weight and rate are filled */}
+                {(currentVariant.makingChargesPerGram || currentVariant.makingChargesPct) && currentVariant.netWeightGrams && (
+                  <Grid item xs={12}>
+                    <Box sx={{ p: 1.5, bgcolor: 'white', borderRadius: 2, border: '1px dashed #c084fc' }}>
+                      <Typography variant="caption" fontWeight={700} color="secondary.dark">
+                        💡 Making Charges Preview (based on net weight {currentVariant.netWeightGrams}g)
+                      </Typography>
+                      {currentVariant.makingChargesPerGram && (
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                          Flat: ₹{(parseFloat(currentVariant.makingChargesPerGram) * parseFloat(currentVariant.netWeightGrams)).toFixed(2)}
+                          {' '}(₹{currentVariant.makingChargesPerGram}/g × {currentVariant.netWeightGrams}g)
+                        </Typography>
+                      )}
+                      {currentVariant.makingChargesPct && (
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                          % rate: {currentVariant.makingChargesPct}% of metal value — applied at billing using live gold rate
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          </Grid>
+
+          {/* Stone Weight */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Stone Weight (carats)"
+              name="stoneWeightCarats"
+              type="number"
+              value={currentVariant.stoneWeightCarats || ''}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value < 0) return;
+                handleCurrentVariantChange(e);
+              }}
+              fullWidth sx={inputSx}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">ct</InputAdornment>,
+                inputProps: { min: 0, step: 0.01 }
+              }}
+              helperText="Leave blank if no stones"
+            />
+          </Grid>
+        </>
+      )}
+
+      {/* ---- ELECTRONICS-SPECIFIC VARIANT FIELDS ---- */}
+      {shopCategory === 'ELECTRONICS' && (
+        <>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }}>
+              <Chip
+                icon={<ElectronicsIcon fontSize="small" />}
+                label="Electronics Variant Details"
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Divider>
+          </Grid>
+
+          {/* IMEI / Serial Number */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="IMEI / Serial Number"
+              name="serialNumber"
+              value={currentVariant.serialNumber || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              placeholder="For individual unit tracking"
+              helperText="Optional — for high-value tracking"
+            />
+          </Grid>
+
+          {/* Warranty Period */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              label="Warranty Period"
+              name="warrantyMonths"
+              value={currentVariant.warrantyMonths || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+            >
+              <MenuItem value=""><em>Not Specified</em></MenuItem>
+              {ELECTRONICS_WARRANTY_TERMS.map((w) => (
+                <MenuItem key={w.value} value={w.value}>{w.label}</MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {/* MRP */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="MRP (Max Retail Price)"
+              name="mrp"
+              type="number"
+              value={currentVariant.mrp || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                inputProps: { min: 0 }
+              }}
+            />
+          </Grid>
+        </>
+      )}
+
+      {/* ---- AUTOMOBILE-SPECIFIC VARIANT FIELDS ---- */}
+      {shopCategory === 'AUTOMOBILE' && (
+        <>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }}>
+              <Chip
+                icon={<AutoIcon fontSize="small" />}
+                label="Automobile Part Details"
+                size="small"
+                color="warning"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            </Divider>
+          </Grid>
+
+          {/* Part Number */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Variant Part Number"
+              name="partNumber"
+              value={currentVariant.partNumber || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              placeholder="e.g., SWF-SX16-07"
+              helperText="SKU or OEM part reference for this variant"
+            />
+          </Grid>
+
+          {/* OEM / Aftermarket */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              label="Part Origin"
+              name="partOrigin"
+              value={currentVariant.partOrigin || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+            >
+              <MenuItem value=""><em>Not Specified</em></MenuItem>
+              <MenuItem value="GENUINE">Genuine OEM</MenuItem>
+              <MenuItem value="AFTERMARKET">Aftermarket</MenuItem>
+              <MenuItem value="RECONDITIONED">Reconditioned</MenuItem>
+            </TextField>
+          </Grid>
+
+          {/* MRP */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="MRP (Max Retail Price)"
+              name="mrp"
+              type="number"
+              value={currentVariant.mrp || ''}
+              onChange={handleCurrentVariantChange}
+              fullWidth sx={inputSx}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                inputProps: { min: 0 }
+              }}
+            />
+          </Grid>
+        </>
+      )}
 
       <Grid item xs={12}>
         <Button
