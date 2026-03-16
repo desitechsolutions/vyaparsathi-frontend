@@ -2,7 +2,6 @@
   "name": "vyaparsathi-frontend",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:8080",
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
@@ -48,8 +47,9 @@
     "xlsx-style": "^0.8.13"
   },
   "scripts": {
-    "start": "craco start",
+    "start": "PORT=$PORT craco start --host 0.0.0.0",
     "build": "craco build",
+    "prebuild": "mkdir -p node_modules/ajv/dist/compile && cp node_modules/ajv/lib/compile/index.js node_modules/ajv/dist/compile/codegen.js",
     "test": "craco test",
     "eject": "react-scripts eject"
   },
