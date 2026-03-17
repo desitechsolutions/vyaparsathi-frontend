@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Button, Paper, Snackbar, Alert, Dialog,
   DialogTitle, DialogContent, DialogActions, Backdrop, CircularProgress
@@ -24,6 +25,7 @@ import {
 import { useShop } from '../context/ShopContext';
 
 const Receiving = () => {
+  const { t } = useTranslation();
   const { isPharmacy, isElectronics, isAutomobile, industryType } = useShop();
   // View State
   const [view, setView] = useState('list'); // 'list', 'create', 'details', 'receive_goods', 'edit_receive_goods', 'ticket_form', 'ticket_list'
@@ -80,7 +82,7 @@ const Receiving = () => {
       setPendingPOs(pos || []);
       setTickets(ticketList || []);
     } catch (err) {
-      showMessage('Failed to sync with server', 'error');
+      showMessage(t('receivingPage.errorFetch'), 'error');
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,7 @@ const Receiving = () => {
       const updated = await updateReceiving(receivingId, payload);
       setReceivings(prev => prev.map(r => r.id === receivingId ? updated : r));
       setView('list');
-      showMessage('Inventory updated successfully');
+      showMessage(t('receivingPage.successSave'));
     } catch (err) {
       showMessage(err.response?.data?.message || 'Update failed', 'error');
     } finally {
@@ -229,7 +231,7 @@ const Receiving = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', p: { xs: 2, md: 4 } }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', p: { xs: 2, sm: 3, md: 4 } }}>
       <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={loading}>
         <CircularProgress color="inherit" />
       </Backdrop>
@@ -250,13 +252,13 @@ const Receiving = () => {
       </Snackbar>
 
       <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, id: null })}>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Confirm Deletion</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>{t('receivingPage.confirmReceiving')}</DialogTitle>
         <DialogContent>
-          <Typography>This will remove the receiving record. Inventory changes already committed will not be reversed automatically. Continue?</Typography>
+          <Typography>{t('receivingPage.noData')}</Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeleteConfirm({ open: false, id: null })} variant="outlined">Cancel</Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">Confirm Delete</Button>
+          <Button onClick={() => setDeleteConfirm({ open: false, id: null })} variant="outlined">{t('common.cancel') || 'Cancel'}</Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">{t('common.confirm') || 'Confirm Delete'}</Button>
         </DialogActions>
       </Dialog>
     </Box>

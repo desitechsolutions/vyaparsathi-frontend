@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Container, Typography, Box, Snackbar, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ShoppingBag as ShoppingBagIcon, Add as AddIcon } from '@mui/icons-material';
 
@@ -9,6 +10,7 @@ import PurchaseOrderList from '../components/po/PurchaseOrderList';
 import PurchaseOrderModal from '../components/po/PurchaseOrderModal';
 
 const PurchaseOrders = () => {
+  const { t } = useTranslation();
   const {
     isLoading,
     filteredOrders,
@@ -111,7 +113,7 @@ const PurchaseOrders = () => {
           />
           <Box textAlign="center" mt={5} p={3}>
             <Typography variant="h6" color="text.secondary">
-              No purchase orders match your search.
+              {t('purchaseOrdersPage.noOrders')}
             </Typography>
           </Box>
         </>
@@ -123,7 +125,7 @@ const PurchaseOrders = () => {
         <Box textAlign="center" mt={8} p={4} sx={{ bgcolor: 'grey.100', borderRadius: 2 }}>
           <ShoppingBagIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
           <Typography variant="h5" color="text.secondary" mb={2}>
-            No Purchase Orders Yet
+            {t('purchaseOrdersPage.noOrders')}
           </Typography>
           <Typography color="text.secondary" mb={3}>
             Get started by creating your first purchase order.
@@ -133,7 +135,7 @@ const PurchaseOrders = () => {
             startIcon={<AddIcon />}
             onClick={() => handleOpenModal('create')}
           >
-            Create Purchase Order
+            {t('purchaseOrdersPage.createOrder')}
           </Button>
         </Box>
       );
@@ -154,7 +156,7 @@ const PurchaseOrders = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, bgcolor: 'grey.50', minHeight: '100vh' }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, bgcolor: 'grey.50', minHeight: '100vh' }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -169,7 +171,7 @@ const PurchaseOrders = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <ShoppingBagIcon color="primary" sx={{ fontSize: '2.5rem', mr: 1.5 }} />
         <Typography variant="h4" fontWeight={700}>
-          Purchase Orders
+          {t('purchaseOrdersPage.title')}
         </Typography>
       </Box>
 
@@ -197,7 +199,7 @@ const PurchaseOrders = () => {
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialog?.open || false} onClose={cancelDelete}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>{t('purchaseOrdersPage.deleteOrder')}</DialogTitle>
         <DialogContent>
           Are you sure you want to delete this purchase order?
         </DialogContent>
@@ -213,7 +215,7 @@ const PurchaseOrders = () => {
 
       {/* Submit PO confirmation dialog for Card */}
       <Dialog open={submitDialog} onClose={cancelCardSubmit}>
-        <DialogTitle>Submit Purchase Order</DialogTitle>
+        <DialogTitle>{t('purchaseOrdersPage.title')}</DialogTitle>
         <DialogContent>
           Are you sure you want to submit this purchase order?
           <br />

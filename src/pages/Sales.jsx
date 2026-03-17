@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Box, Snackbar, Alert, CircularProgress, Divider, Chip, Container, 
   Typography, Paper, Button, Tooltip, Stack,
@@ -49,6 +50,7 @@ const initialFormData = {
 };
 
 const Sales = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState(initialFormData);
   const [item, setItem] = useState(initialItem);
   const [customers, setCustomers] = useState([]);
@@ -142,11 +144,11 @@ const tabValue = tabParam === "history" ? 1 : 0;
 
       setShowReviewPage(false);
       setUrlParams({}); 
-      setSnackbar({ open: true, message: `Draft ${draft.invoiceNo || 'Loaded'} successfully!`, severity: 'success' });
+      setSnackbar({ open: true, message: t('salesPage.draftLoaded'), severity: 'success' });
 
     } catch (err) {
       console.error("Resume Error:", err);
-      setSnackbar({ open: true, message: 'Failed to load draft data.', severity: 'error' });
+      setSnackbar({ open: true, message: t('salesPage.errorLoad'), severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -173,7 +175,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
           })));
         } else { setVariants([]); }
       })
-      .catch(() => setSnackbar({ open: true, message: 'Failed to load items.', severity: 'error' }))
+      .catch(() => setSnackbar({ open: true, message: t('salesPage.errorLoad'), severity: 'error' }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -188,7 +190,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
           ...cust,
         })));
       })
-      .catch(() => setSnackbar({ open: true, message: 'Failed to load customers.', severity: 'error' }))
+      .catch(() => setSnackbar({ open: true, message: t('salesPage.errorLoad'), severity: 'error' }))
       .finally(() => setLoadingCustomers(false));
   }, [loadVariants]);
 
@@ -397,7 +399,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
   try {
     const res = await draftSale(payload);
     setFormData(prev => ({ ...prev, id: res.data.id }));
-    setSnackbar({ open: true, message: `Draft saved!`, severity: 'success' });
+    setSnackbar({ open: true, message: t('salesPage.draftSaved'), severity: 'success' });
   } catch {
     setSnackbar({ open: true, message: 'Failed to save draft', severity: 'error' });
   } finally {
@@ -628,7 +630,7 @@ const handleSubmitSale = async (payload) => {
                         }
                       }}
                     >
-                      {loading ? 'Processing...' : 'Proceed to Payment'}
+                      {loading ? 'Processing...' : t('salesPage.proceedToPayment')}
                     </Button>
                   </span>
                 </Tooltip>
