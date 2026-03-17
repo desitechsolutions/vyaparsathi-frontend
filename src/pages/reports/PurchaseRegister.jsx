@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, Button, CircularProgress, Stack,
   Card, CardContent, Avatar, Alert, Chip, Table, TableBody,
@@ -35,6 +36,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function PurchaseRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [data, setData] = useState(null);
@@ -76,7 +78,7 @@ export default function PurchaseRegister() {
         <Box>
           <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
             <LocalShipping color="primary" />
-            <Typography variant="h4" fontWeight={900} color="#0f172a">Purchase Register</Typography>
+            <Typography variant="h4" fontWeight={900} color="#0f172a">{t('purchaseRegisterReport.title')}</Typography>
           </Stack>
           <Typography color="text.secondary">
             Batch-wise supplier tracking — required for drug recall traceability and regulatory audits
@@ -102,11 +104,11 @@ export default function PurchaseRegister() {
       <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
-            <TextField label="From Date" type="date" value={from} fullWidth
+            <TextField label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <TextField label="To Date" type="date" value={to} fullWidth
+            <TextField label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} sm={4}>
@@ -154,7 +156,7 @@ export default function PurchaseRegister() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                    {['Date', 'PO No', 'Supplier', 'Item Name', 'Batch No', 'Mfg Date', 'Expiry', 'Qty', 'Unit Cost', 'Total'].map(h => (
+                    {[t('purchaseRegisterReport.columns.date'), 'PO No', t('purchaseRegisterReport.columns.supplier'), t('purchaseRegisterReport.columns.items'), 'Batch No', 'Mfg Date', t('expiryReport.columns.expiryDate'), t('reportsCommon.total'), 'Unit Cost', t('purchaseRegisterReport.columns.total')].map(h => (
                       <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
                         {h}
                       </TableCell>

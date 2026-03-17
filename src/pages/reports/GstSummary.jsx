@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, 
   CircularProgress, Stack, Card, CardContent, Avatar, Alert, Tooltip
@@ -35,6 +36,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function GstSummary() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState(null);
@@ -74,8 +76,8 @@ export default function GstSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">GST Summary</Typography>
-          <Typography color="text.secondary">Tax liability and taxable turnover overview</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('gstSummaryReport.title')}</Typography>
+          <Typography color="text.secondary">{t('gstSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
           <Button 
@@ -84,7 +86,7 @@ export default function GstSummary() {
             onClick={() => downloadCSV(report, from, to)}
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: 'white' }}
           >
-            Export CSV
+            {t('reportsCommon.export')}
           </Button>
         )}
       </Stack>
@@ -94,13 +96,13 @@ export default function GstSummary() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="Period From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="Period To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>

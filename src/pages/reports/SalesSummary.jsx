@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, 
   CircularProgress, Stack, Card, CardContent, Avatar, Alert
@@ -13,6 +14,7 @@ import { fetchSalesSummary } from '../../services/api';
 
 export default function SalesSummary() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState(null);
@@ -51,8 +53,8 @@ export default function SalesSummary() {
 
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight={900} color="#0f172a">Sales Summary</Typography>
-        <Typography color="text.secondary">Performance overview across custom periods</Typography>
+        <Typography variant="h4" fontWeight={900} color="#0f172a">{t('salesSummaryReport.title')}</Typography>
+        <Typography color="text.secondary">{t('salesSummaryReport.subtitle')}</Typography>
       </Box>
 
       {/* Filters */}
@@ -60,13 +62,13 @@ export default function SalesSummary() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="From Date" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="To Date" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
@@ -88,7 +90,7 @@ export default function SalesSummary() {
           {/* Top KPI row */}
           <Grid container spacing={3} mb={4}>
             <Grid item xs={12} sm={6} md={3}>
-              <KpiCard title="Total Sales" value={report.totalSales} icon={<ShowChart color="primary" />} />
+              <KpiCard title={t('salesSummaryReport.totalSales')} value={report.totalSales} icon={<ShowChart color="primary" />} />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <KpiCard title="Net Profit" value={report.netProfit} icon={<PieChart color="success" />} highlight={report.netProfit >= 0 ? 'success.main' : 'error.main'} />

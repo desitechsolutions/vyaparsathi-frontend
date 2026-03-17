@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, 
   CircularProgress, Stack, Card, CardContent, Avatar, Alert
@@ -34,6 +35,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function PaymentsSummary() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState(null);
@@ -75,8 +77,8 @@ export default function PaymentsSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Payment Collection</Typography>
-          <Typography color="text.secondary">Summary of actual cash/digital inflows</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('paymentsSummaryReport.title')}</Typography>
+          <Typography color="text.secondary">{t('paymentsSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
           <Button 
@@ -94,13 +96,13 @@ export default function PaymentsSummary() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="Collection From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="Collection To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, Button,
   CircularProgress, Stack, Card, CardContent, Avatar, Alert,
@@ -80,6 +81,7 @@ const downloadCSV = (data, days) => {
 
 export default function ExpiryReport() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -120,8 +122,8 @@ export default function ExpiryReport() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Expiry Report</Typography>
-          <Typography color="text.secondary">Track stock nearing expiry to prevent losses</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expiryReport.title')}</Typography>
+          <Typography color="text.secondary">{t('expiryReport.subtitle')}</Typography>
         </Box>
         {data && data.length > 0 && (
           <Button

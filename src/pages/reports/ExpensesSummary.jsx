@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, 
   CircularProgress, Stack, Card, CardContent, Avatar, Alert, LinearProgress
@@ -36,6 +37,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function ExpensesSummary() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState(null);
@@ -73,8 +75,8 @@ export default function ExpensesSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Expense Analysis</Typography>
-          <Typography color="text.secondary">Tracking operational costs and inventory investment</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expensesSummaryReport.title')}</Typography>
+          <Typography color="text.secondary">{t('expensesSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
           <Button 
@@ -92,13 +94,13 @@ export default function ExpensesSummary() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>

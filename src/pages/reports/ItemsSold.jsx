@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, CircularProgress, 
   Table, TableHead, TableRow, TableCell, TableBody, Stack, Avatar, 
@@ -39,6 +40,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function ItemsSold() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState([]);
@@ -83,8 +85,8 @@ export default function ItemsSold() {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Product Performance</Typography>
-          <Typography color="text.secondary">Analysis of items sold and stock movement</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('itemsSoldReport.title')}</Typography>
+          <Typography color="text.secondary">{t('itemsSoldReport.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           {report.length > 0 && (
@@ -104,13 +106,13 @@ export default function ItemsSold() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
-              label="From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={3}>
             <TextField
-              label="To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
@@ -149,10 +151,10 @@ export default function ItemsSold() {
           <Table sx={{ minWidth: 800 }}>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>Product Details</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.item')}</TableCell>
                 <TableCell sx={{ fontWeight: 800 }}>SKU</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>Qty Sold</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Revenue</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.qtySold')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.revenue')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 800 }}>Last Sold</TableCell>
               </TableRow>
             </TableHead>
