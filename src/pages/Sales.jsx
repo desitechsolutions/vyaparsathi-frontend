@@ -82,7 +82,7 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const [itemError, setItemError] = useState('');
 
   // Industry context
-  const { isPharmacy, isJewellery, industryType } = useShop();
+  const { isPharmacy, isJewellery, industryType, shop } = useShop();
   const [drugAlertOpen, setDrugAlertOpen] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
   const [substitutes, setSubstitutes] = useState([]);
@@ -650,6 +650,7 @@ const handleSubmitSale = async (payload) => {
           open={openInvoiceModal} saleId={lastSaleId}
           invoiceNo={lastInvoiceNo} signedInvoiceUrl={signedInvoiceUrl}
           customerPhone={lastCustomerPhone} totalAmount={lastTotalAmount}
+          shopName={shop?.name}
           onClose={handleCloseInvoiceModal}
         />
       </SalesTabs.Panel>

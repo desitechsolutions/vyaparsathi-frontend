@@ -25,6 +25,7 @@ const InvoiceModal = ({
   signedInvoiceUrl,
   customerPhone,
   totalAmount,
+  shopName,
   onClose
 }) => {
   const [loading, setLoading] = useState(false);
@@ -92,6 +93,7 @@ const InvoiceModal = ({
       ? `₹${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       : '';
     const lines = [
+      shopName ? `Invoice from *${shopName}*` : '',
       `🧾 *Invoice #${invoiceNo || saleId}*`,
       amount ? `💰 Amount: ${amount}` : '',
       `Thank you for your purchase! 🙏`,

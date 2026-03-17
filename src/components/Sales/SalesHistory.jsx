@@ -24,6 +24,7 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import API, { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale, API_BASE_URL } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { useShop } from '../../context/ShopContext';
 
 const statusConfig = {
   COMPLETED: { label: 'Completed', color: 'success' },
@@ -51,6 +52,7 @@ const isToday = (dateString) => {
 const SalesHistory = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { shop } = useShop();
 
   const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,6 +229,7 @@ const SalesHistory = () => {
       : '';
     const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
     const lines = [
+      shop?.name ? `Invoice from *${shop.name}*` : '',
       `🧾 *Invoice #${sale.invoiceNo || sale.id}*`,
       date ? `📅 Date: ${date}` : '',
       amount ? `💰 Amount: ${amount}` : '',
