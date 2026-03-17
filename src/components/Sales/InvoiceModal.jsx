@@ -14,6 +14,7 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 import PrintIcon from '@mui/icons-material/Print';
 import CloseIcon from '@mui/icons-material/Close';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import API from '../../services/api'; // Use the API instance to handle the blob fetch
 
 const InvoiceModal = ({
@@ -22,6 +23,9 @@ const InvoiceModal = ({
   saleId,
   invoiceNo,
   signedInvoiceUrl,
+  customerPhone,
+  totalAmount,
+  shopName,
   onClose
 }) => {
   const [loading, setLoading] = useState(false);
@@ -82,6 +86,22 @@ const InvoiceModal = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleWhatsApp = () => {
+    const amount = totalAmount != null
+      ? `₹${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+      : '';
+    const lines = [
+      shopName ? `Invoice from *${shopName}*` : '',
+      `🧾 *Invoice #${invoiceNo || saleId}*`,
+      amount ? `💰 Amount: ${amount}` : '',
+      `Thank you for your purchase! 🙏`,
+    ].filter(Boolean).join('\n');
+
+    const phone = customerPhone ? `91${customerPhone.replace(/\D/g, '')}` : '';
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handlePrint = () => {
@@ -151,7 +171,7 @@ const InvoiceModal = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+      <DialogActions sx={{ px: 3, pb: 3, gap: 1, flexWrap: 'wrap' }}>
         <Button
           variant="contained"
           startIcon={<PrintIcon />}
@@ -170,6 +190,16 @@ const InvoiceModal = ({
           disabled={loading || isDisabled}
         >
           Download PDF
+        </Button>
+
+        <Button
+          variant="contained"
+          startIcon={<WhatsAppIcon />}
+          onClick={handleWhatsApp}
+          disabled={loading || isDisabled}
+          sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#1ebe5d' }, color: '#fff' }}
+        >
+          Send on WhatsApp
         </Button>
 
         <Button

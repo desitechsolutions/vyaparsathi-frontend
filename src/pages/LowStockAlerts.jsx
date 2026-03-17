@@ -27,7 +27,7 @@ const LowStockAlerts = () => {
       try {
         setIsLoading(true);
         const response = await fetchLowStockAlerts();
-        const data = response.data || [];
+        const data = Array.isArray(response.data) ? response.data : [];
         setAlerts(data);
         if(manuallySetAlerts) manuallySetAlerts(data);
       } catch (err) {
