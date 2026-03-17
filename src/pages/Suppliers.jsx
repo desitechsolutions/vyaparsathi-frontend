@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Typography, Box, Stack, Button, TextField, Modal, IconButton, Snackbar,
   Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -43,6 +44,7 @@ const StatCard = ({ title, value, icon, color }) => (
 const initialForm = { name: "", contactPerson: "", phone: "", email: "", address: "", gstin: "" };
 
 const Suppliers = () => {
+  const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,7 +63,7 @@ const Suppliers = () => {
       const res = await getSuppliers();
       setSuppliers(res || []);
     } catch (e) {
-      showSnackbar("Failed to fetch suppliers", "error");
+      showSnackbar(t('suppliersPage.errorFetch'), "error");
     } finally {
       setIsLoading(false);
     }
@@ -81,18 +83,18 @@ const Suppliers = () => {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.phone) {
-        showSnackbar("Supplier Name and Phone are mandatory.", "warning");
+        showSnackbar(t('suppliersPage.errorRequired'), "warning");
         return;
     }
 
     try {
       if (modalMode === "add") await createSupplier(form);
       else await updateSupplier(selectedSupplier.id, form);
-      showSnackbar(`Supplier ${modalMode === "add" ? 'created' : 'updated'} successfully.`, "success");
+      showSnackbar(modalMode === "add" ? t('suppliersPage.successCreate') : t('suppliersPage.successUpdate'), "success");
       fetchSuppliers();
       setModalOpen(false);
     } catch (e) {
-      showSnackbar("Operation failed. Check server connection.", "error");
+      showSnackbar(t('suppliersPage.errorSave'), "error");
     }
   };
 
@@ -104,10 +106,10 @@ const Suppliers = () => {
   const handleActualDelete = async () => {
     try {
       await deleteSupplier(selectedSupplier.id);
-      showSnackbar("Supplier deleted from directory.", "success");
+      showSnackbar(t('suppliersPage.successDelete'), "success");
       fetchSuppliers();
     } catch (e) {
-      showSnackbar("Could not delete supplier.", "error");
+      showSnackbar(t('suppliersPage.errorDelete'), "error");
     } finally {
       setDeleteDialogOpen(false);
     }
@@ -118,16 +120,16 @@ const Suppliers = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "#fcfcfc", minHeight: "100vh" }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: "#fcfcfc", minHeight: "100vh" }}>
       <Box sx={{ maxWidth: "1200px", mx: "auto" }}>
         
         {/* Header Section */}
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="flex-end" spacing={2} sx={{ mb: 4 }}>
           <Box>
             <Typography variant="h4" fontWeight={900} sx={{ color: "#1a1a1a", display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
-              <BusinessIcon fontSize="large" color="primary" /> Suppliers
+              <BusinessIcon fontSize="large" color="primary" /> {t('suppliersPage.title')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" fontWeight={500}>Directory of all business vendors and procurement contacts</Typography>
+            <Typography variant="body1" color="text.secondary" fontWeight={500}>{t('suppliersPage.subtitle')}</Typography>
           </Box>
           <Button 
             variant="contained" 
@@ -135,17 +137,17 @@ const Suppliers = () => {
             onClick={() => handleOpenModal("add")}
             sx={{ borderRadius: 2.5, px: 4, py: 1.4, fontWeight: 800, textTransform: 'none', boxShadow: '0 10px 20px rgba(0,0,0,0.08)' }}
           >
-            New Supplier
+            {t('suppliersPage.addSupplier')}
           </Button>
         </Stack>
 
         {/* Stats Row */}
         <Grid container spacing={3} sx={{ mb: 5 }}>
           <Grid item xs={12} sm={6}>
-            <StatCard title="Total Vendors" value={suppliers.length} icon={<GroupIcon />} color="primary" />
+            <StatCard title={t('suppliersPage.totalSuppliers')} value={suppliers.length} icon={<GroupIcon />} color="primary" />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <StatCard title="Registered GSTIN" value={suppliers.filter(s => s.gstin).length} icon={<VerifiedIcon />} color="success" />
+            <StatCard title={t('suppliersPage.verifiedSuppliers')} value={suppliers.filter(s => s.gstin).length} icon={<VerifiedIcon />} color="success" />
           </Grid>
         </Grid>
 
@@ -153,7 +155,7 @@ const Suppliers = () => {
         <Paper sx={{ borderRadius: 4, overflow: "hidden", border: '1px solid', borderColor: '#eee', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
           <Box sx={{ p: 3, bgcolor: "#fff", borderBottom: '1px solid #f1f5f9' }}>
             <TextField
-              placeholder="Search by name, contact, or GST number..."
+              placeholder={t('suppliersPage.searchPlaceholder')}
               fullWidth
               size="small"
               value={search}
@@ -169,11 +171,11 @@ const Suppliers = () => {
             <Table>
               <TableHead sx={{ bgcolor: "#fafafa" }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary', py: 2 }}>SUPPLIER ENTITY</TableCell>
-                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>CONTACT PERSON</TableCell>
-                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>MOBILE / EMAIL</TableCell>
-                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>GSTIN</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', pr: 4 }}>ACTIONS</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary', py: 2 }}>{t('suppliersPage.columns.supplier').toUpperCase()}</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('suppliersPage.contactPerson').toUpperCase()}</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('suppliersPage.columns.contact').toUpperCase()}</TableCell>
+                  <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('suppliersPage.columns.gstin').toUpperCase()}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', pr: 4 }}>{t('suppliersPage.columns.actions').toUpperCase()}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -211,9 +213,9 @@ const Suppliers = () => {
                       </TableCell>
                       <TableCell align="right" sx={{ pr: 3 }}>
                         <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                          <Tooltip title="View Profile"><IconButton size="small" onClick={() => handleOpenModal("view", s)} sx={{ bgcolor: '#f5f5f5' }}><AssignmentIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="Edit Details"><IconButton size="small" onClick={() => handleOpenModal("edit", s)} color="primary" sx={{ bgcolor: '#e3f2fd' }}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="Delete Supplier"><IconButton size="small" onClick={() => confirmDelete(s)} color="error" sx={{ bgcolor: '#ffebee' }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title={t('suppliersPage.tooltips.view')}><IconButton size="small" onClick={() => handleOpenModal("view", s)} sx={{ bgcolor: '#f5f5f5' }}><AssignmentIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title={t('suppliersPage.tooltips.edit')}><IconButton size="small" onClick={() => handleOpenModal("edit", s)} color="primary" sx={{ bgcolor: '#e3f2fd' }}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title={t('suppliersPage.tooltips.delete')}><IconButton size="small" onClick={() => confirmDelete(s)} color="error" sx={{ bgcolor: '#ffebee' }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -235,21 +237,21 @@ const Suppliers = () => {
       <StyledModal open={modalOpen} onClose={() => setModalOpen(false)}>
         <ModalContent>
           <Typography variant="h5" fontWeight={900} color="primary.main" gutterBottom>
-            {modalMode === "add" ? "Register New Supplier" : modalMode === "edit" ? "Edit Supplier Details" : "Supplier Profile Overview"}
+            {modalMode === "add" ? t('suppliersPage.addSupplier') : modalMode === "edit" ? t('suppliersPage.editSupplier') : t('suppliersPage.viewSupplier')}
           </Typography>
           <Divider sx={{ mb: 4, opacity: 0.6 }} />
           <Box component="form" onSubmit={handleFormSubmit}>
             <Grid container spacing={2.5}>
-              <Grid item xs={12}><TextField label="Legal Company Name" fullWidth value={form.name} onChange={e => setForm({...form, name: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
-              <Grid item xs={6}><TextField label="Primary Contact Person" fullWidth value={form.contactPerson} onChange={e => setForm({...form, contactPerson: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Mobile/WhatsApp Number" fullWidth value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
-              <Grid item xs={12}><TextField label="Email Address" fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
-              <Grid item xs={12}><TextField label="Business Address" multiline rows={3} fullWidth value={form.address} onChange={e => setForm({...form, address: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
-              <Grid item xs={12}><TextField label="GSTIN (Optional)" fullWidth value={form.gstin} onChange={e => setForm({...form, gstin: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={12}><TextField label={t('suppliersPage.name')} fullWidth value={form.name} onChange={e => setForm({...form, name: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
+              <Grid item xs={6}><TextField label={t('suppliersPage.contactPerson')} fullWidth value={form.contactPerson} onChange={e => setForm({...form, contactPerson: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={6}><TextField label={t('suppliersPage.phone')} fullWidth value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} disabled={modalMode === 'view'} size="small" required /></Grid>
+              <Grid item xs={12}><TextField label={t('suppliersPage.email')} fullWidth value={form.email} onChange={e => setForm({...form, email: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={12}><TextField label={t('suppliersPage.address')} multiline rows={3} fullWidth value={form.address} onChange={e => setForm({...form, address: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
+              <Grid item xs={12}><TextField label={t('suppliersPage.gstin')} fullWidth value={form.gstin} onChange={e => setForm({...form, gstin: e.target.value})} disabled={modalMode === 'view'} size="small" /></Grid>
             </Grid>
             <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 5 }}>
-              <Button onClick={() => setModalOpen(false)} variant="outlined" color="inherit" sx={{ borderRadius: 2, fontWeight: 700 }}>{modalMode === 'view' ? 'Close' : 'Cancel'}</Button>
-              {modalMode !== 'view' && <Button type="submit" variant="contained" sx={{ fontWeight: 800, px: 5, borderRadius: 2 }}>{modalMode === 'add' ? 'Create Supplier' : 'Save Updates'}</Button>}
+              <Button onClick={() => setModalOpen(false)} variant="outlined" color="inherit" sx={{ borderRadius: 2, fontWeight: 700 }}>{modalMode === 'view' ? t('common.close') : t('common.cancel')}</Button>
+              {modalMode !== 'view' && <Button type="submit" variant="contained" sx={{ fontWeight: 800, px: 5, borderRadius: 2 }}>{modalMode === 'add' ? t('suppliersPage.createSupplier') : t('suppliersPage.saveChanges')}</Button>}
             </Stack>
           </Box>
         </ModalContent>
@@ -258,19 +260,19 @@ const Suppliers = () => {
       {/* Professional Deletion Prompt */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { borderRadius: 4, p: 1.5, maxWidth: 450 } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 900, color: 'error.main' }}>
-          <WarningIcon /> Confirm Removal
+          <WarningIcon /> {t('suppliersPage.confirmDelete')}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ color: 'text.primary', mt: 1 }}>
-            You are about to delete <strong>{selectedSupplier?.name}</strong> from your records. This will remove all associated contact details.
+            {t('suppliersPage.confirmDeleteText', { name: selectedSupplier?.name })}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2, bgcolor: '#fff3e0', p: 1.5, borderRadius: 2, border: '1px solid #ffe0b2' }}>
-            Note: This action is permanent and cannot be reversed.
+            {t('suppliersPage.deleteWarning')}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} variant="text" color="inherit" sx={{ fontWeight: 700 }}>Keep Record</Button>
-          <Button onClick={handleActualDelete} variant="contained" color="error" sx={{ fontWeight: 800, px: 3, borderRadius: 2 }}>Delete Permanently</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)} variant="text" color="inherit" sx={{ fontWeight: 700 }}>{t('common.cancel')}</Button>
+          <Button onClick={handleActualDelete} variant="contained" color="error" sx={{ fontWeight: 800, px: 3, borderRadius: 2 }}>{t('suppliersPage.deleteSupplier')}</Button>
         </DialogActions>
       </Dialog>
 
