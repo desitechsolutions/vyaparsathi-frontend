@@ -14,6 +14,7 @@ import { fetchCustomerDues, fetchCustomerLedger } from '../services/api';
 import { useShop } from '../context/ShopContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useTranslation } from 'react-i18next';
 
 // Clean, reliable Indian currency formatting (no unicode/superscript issues)
 const formatCurrency = (amount) => {
@@ -50,6 +51,7 @@ const formatBalancePDF = (amount) => {
 };
 
 const CustomerDetails = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { isPharmacy } = useShop();
@@ -81,7 +83,7 @@ const CustomerDetails = () => {
       });
       setFilteredLedger(filtered);
     } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to load data.', severity: 'error' });
+      setSnackbar({ open: true, message: t('customerDetailsPage.errorFetch'), severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -291,7 +293,7 @@ const CustomerDetails = () => {
                   <TableRow>
                     {tabValue === 2 ? (
                       <>
-                        <TableCell>Date</TableCell>
+                        <TableCell>{t('customerDetailsPage.columns.date')}</TableCell>
                         <TableCell>Particulars</TableCell>
                         <TableCell align="right">Debit (+)</TableCell>
                         <TableCell align="right">Credit (-)</TableCell>
@@ -299,11 +301,11 @@ const CustomerDetails = () => {
                       </>
                     ) : (
                       <>
-                        <TableCell>Invoice</TableCell>
-                        <TableCell align="right">Amount</TableCell>
+                        <TableCell>{t('customerDetailsPage.columns.invoice')}</TableCell>
+                        <TableCell align="right">{t('customerDetailsPage.columns.amount')}</TableCell>
                         <TableCell align="right">{tabValue === 0 ? 'Balance Due' : 'Status'}</TableCell>
                         {isPharmacy && tabValue === 1 && <TableCell>Doctor / Patient</TableCell>}
-                        <TableCell align="center">Action</TableCell>
+                        <TableCell align="center">{t('customerDetailsPage.columns.actions')}</TableCell>
                       </>
                     )}
                   </TableRow>

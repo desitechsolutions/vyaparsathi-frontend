@@ -11,8 +11,10 @@ import WarningIcon from '@mui/icons-material/Warning';
 import SearchIcon from '@mui/icons-material/Search';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import { useTranslation } from 'react-i18next';
 
 const LowStockAlerts = () => {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]); // Preparation for Bulk Selection
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +33,7 @@ const LowStockAlerts = () => {
         setAlerts(data);
         if(manuallySetAlerts) manuallySetAlerts(data);
       } catch (err) {
-        setError('Failed to fetch low stock alerts. Please check if the service is online.');
+        setError(t('lowStockPage.noAlerts'));
       } finally {
         setIsLoading(false);
       }
@@ -124,12 +126,12 @@ const LowStockAlerts = () => {
                         onChange={handleSelectAll} 
                     />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>ITEM DETAILS</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>STOCK LEVEL</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.item').toUpperCase()}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.currentStock').toUpperCase()}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>EST. UNIT COST</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>INVESTMENT</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>STATUS</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>ACTION</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.status').toUpperCase()}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.actions').toUpperCase()}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -187,7 +189,7 @@ const LowStockAlerts = () => {
                         sx={{ borderRadius: 1.5, textTransform: 'none' }}
                         onClick={() => navigate(`/purchase-orders/?variantId=${alert.itemVariantId}&qty=${needed}`)}
                       >
-                        Restock
+                        {t('lowStockPage.restock')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -196,7 +198,7 @@ const LowStockAlerts = () => {
               {filteredAlerts.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
-                        <Typography color="text.secondary">No low stock alerts found.</Typography>
+                        <Typography color="text.secondary">{t('lowStockPage.noAlerts')}</Typography>
                     </TableCell>
                 </TableRow>
               )}
