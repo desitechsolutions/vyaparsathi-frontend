@@ -19,6 +19,7 @@ import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 import API, { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale, API_BASE_URL } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -218,6 +219,24 @@ const SalesHistory = () => {
       console.error("In-browser PDF Error:", err);
       showSnackbar("Could not generate PDF. Please check your connection.", "error");
     }
+  };
+
+  const handleWhatsAppInvoice = (sale) => {
+    const amount = sale.totalAmount != null
+      ? `₹${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+      : '';
+    const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
+    const lines = [
+      `🧾 *Invoice #${sale.invoiceNo || sale.id}*`,
+      date ? `📅 Date: ${date}` : '',
+      amount ? `💰 Amount: ${amount}` : '',
+      `Thank you for your purchase! 🙏`,
+    ].filter(Boolean).join('\n');
+
+    const rawPhone = sale.customerPhone || sale.customer?.phone || '';
+    const phone = rawPhone ? `91${rawPhone.replace(/\D/g, '')}` : '';
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // ────────────────────────────────────────────────
@@ -423,6 +442,7 @@ const SalesHistory = () => {
                                   ) : (
                                     <>
                                       <Button variant="contained" startIcon={<PrintIcon />} onClick={() => handlePrintInvoice(sale)} sx={{ bgcolor: '#0f172a', '&:hover': {bgcolor: '#1e293b'} }}>Print Invoice</Button>
+                                      <Button variant="contained" startIcon={<WhatsAppIcon />} onClick={() => handleWhatsAppInvoice(sale)} sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#1ebe5d' }, color: '#fff' }}>Send on WhatsApp</Button>
                                       {sale.status !== 'CANCELLED' && (
                                         <Button variant="outlined" color="secondary" startIcon={<AssignmentReturnIcon />} onClick={() => handleOpenReturn(sale)}>Return Items</Button>
                                       )}

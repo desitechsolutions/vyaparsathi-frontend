@@ -67,6 +67,8 @@ const tabValue = tabParam === "history" ? 1 : 0;
   const [lastSaleId, setLastSaleId] = useState(null);
   const [lastInvoiceNo, setLastInvoiceNo] = useState(null);
   const [signedInvoiceUrl, setSignedInvoiceUrl] = useState(null);
+  const [lastCustomerPhone, setLastCustomerPhone] = useState(null);
+  const [lastTotalAmount, setLastTotalAmount] = useState(null);
   const hasShownMissingUrlWarning = useRef(false);
   const resumeId = urlParams.get('resumeId');
 
@@ -413,6 +415,8 @@ const handleSubmitSale = async (payload) => {
     setLastSaleId(res.data.id);
     setLastInvoiceNo(res.data.invoiceNo);
     setSignedInvoiceUrl(res.data.signedInvoiceUrl);
+    setLastCustomerPhone(selectedCustomer?.phone || null);
+    setLastTotalAmount(res.data.totalAmount ?? formData.totalAmount ?? null);
 
     setFormData(initialFormData);
     setSelectedCustomer(null);
@@ -643,8 +647,9 @@ const handleSubmitSale = async (payload) => {
         )}
 
         <InvoiceModal
-          open={openInvoiceModal} saleId={lastSaleId} 
-          invoiceNo={lastInvoiceNo} signedInvoiceUrl={signedInvoiceUrl} 
+          open={openInvoiceModal} saleId={lastSaleId}
+          invoiceNo={lastInvoiceNo} signedInvoiceUrl={signedInvoiceUrl}
+          customerPhone={lastCustomerPhone} totalAmount={lastTotalAmount}
           onClose={handleCloseInvoiceModal}
         />
       </SalesTabs.Panel>
