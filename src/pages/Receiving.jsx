@@ -254,11 +254,11 @@ const Receiving = () => {
       <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, id: null })}>
         <DialogTitle sx={{ fontWeight: 'bold' }}>{t('receivingPage.confirmReceiving')}</DialogTitle>
         <DialogContent>
-          <Typography>{t('receivingPage.noData')}</Typography>
+          <Typography>This will remove the receiving record. Inventory changes already committed will not be reversed automatically. Continue?</Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeleteConfirm({ open: false, id: null })} variant="outlined">{t('common.cancel') || 'Cancel'}</Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">{t('common.confirm') || 'Confirm Delete'}</Button>
+          <Button onClick={() => setDeleteConfirm({ open: false, id: null })} variant="outlined">Cancel</Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">Confirm Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>
