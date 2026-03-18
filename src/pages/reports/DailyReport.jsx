@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next'; // Import useNavigate
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, 
   CircularProgress, Stack, Card, CardContent, Avatar, IconButton, Alert
@@ -13,7 +14,8 @@ import dayjs from 'dayjs';
 import { fetchDailyReport } from '../../services/api';
 
 export default function DailyReport() {
-  const navigate = useNavigate(); // Initialize navigation
+  const navigate = useNavigate();
+  const { t } = useTranslation(); // Initialize navigation
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ export default function DailyReport() {
 
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Daily Performance</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('dailyReport.title')}</Typography>
           <Typography color="text.secondary">Financial snapshot for {dayjs(date).format('MMMM DD, YYYY')}</Typography>
         </Box>
 

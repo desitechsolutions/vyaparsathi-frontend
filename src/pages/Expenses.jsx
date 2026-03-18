@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DataGrid, GridToolbarQuickFilter, GridToolbarContainer } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -15,6 +16,7 @@ import { createExpense, fetchExpenses, updateExpense, deleteExpense } from '../s
 const EXPENSE_CATEGORIES = ['Rent', 'Salary', 'Electricity', 'Water', 'Inventory', 'Marketing', 'Maintenance', 'Miscellaneous'];
 
 const Expenses = () => {
+  const { t } = useTranslation();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -35,7 +37,7 @@ const Expenses = () => {
         setExpenses(data.content.map(exp => ({ ...exp, id: exp.id || exp.expenseId })));
       }
     } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to fetch expenses.', severity: 'error' });
+      setSnackbar({ open: true, message: t('expensesPage.errorFetch'), severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -63,22 +65,22 @@ const Expenses = () => {
 
   const handleSubmit = async () => {
     if (!formData.type || !formData.amount || !formData.date) {
-      setSnackbar({ open: true, message: 'Please fill required fields.', severity: 'error' });
+      setSnackbar({ open: true, message: t('expensesPage.errorRequired'), severity: 'error' });
       return;
     }
     setSubmitting(true);
     try {
       if (isEditing) {
         await updateExpense(selectedId, formData);
-        setSnackbar({ open: true, message: 'Updated successfully!', severity: 'success' });
+        setSnackbar({ open: true, message: t('expensesPage.successUpdate'), severity: 'success' });
       } else {
         await createExpense(formData);
-        setSnackbar({ open: true, message: 'Recorded successfully!', severity: 'success' });
+        setSnackbar({ open: true, message: t('expensesPage.successRecord'), severity: 'success' });
       }
       setModalOpen(false);
       fetchExpensesData();
     } catch (err) {
-      setSnackbar({ open: true, message: 'Operation failed.', severity: 'error' });
+      setSnackbar({ open: true, message: t('expensesPage.errorSave'), severity: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -88,26 +90,26 @@ const Expenses = () => {
     setSubmitting(true);
     try {
       await deleteExpense(selectedId);
-      setSnackbar({ open: true, message: 'Deleted successfully!', severity: 'success' });
+      setSnackbar({ open: true, message: t('expensesPage.successDelete'), severity: 'success' });
       setDeleteOpen(false);
       fetchExpensesData();
     } catch (err) {
-      setSnackbar({ open: true, message: 'Delete failed.', severity: 'error' });
+      setSnackbar({ open: true, message: t('expensesPage.errorDelete'), severity: 'error' });
     } finally {
       setSubmitting(false);
     }
   };
 
   const columns = [
-    { field: 'date', headerName: 'Date', width: 130, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
-    { field: 'type', headerName: 'Category', width: 180, 
+    { field: 'date', headerName: t('expensesPage.columns.date'), width: 130, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
+    { field: 'type', headerName: t('expensesPage.columns.category'), width: 180, 
       renderCell: (params) => <Chip label={params.value} size="small" variant="outlined" sx={{ fontWeight: 600 }} /> 
     },
-    { field: 'amount', headerName: 'Amount', width: 150, 
+    { field: 'amount', headerName: t('expensesPage.columns.amount'), width: 150, 
       renderCell: (params) => <Typography fontWeight={800} color="error.main">₹{parseFloat(params.value).toLocaleString()}</Typography> 
     },
-    { field: 'notes', headerName: 'Notes', flex: 1, minWidth: 200 },
-    { field: 'actions', headerName: 'Actions', width: 120, sortable: false,
+    { field: 'notes', headerName: t('expensesPage.columns.notes'), flex: 1, minWidth: 200 },
+    { field: 'actions', headerName: t('expensesPage.columns.actions'), width: 120, sortable: false,
       renderCell: (params) => (
         <Stack direction="row">
           <IconButton size="small" color="primary" onClick={() => handleOpenModal(params.row)}><EditIcon fontSize="small" /></IconButton>
@@ -118,21 +120,21 @@ const Expenses = () => {
   ];
 
   return (
-    <Box sx={{ p: 4, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Expenses</Typography>
-          <Typography color="text.secondary">Manage your operational costs and overheads</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expensesPage.title')}</Typography>
+          <Typography color="text.secondary">{t('expensesPage.subtitle')}</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal()} sx={{ borderRadius: 2, px: 3, py: 1.5, fontWeight: 700 }}>
-          Record Expense
+          {t('expensesPage.recordExpense')}
         </Button>
       </Stack>
 
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={4}><StatCard icon={<AccountBalanceWallet color="error" />} label="Total Outflow" value={`₹${stats.total.toLocaleString()}`} color="#ef4444" /></Grid>
-        <Grid item xs={12} md={4}><StatCard icon={<ReceiptLong color="primary" />} label="Total Records" value={stats.count} color="#3b82f6" /></Grid>
-        <Grid item xs={12} md={4}><StatCard icon={<PieChart color="warning" />} label="Highest Single" value={`₹${stats.highest.toLocaleString()}`} color="#f59e0b" /></Grid>
+        <Grid item xs={12} md={4}><StatCard icon={<AccountBalanceWallet color="error" />} label={t('expensesPage.totalOutflow')} value={`₹${stats.total.toLocaleString()}`} color="#ef4444" /></Grid>
+        <Grid item xs={12} md={4}><StatCard icon={<ReceiptLong color="primary" />} label={t('expensesPage.totalRecords')} value={stats.count} color="#3b82f6" /></Grid>
+        <Grid item xs={12} md={4}><StatCard icon={<PieChart color="warning" />} label={t('expensesPage.highestSingle')} value={`₹${stats.highest.toLocaleString()}`} color="#f59e0b" /></Grid>
       </Grid>
 
       <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -144,7 +146,7 @@ const Expenses = () => {
             disableRowSelectionOnClick
             slots={{ toolbar: () => (
               <GridToolbarContainer sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
-                <GridToolbarQuickFilter sx={{ width: 300 }} placeholder="Search expenses..." />
+                <GridToolbarQuickFilter sx={{ width: 300 }} placeholder={t('expensesPage.searchPlaceholder')} />
               </GridToolbarContainer>
             )}}
             sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc' } }}
@@ -154,36 +156,36 @@ const Expenses = () => {
 
       {/* Record/Edit Dialog */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
-        <DialogTitle sx={{ fontWeight: 900 }}>{isEditing ? 'Edit Expense' : 'New Expense'}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 900 }}>{isEditing ? t('expensesPage.editExpense') : t('expensesPage.newExpense')}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField select label="Category" fullWidth value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
+            <TextField select label={t('expensesPage.category')} fullWidth value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
               {EXPENSE_CATEGORIES.map(cat => <MenuItem key={cat} value={cat}>{cat}</MenuItem>)}
             </TextField>
             <TextField 
-              label="Amount" type="number" fullWidth 
+              label={t('expensesPage.amount')} type="number" fullWidth 
               value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})}
               InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
             />
-            <TextField label="Date" type="date" fullWidth InputLabelProps={{ shrink: true }} value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
-            <TextField label="Notes/Details" multiline rows={3} fullWidth value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
+            <TextField label={t('expensesPage.date')} type="date" fullWidth InputLabelProps={{ shrink: true }} value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+            <TextField label={t('expensesPage.notes')} multiline rows={3} fullWidth value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setModalOpen(false)}>Cancel</Button>
+          <Button onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : 'Save Record'}
+            {submitting ? <CircularProgress size={24} /> : t('expensesPage.saveRecord')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <DialogTitle>Delete Record?</DialogTitle>
-        <DialogContent><DialogContentText>This will permanently remove this expense record from your accounts.</DialogContentText></DialogContent>
+        <DialogTitle>{t('expensesPage.deleteTitle')}</DialogTitle>
+        <DialogContent><DialogContentText>{t('expensesPage.deleteText')}</DialogContentText></DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleDelete} disabled={submitting}>Delete</Button>
+          <Button onClick={() => setDeleteOpen(false)}>{t('common.cancel')}</Button>
+          <Button color="error" variant="contained" onClick={handleDelete} disabled={submitting}>{t('common.delete')}</Button>
         </DialogActions>
       </Dialog>
 

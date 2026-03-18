@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Popover,
   Box,
@@ -63,6 +64,7 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
 
 // Main UserProfile component
 const UserProfile = ({ anchorEl, open, onClose }) => {
+  const { t } = useTranslation();
   const { user } = useAuthContext();
 
   const getGreeting = () => {
@@ -119,7 +121,7 @@ const UserProfile = ({ anchorEl, open, onClose }) => {
         <Divider sx={{ mb: 1.5, borderColor: 'rgba(255,255,255,0.2)' }} />
         
         <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8 }}>
-          Role: {userRole}
+          {t('userProfilePage.role')}: {userRole}
         </Typography>
         <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8, mt: 0.5 }}>
           Your dedication makes a difference.

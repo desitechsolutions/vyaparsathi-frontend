@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { useTranslation } from 'react-i18next';
 
 // Import your API functions
 import { 
@@ -22,6 +23,7 @@ import {
 dayjs.extend(relativeTime);
 
 export default function Notifications() {
+  const { t } = useTranslation();
   const [tabValue, setTabValue] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function Notifications() {
       setNotifications(response.data);
       setError(null);
     } catch (err) {
-      setError("Unable to sync notifications. Please check your connection.");
+      setError(t('notificationsPage.errorFetch'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +97,7 @@ export default function Notifications() {
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Notifications</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('notificationsPage.title')}</Typography>
           <Typography color="text.secondary">Stay updated with inventory, payments, and system alerts.</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -105,7 +107,7 @@ export default function Notifications() {
             onClick={handleMarkAllRead} 
             sx={{ textTransform: 'none' }}
           >
-            Mark all read
+            {t('notificationsPage.markAllRead')}
           </Button>
           <Tooltip title="Clear All">
             <span>
@@ -129,7 +131,7 @@ export default function Notifications() {
           onChange={(e, v) => setTabValue(v)} 
           sx={{ px: 2, pt: 1, borderBottom: '1px solid #f1f5f9' }}
         >
-          <Tab label="All" />
+          <Tab label={t('notificationsPage.all')} />
           <Tab label="Inventory" />
           <Tab label="Payments" />
         </Tabs>
@@ -141,7 +143,7 @@ export default function Notifications() {
             {filteredNotifications.length === 0 ? (
               <Box sx={{ py: 10, textAlign: 'center' }}>
                 <NotificationsActive sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
-                <Typography color="text.secondary">No notifications found.</Typography>
+                <Typography color="text.secondary">{t('notificationsPage.noNotifications')}</Typography>
               </Box>
             ) : (
               filteredNotifications.map((notif, index) => (

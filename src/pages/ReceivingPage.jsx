@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
     Box, Typography, Paper, Button, CircularProgress, TextField, FormControl,
     InputLabel, Select, MenuItem, Snackbar, Alert, Dialog, DialogTitle,
@@ -511,6 +512,7 @@ function ReceivingTicketDialog({ open, onClose, receivingId, onTicketCreate }) {
 
 // ---------- Main ReceivingPage (kept simple) ----------
 const ReceivingPage = () => {
+    const { t } = useTranslation();
     const { poId } = useParams();
     const navigate = useNavigate();
     const [receivings, setReceivings] = useState([]);
@@ -548,7 +550,7 @@ const ReceivingPage = () => {
                 setReceivings(recs.filter(r => r?.id));
             } catch (e) {
                 console.error(e);
-                setError('Failed to load data');
+                setError(t('receivingPage.errorFetch'));
             } finally {
                 setLoading(false);
             }
@@ -566,7 +568,7 @@ const ReceivingPage = () => {
     }, []);
 
     const handleCreateReceiving = useCallback((newRec) => {
-        if (!newRec?.id) return setSnackbar({ open: true, message: 'Invalid create response', severity: 'error' });
+        if (!newRec?.id) return setSnackbar({ open: true, message: t('receivingPage.errorSave'), severity: 'error' });
         setReceivings(prev => [...(Array.isArray(prev) ? prev : []), newRec]);
         setOpenReceivingDialog(false);
     }, []);
@@ -580,9 +582,9 @@ const ReceivingPage = () => {
         try {
             await deleteReceiving(id);
             setReceivings(prev => prev.filter(r => r.id !== id));
-            setSnackbar({ open: true, message: 'Deleted', severity: 'success' });
+            setSnackbar({ open: true, message: t('receivingPage.successSave'), severity: 'success' });
         } catch (e) {
-            setSnackbar({ open: true, message: 'Delete failed', severity: 'error' });
+            setSnackbar({ open: true, message: t('receivingPage.errorSave'), severity: 'error' });
         }
     };
 
@@ -609,9 +611,9 @@ const ReceivingPage = () => {
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h4">Receiving Dashboard</Typography>
+                    <Typography variant="h4">{t('receivingPage.title')}</Typography>
                     <Tooltip title="Create a new receiving record"><Fab color="primary" onClick={() => setOpenReceivingDialog(true)}><AddIcon /></Fab></Tooltip>
                 </Box>
 

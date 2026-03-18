@@ -11,6 +11,7 @@ import {
 import dayjs from 'dayjs';
 // Make sure all three are exported from your api.js
 import { fetchAuditLogs, exportAuditLogs, fetchAuditLogsByUser } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 const getActionStyle = (action) => {
   const act = action ? action.toLowerCase() : '';
@@ -22,6 +23,7 @@ const getActionStyle = (action) => {
 };
 
 export default function AuditLogs() {
+  const { t } = useTranslation();
   // State definitions must always be at the top level
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -107,9 +109,9 @@ export default function AuditLogs() {
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Security Audit Logs</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('auditLogsPage.title')}</Typography>
           <Typography color="text.secondary">
-            {selectedUser ? `Activity Trail for: ${selectedUser}` : "Real-time trail of all system activities and modifications."}
+            {selectedUser ? `Activity Trail for: ${selectedUser}` : t('auditLogsPage.subtitle')}
           </Typography>
         </Box>
         
@@ -165,7 +167,7 @@ export default function AuditLogs() {
         
         <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
           <TextField
-            placeholder="Filter by user, action, or details..."
+            placeholder={t('auditLogsPage.searchPlaceholder')}
             fullWidth
             size="small"
             value={searchTerm}
@@ -184,11 +186,11 @@ export default function AuditLogs() {
           <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Timestamp</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>User</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Action</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Module</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Activity Details</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.timestamp')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.user')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.action')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.entity')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.details')}</TableCell>
                 <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>IP Address</TableCell>
               </TableRow>
             </TableHead>

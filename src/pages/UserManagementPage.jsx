@@ -12,8 +12,10 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import EditIcon from '@mui/icons-material/Edit';
 import SecurityIcon from '@mui/icons-material/Security';
+import { useTranslation } from 'react-i18next';
 
 const UserManagementPage = () => {
+    const { t } = useTranslation();
     const [users, setUsers] = useState([]);
     const [shops, setShops] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ const UserManagementPage = () => {
             setShops(Array.isArray(shopData) ? shopData : (shopData ? [shopData] : []));
         } catch (error) {
             console.error("Data Load Error:", error);
-            setSnackbar({ open: true, message: 'Failed to load page data.', severity: 'error' });
+            setSnackbar({ open: true, message: t('userManagementPage.errorLoad'), severity: 'error' });
         } finally {
             setLoading(false);
         }
@@ -57,13 +59,13 @@ const UserManagementPage = () => {
         const phoneRegex = /^[0-9]{10,15}$/;
 
         if (dialogMode === 'create') {
-            if (!formData.username) errors.username = "Username is required";
-            if (!formData.pin || formData.pin.length < 4) errors.pin = "PIN must be at least 4 digits";
-            if (!formData.phone || !phoneRegex.test(formData.phone)) errors.phone = "Valid 10-15 digit phone is required";
+            if (!formData.username) errors.username = t('userManagementPage.errorUsername');
+            if (!formData.pin || formData.pin.length < 4) errors.pin = t('userManagementPage.errorPin');
+            if (!formData.phone || !phoneRegex.test(formData.phone)) errors.phone = t('userManagementPage.errorPhone');
         }
 
-        if (!formData.firstName) errors.firstName = "First name is required";
-        if (formData.email && !emailRegex.test(formData.email)) errors.email = "Invalid email format";
+        if (!formData.firstName) errors.firstName = t('userManagementPage.errorFirstName');
+        if (formData.email && !emailRegex.test(formData.email)) errors.email = t('userManagementPage.errorEmail');
         
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
@@ -104,10 +106,10 @@ const UserManagementPage = () => {
             setActionLoading(true);
             const createdUser = await adminCreateUser(formData);
             setUsers(prev => [...prev, createdUser]);
-            setSnackbar({ open: true, message: 'User created successfully.', severity: 'success' });
+            setSnackbar({ open: true, message: t('userManagementPage.successCreate'), severity: 'success' });
             handleDialogClose();
         } catch (error) {
-            setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to create user.', severity: 'error' });
+            setSnackbar({ open: true, message: error.response?.data?.message || t('userManagementPage.errorCreate'), severity: 'error' });
         } finally {
             setActionLoading(false);
         }
@@ -119,10 +121,10 @@ const UserManagementPage = () => {
             setActionLoading(true);
             const updatedUser = await updateUser(selectedUser.id, formData);
             setUsers(prev => prev.map(u => u.id === selectedUser.id ? updatedUser : u));
-            setSnackbar({ open: true, message: 'User updated successfully.', severity: 'success' });
+            setSnackbar({ open: true, message: t('userManagementPage.successUpdate'), severity: 'success' });
             handleDialogClose();
         } catch (error) {
-            setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to update user.', severity: 'error' });
+            setSnackbar({ open: true, message: error.response?.data?.message || t('userManagementPage.errorUpdate'), severity: 'error' });
         } finally {
             setActionLoading(false);
         }
@@ -134,10 +136,10 @@ const UserManagementPage = () => {
             setActionLoading(true);
             const updatedUser = await updateUserRole(selectedUser.id, formData.role);
             setUsers(prev => prev.map(u => u.id === selectedUser.id ? updatedUser : u));
-            setSnackbar({ open: true, message: 'User role updated successfully.', severity: 'success' });
+            setSnackbar({ open: true, message: t('userManagementPage.successRole'), severity: 'success' });
             handleDialogClose();
         } catch (error) {
-            setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to update role.', severity: 'error' });
+            setSnackbar({ open: true, message: error.response?.data?.message || t('userManagementPage.errorRole'), severity: 'error' });
         } finally {
             setActionLoading(false);
         }
@@ -147,16 +149,16 @@ const UserManagementPage = () => {
         try {
             const updatedUser = await updateUserStatus(userId, !currentStatus);
             setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-            setSnackbar({ open: true, message: 'User status updated successfully.', severity: 'success' });
+            setSnackbar({ open: true, message: t('userManagementPage.successStatus'), severity: 'success' });
         } catch (error) {
-            setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to update status.', severity: 'error' });
+            setSnackbar({ open: true, message: error.response?.data?.message || t('userManagementPage.errorStatus'), severity: 'error' });
         }
     };
 
     const columns = useMemo(() => [
         { 
             field: 'name', 
-            headerName: 'Name', 
+            headerName: t('userManagementPage.columns.name'), 
             flex: 1.5, 
             minWidth: 180, 
             renderCell: ({ row }) => (
@@ -170,7 +172,7 @@ const UserManagementPage = () => {
         },
         { 
             field: 'email', 
-            headerName: 'Contact & Shop', 
+            headerName: t('userManagementPage.columns.shop'), 
             flex: 1.5, 
             minWidth: 200, 
             renderCell: ({ row }) => (
@@ -182,7 +184,7 @@ const UserManagementPage = () => {
         },
         { 
             field: 'role', 
-            headerName: 'Role', 
+            headerName: t('userManagementPage.columns.role'), 
             flex: 1, 
             minWidth: 130, 
             renderCell: ({ value }) => {
@@ -199,7 +201,7 @@ const UserManagementPage = () => {
         },
         { 
             field: 'active', 
-            headerName: 'Status', 
+            headerName: t('userManagementPage.columns.status'), 
             width: 150, 
             renderCell: (params) => (
                 <FormControlLabel 
@@ -221,28 +223,28 @@ const UserManagementPage = () => {
             type: 'actions', 
             width: 120, 
             getActions: (params) => [
-                <GridActionsCellItem icon={<Tooltip title="Edit Details"><EditIcon /></Tooltip>} label="Edit" onClick={() => openEditDialog(params.row)} />,
+                <GridActionsCellItem icon={<Tooltip title={t('userManagementPage.editUser')}><EditIcon /></Tooltip>} label="Edit" onClick={() => openEditDialog(params.row)} />,
                 <GridActionsCellItem 
-                    icon={<Tooltip title="Change Role"><SecurityIcon color={params.row.role === 'OWNER' ? 'disabled' : 'primary'} /></Tooltip>} 
+                    icon={<Tooltip title={t('userManagementPage.changeRole')}><SecurityIcon color={params.row.role === 'OWNER' ? 'disabled' : 'primary'} /></Tooltip>} 
                     label="Change Role" 
                     onClick={() => openRoleDialog(params.row)} 
                     disabled={params.row.role === 'OWNER'} 
                 />
             ]
         },
-    ], [handleStatusChange]);
+    ], [handleStatusChange, t]);
 
     return (
-        <Box p={3} bgcolor="#f4f6f8" minHeight="100vh">
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h4" fontWeight="bold">User Management</Typography>
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                <Typography variant="h4" fontWeight="bold">{t('userManagementPage.title')}</Typography>
                 <Button 
                     variant="contained" 
                     startIcon={<PersonAddIcon />} 
                     onClick={openCreateDialog}
                     disabled={actionLoading}
                 >
-                    Create User
+                    {t('userManagementPage.addUser')}
                 </Button>
             </Box>
 
@@ -259,39 +261,39 @@ const UserManagementPage = () => {
 
             {/* Create Dialog */}
             <Dialog open={dialogMode === 'create'} onClose={handleDialogClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>{t('userManagementPage.addUser')}</DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
                         <Grid item xs={12} sm={6}>
-                            <TextField autoFocus required label="First Name" name="firstName" fullWidth value={formData.firstName || ''} onChange={handleFormChange} error={!!formErrors.firstName} helperText={formErrors.firstName} />
+                            <TextField autoFocus required label={t('userManagementPage.firstName')} name="firstName" fullWidth value={formData.firstName || ''} onChange={handleFormChange} error={!!formErrors.firstName} helperText={formErrors.firstName} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Last Name" name="lastName" fullWidth value={formData.lastName || ''} onChange={handleFormChange} />
+                            <TextField required label={t('userManagementPage.lastName')} name="lastName" fullWidth value={formData.lastName || ''} onChange={handleFormChange} />
                         </Grid>
                         <Grid item xs={12}>
-                            <TextField required label="Email" name="email" type="email" fullWidth value={formData.email || ''} onChange={handleFormChange} error={!!formErrors.email} helperText={formErrors.email} />
+                            <TextField required label={t('userManagementPage.email')} name="email" type="email" fullWidth value={formData.email || ''} onChange={handleFormChange} error={!!formErrors.email} helperText={formErrors.email} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Phone Number" name="phone" fullWidth value={formData.phone || ''} onChange={handleFormChange} error={!!formErrors.phone} helperText={formErrors.phone} />
+                            <TextField required label={t('userManagementPage.phone')} name="phone" fullWidth value={formData.phone || ''} onChange={handleFormChange} error={!!formErrors.phone} helperText={formErrors.phone} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Username" name="username" fullWidth value={formData.username || ''} onChange={handleFormChange} error={!!formErrors.username} helperText={formErrors.username} />
+                            <TextField required label={t('userManagementPage.username')} name="username" fullWidth value={formData.username || ''} onChange={handleFormChange} error={!!formErrors.username} helperText={formErrors.username} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Initial PIN" name="pin" type="password" fullWidth value={formData.pin || ''} onChange={handleFormChange} error={!!formErrors.pin} helperText={formErrors.pin} />
+                            <TextField required label={t('userManagementPage.pin')} name="pin" type="password" fullWidth value={formData.pin || ''} onChange={handleFormChange} error={!!formErrors.pin} helperText={formErrors.pin} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <FormControl fullWidth required>
-                                <InputLabel>Role</InputLabel>
-                                <Select name="role" value={formData.role || 'STAFF'} label="Role" onChange={handleFormChange}>
+                                <InputLabel>{t('userManagementPage.role')}</InputLabel>
+                                <Select name="role" value={formData.role || 'STAFF'} label={t('userManagementPage.role')} onChange={handleFormChange}>
                                     {ROLES.map(role => <MenuItem key={role} value={role}>{role}</MenuItem>)}
                                 </Select>
                             </FormControl>
                         </Grid>
                         <Grid item xs={12}>
                             <FormControl fullWidth>
-                                <InputLabel>Assign to Shop</InputLabel>
-                                <Select name="shopId" value={formData.shopId || ''} label="Assign to Shop" onChange={handleFormChange}>
+                                <InputLabel>{t('userManagementPage.shop')}</InputLabel>
+                                <Select name="shopId" value={formData.shopId || ''} label={t('userManagementPage.shop')} onChange={handleFormChange}>
                                     <MenuItem value=""><em>None</em></MenuItem>
                                     {shops.map(shop => <MenuItem key={shop.id} value={shop.id}>{shop.name}</MenuItem>)}
                                 </Select>
@@ -302,32 +304,32 @@ const UserManagementPage = () => {
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={handleDialogClose}>Cancel</Button>
                     <Button onClick={handleCreateUser} variant="contained" disabled={actionLoading}>
-                        {actionLoading ? <CircularProgress size={24} /> : 'Create'}
+                        {actionLoading ? <CircularProgress size={24} /> : t('userManagementPage.addUser')}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Edit Dialog */}
             <Dialog open={dialogMode === 'edit'} onClose={handleDialogClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Edit User: {selectedUser?.username}</DialogTitle>
+                <DialogTitle>{t('userManagementPage.editUser')}: {selectedUser?.username}</DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
                         <Grid item xs={12} sm={6}>
-                            <TextField autoFocus required label="First Name" name="firstName" fullWidth value={formData.firstName || ''} onChange={handleFormChange} error={!!formErrors.firstName} helperText={formErrors.firstName} />
+                            <TextField autoFocus required label={t('userManagementPage.firstName')} name="firstName" fullWidth value={formData.firstName || ''} onChange={handleFormChange} error={!!formErrors.firstName} helperText={formErrors.firstName} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Last Name" name="lastName" fullWidth value={formData.lastName || ''} onChange={handleFormChange} />
+                            <TextField required label={t('userManagementPage.lastName')} name="lastName" fullWidth value={formData.lastName || ''} onChange={handleFormChange} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Email" name="email" type="email" fullWidth value={formData.email || ''} onChange={handleFormChange} error={!!formErrors.email} helperText={formErrors.email} />
+                            <TextField required label={t('userManagementPage.email')} name="email" type="email" fullWidth value={formData.email || ''} onChange={handleFormChange} error={!!formErrors.email} helperText={formErrors.email} />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField required label="Phone Number" name="phone" fullWidth value={formData.phone || ''} onChange={handleFormChange} error={!!formErrors.phone} helperText={formErrors.phone} />
+                            <TextField required label={t('userManagementPage.phone')} name="phone" fullWidth value={formData.phone || ''} onChange={handleFormChange} error={!!formErrors.phone} helperText={formErrors.phone} />
                         </Grid>
                         <Grid item xs={12}>
                             <FormControl fullWidth>
-                                <InputLabel>Assign to Shop</InputLabel>
-                                <Select name="shopId" value={formData.shopId || ''} label="Assign to Shop" onChange={handleFormChange}>
+                                <InputLabel>{t('userManagementPage.shop')}</InputLabel>
+                                <Select name="shopId" value={formData.shopId || ''} label={t('userManagementPage.shop')} onChange={handleFormChange}>
                                     <MenuItem value=""><em>None</em></MenuItem>
                                     {shops.map(shop => <MenuItem key={shop.id} value={shop.id}>{shop.name}</MenuItem>)}
                                 </Select>
@@ -345,11 +347,11 @@ const UserManagementPage = () => {
 
             {/* Role Dialog */}
             <Dialog open={dialogMode === 'role'} onClose={handleDialogClose}>
-                <DialogTitle>Change Role for {selectedUser?.username}</DialogTitle>
+                <DialogTitle>{t('userManagementPage.changeRole')}: {selectedUser?.username}</DialogTitle>
                 <DialogContent sx={{ minWidth: 320 }}>
                     <FormControl fullWidth sx={{ mt: 1 }}>
-                        <InputLabel>Role</InputLabel>
-                        <Select name="role" value={formData.role || ''} label="Role" onChange={handleFormChange}>
+                        <InputLabel>{t('userManagementPage.role')}</InputLabel>
+                        <Select name="role" value={formData.role || ''} label={t('userManagementPage.role')} onChange={handleFormChange}>
                             {ROLES.map(role => <MenuItem key={role} value={role}>{role}</MenuItem>)}
                         </Select>
                     </FormControl>

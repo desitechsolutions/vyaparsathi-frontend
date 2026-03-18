@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Container, Grid, Card, CardContent, 
   CardActionArea, Avatar, Stack, Divider, Chip
@@ -58,6 +59,7 @@ const INDUSTRY_SECTION_CONFIG = {
 
 const ReportsIndex = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { industryType } = useShop();
 
   const industrySectionConfig = INDUSTRY_SECTION_CONFIG[industryType];
@@ -107,14 +109,14 @@ const ReportsIndex = () => {
   );
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 6 }}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', p: { xs: 2, sm: 3, md: 4 } }}>
       <Container maxWidth="lg">
         <Box sx={{ mb: 6 }}>
           <Typography variant="h4" fontWeight={900} color="#0f172a" gutterBottom>
-            Business Intelligence
+            {t('reportsIndex.title')}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Select a specialized report module to analyze your store performance.
+            {t('reportsIndex.subtitle')}
           </Typography>
         </Box>
 

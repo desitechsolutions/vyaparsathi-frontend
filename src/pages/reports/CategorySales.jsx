@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, CircularProgress, 
   Table, TableHead, TableRow, TableCell, TableBody, Stack, Avatar, 
@@ -37,6 +38,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function CategorySales() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState([]);
@@ -77,8 +79,8 @@ export default function CategorySales() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Category Analytics</Typography>
-          <Typography color="text.secondary">Sales distribution across different product departments</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('categorySalesReport.title')}</Typography>
+          <Typography color="text.secondary">{t('categorySalesReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
@@ -86,7 +88,7 @@ export default function CategorySales() {
             onClick={() => downloadCSV(report, from, to)}
             sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
           >
-            Export
+            {t('reportsCommon.export')}
           </Button>
         )}
       </Stack>
@@ -96,13 +98,13 @@ export default function CategorySales() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
@@ -126,10 +128,10 @@ export default function CategorySales() {
           <Table sx={{ minWidth: 600 }}>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>Category Name</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>Units Sold</TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>Revenue & Contribution</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Total Sales</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.category')}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.itemsSold')}</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.revenue')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('reportsCommon.total')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
