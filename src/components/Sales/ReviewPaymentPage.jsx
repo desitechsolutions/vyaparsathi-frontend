@@ -119,7 +119,7 @@ const ReviewPaymentPage = ({
       <Container maxWidth="xl">
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Box>
-            <Typography variant={{ xs: 'h5', md: 'h4' }} sx={{ fontWeight: 800, color: '#0f172a', fontSize: { xs: '1.3rem', md: '2.125rem' } }}>Review & Payment</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', fontSize: { xs: '1.3rem', sm: '1.5rem', md: '2.125rem' } }}>Review & Payment</Typography>
             <Typography variant="body2" color="textSecondary">Record payment distribution to complete sale</Typography>
           </Box>
           <Button startIcon={<ArrowBackIcon />} onClick={onCancel} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
@@ -282,7 +282,7 @@ const ReviewPaymentPage = ({
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                     <Typography variant="h6" sx={{ fontWeight: 900, flexShrink: 0 }}>Net Payable</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 900, color: '#4ade80', textAlign: 'right', wordBreak: 'break-all' }}>₹{netPayable}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: '#4ade80', textAlign: 'right', overflowWrap: 'break-word', minWidth: 0 }}>₹{netPayable}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
