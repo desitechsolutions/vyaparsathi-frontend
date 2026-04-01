@@ -24,9 +24,9 @@ const SCHEDULE_LABELS = {
 
 const formatDate = (d) => d ? dayjs(d).format('DD MMM YYYY, hh:mm A') : '—';
 
-const downloadCSV = (data, from, to) => {
+const downloadCSV = (data, from, to, t) => {
   const rows = [
-    ['{t('narcoticsReport.title')}'],
+    [t('narcoticsReport.title')],
     [`Period: ${from} to ${to}`],
     [],
     ['Date', 'Invoice No', 'Item Name', 'Schedule', 'Qty', 'Unit', 'Customer', 'Doctor', 'Patient', 'Batch No'],
@@ -100,7 +100,7 @@ export default function NarcoticsRegister() {
           <Button
             variant="outlined"
             startIcon={<FileDownload />}
-            onClick={() => downloadCSV(data, from, to)}
+            onClick={() => downloadCSV(data, from, to, t)}
             sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'white' }}
           >
             Export CSV
