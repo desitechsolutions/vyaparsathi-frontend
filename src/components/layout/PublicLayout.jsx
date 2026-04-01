@@ -37,7 +37,7 @@ const PublicLayout = () => {
         <Grid container spacing={6} alignItems="center" justifyContent="center">
           
           {/* Left Greeting */}
-          <Grid item xs={12} md={7} sx={{ display: isMobile ? 'block' : 'block' }}>
+          <Grid item xs={12} md={7} order={{ xs: 2, md: 1 }} sx={{ display: isMobile ? 'block' : 'block' }}>
             <Fade in timeout={800}>
               <Stack spacing={4} sx={{ pt: 2, textAlign: isMobile ? 'center' : 'left', alignItems: isMobile ? 'center' : 'flex-start' }}>
                 <Stack direction="row" alignItems="center" spacing={2.5}>
@@ -146,7 +146,7 @@ const PublicLayout = () => {
           </Grid>
 
           {/* Right side: Outlet */}
-          <Grid item xs={12} md={5}>
+          <Grid item xs={12} md={5} order={{ xs: 1, md: 2 }}>
             <Fade in timeout={800}>
               <Box sx={{ 
                 maxWidth: 460, 

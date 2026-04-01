@@ -142,6 +142,7 @@ const PaymentForm = ({
                   error={!!formErrors[`amount${idx}`] || isOverpaid}
                   onChange={e => onMethodChange(idx, 'amount', e.target.value)}
                   sx={inputSx}
+                  inputProps={{ min: 0, step: 'any' }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                   }}

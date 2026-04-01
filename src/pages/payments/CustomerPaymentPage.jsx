@@ -153,7 +153,12 @@ const CustomerPaymentPage = () => {
   const handleMethodChange = (index, field, value) => {
     setPaymentMethods(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'amount') {
+        const parsed = parseFloat(value);
+        updated[index] = { ...updated[index], [field]: isNaN(parsed) ? '' : String(Math.max(0, parsed)) };
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
       return updated;
     });
   };

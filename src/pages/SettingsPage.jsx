@@ -30,9 +30,11 @@ import { useNavigate } from "react-router-dom";
 import { fetchShop, fetchFileBlob } from "../services/api";
 import API from "../services/api";
 import { useTranslation } from "react-i18next";
+import { useAuthContext } from "../context/AuthContext";
 
 const SettingsPage = () => {
   const { t } = useTranslation();
+  const { user } = useAuthContext();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -163,8 +165,9 @@ const SettingsPage = () => {
           ...res.data,
           name: res.data.name || "",
           address: res.data.address || "",
-          phone: res.data.phone || "",
-          email: res.data.email || "",
+          // Pre-populate phone and email from user profile if the shop fields are empty
+          phone: res.data.phone || user?.phone || "",
+          email: res.data.email || user?.email || "",
           gstin: res.data.gstin || "",
           isCompositionScheme: !!res.data.isCompositionScheme,
           bankDetails: res.data.bankDetails || "",
