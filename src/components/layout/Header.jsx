@@ -12,6 +12,7 @@ import { searchGlobalData } from '../../services/api';
 
 // Icons
 import MenuIcon from '@mui/icons-material/Menu'; // Added for Hamburger
+import CloseIcon from '@mui/icons-material/Close';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
@@ -73,6 +74,7 @@ const Header = ({ onDrawerToggle }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // --- UI STATES ---
   const [anchorEl, setAnchorEl] = useState(null);
@@ -115,7 +117,14 @@ const Header = ({ onDrawerToggle }) => {
   const handleResultClick = (route) => {
     setSearchQuery('');
     setShowResults(false);
+    setMobileSearchOpen(false);
     navigate(route);
+  };
+
+  const handleMobileSearchClose = () => {
+    setMobileSearchOpen(false);
+    setSearchQuery('');
+    setShowResults(false);
   };
 
   const handleMenu = (event) => setAnchorEl(event.currentTarget);
@@ -145,7 +154,79 @@ const Header = ({ onDrawerToggle }) => {
   return (
     <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 60, sm: 70 } }}>
-        
+
+        {/* MOBILE SEARCH OVERLAY: full-width search bar */}
+        {isMobile && mobileSearchOpen ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+            <Box sx={{
+              display: 'flex', alignItems: 'center', flexGrow: 1,
+              bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2, px: 1.5,
+              '&:focus-within': { bgcolor: 'rgba(255,255,255,0.25)' }
+            }}>
+              <SearchIcon sx={{ color: 'rgba(255,255,255,0.8)', mr: 1, flexShrink: 0 }} />
+              <InputBase
+                autoFocus
+                placeholder={t('header.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ color: 'white', width: '100%', fontSize: '0.95rem', py: 0.8 }}
+              />
+              {isSearching && <CircularProgress size={18} sx={{ color: 'white', ml: 1 }} />}
+            </Box>
+            <IconButton color="inherit" onClick={handleMobileSearchClose} size="small">
+              <CloseIcon />
+            </IconButton>
+
+            {/* Mobile search results */}
+            {showResults && (
+              <>
+                <Paper
+                  elevation={10}
+                  sx={{
+                    position: 'absolute', top: '100%', left: 0, right: 0,
+                    maxHeight: '70vh', overflowY: 'auto', borderRadius: 0, zIndex: 100,
+                    border: '1px solid', borderColor: 'divider'
+                  }}
+                >
+                  {searchResults.length > 0 ? (
+                    <List sx={{ py: 0 }}>
+                      {searchResults.map((result, index) => (
+                        <MenuItem
+                          key={`${result.type}-${result.id}-${index}`}
+                          onClick={() => handleResultClick(result.route)}
+                          sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{
+                              bgcolor: result.type === 'CUSTOMER' ? 'primary.main' :
+                                       result.type === 'SALE' ? 'success.main' : 'warning.main',
+                              width: 36, height: 36
+                            }}>
+                              {result.type === 'CUSTOMER' ? <PersonIcon fontSize="small" /> :
+                               result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={<Typography variant="body2" fontWeight={700}>{result.title}</Typography>}
+                            secondary={result.subtitle}
+                          />
+                        </MenuItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('header.noResultsFound', { value: searchQuery })}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+                <Box onClick={handleMobileSearchClose} sx={{ position: 'fixed', inset: 0, zIndex: 90, bgcolor: 'rgba(0,0,0,0.3)' }} />
+              </>
+            )}
+          </Box>
+        ) : (
+          <>
         {/* LEFT: Branding & Hamburger */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {/* HAMBURGER ICON: Visible only on mobile/tablet */}
@@ -155,7 +236,7 @@ const Header = ({ onDrawerToggle }) => {
               aria-label="open drawer"
               edge="start"
               onClick={onDrawerToggle}
-              sx={{ mr: 2, display: { md: 'none' } }}
+              sx={{ mr: { xs: 0.5, sm: 2 }, display: { md: 'none' } }}
             >
               <MenuIcon />
             </IconButton>
@@ -165,7 +246,7 @@ const Header = ({ onDrawerToggle }) => {
           </Box>
         </Box>
 
-        {/* MIDDLE: Global Search (Desktop & Tablet) */}
+        {/* MIDDLE: Global Search (Desktop & Tablet only) */}
         {isLoggedIn && !isMobile && (
           <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
             <Box sx={{ 
@@ -247,10 +328,19 @@ const Header = ({ onDrawerToggle }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
           {isLoggedIn && (
             <>
+              {/* Mobile search icon */}
+              {isMobile && (
+                <IconButton color="inherit" onClick={() => setMobileSearchOpen(true)} size="small">
+                  <SearchIcon />
+                </IconButton>
+              )}
+
+              {/* Quick action button: hidden on mobile (available via sidebar) */}
               <Tooltip title={t('header.quickAction')}>
                 <IconButton 
                   onClick={handleQuickActionOpen} 
                   sx={{ 
+                    display: { xs: 'none', sm: 'flex' },
                     bgcolor: 'secondary.main', color: 'white', 
                     '&:hover': { bgcolor: 'secondary.dark' }, 
                     width: { xs: 36, sm: 42 }, height: { xs: 36, sm: 42 },
@@ -305,7 +395,7 @@ const Header = ({ onDrawerToggle }) => {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 PaperProps={{ 
                   sx: { 
-                    width: 320, 
+                    width: { xs: '90vw', sm: 320 }, 
                     mt: 1.5, 
                     borderRadius: 3, 
                     maxHeight: 500,
@@ -361,11 +451,12 @@ const Header = ({ onDrawerToggle }) => {
                 </Box>
               </Menu>
 
+              {/* Language switcher: hidden on mobile (available in user menu) */}
               <IconButton
                 size="small"
                 color="inherit"
                 onClick={() => changeLanguage(i18n.language === 'en' ? 'hi' : 'en')}
-                sx={{ marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
+                sx={{ display: { xs: 'none', sm: 'flex' }, marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
               >
                 <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
                 <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
@@ -373,40 +464,40 @@ const Header = ({ onDrawerToggle }) => {
                 </Typography>
               </IconButton>
 
-<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-  {/* If user is on Trial OR has a paid Premium plan */}
-  {premium || subscription?.status === 'TRIAL' ? (
-    <Chip 
-      // PRIORITY: Show 'TRIAL' if on trial, otherwise show the Tier name
-      label={subscription?.status === 'TRIAL' ? 'TRIAL' : (subscription?.tier || 'PRO')} 
-      color="secondary" 
-      size="small"
-      icon={<WorkspacePremiumIcon />}
-      onClick={() => navigate('/pricing')}
-      sx={{ 
-        fontWeight: 800, 
-        cursor: 'pointer',
-        background: subscription?.status === 'TRIAL' 
-          ? 'linear-gradient(45deg, #3b82f6 30%, #2dd4bf 90%)' // Blue/Teal for Trial
-          : 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)', // Gold for Paid
-        color: subscription?.status === 'TRIAL' ? '#FFF' : '#000',
-        '& .MuiChip-icon': { color: 'inherit' }
-      }}
-    />
-  ) : (
-    <Button 
-      variant="contained" 
-      color="warning" 
-      size="small"
-      startIcon={<WorkspacePremiumIcon />}
-      onClick={() => navigate('/pricing')}
-      sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
-    >
-      Upgrade
-    </Button>
-  )}
-</Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
+              {/* Premium badge: hidden on mobile (shown in user menu) */}
+              <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 2 }}>
+                {premium || subscription?.status === 'TRIAL' ? (
+                  <Chip 
+                    label={subscription?.status === 'TRIAL' ? 'TRIAL' : (subscription?.tier || 'PRO')} 
+                    color="secondary" 
+                    size="small"
+                    icon={<WorkspacePremiumIcon />}
+                    onClick={() => navigate('/pricing')}
+                    sx={{ 
+                      fontWeight: 800, 
+                      cursor: 'pointer',
+                      background: subscription?.status === 'TRIAL' 
+                        ? 'linear-gradient(45deg, #3b82f6 30%, #2dd4bf 90%)'
+                        : 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)',
+                      color: subscription?.status === 'TRIAL' ? '#FFF' : '#000',
+                      '& .MuiChip-icon': { color: 'inherit' }
+                    }}
+                  />
+                ) : (
+                  <Button 
+                    variant="contained" 
+                    color="warning" 
+                    size="small"
+                    startIcon={<WorkspacePremiumIcon />}
+                    onClick={() => navigate('/pricing')}
+                    sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                  >
+                    Upgrade
+                  </Button>
+                )}
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: { xs: 0.5, sm: 1 }, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
                 {!isTablet && (
                   <Typography variant="body2" sx={{ mr: 1.5, fontWeight: 700, color: 'white' }}>
                     {displayName.split(' ')[0]}
@@ -442,6 +533,29 @@ const Header = ({ onDrawerToggle }) => {
                   <ListItemIcon><SupportIcon fontSize="small" /></ListItemIcon> 
                   {t('header.helpSupport')}
                 </MenuItem>
+                {/* Mobile-only: Quick actions, language, and plan in user menu */}
+                {isMobile && [
+                  <Divider key="div-mobile" />,
+                  <MenuItem key="sale" onClick={() => { handleClose(); navigate('/sales'); }}>
+                    <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon>
+                    {t('header.newSale')}
+                  </MenuItem>,
+                  <MenuItem key="payment" onClick={() => { handleClose(); navigate('/customer-payments'); }}>
+                    <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon>
+                    {t('header.advancePayment')}
+                  </MenuItem>,
+                  <MenuItem key="lang" onClick={() => { changeLanguage(i18n.language === 'en' ? 'hi' : 'en'); handleClose(); }}>
+                    <ListItemIcon><LanguageIcon fontSize="small" /></ListItemIcon>
+                    {i18n.language === 'en' ? 'हिंदी में बदलें' : 'Switch to English'}
+                  </MenuItem>,
+                  <MenuItem key="plan" onClick={() => { handleClose(); navigate('/pricing'); }}>
+                    <ListItemIcon><WorkspacePremiumIcon fontSize="small" /></ListItemIcon>
+                    {premium || subscription?.status === 'TRIAL' 
+                      ? (subscription?.status === 'TRIAL' ? 'Trial Plan' : `Plan: ${subscription?.tier || 'PRO'}`)
+                      : 'Upgrade Plan'
+                    }
+                  </MenuItem>
+                ]}
                 <Divider />
                 <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                   <ListItemIcon><ExitToAppIcon fontSize="small" color="error" /></ListItemIcon> 
@@ -457,6 +571,8 @@ const Header = ({ onDrawerToggle }) => {
             </Button>
           )}
         </Box>
+          </>
+        )}
       </Toolbar>
 
       {/* MODALS & DIALOGS */}
