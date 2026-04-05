@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Box, Button, Tabs, Tab, Snackbar, Alert, Container, Fade, Stack } from '@mui/material';
+import {
+  Box, Button, Tabs, Tab, Snackbar, Alert, Container, Fade, Stack,
+  Typography, Chip, IconButton, Tooltip
+} from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HistoryIcon from '@mui/icons-material/History';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import PersonIcon from '@mui/icons-material/Person';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import {
   fetchSalesWithDue,
@@ -33,6 +39,12 @@ const CustomerPaymentPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSaleId = searchParams.get('saleId');
+
+  // Dynamic back: always go to the previous page in browser history.
+  // Falls back to a sensible default if there's no history (e.g. direct URL visit).
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   const hasInitializedFromUrl = useRef(false);
 
@@ -225,18 +237,118 @@ const CustomerPaymentPage = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      <Container maxWidth="lg">
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(initialSaleId ? '/sales?tab=history' : '/customers')} sx={{ fontWeight: 700 }}>
-            Back
-          </Button>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab icon={<PaymentsIcon fontSize="small" />} label="Collect" />
-            <Tab icon={<HistoryIcon fontSize="small" />} label="History" />
-          </Tabs>
-        </Stack>
+    <Box sx={{ bgcolor: '#f1f5f9', minHeight: '100vh' }}>
+      {/* ── Page Header ──────────────────────────────────────────────── */}
+      <Box sx={{
+        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+        color: '#fff',
+        px: { xs: 2, md: 4 },
+        pt: { xs: 2, md: 3 },
+        pb: 0,
+      }}>
+        <Container maxWidth="lg" disableGutters>
+          {/* Top row: back + refresh */}
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBack}
+              sx={{
+                color: 'rgba(255,255,255,0.85)',
+                fontWeight: 700,
+                textTransform: 'none',
+                '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
+              }}
+            >
+              Back
+            </Button>
+            <Tooltip title="Refresh data">
+              <IconButton
+                size="small"
+                onClick={loadData}
+                sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
 
+          {/* Title row */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 2 }}>
+            <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: 'rgba(255,255,255,0.12)', display: 'flex' }}>
+              <AccountBalanceWalletIcon sx={{ fontSize: 28, color: '#a5f3fc' }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h5" fontWeight={900} sx={{ color: '#fff', lineHeight: 1.2 }}>
+                Customer Payments
+              </Typography>
+              {selectedCustomer ? (
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                  <PersonIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }} />
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                    {selectedCustomer.name}
+                  </Typography>
+                  {selectedCustomer.phone && (
+                    <Chip
+                      label={selectedCustomer.phone}
+                      size="small"
+                      sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}
+                    />
+                  )}
+                </Stack>
+              ) : (
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.3 }}>
+                  Select a customer to collect or review payments
+                </Typography>
+              )}
+            </Box>
+
+            {/* Outstanding chip */}
+            {selectedCustomer && totalDue > 0 && (
+              <Box sx={{
+                px: 2, py: 1, borderRadius: 2.5,
+                bgcolor: 'rgba(239,68,68,0.2)',
+                border: '1px solid rgba(239,68,68,0.4)',
+                textAlign: 'right',
+              }}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase', display: 'block', lineHeight: 1 }}>
+                  Outstanding
+                </Typography>
+                <Typography variant="h6" fontWeight={900} sx={{ color: '#fca5a5', lineHeight: 1.3 }}>
+                  {formatAmount(totalDue)}
+                </Typography>
+              </Box>
+            )}
+            {selectedCustomer && totalDue <= 0 && (
+              <Chip
+                label="✓ All Clear"
+                sx={{ bgcolor: 'rgba(16,185,129,0.2)', color: '#6ee7b7', fontWeight: 800, border: '1px solid rgba(16,185,129,0.4)' }}
+              />
+            )}
+          </Stack>
+
+          {/* Tabs */}
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            sx={{
+              '& .MuiTab-root': {
+                color: 'rgba(255,255,255,0.55)',
+                fontWeight: 700,
+                textTransform: 'none',
+                minHeight: 44,
+                '&.Mui-selected': { color: '#fff' },
+              },
+              '& .MuiTabs-indicator': { bgcolor: '#38bdf8', height: 3, borderRadius: '3px 3px 0 0' },
+            }}
+          >
+            <Tab icon={<PaymentsIcon fontSize="small" />} iconPosition="start" label="Collect Payment" />
+            <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="Payment History" />
+          </Tabs>
+        </Container>
+      </Box>
+
+      {/* ── Page Body ─────────────────────────────────────────────────── */}
+      <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 4 } }}>
         <Fade in={true}>
           <Box>
             <PaymentSummaryCards
@@ -248,7 +360,7 @@ const CustomerPaymentPage = () => {
               isBulk={selectedSale === 'BULK'}
             />
 
-            <Box sx={{ mt: 4 }}>
+            <Box sx={{ mt: 3 }}>
               {tab === 0 ? (
                 <PaymentForm
                   customers={customers}
