@@ -52,15 +52,24 @@ const ReviewPaymentPage = ({
   // CALCULATIONS
   // =======================
   const subtotal = parseFloat(formData.totalAmount) || 0;
-  const discountedTotal = (subtotal - discount);
 
-  // Issue 5: Calculate total GST from item-level gstRate
+  // Calculate GST from item-level gstRate.
+  // For pharmacy, GST is already inclusive in MRP (informational only — do NOT add to total).
+  // For all other shops, GST is exclusive and must be added on top.
   const totalGst = (formData.items || []).reduce((sum, item) => {
     if (formData.isGstRequired !== 'yes') return sum;
     const rate = Number(item.gstRate) || 0;
     const lineTotal = Number(item.qty) * Number(item.unitPrice);
-    return sum + (lineTotal * rate / 100);
+    // Pharmacy: extract inclusive GST (price already contains GST)
+    // Others: calculate exclusive GST added on top
+    return sum + (isPharmacy
+      ? lineTotal * rate / (100 + rate)
+      : lineTotal * rate / 100);
   }, 0);
+
+  // For non-pharmacy with exclusive GST, add GST to the subtotal before applying discount
+  const exclusiveGst = !isPharmacy ? totalGst : 0;
+  const discountedTotal = subtotal + exclusiveGst - discount;
 
   // Automatic allocation of advance
   const advanceApplied = Math.min(availableAdvance, discountedTotal);
@@ -268,13 +277,15 @@ const ReviewPaymentPage = ({
                     </Box>
                   )}
 
-                  {/* Issue 5: Show GST total when applicable */}
+                  {/* Show GST: for non-pharmacy it is added to total; for pharmacy it is informational only */}
                   {formData.isGstRequired === 'yes' && totalGst > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                       <Typography sx={{ color: '#93c5fd', opacity: 0.9, flexShrink: 0 }}>
-                        {isPharmacy ? 'Inclusive GST' : 'Total GST'}
+                        {isPharmacy ? 'Inclusive GST (info)' : 'GST (+)'}
                       </Typography>
-                      <Typography sx={{ fontWeight: 600, color: '#93c5fd', textAlign: 'right' }}>₹{totalGst.toFixed(2)}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#93c5fd', textAlign: 'right' }}>
+                        {isPharmacy ? '' : '+ '}₹{totalGst.toFixed(2)}
+                      </Typography>
                     </Box>
                   )}
 
