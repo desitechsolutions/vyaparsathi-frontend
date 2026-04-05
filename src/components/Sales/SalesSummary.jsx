@@ -30,6 +30,8 @@ const SalesSummary = ({
   proceedDisabledTooltip,
   isPharmacy,
   isJewellery,
+  embedded,
+  hideActions,
 }) => {
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -160,24 +162,27 @@ const SalesSummary = ({
   const isActionDisabled = loading || formData.items.length === 0 || !selectedCustomer;
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Card variant="outlined" sx={{ borderRadius: 3, border: '1px solid #e0e4e8' }}>
-        <CardContent sx={{ p: 0 }}>
-          <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ReceiptLongIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+    <Box sx={embedded ? { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } : { mt: 2 }}>
+      <Card variant="outlined" sx={embedded
+        ? { borderRadius: 0, border: 'none', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }
+        : { borderRadius: 3, border: '1px solid #e0e4e8' }
+      }>
+        <CardContent sx={embedded ? { p: 0, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', '&:last-child': { pb: 0 } } : { p: 0 }}>
+          <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+            <ReceiptLongIcon color="primary" fontSize="small" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Order Items ({formData.items.length})
             </Typography>
           </Box>
           
           {formData.items.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc' }}>
+            <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', flex: embedded ? 1 : 'none' }}>
               <Typography variant="body2" color="text.secondary">
                 Your cart is empty. Search and add items above.
               </Typography>
             </Box>
           ) : (
-            <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ overflowX: 'auto', overflowY: 'auto', flex: embedded ? 1 : 'none', minHeight: 0 }}>
               <Table size="small">
                 <TableHead sx={{ bgcolor: '#f1f5f9' }}>
                     <TableRow>
@@ -275,8 +280,8 @@ const SalesSummary = ({
             </Box>
           )}
 
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', bgcolor: '#f8fafc' }}>
-            <Box sx={{ width: { xs: '100%', md: '340px' } }}>
+          <Box sx={{ p: embedded ? 1.5 : 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', bgcolor: '#f8fafc', flexShrink: 0 }}>
+            <Box sx={{ width: embedded ? '100%' : { xs: '100%', md: '340px' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {isJewellery ? 'Subtotal (Metal + Stone):' : 'Subtotal:'}
@@ -329,26 +334,28 @@ const SalesSummary = ({
           </Box>
         </CardContent>
 
-        <CardActions sx={{ justifyContent: 'space-between', p: 2, bgcolor: '#fff' }}>
-          <Button variant="text" color="inherit" startIcon={<ClearAllIcon />} onClick={handleClearForm} sx={{ fontWeight: 600 }}>
-            Clear All
-          </Button>
-
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<SaveAsIcon />}
-              onClick={handleSaveDraft}
-              disabled={isActionDisabled}
-              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-            >
-              Save Draft
+        {!hideActions && (
+          <CardActions sx={{ justifyContent: 'space-between', p: 2, bgcolor: '#fff', flexShrink: 0 }}>
+            <Button variant="text" color="inherit" startIcon={<ClearAllIcon />} onClick={handleClearForm} sx={{ fontWeight: 600 }}>
+              Clear All
             </Button>
 
-            {error && <Alert severity="error" size="small" sx={{ py: 0 }}>{error}</Alert>}
-          </Stack>
-        </CardActions>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<SaveAsIcon />}
+                onClick={handleSaveDraft}
+                disabled={isActionDisabled}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+              >
+                Save Draft
+              </Button>
+
+              {error && <Alert severity="error" size="small" sx={{ py: 0 }}>{error}</Alert>}
+            </Stack>
+          </CardActions>
+        )}
       </Card>
 
       {/* Issue 7: Clear All Confirmation Dialog */}

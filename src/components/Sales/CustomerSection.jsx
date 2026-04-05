@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { 
   Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, 
   TextField, Typography, Box, Checkbox, FormControl, InputLabel, 
-  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch
+  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch, Chip, Stack
 } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -17,6 +17,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import TuneIcon from '@mui/icons-material/Tune';
 
 const CustomerSection = ({
   customers,
@@ -31,7 +32,9 @@ const CustomerSection = ({
   setOpenCustomerModal,
   isPharmacy,
   isJewellery,
+  compact,
 }) => {
+  const [optionsOpen, setOptionsOpen] = useState(false);
   // Prescription capture state
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
   // prescriptionImage stores the captured image as a base64 data URL.
@@ -112,6 +115,235 @@ const CustomerSection = ({
     return newCustomerData.name.trim() !== '' && 
            newCustomerData.phone.trim().length >= 10;
   };
+
+  // Shared: delivery details form (used in both full and compact/options dialog)
+  const deliveryDetailsForm = (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={formData.deliveryRequired || false}
+              onChange={e => setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }))}
+              icon={<LocalShippingIcon color="disabled" />}
+              checkedIcon={<LocalShippingIcon color="primary" />}
+            />
+          }
+          label={<Typography sx={{ fontWeight: 700 }}>Enable Delivery</Typography>}
+        />
+        {formData.deliveryRequired && selectedCustomer && (
+          <Button size="small" startIcon={<HomeIcon />} onClick={copyCustomerAddress} sx={{ textTransform: 'none' }}>
+            Use Customer Address
+          </Button>
+        )}
+      </Box>
+      <Collapse in={formData.deliveryRequired}>
+        <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={8}>
+              <TextField label="Delivery Address" multiline rows={2} fullWidth value={formData.deliveryAddress || ''} onChange={e => setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField label="Delivery Charge" type="number" fullWidth value={formData.deliveryCharge || ''} onChange={e => { const val = parseFloat(e.target.value); const cleanVal = isNaN(val) ? '' : Math.max(0, val); setFormData(prev => ({ ...prev, deliveryCharge: cleanVal })); }} InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography> }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Delivery Paid By</InputLabel>
+                <MuiSelect value={formData.deliveryPaidBy || ''} label="Delivery Paid By" onChange={e => setFormData(prev => ({ ...prev, deliveryPaidBy: e.target.value }))}>
+                  <MenuItem value="CUSTOMER">Customer (To Pay)</MenuItem>
+                  <MenuItem value="SHOP">Shop (Inclusive)</MenuItem>
+                </MuiSelect>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Delivery Notes" placeholder="Special instructions..." fullWidth value={formData.deliveryNotes || ''} onChange={e => setFormData(prev => ({ ...prev, deliveryNotes: e.target.value }))} />
+            </Grid>
+          </Grid>
+        </Box>
+      </Collapse>
+    </Box>
+  );
+
+  // -----------------------------------------------------------------------
+  // COMPACT MODE — used in the right-panel of the redesigned split layout
+  // -----------------------------------------------------------------------
+  if (compact) {
+    const selectStyles = {
+      control: (base) => ({ ...base, borderRadius: '8px', minHeight: '40px', borderColor: '#e0e0e0', fontSize: '0.875rem' }),
+      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    };
+
+    return (
+      <Box>
+        {/* Row 1: Customer search + add + options */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Select
+              options={customers}
+              value={selectedCustomer}
+              onChange={handleCustomerSelect}
+              placeholder={isPharmacy ? 'Search patient...' : 'Search customer...'}
+              isSearchable
+              isClearable
+              styles={selectStyles}
+              menuPortalTarget={document.body}
+            />
+          </Box>
+          <Tooltip title={isPharmacy ? 'Register New Patient' : 'Add New Customer'}>
+            <Button variant="contained" onClick={() => setOpenCustomerModal(true)} sx={{ minWidth: 40, p: 1 }}>
+              <PersonAddIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+          <Tooltip title="Delivery & other options">
+            <Button
+              variant={formData.deliveryRequired || formData.doctorName || formData.buyerPan ? 'contained' : 'outlined'}
+              color={formData.deliveryRequired || formData.doctorName || formData.buyerPan ? 'secondary' : 'inherit'}
+              onClick={() => setOptionsOpen(true)}
+              sx={{ minWidth: 40, p: 1 }}
+            >
+              <TuneIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+        </Box>
+
+        {/* Row 2: GST toggle + status chips */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
+            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>Retail</Typography>} sx={{ mr: 1 }} />
+            <Tooltip title={isGstDisabled ? 'Customer has no GST number on file' : ''}>
+              <FormControlLabel
+                value="yes"
+                control={<Radio size="small" />}
+                label={<Typography variant="caption" fontWeight={600}>{isPharmacy ? 'GST (Med)' : isJewellery ? 'GST 3%' : 'Tax (GST)'}</Typography>}
+                disabled={isGstDisabled}
+                sx={{ mr: 0 }}
+              />
+            </Tooltip>
+          </RadioGroup>
+          {formData.deliveryRequired && (
+            <Chip label="🚚 Delivery" size="small" color="primary" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
+          )}
+          {isPharmacy && formData.doctorName && (
+            <Chip label="Rx ✓" size="small" color="success" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
+          )}
+          {isJewellery && formData.buyerPan && (
+            <Chip label={`PAN: ${formData.buyerPan}`} size="small" color="secondary" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
+          )}
+        </Box>
+
+        {/* Options Dialog (Delivery, Pharmacy Rx, Jewellery PAN) */}
+        <Dialog open={optionsOpen} onClose={() => setOptionsOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
+            <TuneIcon color="primary" /> Sale Options
+            {isPharmacy && <Chip label="Pharmacy" size="small" color="primary" sx={{ ml: 'auto' }} />}
+            {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 'auto', bgcolor: '#ede9fe', color: '#7c3aed' }} />}
+          </DialogTitle>
+          <DialogContent dividers>
+            {/* Pharmacy Prescription */}
+            {isPharmacy && (
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <LocalHospitalIcon color="primary" fontSize="small" />
+                  <Typography variant="subtitle2" fontWeight={700} color="primary">Prescription Details</Typography>
+                  <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {prescriptionImage && <Tooltip title="Prescription captured"><CheckCircleIcon color="success" fontSize="small" /></Tooltip>}
+                    <Button size="small" variant={prescriptionImage ? 'outlined' : 'contained'} color={prescriptionImage ? 'success' : 'primary'} startIcon={<CameraAltIcon />} onClick={openCamera} sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}>
+                      {prescriptionImage ? 'Re-capture Rx' : 'Capture Prescription'}
+                    </Button>
+                  </Box>
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Prescribing Doctor" fullWidth value={formData.doctorName || ''} onChange={e => setFormData(prev => ({ ...prev, doctorName: e.target.value }))} placeholder="Dr. Sharma" InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontSize: '0.85rem' }}>Dr.</Typography> }} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Doctor Reg. No." fullWidth value={formData.doctorRegistrationNumber || ''} onChange={e => setFormData(prev => ({ ...prev, doctorRegistrationNumber: e.target.value }))} placeholder="MCI-12345" helperText="Required for Schedule H1/X drugs" />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Patient Name / ID" fullWidth value={formData.patientName || ''} onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))} placeholder="For chronic medication tracking" helperText="Links sale to patient history" />
+                  </Grid>
+                </Grid>
+                <Divider sx={{ mt: 2 }} />
+              </Box>
+            )}
+
+            {/* Jewellery PAN */}
+            {isJewellery && (
+              <Box sx={{ mb: 3 }}>
+                {isHighValueJewellery && (
+                  <Alert severity={isPanMissing ? 'warning' : (isPanError ? 'error' : 'success')} sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }} icon={(isPanMissing || isPanError) ? <WarningAmberIcon /> : undefined}>
+                    {isPanMissing ? 'PAN required: Sale amount ≥ ₹2,00,000. Mandatory under IT Act Sec. 269ST.' : isPanError ? 'Invalid PAN format. Must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F).' : `PAN captured: ${formData.buyerPan} ✓`}
+                  </Alert>
+                )}
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#7c3aed', mb: 2 }}>💎 Jewellery Buyer Details</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Buyer PAN" fullWidth value={formData.buyerPan || ''} onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }} error={isPanError} helperText={isPanError && formData.buyerPan?.trim() ? 'Invalid format — AAAAA9999A' : isHighValueJewellery ? 'Mandatory for transactions ≥ ₹2,00,000' : 'Optional for smaller transactions'} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Buyer Aadhaar (last 4 digits)" fullWidth value={formData.buyerAadhaarLast4 || ''} onChange={e => { const val = e.target.value.replace(/\D/g, '').slice(0, 4); setFormData(prev => ({ ...prev, buyerAadhaarLast4: val })); }} placeholder="XXXX" inputProps={{ maxLength: 4 }} helperText="Optional — for KYC records" />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="Purpose / Occasion" fullWidth value={formData.jewelleryPurpose || ''} onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))} placeholder="e.g., Wedding, Birthday Gift" helperText="Printed on invoice" />
+                  </Grid>
+                </Grid>
+                <Divider sx={{ mt: 2 }} />
+              </Box>
+            )}
+
+            {/* Delivery */}
+            {deliveryDetailsForm}
+          </DialogContent>
+          <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+            <Button onClick={() => setOptionsOpen(false)} variant="contained">Done</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* New Customer / Patient Modal */}
+        <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
+            <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
+          </DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} sm={6}><TextField label="Full Name" required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? 'Name is required' : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label="Phone Number" required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? 'Enter valid phone' : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
+              {isPharmacy && (
+                <>
+                  <Grid item xs={6} sm={4}><TextField label="Age" type="number" fullWidth value={newCustomerData.age || ''} onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })} inputProps={{ min: 0, max: 130 }} /></Grid>
+                  <Grid item xs={6} sm={4}><FormControl fullWidth><InputLabel>Gender</InputLabel><MuiSelect value={newCustomerData.gender || ''} label="Gender" onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}><MenuItem value="MALE">Male</MenuItem><MenuItem value="FEMALE">Female</MenuItem><MenuItem value="OTHER">Other</MenuItem></MuiSelect></FormControl></Grid>
+                  <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}><FormControlLabel control={<Switch checked={!!newCustomerData.isChronicPatient} onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })} color="warning" />} label={<Typography variant="body2" fontWeight={600}>Chronic Patient</Typography>} /></Grid>
+                </>
+              )}
+              <Grid item xs={12}><TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
+              {!isPharmacy && <Grid item xs={12} sm={6}><TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>}
+              <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+            <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
+            <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Prescription Capture Dialog */}
+        <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
+          <DialogContent dividers sx={{ textAlign: 'center' }}>
+            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            {!cameraStream && <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Camera access is required to capture a prescription photo.</Typography>}
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={closeCamera} color="inherit">Cancel</Button>
+            <Button variant="contained" startIcon={<CameraAltIcon />} onClick={capturePhoto} disabled={!cameraStream}>Capture Photo</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
 
   return (
     <Grid item xs={12}>
@@ -351,86 +583,7 @@ const CustomerSection = ({
           )}
 
           {/* Delivery Section */}
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.deliveryRequired || false}
-                    onChange={e => setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }))}
-                    icon={<LocalShippingIcon color="disabled" />}
-                    checkedIcon={<LocalShippingIcon color="primary" />}
-                  />
-                }
-                label={<Typography sx={{ fontWeight: 700 }}>Enable Delivery</Typography>}
-              />
-              {formData.deliveryRequired && selectedCustomer && (
-                <Button 
-                  size="small" 
-                  startIcon={<HomeIcon />} 
-                  onClick={copyCustomerAddress}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Use Customer Address
-                </Button>
-              )}
-            </Box>
-
-            <Collapse in={formData.deliveryRequired}>
-              <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={8}>
-                    <TextField
-                      label="Delivery Address"
-                      multiline
-                      rows={2}
-                      fullWidth
-                      value={formData.deliveryAddress || ''}
-                      onChange={e => setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Delivery Charge"
-                      type="number"
-                      fullWidth
-                      value={formData.deliveryCharge || ''}
-                      onChange={e => {
-                          const val = parseFloat(e.target.value);
-                          const cleanVal = isNaN(val) ? '' : Math.max(0, val); 
-                          setFormData(prev => ({ ...prev, deliveryCharge: cleanVal }));
-                        }}
-                        InputProps={{
-                          startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
-                        }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Delivery Paid By</InputLabel>
-                      <MuiSelect
-                        value={formData.deliveryPaidBy || ''}
-                        label="Delivery Paid By"
-                        onChange={e => setFormData(prev => ({ ...prev, deliveryPaidBy: e.target.value }))}
-                      >
-                        <MenuItem value="CUSTOMER">Customer (To Pay)</MenuItem>
-                        <MenuItem value="SHOP">Shop (Inclusive)</MenuItem>
-                      </MuiSelect>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Delivery Notes"
-                      placeholder="Special instructions..."
-                      fullWidth
-                      value={formData.deliveryNotes || ''}
-                      onChange={e => setFormData(prev => ({ ...prev, deliveryNotes: e.target.value }))}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-            </Collapse>
-          </Box>
+          {deliveryDetailsForm}
         </CardContent>
       </Card>
 
@@ -442,139 +595,38 @@ const CustomerSection = ({
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Full Name" 
-                required 
-                fullWidth 
-                error={newCustomerData.name === ''}
-                helperText={newCustomerData.name === '' ? 'Name is required' : ''}
-                value={newCustomerData.name} 
-                onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} 
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Phone Number" 
-                required 
-                fullWidth 
-                error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10}
-                helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? 'Enter valid phone' : ''}
-                value={newCustomerData.phone} 
-                onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} 
-              />
-            </Grid>
+            <Grid item xs={12} sm={6}><TextField label="Full Name" required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? 'Name is required' : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="Phone Number" required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? 'Enter valid phone' : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
             {isPharmacy && (
               <>
-                <Grid item xs={6} sm={4}>
-                  <TextField
-                    label="Age"
-                    type="number"
-                    fullWidth
-                    value={newCustomerData.age || ''}
-                    onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })}
-                    inputProps={{ min: 0, max: 130 }}
-                  />
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Gender</InputLabel>
-                    <MuiSelect
-                      value={newCustomerData.gender || ''}
-                      label="Gender"
-                      onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}
-                    >
-                      <MenuItem value="MALE">Male</MenuItem>
-                      <MenuItem value="FEMALE">Female</MenuItem>
-                      <MenuItem value="OTHER">Other</MenuItem>
-                    </MuiSelect>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={!!newCustomerData.isChronicPatient}
-                        onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })}
-                        color="warning"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" fontWeight={600}>
-                        Chronic Patient
-                      </Typography>
-                    }
-                  />
-                </Grid>
+                <Grid item xs={6} sm={4}><TextField label="Age" type="number" fullWidth value={newCustomerData.age || ''} onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })} inputProps={{ min: 0, max: 130 }} /></Grid>
+                <Grid item xs={6} sm={4}><FormControl fullWidth><InputLabel>Gender</InputLabel><MuiSelect value={newCustomerData.gender || ''} label="Gender" onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}><MenuItem value="MALE">Male</MenuItem><MenuItem value="FEMALE">Female</MenuItem><MenuItem value="OTHER">Other</MenuItem></MuiSelect></FormControl></Grid>
+                <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}><FormControlLabel control={<Switch checked={!!newCustomerData.isChronicPatient} onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })} color="warning" />} label={<Typography variant="body2" fontWeight={600}>Chronic Patient</Typography>} /></Grid>
               </>
             )}
-            <Grid item xs={12}>
-              <TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} />
-            </Grid>
-            {!isPharmacy && (
-              <Grid item xs={12} sm={6}>
-                <TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} />
-              </Grid>
-            )}
-            <Grid item xs={12}>
-              <TextField
-                label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'}
-                fullWidth
-                multiline
-                rows={2}
-                value={newCustomerData.notes}
-                onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })}
-                placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''}
-              />
-            </Grid>
+            <Grid item xs={12}><TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
+            {!isPharmacy && <Grid item xs={12} sm={6}><TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>}
+            <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
-          <Button 
-            onClick={handleNewCustomer} 
-            variant="contained" 
-            disabled={!isNewCustomerValid()}
-          >
-            {isPharmacy ? 'Register Patient' : 'Save Customer'}
-          </Button>
+          <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
         </DialogActions>
       </Dialog>
 
       {/* PRESCRIPTION CAPTURE DIALOG */}
       <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}>
-          <CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
-          Capture Prescription
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
         <DialogContent dividers sx={{ textAlign: 'center' }}>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }}
-          />
+          <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
-          {!cameraStream && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Camera access is required to capture a prescription photo.
-            </Typography>
-          )}
+          {!cameraStream && <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Camera access is required to capture a prescription photo.</Typography>}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={closeCamera} color="inherit">Cancel</Button>
-          <Button
-            variant="contained"
-            startIcon={<CameraAltIcon />}
-            onClick={capturePhoto}
-            disabled={!cameraStream}
-          >
-            Capture Photo
-          </Button>
+          <Button variant="contained" startIcon={<CameraAltIcon />} onClick={capturePhoto} disabled={!cameraStream}>Capture Photo</Button>
         </DialogActions>
       </Dialog>
     </Grid>

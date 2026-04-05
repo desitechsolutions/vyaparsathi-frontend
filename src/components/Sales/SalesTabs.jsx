@@ -8,14 +8,15 @@ const SalesTabs = ({ value, onChange }) => (
   </Tabs>
 );
 
-SalesTabs.Panel = ({ value, index, children }) => (
+SalesTabs.Panel = ({ value, index, children, noPadding }) => (
   <div
     role="tabpanel"
     hidden={value !== index}
     id={`tabpanel-${index}`}
     aria-labelledby={`tab-${index}`}
+    style={noPadding ? { height: '100%', display: value === index ? 'flex' : 'none', flexDirection: 'column' } : undefined}
   >
-    <Box sx={{ p: 3 }}>{children}</Box>
+    <Box sx={noPadding ? { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { p: 3 }}>{children}</Box>
   </div>
 );
 
