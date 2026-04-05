@@ -1,10 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Table, TableBody, TableCell, TableHead, TableRow, TableContainer, Paper,
-  Typography, TextField, InputAdornment, IconButton, Chip, TablePagination,
-  Collapse, Box, Button, Tooltip, Divider, CircularProgress, Stack,
-  Dialog, DialogTitle, DialogContent, DialogActions, Checkbox, FormControlLabel,
-  Alert, Snackbar
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableContainer,
+  Paper,
+  Typography,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Chip,
+  TablePagination,
+  Collapse,
+  Box,
+  Button,
+  Tooltip,
+  Divider,
+  CircularProgress,
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -21,9 +44,14 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
-import API, { fetchSalesHistory, getSaleById, processSaleReturn, cancelSale, API_BASE_URL } from '../../services/api';
+import API, {
+  fetchSalesHistory,
+  getSaleById,
+  processSaleReturn,
+  cancelSale,
+  API_BASE_URL,
+} from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 import { useShop } from '../../context/ShopContext';
 
 const statusConfig = {
@@ -39,14 +67,34 @@ const paymentStatusColors = {
   DUE: 'error',
 };
 
-const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-const getPaymentStatus = (dueAmount) => Number(dueAmount) <= 0 ? 'PAID' : 'DUE';
+const formatAmount = (amount) =>
+  `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const getPaymentStatus = (dueAmount) => (Number(dueAmount) <= 0 ? 'PAID' : 'DUE');
+
 const isToday = (dateString) => {
   const d = new Date(dateString);
   const today = new Date();
-  return d.getDate() === today.getDate() &&
-         d.getMonth() === today.getMonth() &&
-         d.getFullYear() === today.getFullYear();
+  return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+};
+
+// WhatsApp helpers
+const normalizePhoneForWhatsApp = (raw) => {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+  return last10.length === 10 ? `91${last10}` : '';
+};
+
+const withDownloadParam = (urlOrPath) => {
+  if (!urlOrPath) return '';
+  return urlOrPath.includes('?') ? `${urlOrPath}&download=true` : `${urlOrPath}?download=true`;
+};
+
+// CSV escaping helper
+const csvCell = (value) => {
+  const s = String(value ?? '');
+  return `"${s.replace(/"/g, '""')}"`;
 };
 
 const SalesHistory = () => {
@@ -56,12 +104,16 @@ const SalesHistory = () => {
 
   const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [expandedRow, setExpandedRow] = useState(null);
+
+  // ✅ Enhancement: store expanded row by stable key, not by index
+  const [expandedSaleKey, setExpandedSaleKey] = useState(null);
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -85,31 +137,37 @@ const SalesHistory = () => {
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
 
-  // ────────────────────────────────────────────────
-  // Sync search from URL → state (on mount & when URL changes)
-  // ────────────────────────────────────────────────
+  // Sync search from URL → state
   useEffect(() => {
     const urlSearch = params.get('search') || '';
     setSearch(urlSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const loadData = () => {
-    setLoading(true);
-    fetchSalesHistory()
-      .then((res) => setSalesHistory(res.data || []))
-      .catch((err) => showSnackbar("Failed to load sales history", "error"))
-      .finally(() => setLoading(false));
-  };
+  // ✅ Enhancement: reset pagination when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [search, startDate, endDate]);
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
 
+  const loadData = () => {
+    setLoading(true);
+    fetchSalesHistory()
+      .then((res) => setSalesHistory(res.data || []))
+      .catch(() => showSnackbar('Failed to load sales history', 'error'))
+      .finally(() => setLoading(false));
+  };
+
   // --- Summary Calculation for Return ---
   const totalReturnValue = useMemo(() => {
-    return returnItems.reduce((acc, item) => acc + (item.returnQuantity * item.unitPrice), 0);
+    return returnItems.reduce((acc, item) => acc + item.returnQuantity * item.unitPrice, 0);
   }, [returnItems]);
 
   // --- Return Logic ---
@@ -125,17 +183,19 @@ const SalesHistory = () => {
       const res = await getSaleById(saleId);
       const items = res.data.items || [];
 
-      setReturnItems(items.map(item => ({
-        saleItemId: item.id,
-        itemName: item.itemName,
-        originalQty: item.qty,
-        returnedQty: item.returnedQty || 0,
-        netQty: item.netQty !== undefined ? item.netQty : (item.qty - (item.returnedQty || 0)),
-        unitPrice: item.unitPrice,
-        returnQuantity: 0
-      })));
+      setReturnItems(
+        items.map((item) => ({
+          saleItemId: item.id,
+          itemName: item.itemName,
+          originalQty: item.qty,
+          returnedQty: item.returnedQty || 0,
+          netQty: item.netQty !== undefined ? item.netQty : item.qty - (item.returnedQty || 0),
+          unitPrice: item.unitPrice,
+          returnQuantity: 0,
+        })),
+      );
     } catch (err) {
-      showSnackbar("Failed to load items for return.", "error");
+      showSnackbar('Failed to load items for return.', 'error');
       setReturnDialogOpen(false);
     } finally {
       setLoadingDetails(false);
@@ -144,30 +204,30 @@ const SalesHistory = () => {
 
   const submitReturn = async () => {
     const saleId = selectedSale?.id || selectedSale?.saleId;
-    const validItems = returnItems.filter(i => i.returnQuantity > 0);
+    const validItems = returnItems.filter((i) => i.returnQuantity > 0);
 
     if (validItems.length === 0) {
-      showSnackbar("Please enter a return quantity for at least one item.", "warning");
+      showSnackbar('Please enter a return quantity for at least one item.', 'warning');
       return;
     }
 
     const payload = {
-      saleId: saleId,
+      saleId,
       reason: returnReason,
       refundPayment: isRefundPayment,
-      returnItems: validItems.map(i => ({
+      returnItems: validItems.map((i) => ({
         saleItemId: i.saleItemId,
-        returnQuantity: Number(i.returnQuantity)
-      }))
+        returnQuantity: Number(i.returnQuantity),
+      })),
     };
 
     try {
       await processSaleReturn(saleId, payload);
-      showSnackbar("Return processed successfully");
+      showSnackbar('Return processed successfully');
       setReturnDialogOpen(false);
       loadData();
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "Return failed", "error");
+      showSnackbar(err.response?.data?.message || 'Return failed', 'error');
     }
   };
 
@@ -182,146 +242,195 @@ const SalesHistory = () => {
     if (!cancelReason.trim()) return;
     try {
       await cancelSale(selectedSale.id || selectedSale.saleId, cancelReason);
-      showSnackbar("Sale cancelled successfully");
+      showSnackbar('Sale cancelled successfully');
       setCancelDialogOpen(false);
       loadData();
     } catch (err) {
-      showSnackbar("Cancellation failed", "error");
+      showSnackbar('Cancellation failed', 'error');
     }
+  };
+
+  // ────────────────────────────────────────────────
+  // Invoice Signed URL + Blob helpers (Preview/Download + WhatsApp link)
+  // ────────────────────────────────────────────────
+  const getSignedInvoicePath = async (saleId) => {
+    const res = await API.get(`/api/sales/${saleId}/signed-url`);
+    return res.data;
+  };
+
+  const toAbsoluteInvoiceUrl = (signedPath) => {
+    if (!signedPath) return '';
+    if (String(signedPath).startsWith('http')) return signedPath;
+    // Ensure absolute link for WhatsApp / external devices
+    const base = String(API_BASE_URL || '').replace(/\/$/, '');
+    const path = String(signedPath).startsWith('/') ? signedPath : `/${signedPath}`;
+    return `${base}${path}`;
+  };
+
+  const openInvoiceBlobPreview = async (signedPath) => {
+    const response = await API.get(signedPath, { responseType: 'blob' });
+    const file = new Blob([response.data], { type: 'application/pdf' });
+    const fileURL = URL.createObjectURL(file);
+
+    const pdfWindow = window.open(fileURL, '_blank', 'noopener,noreferrer');
+    if (!pdfWindow) window.location.assign(fileURL);
+
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+  };
+
+  const downloadInvoiceBlob = async (signedPath, filename) => {
+    const response = await API.get(withDownloadParam(signedPath), { responseType: 'blob' });
+    const file = new Blob([response.data], { type: 'application/pdf' });
+    const fileURL = URL.createObjectURL(file);
+
+    const a = document.createElement('a');
+    a.href = fileURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
   };
 
   const handlePrintInvoice = async (sale) => {
     const saleId = sale.id || sale.saleId;
     try {
-      // 1. Get the signed URL/Path
-      const res = await API.get(`/api/sales/${saleId}/signed-url`);
-      const signedPath = res.data;
-
-      // 2. Fetch as BLOB using the authenticated API instance
-      const response = await API.get(signedPath, {
-        responseType: 'blob',
-      });
-
-      // 3. Create a blob URL and open it
-      const file = new Blob([response.data], { type: 'application/pdf' });
-      const fileURL = URL.createObjectURL(file);
-
-      // Open in new tab
-      const pdfWindow = window.open();
-      if (pdfWindow) {
-        pdfWindow.location.href = fileURL;
-      } else {
-        // Fallback if popup is blocked
-        window.location.assign(fileURL);
-      }
-
-      // Clean up
-      setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+      const signedPath = await getSignedInvoicePath(saleId);
+      await openInvoiceBlobPreview(signedPath);
     } catch (err) {
-      console.error("In-browser PDF Error:", err);
-      showSnackbar("Could not generate PDF. Please check your connection.", "error");
+      console.error('In-browser PDF Error:', err);
+      showSnackbar('Could not generate PDF. Please check your connection.', 'error');
     }
   };
 
-  const handleWhatsAppInvoice = (sale) => {
-    const amount = sale.totalAmount != null
-      ? `₹${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-      : '';
-    const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
-    const lines = [
-      shop?.name ? `Invoice from *${shop.name}*` : '',
-      `🧾 *Invoice #${sale.invoiceNo || sale.id}*`,
-      date ? `📅 Date: ${date}` : '',
-      amount ? `💰 Amount: ${amount}` : '',
-      `Thank you for your purchase! 🙏`,
-    ].filter(Boolean).join('\n');
+  const handleDownloadInvoice = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    try {
+      const signedPath = await getSignedInvoicePath(saleId);
+      await downloadInvoiceBlob(signedPath, `invoice_${sale.invoiceNo || saleId}.pdf`);
+      showSnackbar('Invoice downloaded', 'success');
+    } catch (err) {
+      console.error('Download invoice error:', err);
+      showSnackbar('Invoice download failed', 'error');
+    }
+  };
 
-    const rawPhone = sale.customerPhone || sale.customer?.phone || '';
-    const phone = rawPhone ? `91${rawPhone.replace(/\D/g, '')}` : '';
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+  // ✅ Enhancement: WhatsApp message includes PDF download link
+  const handleWhatsAppInvoice = async (sale) => {
+    try {
+      const saleId = sale.id || sale.saleId;
+
+      const rawPhone = sale.customerPhone || sale.customer?.phone || '';
+      const phone = normalizePhoneForWhatsApp(rawPhone);
+
+      if (!phone) {
+        showSnackbar('Customer phone number missing/invalid', 'warning');
+        return;
+      }
+
+      const signedPath = await getSignedInvoicePath(saleId);
+      const absolute = toAbsoluteInvoiceUrl(signedPath);
+      const downloadLink = withDownloadParam(absolute);
+
+      const amount =
+        sale.totalAmount != null
+          ? `₹${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          : '';
+      const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
+
+      const lines = [
+        shop?.name ? `Invoice from *${shop.name}*` : null,
+        `🧾 *Invoice #${sale.invoiceNo || saleId}*`,
+        date ? `📅 Date: ${date}` : null,
+        amount ? `💰 Amount: ${amount}` : null,
+        '',
+        'Download invoice PDF:',
+        downloadLink,
+        '',
+        'Thank you for your purchase! 🙏',
+      ].filter(Boolean);
+
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('WhatsApp invoice error:', err);
+      showSnackbar('Could not prepare WhatsApp invoice link', 'error');
+    }
   };
 
   // ────────────────────────────────────────────────
-  // Filtering – now driven by URL + local search input
+  // Filtering
   // ────────────────────────────────────────────────
   const filteredSales = useMemo(() => {
-    return salesHistory.filter(sale => {
-      const matchesSearch = (sale.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-                           (sale.invoiceNo || '').toLowerCase().includes(search.toLowerCase());
-      const saleDate = new Date(sale.date).setHours(0,0,0,0);
-      const start = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
-      const end = endDate ? new Date(endDate).setHours(23,59,59,999) : null;
-      return matchesSearch && (!start || saleDate >= start) && (!end || saleDate <= end);
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const searchLower = search.toLowerCase();
+
+    return salesHistory
+      .filter((sale) => {
+        const matchesSearch =
+          (sale.customerName || '').toLowerCase().includes(searchLower) ||
+          (sale.invoiceNo || '').toLowerCase().includes(searchLower);
+
+        const saleDate = new Date(sale.date).setHours(0, 0, 0, 0);
+        const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
+        const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+
+        return matchesSearch && (!start || saleDate >= start) && (!end || saleDate <= end);
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [salesHistory, search, startDate, endDate]);
 
   const paginatedSales = filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // ─── Sync local search back to URL (improves shareability) ───
+  // Sync local search back to URL (shareable)
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearch(value);
 
-    const params = new URLSearchParams(location.search);
-    if (value.trim()) {
-      params.set('search', value.trim());
-    } else {
-      params.delete('search');
-    }
-    navigate({ search: params.toString() }, { replace: true });
+    const p = new URLSearchParams(location.search);
+    if (value.trim()) p.set('search', value.trim());
+    else p.delete('search');
+
+    navigate({ search: p.toString() }, { replace: true });
   };
 
-  // ─── NEW: Export Filtered Sales to CSV ───
+  // Export filtered sales to CSV (with proper escaping)
   const handleExportCSV = () => {
     if (filteredSales.length === 0) {
-      showSnackbar("No data to export", "warning");
+      showSnackbar('No data to export', 'warning');
       return;
     }
 
     setExporting(true);
 
-    // Define CSV headers
-    const headers = [
-      'Invoice #',
-      'Customer',
-      'Date',
-      'Total Amount',
-      'Status',
-      'Payment Status',
-      'Due Amount'
-    ];
+    const headers = ['Invoice #', 'Customer', 'Date', 'Total Amount', 'Status', 'Payment Status', 'Due Amount'];
 
-    // Map data rows
-    const rows = filteredSales.map(sale => [
-      `"${sale.invoiceNo || ''}"`,  // quote to handle commas
-      `"${sale.customerName || 'Walk-in'}"`,
-      new Date(sale.date).toLocaleDateString('en-IN'),
-      formatAmount(sale.totalAmount),
-      sale.status,
-      getPaymentStatus(sale.dueAmount),
-      formatAmount(sale.dueAmount)
+    const rows = filteredSales.map((sale) => [
+      csvCell(sale.invoiceNo || ''),
+      csvCell(sale.customerName || 'Walk-in'),
+      csvCell(new Date(sale.date).toLocaleDateString('en-IN')),
+      csvCell(Number(sale.totalAmount || 0).toFixed(2)),
+      csvCell(sale.status || ''),
+      csvCell(getPaymentStatus(sale.dueAmount)),
+      csvCell(Number(sale.dueAmount || 0).toFixed(2)),
     ]);
 
-    // Build CSV string
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
 
-    // Create Blob and download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
+
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `sales_history_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `sales_history_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
     URL.revokeObjectURL(url);
 
     setExporting(false);
-    showSnackbar(`Exported ${filteredSales.length} sales records`, "success");
+    showSnackbar(`Exported ${filteredSales.length} sales records`, 'success');
   };
 
   return (
@@ -346,6 +455,7 @@ const SalesHistory = () => {
               </Typography>
             </Box>
           </Box>
+
           <Button
             variant="contained"
             startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
@@ -357,19 +467,34 @@ const SalesHistory = () => {
           </Button>
         </Stack>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 2, alignItems: 'center', bgcolor: '#f8fafc' }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 3,
+            display: 'flex',
+            gap: 2,
+            alignItems: 'center',
+            bgcolor: '#f8fafc',
+            flexWrap: 'wrap',
+          }}
+        >
           <TextField
             size="small"
             placeholder="Search name/invoice..."
             value={search}
             onChange={handleSearchChange}
             InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
             }}
             sx={{ bgcolor: 'white', minWidth: 250 }}
           />
           <Divider orientation="vertical" flexItem />
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <DateRangeIcon fontSize="small" color="action" />
             <TextField
               type="date"
@@ -377,7 +502,7 @@ const SalesHistory = () => {
               label="From"
               InputLabelProps={{ shrink: true }}
               value={startDate}
-              onChange={e => setStartDate(e.target.value)}
+              onChange={(e) => setStartDate(e.target.value)}
               sx={{ bgcolor: 'white' }}
             />
             <TextField
@@ -386,7 +511,7 @@ const SalesHistory = () => {
               label="To"
               InputLabelProps={{ shrink: true }}
               value={endDate}
-              onChange={e => setEndDate(e.target.value)}
+              onChange={(e) => setEndDate(e.target.value)}
               sx={{ bgcolor: 'white' }}
             />
           </Stack>
@@ -403,74 +528,158 @@ const SalesHistory = () => {
                 <TableCell sx={{ fontWeight: 700 }}>Invoice #</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Customer</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  Total
+                </TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Payment</TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 10 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
+                    <CircularProgress />
+                  </TableCell>
+                </TableRow>
               ) : paginatedSales.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>No transactions found.</TableCell></TableRow>
-              ) : paginatedSales.map((sale, idx) => {
-                  const isExpanded = expandedRow === idx;
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                    No transactions found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedSales.map((sale, idx) => {
+                  const saleKey = sale.id || sale.saleId || sale.invoiceNo || idx;
+                  const isExpanded = expandedSaleKey === saleKey;
                   const payStatus = getPaymentStatus(sale.dueAmount);
                   const isCancelable = sale.status === 'DRAFT' || (sale.status === 'COMPLETED' && isToday(sale.date));
 
                   return (
-                    <React.Fragment key={sale.id || idx}>
+                    <React.Fragment key={saleKey}>
                       <TableRow hover>
                         <TableCell>
-                          <IconButton size="small" onClick={() => setExpandedRow(isExpanded ? null : idx)}>
+                          <IconButton size="small" onClick={() => setExpandedSaleKey(isExpanded ? null : saleKey)}>
                             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                         </TableCell>
+
                         <TableCell sx={{ fontWeight: 600 }}>{sale.invoiceNo}</TableCell>
                         <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
                         <TableCell>{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</TableCell>
-                        <TableCell><Chip label={sale.status} color={statusConfig[sale.status]?.color || 'default'} size="small" /></TableCell>
-                        <TableCell>{sale.status !== 'DRAFT' && <Chip label={payStatus} size="small" color={paymentStatusColors[payStatus]} />}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                          {formatAmount(sale.totalAmount)}
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={sale.status} color={statusConfig[sale.status]?.color || 'default'} size="small" />
+                        </TableCell>
+                        <TableCell>
+                          {sale.status !== 'DRAFT' && (
+                            <Chip label={payStatus} size="small" color={paymentStatusColors[payStatus] || 'default'} />
+                          )}
+                        </TableCell>
                       </TableRow>
+
                       <TableRow>
                         <TableCell colSpan={7} sx={{ p: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <Box sx={{ p: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                               <Stack direction="row" spacing={4} divider={<Divider orientation="vertical" flexItem />}>
-                                <Stack spacing={1.5} sx={{ minWidth: 220 }}>
-                                  <Typography variant="overline" color="textSecondary">Transaction Actions</Typography>
+                                <Stack spacing={1.5} sx={{ minWidth: 240 }}>
+                                  <Typography variant="overline" color="textSecondary">
+                                    Transaction Actions
+                                  </Typography>
+
                                   {sale.status === 'DRAFT' ? (
-                                    <Button variant="contained" color="warning" startIcon={<PlayArrowIcon />} onClick={() => navigate(`/sales?resumeId=${sale.id}`)}>Resume Draft</Button>
+                                    <Button
+                                      variant="contained"
+                                      color="warning"
+                                      startIcon={<PlayArrowIcon />}
+                                      onClick={() => navigate(`/sales?resumeId=${sale.id}`)}
+                                    >
+                                      Resume Draft
+                                    </Button>
                                   ) : (
                                     <>
-                                      <Button variant="contained" startIcon={<PrintIcon />} onClick={() => handlePrintInvoice(sale)} sx={{ bgcolor: '#0f172a', '&:hover': {bgcolor: '#1e293b'} }}>Print Invoice</Button>
-                                      <Button variant="contained" startIcon={<WhatsAppIcon />} onClick={() => handleWhatsAppInvoice(sale)} sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#1ebe5d' }, color: '#fff' }}>Send on WhatsApp</Button>
+                                      <Button
+                                        variant="contained"
+                                        startIcon={<PrintIcon />}
+                                        onClick={() => handlePrintInvoice(sale)}
+                                        sx={{ bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' } }}
+                                      >
+                                        Print / Preview
+                                      </Button>
+
+                                      <Button
+                                        variant="outlined"
+                                        startIcon={<DownloadIcon />}
+                                        onClick={() => handleDownloadInvoice(sale)}
+                                      >
+                                        Download PDF
+                                      </Button>
+
+                                      <Button
+                                        variant="contained"
+                                        startIcon={<WhatsAppIcon />}
+                                        onClick={() => handleWhatsAppInvoice(sale)}
+                                        sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#1ebe5d' }, color: '#fff' }}
+                                      >
+                                        WhatsApp Invoice
+                                      </Button>
+
                                       {sale.status !== 'CANCELLED' && (
-                                        <Button variant="outlined" color="secondary" startIcon={<AssignmentReturnIcon />} onClick={() => handleOpenReturn(sale)}>Return Items</Button>
+                                        <Button
+                                          variant="outlined"
+                                          color="secondary"
+                                          startIcon={<AssignmentReturnIcon />}
+                                          onClick={() => handleOpenReturn(sale)}
+                                        >
+                                          Return Items
+                                        </Button>
                                       )}
                                     </>
                                   )}
+
                                   {isCancelable && sale.status !== 'CANCELLED' && (
-                                    <Button variant="text" color="error" startIcon={<CancelIcon />} onClick={() => handleOpenCancel(sale)}>
+                                    <Button
+                                      variant="text"
+                                      color="error"
+                                      startIcon={<CancelIcon />}
+                                      onClick={() => handleOpenCancel(sale)}
+                                    >
                                       {sale.status === 'DRAFT' ? 'Discard Draft' : 'Cancel Sale'}
                                     </Button>
                                   )}
                                 </Stack>
+
                                 <Box sx={{ flexGrow: 1 }}>
-                                  <Typography variant="overline" color="textSecondary">Financial Summary</Typography>
+                                  <Typography variant="overline" color="textSecondary">
+                                    Financial Summary
+                                  </Typography>
                                   <Stack spacing={1} sx={{ mt: 1 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
                                       <Typography variant="body2">Total Bill Amount:</Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatAmount(sale.totalAmount)}</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                        {formatAmount(sale.totalAmount)}
+                                      </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
                                       <Typography variant="body2">Current Outstanding:</Typography>
-                                      <Typography variant="body2" color="error.main" sx={{ fontWeight: 700 }}>{formatAmount(sale.dueAmount)}</Typography>
+                                      <Typography variant="body2" color="error.main" sx={{ fontWeight: 700 }}>
+                                        {formatAmount(sale.dueAmount)}
+                                      </Typography>
                                     </Box>
+
                                     {Number(sale.dueAmount) > 0 && (
-                                      <Button variant="contained" color="success" size="small" startIcon={<PaymentsIcon />}
-                                        onClick={() => navigate(`/customer-payments?saleId=${sale.id}`)} sx={{ mt: 1, width: 'fit-content', borderRadius: 2 }}>
+                                      <Button
+                                        variant="contained"
+                                        color="success"
+                                        size="small"
+                                        startIcon={<PaymentsIcon />}
+                                        onClick={() => navigate(`/customer-payments?saleId=${sale.saleId}`)}
+                                        sx={{ mt: 1, width: 'fit-content', borderRadius: 2 }}
+                                      >
                                         Receive Payment
                                       </Button>
                                     )}
@@ -484,17 +693,18 @@ const SalesHistory = () => {
                     </React.Fragment>
                   );
                 })
-              }
+              )}
             </TableBody>
           </Table>
         </TableContainer>
+
         <TablePagination
           component="div"
           count={filteredSales.length}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={e => setRowsPerPage(parseInt(e.target.value, 10))}
+          onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
         />
       </Paper>
 
@@ -516,22 +726,36 @@ const SalesHistory = () => {
                   <TableHead sx={{ bgcolor: '#f8fafc' }}>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 700 }}>Item Description</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>Available</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>Returning</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700 }}>
+                        Available
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        Returning
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {returnItems.map((item, index) => (
                       <TableRow key={item.saleItemId}>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
-                          <Typography variant="caption" color="textSecondary">{formatAmount(item.unitPrice)} / unit</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {item.itemName}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {formatAmount(item.unitPrice)} / unit
+                          </Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Tooltip title={`Original Purchase: ${item.originalQty}`}>
                             <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.netQty}</Typography>
-                              {item.returnedQty > 0 && <Typography variant="caption" color="error">({item.returnedQty} already ret.)</Typography>}
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {item.netQty}
+                              </Typography>
+                              {item.returnedQty > 0 && (
+                                <Typography variant="caption" color="error">
+                                  ({item.returnedQty} already ret.)
+                                </Typography>
+                              )}
                             </Box>
                           </Tooltip>
                         </TableCell>
@@ -552,10 +776,12 @@ const SalesHistory = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {/* SUMMARY ROW */}
+
                     <TableRow sx={{ bgcolor: '#f0fdf4' }}>
                       <TableCell colSpan={2} align="right">
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Total Return Value:</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Total Return Value:
+                        </Typography>
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 800 }}>
@@ -567,15 +793,22 @@ const SalesHistory = () => {
                 </Table>
               </TableContainer>
 
-              <TextField fullWidth label="Reason for return" multiline rows={2} value={returnReason} onChange={e => setReturnReason(e.target.value)} />
+              <TextField
+                fullWidth
+                label="Reason for return"
+                multiline
+                rows={2}
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
 
               <Box sx={{ p: 2, bgcolor: '#fff7ed', borderRadius: 2, border: '1px solid #ffedd5' }}>
                 <FormControlLabel
-                  control={<Checkbox checked={isRefundPayment} onChange={e => setIsRefundPayment(e.target.checked)} />}
+                  control={<Checkbox checked={isRefundPayment} onChange={(e) => setIsRefundPayment(e.target.checked)} />}
                   label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Issue Refund / Add to Customer Credit?</Typography>}
                 />
                 <Typography variant="caption" display="block" color="textSecondary" sx={{ ml: 4 }}>
-                  This will reduce the invoice total and adjust the customer's ledger balance.
+                  This will reduce the invoice total and adjust the customer&apos;s ledger balance.
                 </Typography>
               </Box>
             </Stack>
@@ -602,9 +835,17 @@ const SalesHistory = () => {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Are you sure you want to cancel <strong>Invoice {selectedSale?.invoiceNo}</strong>? This action reverses all stock and payment entries permanently.
+            Are you sure you want to cancel <strong>Invoice {selectedSale?.invoiceNo}</strong>? This action reverses all
+            stock and payment entries permanently.
           </Typography>
-          <TextField fullWidth label="Cancellation Reason" required value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
+          <TextField
+            fullWidth
+            label="Cancellation Reason"
+            required
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            autoFocus
+          />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setCancelDialogOpen(false)}>No, Keep Sale</Button>
@@ -615,8 +856,14 @@ const SalesHistory = () => {
       </Dialog>
 
       {/* SNACKBAR */}
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-        <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+      >
+        <Alert severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );
