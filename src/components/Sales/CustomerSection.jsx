@@ -175,7 +175,7 @@ const CustomerSection = ({
 
     return (
       <Box>
-        {/* Row 1: Customer search + add + options */}
+        {/* Row 1: Customer search + add */}
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Select
@@ -192,16 +192,6 @@ const CustomerSection = ({
           <Tooltip title={isPharmacy ? 'Register New Patient' : 'Add New Customer'}>
             <Button variant="contained" onClick={() => setOpenCustomerModal(true)} sx={{ minWidth: 40, p: 1 }}>
               <PersonAddIcon fontSize="small" />
-            </Button>
-          </Tooltip>
-          <Tooltip title="Delivery & other options">
-            <Button
-              variant={formData.deliveryRequired || formData.doctorName || formData.buyerPan ? 'contained' : 'outlined'}
-              color={formData.deliveryRequired || formData.doctorName || formData.buyerPan ? 'secondary' : 'inherit'}
-              onClick={() => setOptionsOpen(true)}
-              sx={{ minWidth: 40, p: 1 }}
-            >
-              <TuneIcon fontSize="small" />
             </Button>
           </Tooltip>
         </Box>

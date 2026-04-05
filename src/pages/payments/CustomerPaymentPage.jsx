@@ -329,7 +329,12 @@ const CustomerPaymentPage = () => {
           {/* Tabs */}
           <Tabs
             value={tab}
-            onChange={(_, v) => setTab(v)}
+            onChange={(_, v) => {
+              setTab(v);
+              if (v === 1 && selectedCustomer?.id) {
+                fetchHistoryAndBalance();
+              }
+            }}
             sx={{
               '& .MuiTab-root': {
                 color: 'rgba(255,255,255,0.55)',
