@@ -60,6 +60,7 @@ const Sales = () => {
 const [urlParams, setUrlParams] = useSearchParams();
 const tabParam = urlParams.get("tab");
 const tabValue = tabParam === "history" ? 1 : 0;
+const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [openInvoiceModal, setOpenInvoiceModal] = useState(false);
@@ -447,6 +448,7 @@ const handleSubmitSale = async (payload) => {
         value={tabValue}
         onChange={(newValue) => {
           setUrlParams({ tab: newValue === 1 ? "history" : "sale" });
+          if (newValue === 1) setHistoryRefreshKey(k => k + 1);
         }}
       />
       
@@ -685,7 +687,7 @@ const handleSubmitSale = async (payload) => {
       </SalesTabs.Panel>
 
       <SalesTabs.Panel value={tabValue} index={1}>
-        <SalesHistory onResume={handleLoadDraft} />
+        <SalesHistory onResume={handleLoadDraft} refreshTrigger={historyRefreshKey} />
       </SalesTabs.Panel>
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>

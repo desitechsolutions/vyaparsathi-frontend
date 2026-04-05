@@ -40,6 +40,10 @@ const PaymentForm = ({
     },
   };
 
+  const handlePreventInvalidKeys = (e) => {
+    if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault();
+  };
+
   return (
     <Paper 
       elevation={0} 
@@ -141,6 +145,7 @@ const PaymentForm = ({
                   value={pm.amount}
                   error={!!formErrors[`amount${idx}`] || isOverpaid}
                   onChange={e => onMethodChange(idx, 'amount', e.target.value)}
+                  onKeyDown={handlePreventInvalidKeys}
                   sx={inputSx}
                   inputProps={{ min: 0, step: 'any' }}
                   InputProps={{

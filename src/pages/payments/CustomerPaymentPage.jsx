@@ -154,7 +154,8 @@ const CustomerPaymentPage = () => {
     setPaymentMethods(prev => {
       const updated = [...prev];
       if (field === 'amount') {
-        const parsed = parseFloat(value);
+        const sanitized = String(value).replace(/[^0-9.]/g, '');
+        const parsed = parseFloat(sanitized);
         updated[index] = { ...updated[index], [field]: isNaN(parsed) ? '' : String(Math.max(0, parsed)) };
       } else {
         updated[index] = { ...updated[index], [field]: value };
@@ -227,7 +228,7 @@ const CustomerPaymentPage = () => {
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Container maxWidth="lg">
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/customers')} sx={{ fontWeight: 700 }}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(initialSaleId ? '/sales?tab=history' : '/customers')} sx={{ fontWeight: 700 }}>
             Back
           </Button>
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
