@@ -14,9 +14,11 @@ SalesTabs.Panel = ({ value, index, children, noPadding }) => (
     hidden={value !== index}
     id={`tabpanel-${index}`}
     aria-labelledby={`tab-${index}`}
-    style={noPadding ? { height: '100%', display: value === index ? 'flex' : 'none', flexDirection: 'column' } : undefined}
+    style={noPadding
+      ? { flex: 1, minHeight: 0, display: value === index ? 'flex' : 'none', flexDirection: 'column' }
+      : { flex: 1, minHeight: 0, overflow: 'auto', display: value === index ? 'block' : 'none' }}
   >
-    <Box sx={noPadding ? { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { p: 3 }}>{children}</Box>
+    <Box sx={noPadding ? { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' } : { p: 3 }}>{children}</Box>
   </div>
 );
 
