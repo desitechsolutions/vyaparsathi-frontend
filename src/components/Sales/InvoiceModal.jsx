@@ -10,14 +10,10 @@ import {
   Box,
   CircularProgress,
   Alert,
-  Divider,
-  Stack,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import PrintIcon from '@mui/icons-material/Print';
 import CloseIcon from '@mui/icons-material/Close';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import API from '../../services/api';
 
 const InvoiceModal = ({
@@ -131,21 +127,6 @@ const InvoiceModal = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCopyLink = async () => {
-    if (!whatsappInvoiceLink) return;
-    try {
-      await navigator.clipboard.writeText(whatsappInvoiceLink);
-      setError(null);
-    } catch {
-      setError('Failed to copy. Please copy the link manually.');
-    }
-  };
-
-  const handlePrint = () => {
-    if (isDisabled) return;
-    fetchPdfBlob(false);
-  };
-
   const handleDownload = () => {
     if (isDisabled) return;
     fetchPdfBlob(true);
@@ -202,45 +183,13 @@ const InvoiceModal = ({
               Invoice <strong>{invoiceNo || saleId || '—'}</strong> is ready.
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-              Choose to preview, download, or share the invoice.
+              Choose to download or share the invoice.
             </Typography>
-
-            {!isDisabled && (
-              <>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="caption" color="textSecondary">
-                  Share link (works in WhatsApp):
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mt: 0.5,
-                    p: 1,
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 1.5,
-                    bgcolor: '#f8fafc',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {whatsappInvoiceLink}
-                </Typography>
-              </>
-            )}
           </Box>
         )}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3, gap: 1, flexWrap: 'wrap' }}>
-        <Button
-          variant="contained"
-          startIcon={<PrintIcon />}
-          onClick={handlePrint}
-          disabled={loading || isDisabled}
-          sx={{ bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' } }}
-        >
-          Print / Preview
-        </Button>
-
         <Button
           variant="contained"
           color="primary"
@@ -249,15 +198,6 @@ const InvoiceModal = ({
           disabled={loading || isDisabled}
         >
           Download PDF
-        </Button>
-
-        <Button
-          variant="outlined"
-          startIcon={<ContentCopyIcon />}
-          onClick={handleCopyLink}
-          disabled={loading || isDisabled}
-        >
-          Copy link
         </Button>
 
         <Button

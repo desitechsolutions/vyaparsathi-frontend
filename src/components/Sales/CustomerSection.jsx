@@ -206,7 +206,7 @@ const CustomerSection = ({
           </Tooltip>
         </Box>
 
-        {/* Row 2: GST toggle + status chips */}
+        {/* Row 2: GST toggle + delivery icon + status chips */}
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
             <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>Retail</Typography>} sx={{ mr: 1 }} />
@@ -220,9 +220,17 @@ const CustomerSection = ({
               />
             </Tooltip>
           </RadioGroup>
-          {formData.deliveryRequired && (
-            <Chip label="🚚 Delivery" size="small" color="primary" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
-          )}
+          <Tooltip title={formData.deliveryRequired ? 'Delivery enabled — click to edit' : 'Enable delivery'}>
+            <Button
+              variant={formData.deliveryRequired ? 'contained' : 'outlined'}
+              color={formData.deliveryRequired ? 'primary' : 'inherit'}
+              size="small"
+              onClick={() => setOptionsOpen(true)}
+              sx={{ minWidth: 36, p: 0.5, borderRadius: 1.5 }}
+            >
+              <LocalShippingIcon fontSize="small" />
+            </Button>
+          </Tooltip>
           {isPharmacy && formData.doctorName && (
             <Chip label="Rx ✓" size="small" color="success" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
           )}

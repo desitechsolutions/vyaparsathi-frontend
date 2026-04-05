@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -43,6 +43,8 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 import API, {
   fetchSalesHistory,
@@ -97,7 +99,7 @@ const csvCell = (value) => {
   return `"${s.replace(/"/g, '""')}"`;
 };
 
-const SalesHistory = () => {
+const SalesHistory = ({ onResume, refreshTrigger }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { shop } = useShop();
@@ -137,6 +139,18 @@ const SalesHistory = () => {
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
 
+  const showSnackbar = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
+  const loadData = useCallback(() => {
+    setLoading(true);
+    fetchSalesHistory()
+      .then((res) => setSalesHistory(res.data || []))
+      .catch(() => showSnackbar('Failed to load sales history', 'error'))
+      .finally(() => setLoading(false));
+  }, [showSnackbar]);
+
   // Sync search from URL → state
   useEffect(() => {
     const urlSearch = params.get('search') || '';
@@ -146,24 +160,12 @@ const SalesHistory = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshTrigger, loadData]);
 
   // ✅ Enhancement: reset pagination when filters change
   useEffect(() => {
     setPage(0);
   }, [search, startDate, endDate]);
-
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const loadData = () => {
-    setLoading(true);
-    fetchSalesHistory()
-      .then((res) => setSalesHistory(res.data || []))
-      .catch(() => showSnackbar('Failed to load sales history', 'error'))
-      .finally(() => setLoading(false));
-  };
 
   // --- Summary Calculation for Return ---
   const totalReturnValue = useMemo(() => {
@@ -456,15 +458,26 @@ const SalesHistory = () => {
             </Box>
           </Box>
 
-          <Button
-            variant="contained"
-            startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-            disabled={exporting || filteredSales.length === 0}
-            onClick={handleExportCSV}
-            sx={{ bgcolor: '#10b981', borderRadius: 2, fontWeight: 700 }}
-          >
-            {exporting ? 'Exporting...' : 'Export CSV'}
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              variant="outlined"
+              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
+              disabled={loading}
+              onClick={loadData}
+              sx={{ borderRadius: 2, fontWeight: 700 }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+              disabled={exporting || filteredSales.length === 0}
+              onClick={handleExportCSV}
+              sx={{ bgcolor: '#10b981', borderRadius: 2, fontWeight: 700 }}
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </Button>
+          </Stack>
         </Stack>
 
         <Paper
