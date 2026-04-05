@@ -143,8 +143,16 @@ const SupportChatWidget = ({ user }) => {
     }
   };
 
+  // Track window height to correctly determine chat-window open direction on resize
+  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+  useEffect(() => {
+    const handleResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Determine whether the chat window should open upward or downward based on position
-  const openUpward = !pos || (pos.top > window.innerHeight / 2);
+  const openUpward = !pos || (pos.top > windowHeight / 2);
 
   return (
     <Box
@@ -388,13 +396,12 @@ const SupportChatWidget = ({ user }) => {
             <Tooltip title={isDragging ? '' : 'Support Chat (drag to move)'} placement="left">
               <Fab 
                 onClick={() => { if (!isDragging) setIsOpen(!isOpen); }}
-                onMouseDown={handleDragStart}
                 sx={{ 
                   bgcolor: '#1e293b', 
                   color: 'white',
                   '&:hover': { bgcolor: '#334155' },
                   boxShadow: '0px 4px 12px rgba(0,0,0,0.3)',
-                  cursor: isDragging ? 'grabbing' : 'grab',
+                  cursor: isDragging ? 'grabbing' : 'pointer',
                 }}
               >
                 {isOpen ? <CloseIcon /> : <ChatIcon />}

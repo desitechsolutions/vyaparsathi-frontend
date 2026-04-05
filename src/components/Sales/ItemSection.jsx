@@ -98,6 +98,8 @@ const ItemSection = ({
   // Auto-scroll the item details panel into view whenever a variant is selected
   useEffect(() => {
     if (selectedVariant && itemDetailsRef.current) {
+      // Short delay lets React finish rendering batch/dispensing-mode sections
+      // before scrolling, so the scroll target is at its final position.
       const timer = setTimeout(() => {
         itemDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 80);
