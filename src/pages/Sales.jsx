@@ -466,8 +466,8 @@ const handleSubmitSale = async (payload) => {
 
             {/* ── LEFT PANEL: Item Search & Selection ── */}
             <Paper elevation={0} sx={{
-              flex: { md: '0 0 58%' },
-              width: { xs: '100%', md: '58%' },
+              flex: { md: '0 0 54%' },
+              width: { xs: '100%', md: '54%' },
               borderRadius: 2,
               border: '1px solid #e0e4e8',
               overflow: 'auto',
@@ -497,8 +497,8 @@ const handleSubmitSale = async (payload) => {
 
             {/* ── RIGHT PANEL: Customer + Cart + Actions ── */}
             <Box sx={{
-              flex: { md: '0 0 42%' },
-              width: { xs: '100%', md: '42%' },
+              flex: { md: '0 0 46%' },
+              width: { xs: '100%', md: '46%' },
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
