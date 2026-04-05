@@ -554,7 +554,6 @@ const handleSubmitSale = async (payload) => {
                 border: '1px solid #e0e4e8',
                 borderTop: '2px solid #e2e8f0',
                 p: 1.5,
-                pr: { xs: '80px', md: '80px' },
                 bgcolor: 'rgba(255,255,255,0.97)',
                 flexShrink: 0,
                 display: 'flex',

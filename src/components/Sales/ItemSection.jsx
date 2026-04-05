@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Grid, Card, CardContent, TextField, Button, Typography, 
   Box, Collapse, Tooltip, Paper, Chip,
@@ -55,6 +55,9 @@ const ItemSection = ({
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [loadingBatches, setLoadingBatches] = useState(false);
 
+  // Ref for the item details panel — used to auto-scroll into view on variant select
+  const itemDetailsRef = useRef(null);
+
   // Issue 1: When a new variant is selected, seed packSize from backend or fall back to DEFAULT_PACK_SIZE
   useEffect(() => {
     if (selectedVariant) {
@@ -91,6 +94,18 @@ const ItemSection = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVariant?.id, isPharmacy]);
+
+  // Auto-scroll the item details panel into view whenever a variant is selected
+  useEffect(() => {
+    if (selectedVariant && itemDetailsRef.current) {
+      // Short delay lets React finish rendering batch/dispensing-mode sections
+      // before scrolling, so the scroll target is at its final position.
+      const timer = setTimeout(() => {
+        itemDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedVariant]);
 
   // Drug schedule info for the selected variant
   const drugSchedule = selectedVariant?.drugSchedule;
@@ -605,7 +620,7 @@ value={
           )}
 
           {/* ITEM DETAILS & ADD BUTTON */}
-          <Box sx={{ 
+          <Box ref={itemDetailsRef} sx={{ 
             mt: 3, 
             p: 3, 
             borderRadius: 4, 

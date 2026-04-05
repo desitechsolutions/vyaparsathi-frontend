@@ -1,19 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, Fab, Paper, Typography, TextField, IconButton, 
-  Stack, Avatar, Zoom, CircularProgress, Badge 
+  Stack, Avatar, Zoom, CircularProgress, Badge, Tooltip
 } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useSupportChat } from './admin/hooks/useSupportChat';
 // import useWebSocket from '../hooks/useWebSocket'; // Removed redundant direct import
+
+const STORAGE_KEY = 'chatWidgetPos';
 
 const SupportChatWidget = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const scrollRef = useRef(null);
+
+  // Draggable position — null means use default (bottom:20, right:20)
+  const [pos, setPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef(null);
+  const dragData = useRef(null);
 
   /**
    * ✅ CRITICAL CHANGE: 
@@ -43,6 +57,58 @@ const SupportChatWidget = ({ user }) => {
       return () => clearTimeout(timer);
     }
   }, [messages, isOpen, notifications?.length, clearNotifications, typingStatus?.isTyping]);
+
+  // Drag logic — mousemove / mouseup on document
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const onMouseMove = (e) => {
+      const { startMouseX, startMouseY, startLeft, startTop } = dragData.current;
+      const dx = e.clientX - startMouseX;
+      const dy = e.clientY - startMouseY;
+      const containerW = containerRef.current?.offsetWidth || 60;
+      const containerH = containerRef.current?.offsetHeight || 60;
+      const newLeft = Math.max(0, Math.min(startLeft + dx, window.innerWidth - containerW));
+      const newTop = Math.max(0, Math.min(startTop + dy, window.innerHeight - containerH));
+      setPos({ left: newLeft, top: newTop });
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      setPos(prev => {
+        if (prev) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prev)); } catch {}
+        }
+        return prev;
+      });
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleDragStart = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const rect = containerRef.current.getBoundingClientRect();
+    dragData.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startLeft: rect.left,
+      startTop: rect.top,
+    };
+    // If currently using default (bottom/right) position, compute left/top
+    if (!pos) {
+      dragData.current.startLeft = rect.left;
+      dragData.current.startTop = rect.top;
+    }
+    setPos({ left: rect.left, top: rect.top });
+    setIsDragging(true);
+  };
 
   const handleSend = () => {
     if (!text.trim()) return;
@@ -77,17 +143,32 @@ const SupportChatWidget = ({ user }) => {
     }
   };
 
+  // Track window height to correctly determine chat-window open direction on resize
+  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+  useEffect(() => {
+    const handleResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Determine whether the chat window should open upward or downward based on position
+  const openUpward = !pos || (pos.top > windowHeight / 2);
+
   return (
-    <Box 
+    <Box
+      ref={containerRef}
       sx={{ 
         position: 'fixed', 
-        bottom: 20, 
-        right: 20, 
+        ...(pos
+          ? { left: pos.left, top: pos.top, bottom: 'auto', right: 'auto' }
+          : { bottom: 80, right: 20 }
+        ),
         zIndex: 3000, 
         pointerEvents: 'none', 
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end'
+        flexDirection: openUpward ? 'column' : 'column-reverse',
+        alignItems: 'flex-end',
+        cursor: isDragging ? 'grabbing' : 'default',
       }}
     >
       {/* Floating Chat Window */}
@@ -96,7 +177,8 @@ const SupportChatWidget = ({ user }) => {
           sx={{ 
             width: { xs: '90vw', sm: 350 }, 
             height: 450, 
-            mb: 2, 
+            mb: openUpward ? 2 : 0,
+            mt: openUpward ? 0 : 2,
             display: 'flex', 
             flexDirection: 'column', 
             overflow: 'hidden',
@@ -269,26 +351,64 @@ const SupportChatWidget = ({ user }) => {
         </Paper>
       </Zoom>
 
-      {/* Toggle Button with Notification Badge */}
-      <Box sx={{ pointerEvents: 'auto' }}>
-        <Badge 
-          badgeContent={notifications?.length || 0} 
-          color="error"
-          invisible={isOpen || !notifications?.length}
-          sx={{ '& .MuiBadge-badge': { fontSize: '0.75rem', height: 20, minWidth: 20 } }}
-        >
-          <Fab 
-            onClick={() => setIsOpen(!isOpen)}
-            sx={{ 
-              bgcolor: '#1e293b', 
-              color: 'white',
-              '&:hover': { bgcolor: '#334155' },
-              boxShadow: '0px 4px 12px rgba(0,0,0,0.3)'
+      {/* Toggle Button with Notification Badge + Drag Handle */}
+      <Box sx={{ pointerEvents: 'auto', position: 'relative' }}>
+        {/* Drag handle — visible on hover */}
+        <Tooltip title="Drag to reposition" placement="left">
+          <Box
+            onMouseDown={handleDragStart}
+            sx={{
+              position: 'absolute',
+              top: -8,
+              left: -8,
+              width: 24,
+              height: 24,
+              bgcolor: 'rgba(255,255,255,0.9)',
+              border: '1px solid #e2e8f0',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'grab',
+              zIndex: 1,
+              opacity: 0,
+              transition: 'opacity 0.2s',
+              '&:hover': { opacity: 1 },
+              '.chat-fab-wrapper:hover &': { opacity: 1 },
             }}
           >
-            {isOpen ? <CloseIcon /> : <ChatIcon />}
-          </Fab>
-        </Badge>
+            <DragIndicatorIcon sx={{ fontSize: 14, color: '#64748b' }} />
+          </Box>
+        </Tooltip>
+
+        <Box
+          className="chat-fab-wrapper"
+          sx={{
+            '&:hover .drag-handle': { opacity: 1 },
+          }}
+        >
+          <Badge 
+            badgeContent={notifications?.length || 0} 
+            color="error"
+            invisible={isOpen || !notifications?.length}
+            sx={{ '& .MuiBadge-badge': { fontSize: '0.75rem', height: 20, minWidth: 20 } }}
+          >
+            <Tooltip title={isDragging ? '' : 'Support Chat (drag to move)'} placement="left">
+              <Fab 
+                onClick={() => { if (!isDragging) setIsOpen(!isOpen); }}
+                sx={{ 
+                  bgcolor: '#1e293b', 
+                  color: 'white',
+                  '&:hover': { bgcolor: '#334155' },
+                  boxShadow: '0px 4px 12px rgba(0,0,0,0.3)',
+                  cursor: isDragging ? 'grabbing' : 'pointer',
+                }}
+              >
+                {isOpen ? <CloseIcon /> : <ChatIcon />}
+              </Fab>
+            </Tooltip>
+          </Badge>
+        </Box>
       </Box>
     </Box>
   );
