@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
-  Box, Snackbar, Alert, CircularProgress, Divider, Chip, Container, 
+  Box, Snackbar, Alert, CircularProgress, Divider, Chip,
   Typography, Paper, Button, Tooltip, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
@@ -20,12 +20,10 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { useShop } from '../context/ShopContext';
 import PersonIcon from '@mui/icons-material/Person';
-import InventoryIcon from '@mui/icons-material/Inventory';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
-const SIDEBAR_WIDTH = '280px'; 
 
 const initialItem = {
   id: '', sku: '', qty: '', unitPrice: 0, itemName: '', description: '',
@@ -444,7 +442,7 @@ const handleSubmitSale = async (payload) => {
 
 
   return (
-    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f4f6f8', minHeight: '100vh', pb: 12 }}>
+    <Box sx={{ bgcolor: '#f4f6f8', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', overflow: 'hidden' }}>
       <SalesTabs
         value={tabValue}
         onChange={(newValue) => {
@@ -452,28 +450,29 @@ const handleSubmitSale = async (payload) => {
         }}
       />
       
-      <SalesTabs.Panel value={tabValue} index={0}>
+      <SalesTabs.Panel value={tabValue} index={0} noPadding>
         {(loading || loadingCustomers) && !showReviewPage ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>
         ) : !showReviewPage ? (
-          <Container maxWidth="lg">
-            <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e4e8' }}>
-              <CustomerSection
-                customers={customers} selectedCustomer={selectedCustomer}
-                formData={formData} setFormData={setFormData}
-                newCustomerData={newCustomerData} setNewCustomerData={setNewCustomerData}
-                handleCustomerSelect={handleCustomerSelect} handleNewCustomer={handleNewCustomer}
-                openCustomerModal={openCustomerModal} setOpenCustomerModal={setOpenCustomerModal}
-                isPharmacy={isPharmacy}
-                isJewellery={isJewellery}
-              />
-            </Paper>
+          /* ── TWO-COLUMN SPLIT PANEL LAYOUT ─────────────────────────────── */
+          <Box sx={{
+            display: { xs: 'block', md: 'flex' },
+            gap: 1.5,
+            height: { md: 'calc(100vh - 158px)' },
+            overflow: 'hidden',
+            px: { xs: 1, md: 0 },
+            pt: { xs: 1, md: 0 },
+          }}>
 
-            <Divider sx={{ my: 3 }}>
-              <Chip icon={<InventoryIcon />} label="Selection" color="primary" size="small" />
-            </Divider>
-
-            <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2, border: '1px solid #e0e4e8' }}>
+            {/* ── LEFT PANEL: Item Search & Selection ── */}
+            <Paper elevation={0} sx={{
+              flex: { md: '0 0 58%' },
+              width: { xs: '100%', md: '58%' },
+              borderRadius: 2,
+              border: '1px solid #e0e4e8',
+              overflow: 'auto',
+              mb: { xs: 1.5, md: 0 },
+            }}>
               <ItemSection
                 variants={filteredVariants} selectedVariant={selectedVariant}
                 item={item} setItem={setItem} uniqueNames={uniqueNames} uniqueSkus={uniqueSkus}
@@ -485,7 +484,6 @@ const handleSubmitSale = async (payload) => {
                 searchParams={searchParams} handleVariantSelect={handleVariantSelect}
                 handleSearchParamChange={handleSearchParamChange} handleAddItem={handleAddItem}
                 error={itemError} editIndex={editIndex}
-                proceedDisabledTooltip="Please select a customer and add at least one item to the sale."
                 substitutes={substitutes}
                 isPharmacy={isPharmacy}
                 industryType={industryType}
@@ -497,146 +495,175 @@ const handleSubmitSale = async (payload) => {
               />
             </Paper>
 
-            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e4e8' }}>
-              <SalesSummary
-                handleSaveDraft={handleSaveDraft}
-                formData={formData} 
-                handleRemoveItem={handleRemoveItem}
-                handleEditItem={handleEditItem} 
-                loading={loading} 
-                setFormData={setFormData}
-                selectedCustomer={selectedCustomer} 
-                setItem={setItem}
-                setShowReviewPage={setShowReviewPage}
-                handleCustomerSelect={handleCustomerSelect}
-                setSelectedVariant={setSelectedVariant}
-                setSearchParams={setSearchParams}
-                proceedDisabledTooltip="Please select a customer and add items to proceed."
-                isPharmacy={isPharmacy}
-                isJewellery={isJewellery}
-              />
-            </Paper>
-            {/* PROFESSIONAL STICKY ACTION BAR */}
-            <Paper 
-              elevation={10} 
-              sx={{ 
-                position: 'fixed', 
-                bottom: 0, 
-                // Aligns with your 240px Sidebar on desktop, full width on mobile
-                left: { xs: 0, lg: '240px' }, 
-                right: 0, 
-                p: { xs: 1.5, md: 2 }, 
-                bgcolor: 'rgba(255, 255, 255, 0.95)', 
-                backdropFilter: 'blur(10px)', 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                zIndex: 1100, 
-                borderTop: '1px solid #e0e6ed',
-                boxShadow: '0 -10px 20px rgba(0,0,0,0.04)'
-              }}
-            >
-              {/* Left Section: Stats */}
-              <Stack direction="row" spacing={{ xs: 2, md: 4 }} alignItems="center">
-                <Box>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: -0.5, letterSpacing: 0.5 }}
-                  >
-                    ITEMS
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                    {formData.items.length.toString().padStart(2, '0')}
+            {/* ── RIGHT PANEL: Customer + Cart + Actions ── */}
+            <Box sx={{
+              flex: { md: '0 0 42%' },
+              width: { xs: '100%', md: '42%' },
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              gap: 0,
+            }}>
+              {/* Customer & GST section — compact header */}
+              <Paper elevation={0} sx={{ borderRadius: '8px 8px 0 0', border: '1px solid #e0e4e8', borderBottom: 'none', p: 1.5, flexShrink: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <PersonIcon fontSize="small" color="primary" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {isPharmacy ? 'Patient' : 'Customer'}
+                    {isPharmacy && <Chip label="Pharmacy" size="small" color="primary" sx={{ ml: 1, height: 18, fontSize: '0.65rem' }} />}
+                    {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 1, height: 18, fontSize: '0.65rem', bgcolor: '#ede9fe', color: '#7c3aed' }} />}
                   </Typography>
                 </Box>
-                
-                <Divider orientation="vertical" flexItem sx={{ height: 32, my: 'auto', borderColor: '#e2e8f0' }} />
+                <CustomerSection
+                  compact
+                  customers={customers} selectedCustomer={selectedCustomer}
+                  formData={formData} setFormData={setFormData}
+                  newCustomerData={newCustomerData} setNewCustomerData={setNewCustomerData}
+                  handleCustomerSelect={handleCustomerSelect} handleNewCustomer={handleNewCustomer}
+                  openCustomerModal={openCustomerModal} setOpenCustomerModal={setOpenCustomerModal}
+                  isPharmacy={isPharmacy}
+                  isJewellery={isJewellery}
+                />
+              </Paper>
 
-                <Box>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: -0.5, letterSpacing: 0.5 }}
-                  >
-                    PAYABLE AMOUNT
-                  </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 900, color: '#1976d2' }}>
-                    ₹{Number(formData.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              {/* Right Section: Action Button */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {/* Validation Warning for User */}
-                {!formData.customerId && formData.items.length > 0 && (
-                  <Typography 
-                    variant="caption" 
-                    color="error" 
-                    sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}
-                  >
-                    Select customer to proceed
-                  </Typography>
-                )}
-
-                <Tooltip title={
-                  !formData.customerId ? "Please select a customer first" : 
-                  !isDeliveryValid() ? "Please complete delivery details (Address & Paid By)" : ""
-
-                }>
-                  <span>
-                    <Button 
-                      variant="contained" 
-                      size="large" 
-                      endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ChevronRightIcon />}
-                      disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid() || loading}
-                      onClick={() => {
-                        // Schedule H1/X legal compliance: doctor + patient details required
-                        const hasControlledDrug = isPharmacy && formData.items.some(it =>
-                          ['SCHEDULE_H1', 'SCHEDULE_X'].includes(it.drugSchedule)
-                        );
-                        if (hasControlledDrug) {
-                          const missing = [];
-                          if (!formData.doctorName?.trim()) missing.push('Doctor Name');
-                          if (!formData.doctorRegistrationNumber?.trim()) missing.push('Doctor Registration No.');
-                          if (!formData.patientName?.trim()) missing.push('Patient Name');
-                          if (missing.length > 0) {
-                            setSnackbar({
-                              open: true,
-                              message: `Schedule H1/X drugs require: ${missing.join(', ')}. Please fill in Prescription Details.`,
-                              severity: 'error',
-                            });
-                            return;
-                          }
-                        }
-                        setShowReviewPage(true);
-                      }}
-                      sx={{ 
-                        px: { xs: 3, md: 6 }, 
-                        py: 1.5,
-                        borderRadius: '12px', 
-                        fontWeight: 800,
-                        fontSize: '1rem',
-                        textTransform: 'none',
-                        boxShadow: '0 4px 14px 0 rgba(25, 118, 210, 0.39)',
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 6px 20px rgba(25, 118, 210, 0.23)',
-                          bgcolor: '#1565c0'
-                        },
-                        '&:disabled': {
-                          bgcolor: '#e2e8f0',
-                          color: '#94a3b8'
-                        }
-                      }}
-                    >
-                      {loading ? 'Processing...' : t('salesPage.proceedToPayment')}
-                    </Button>
-                  </span>
-                </Tooltip>
+              {/* Cart Summary — fills remaining height, items scroll internally */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid #e0e4e8', borderTop: '1px solid #f1f5f9', bgcolor: '#fff' }}>
+                <SalesSummary
+                  embedded
+                  hideActions
+                  handleSaveDraft={handleSaveDraft}
+                  formData={formData}
+                  handleRemoveItem={handleRemoveItem}
+                  handleEditItem={handleEditItem}
+                  loading={loading}
+                  setFormData={setFormData}
+                  selectedCustomer={selectedCustomer}
+                  setItem={setItem}
+                  setShowReviewPage={setShowReviewPage}
+                  handleCustomerSelect={handleCustomerSelect}
+                  setSelectedVariant={setSelectedVariant}
+                  setSearchParams={setSearchParams}
+                  isPharmacy={isPharmacy}
+                  isJewellery={isJewellery}
+                />
               </Box>
-            </Paper>
-          </Container>
+
+              {/* Action bar — always visible at bottom of right panel */}
+              <Paper elevation={0} sx={{
+                borderRadius: '0 0 8px 8px',
+                border: '1px solid #e0e4e8',
+                borderTop: '2px solid #e2e8f0',
+                p: 1.5,
+                bgcolor: 'rgba(255,255,255,0.97)',
+                flexShrink: 0,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 1,
+              }}>
+                {/* Totals summary */}
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', lineHeight: 1, mb: 0.25 }}>ITEMS</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>
+                      {formData.items.length.toString().padStart(2, '0')}
+                    </Typography>
+                  </Box>
+                  <Divider orientation="vertical" flexItem sx={{ height: 28, my: 'auto' }} />
+                  <Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', lineHeight: 1, mb: 0.25 }}>TOTAL</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1976d2', lineHeight: 1 }}>
+                      ₹{Number(formData.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                {/* Right: Clear + Draft + Proceed */}
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Tooltip title="Clear all items">
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      size="small"
+                      onClick={() => {
+                        if (formData.items.length === 0) return;
+                        setFormData({ id: null, customerId: '', items: [], totalAmount: 0, isGstRequired: 'no', discount: 0, paymentMethods: [{ method: 'Cash', amount: 0 }], deliveryRequired: false });
+                        handleCustomerSelect(null);
+                        setSelectedVariant(null);
+                        setItem(initialItem);
+                        setSearchParams({});
+                      }}
+                      sx={{ minWidth: 0, px: 1 }}
+                    >
+                      <ShoppingCartIcon fontSize="small" sx={{ mr: 0.5 }} />
+                      <Typography variant="caption" fontWeight={700}>Clear</Typography>
+                    </Button>
+                  </Tooltip>
+
+                  <Tooltip title={!selectedCustomer || formData.items.length === 0 ? 'Need customer + items' : ''}>
+                    <span>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        size="small"
+                        onClick={handleSaveDraft}
+                        disabled={loading || formData.items.length === 0 || !selectedCustomer}
+                        sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.75rem', px: 1.5 }}
+                      >
+                        Draft
+                      </Button>
+                    </span>
+                  </Tooltip>
+
+                  {!formData.customerId && formData.items.length > 0 && (
+                    <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
+                      Select customer
+                    </Typography>
+                  )}
+
+                  <Tooltip title={
+                    !formData.customerId ? 'Please select a customer first' :
+                    !isDeliveryValid() ? 'Please complete delivery details (Address & Paid By)' : ''
+                  }>
+                    <span>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ChevronRightIcon />}
+                        disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid() || loading}
+                        onClick={() => {
+                          const hasControlledDrug = isPharmacy && formData.items.some(it =>
+                            ['SCHEDULE_H1', 'SCHEDULE_X'].includes(it.drugSchedule)
+                          );
+                          if (hasControlledDrug) {
+                            const missing = [];
+                            if (!formData.doctorName?.trim()) missing.push('Doctor Name');
+                            if (!formData.doctorRegistrationNumber?.trim()) missing.push('Doctor Reg. No.');
+                            if (!formData.patientName?.trim()) missing.push('Patient Name');
+                            if (missing.length > 0) {
+                              setSnackbar({ open: true, message: `Schedule H1/X drugs require: ${missing.join(', ')}. Fill in Prescription Details.`, severity: 'error' });
+                              return;
+                            }
+                          }
+                          setShowReviewPage(true);
+                        }}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 800,
+                          px: 2,
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                        }}
+                      >
+                        {loading ? 'Processing...' : t('salesPage.proceedToPayment')}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              </Paper>
+            </Box>
+          </Box>
         ) : (
           <ReviewPaymentPage
             formData={formData} selectedCustomer={selectedCustomer}
