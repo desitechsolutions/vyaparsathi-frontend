@@ -321,7 +321,7 @@ const SalesHistory = () => {
     try {
       const saleId = sale.id || sale.saleId;
 
-      const rawPhone = sale.customerPhone || sale.customer?.phone || '';
+      const rawPhone = sale.phone || sale.customer?.phone || '';
       const phone = normalizePhoneForWhatsApp(rawPhone);
 
       if (!phone) {
