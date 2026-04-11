@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box, Button, Tabs, Tab, Snackbar, Alert, Container, Fade, Stack,
-  Typography, Chip, IconButton, Tooltip
+  Typography, Chip, IconButton, Tooltip, Card, Divider
 } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -35,13 +35,27 @@ const paymentMethodOptions = [
 const needsTransactionId = (method) => ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
 const emptyMethod = { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' };
 
+// Modern color palette
+const theme = {
+  primary: '#0f766e',
+  primaryLight: '#14b8a6',
+  secondary: '#7c3aed',
+  danger: '#dc2626',
+  warning: '#f59e0b',
+  success: '#10b981',
+  background: '#f8fafc',
+  cardBg: '#ffffff',
+  headerGradient: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+  borderColor: '#e2e8f0',
+  textPrimary: '#1e293b',
+  textSecondary: '#64748b',
+};
+
 const CustomerPaymentPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSaleId = searchParams.get('saleId');
 
-  // Dynamic back: always go to the previous page in browser history.
-  // Falls back to a sensible default if there's no history (e.g. direct URL visit).
   const handleBack = () => {
     navigate(-1);
   };
@@ -135,7 +149,6 @@ const CustomerPaymentPage = () => {
         fetchCustomerAdvanceBalance(selectedCustomer.id)
       ]);
       
-      // Update state based on Page object
       setPaymentHistory(histPage?.content || []);
       setTotalElements(histPage?.totalElements || 0);
       setAdvanceBalance(bal?.data?.data || 0);
@@ -153,7 +166,7 @@ const CustomerPaymentPage = () => {
   // ─── EVENT HANDLERS ──────────────────────────────────────
   const handleCustomerChange = (val) => {
     setSelectedCustomer(val);
-    setPage(0); // Reset page on customer change
+    setPage(0);
     if (!val) {
       setSelectedSale(null);
       setPaymentMethods([emptyMethod]);
@@ -182,7 +195,7 @@ const CustomerPaymentPage = () => {
 
   const handleRowsPerPageChange = (newSize) => {
     setRowsPerPage(newSize);
-    setPage(0); // Reset to first page when page size changes
+    setPage(0);
   };
 
   const handleSubmit = async (e) => {
@@ -220,10 +233,10 @@ const CustomerPaymentPage = () => {
         await recordDuePaymentsBatch(payload);
       }
       
-      setSnackbar({ open: true, message: 'Success', severity: 'success' });
+      setSnackbar({ open: true, message: 'Payment recorded successfully', severity: 'success' });
       setPaymentMethods([emptyMethod]);
       setGlobalNotes('');
-      setPage(0); // Go back to first page to see the new entry
+      setPage(0);
       loadData();
       fetchHistoryAndBalance();
     } catch (e) {
@@ -237,26 +250,32 @@ const CustomerPaymentPage = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f1f5f9', minHeight: '100vh' }}>
+    <Box sx={{ bgcolor: theme.background, minHeight: '100vh' }}>
       {/* ── Page Header ──────────────────────────────────────────────── */}
       <Box sx={{
-        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+        background: theme.headerGradient,
         color: '#fff',
         px: { xs: 2, md: 4 },
-        pt: { xs: 2, md: 3 },
+        pt: { xs: 2.5, md: 3.5 },
         pb: 0,
+        boxShadow: '0 4px 20px rgba(15, 118, 110, 0.15)',
       }}>
         <Container maxWidth="lg" disableGutters>
           {/* Top row: back + refresh */}
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={handleBack}
               sx={{
-                color: 'rgba(255,255,255,0.85)',
+                color: '#fff',
                 fontWeight: 700,
                 textTransform: 'none',
-                '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
+                fontSize: '0.95rem',
+                transition: 'all 0.3s ease',
+                '&:hover': { 
+                  bgcolor: 'rgba(255,255,255,0.15)',
+                  transform: 'translateX(-4px)'
+                },
               }}
             >
               Back
@@ -265,7 +284,14 @@ const CustomerPaymentPage = () => {
               <IconButton
                 size="small"
                 onClick={loadData}
-                sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}
+                sx={{ 
+                  color: '#fff',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255,255,255,0.15)',
+                    transform: 'rotate(180deg)'
+                  } 
+                }}
               >
                 <RefreshIcon fontSize="small" />
               </IconButton>
@@ -273,56 +299,103 @@ const CustomerPaymentPage = () => {
           </Stack>
 
           {/* Title row */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 2 }}>
-            <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: 'rgba(255,255,255,0.12)', display: 'flex' }}>
-              <AccountBalanceWalletIcon sx={{ fontSize: 28, color: '#a5f3fc' }} />
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            alignItems={{ xs: 'flex-start', sm: 'center' }} 
+            spacing={2} 
+            sx={{ mb: 3 }}
+          >
+            <Box sx={{ 
+              p: 1.5, 
+              borderRadius: 2, 
+              bgcolor: 'rgba(255,255,255,0.15)',
+              display: 'flex',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              <AccountBalanceWalletIcon sx={{ fontSize: 32, color: '#ffffff' }} />
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="h5" fontWeight={900} sx={{ color: '#fff', lineHeight: 1.2 }}>
-                Customer Payments
+              <Typography 
+                variant="h4" 
+                fontWeight={800} 
+                sx={{ color: '#fff', lineHeight: 1.2, letterSpacing: '-0.5px' }}
+              >
+                Payment Hub
               </Typography>
               {selectedCustomer ? (
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                  <PersonIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }} />
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
+                  <PersonIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.7)' }} />
+                  <Typography 
+                    variant="body2" 
+                    sx={{ color: 'rgba(255,255,255,0.95)', fontWeight: 600, fontSize: '0.95rem' }}
+                  >
                     {selectedCustomer.name}
                   </Typography>
                   {selectedCustomer.phone && (
                     <Chip
                       label={selectedCustomer.phone}
                       size="small"
-                      sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}
+                      sx={{ 
+                        height: 22, 
+                        fontSize: '0.7rem', 
+                        bgcolor: 'rgba(255,255,255,0.2)', 
+                        color: '#fff', 
+                        fontWeight: 700,
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        '& .MuiChip-label': { px: 1 }
+                      }}
                     />
                   )}
                 </Stack>
               ) : (
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.3 }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5, fontSize: '0.9rem' }}
+                >
                   Select a customer to collect or review payments
                 </Typography>
               )}
             </Box>
 
             {/* Outstanding chip */}
-            {selectedCustomer && totalDue > 0 && (
-              <Box sx={{
-                px: 2, py: 1, borderRadius: 2.5,
-                bgcolor: 'rgba(239,68,68,0.2)',
-                border: '1px solid rgba(239,68,68,0.4)',
+            {selectedCustomer && (
+              <Card sx={{
+                px: 2.5, 
+                py: 1.5, 
+                bgcolor: totalDue > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(16,185,129,0.1)',
+                border: `1.5px solid ${totalDue > 0 ? 'rgba(255,255,255,0.2)' : 'rgba(16,185,129,0.3)'}`,
+                backdropFilter: 'blur(10px)',
                 textAlign: 'right',
+                minWidth: '160px',
+                boxShadow: 'none'
               }}>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase', display: 'block', lineHeight: 1 }}>
-                  Outstanding
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'rgba(255,255,255,0.7)', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase', 
+                    display: 'block', 
+                    lineHeight: 1.2,
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  {totalDue > 0 ? 'Outstanding' : 'Status'}
                 </Typography>
-                <Typography variant="h6" fontWeight={900} sx={{ color: '#fca5a5', lineHeight: 1.3 }}>
-                  {formatAmount(totalDue)}
+                <Typography 
+                  variant="h6" 
+                  fontWeight={900} 
+                  sx={{ 
+                    color: totalDue > 0 ? '#ffffff' : '#6ee7b7', 
+                    lineHeight: 1.3,
+                    fontSize: '1.3rem'
+                  }}
+                >
+                  {totalDue > 0 ? formatAmount(totalDue) : '✓ Settled'}
                 </Typography>
-              </Box>
-            )}
-            {selectedCustomer && totalDue <= 0 && (
-              <Chip
-                label="✓ All Clear"
-                sx={{ bgcolor: 'rgba(16,185,129,0.2)', color: '#6ee7b7', fontWeight: 800, border: '1px solid rgba(16,185,129,0.4)' }}
-              />
+              </Card>
             )}
           </Stack>
 
@@ -337,13 +410,22 @@ const CustomerPaymentPage = () => {
             }}
             sx={{
               '& .MuiTab-root': {
-                color: 'rgba(255,255,255,0.55)',
+                color: 'rgba(255,255,255,0.65)',
                 fontWeight: 700,
                 textTransform: 'none',
-                minHeight: 44,
-                '&.Mui-selected': { color: '#fff' },
+                minHeight: 48,
+                fontSize: '0.95rem',
+                transition: 'all 0.3s ease',
+                '&:hover': { color: '#fff' },
+                '&.Mui-selected': { 
+                  color: '#fff',
+                },
               },
-              '& .MuiTabs-indicator': { bgcolor: '#38bdf8', height: 3, borderRadius: '3px 3px 0 0' },
+              '& .MuiTabs-indicator': { 
+                bgcolor: '#ffffff', 
+                height: 3.5, 
+                borderRadius: '3px 3px 0 0',
+              },
             }}
           >
             <Tab icon={<PaymentsIcon fontSize="small" />} iconPosition="start" label="Collect Payment" />
@@ -353,7 +435,7 @@ const CustomerPaymentPage = () => {
       </Box>
 
       {/* ── Page Body ─────────────────────────────────────────────────── */}
-      <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 4 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 } }}>
         <Fade in={true}>
           <Box>
             <PaymentSummaryCards
@@ -363,9 +445,10 @@ const CustomerPaymentPage = () => {
               formatAmount={formatAmount}
               advanceBalance={advanceBalance}
               isBulk={selectedSale === 'BULK'}
+              theme={theme}
             />
 
-            <Box sx={{ mt: 3 }}>
+            <Box sx={{ mt: 4 }}>
               {tab === 0 ? (
                 <PaymentForm
                   customers={customers}
@@ -388,6 +471,7 @@ const CustomerPaymentPage = () => {
                   formatAmount={formatAmount}
                   globalNotes={globalNotes}
                   setGlobalNotes={setGlobalNotes}
+                  theme={theme}
                 />
               ) : (
                 <PaymentHistory
@@ -403,14 +487,33 @@ const CustomerPaymentPage = () => {
                   onCustomerChange={handleCustomerChange}
                   onRefresh={fetchHistoryAndBalance}
                   formatAmount={formatAmount}
+                  theme={theme}
                 />
               )}
             </Box>
           </Box>
         </Fade>
       </Container>
-      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(p => ({ ...p, open: false }))}>
-        <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+
+      {/* Snackbar */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={3000} 
+        onClose={() => setSnackbar(p => ({ ...p, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          severity={snackbar.severity} 
+          variant="filled"
+          sx={{
+            borderRadius: 2,
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            '& .MuiAlert-icon': { fontSize: '1.5rem' }
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );

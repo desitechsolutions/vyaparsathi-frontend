@@ -1,8 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { 
   Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, 
   TextField, Typography, Box, Checkbox, FormControl, InputLabel, 
-  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch, Chip, Stack
+  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch, Chip, Stack, alpha
 } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -18,6 +18,10 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TuneIcon from '@mui/icons-material/Tune';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import DoneIcon from '@mui/icons-material/Done';
+import EditIcon from '@mui/icons-material/Edit';
 
 const CustomerSection = ({
   customers,
@@ -35,18 +39,16 @@ const CustomerSection = ({
   compact,
 }) => {
   const [optionsOpen, setOptionsOpen] = useState(false);
-  // Prescription capture state
+  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
-  // prescriptionImage stores the captured image as a base64 data URL.
   const [prescriptionImage, setPrescriptionImage] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
+  
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Jewellery: PAN mandatory when cash sale > ₹2,00,000 (IT Act Sec. 269ST)
   const PAN_THRESHOLD = 200000;
   const isHighValueJewellery = isJewellery && Number(formData.totalAmount) >= PAN_THRESHOLD;
-  // PAN format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F)
   const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
   const isPanFormatValid = !formData.buyerPan?.trim() || PAN_REGEX.test(formData.buyerPan.trim());
   const isPanMissing = isHighValueJewellery && !formData.buyerPan?.trim();
@@ -59,19 +61,19 @@ const CustomerSection = ({
       setCameraStream(stream);
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch {
-      // Camera not available — user can still upload manually
+      // Camera not available
     }
   };
 
-  const closeCamera = () => {
+  const closeCamera = useCallback(() => {
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
       setCameraStream(null);
     }
     setPrescriptionDialogOpen(false);
-  };
+  }, [cameraStream]);
 
-  const capturePhoto = () => {
+  const capturePhoto = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       canvas.width = videoRef.current.videoWidth;
@@ -80,23 +82,17 @@ const CustomerSection = ({
       setPrescriptionImage(canvas.toDataURL('image/jpeg'));
     }
     closeCamera();
-  };
+  }, [closeCamera]);
 
-  // Validation: Check if GST is required but customer doesn't have one
   const isGstMissing = formData.isGstRequired === 'yes' && selectedCustomer && !selectedCustomer.gstNumber;
-
-  // Issue 5: For pharmacy, GST is always applicable (medicine has GST by law),
-  // regardless of whether the customer has a GSTIN on file.
-  // For jewellery, GST at 3% is also always applicable.
   const isGstDisabled = (isPharmacy || isJewellery) ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
-  const handleGstToggle = (e) => {
-    if (e.target.value === 'yes' && isGstDisabled) {
-      // Logic handled by the 'disabled' prop on Radio, but this is a safety check
-      return;
-    }
+  
+  const handleGstToggle = useCallback((e) => {
+    if (e.target.value === 'yes' && isGstDisabled) return;
     setFormData((prev) => ({ ...prev, isGstRequired: e.target.value }));
-  };
-  const copyCustomerAddress = () => {
+  }, [isGstDisabled, setFormData]);
+
+  const copyCustomerAddress = useCallback(() => {
     if (selectedCustomer) {
       const fullAddress = [
         selectedCustomer.addressLine1,
@@ -108,64 +104,214 @@ const CustomerSection = ({
       
       setFormData(prev => ({ ...prev, deliveryAddress: fullAddress }));
     }
-  };
+  }, [selectedCustomer, setFormData]);
 
-  // Helper to check if new customer form is valid
+  const handleDeliveryAddressChange = useCallback((e) => {
+    setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }));
+  }, [setFormData]);
+
+  const handleDeliveryChargeChange = useCallback((e) => {
+    const val = parseFloat(e.target.value);
+    const cleanVal = isNaN(val) ? '' : Math.max(0, val);
+    setFormData(prev => ({ ...prev, deliveryCharge: cleanVal }));
+  }, [setFormData]);
+
+  const handleDeliveryPaidByChange = useCallback((e) => {
+    setFormData(prev => ({ ...prev, deliveryPaidBy: e.target.value }));
+  }, [setFormData]);
+
+  const handleDeliveryNotesChange = useCallback((e) => {
+    setFormData(prev => ({ ...prev, deliveryNotes: e.target.value }));
+  }, [setFormData]);
+
   const isNewCustomerValid = () => {
     return newCustomerData.name.trim() !== '' && 
            newCustomerData.phone.trim().length >= 10;
   };
 
-  // Shared: delivery details form (used in both full and compact/options dialog)
-  const deliveryDetailsForm = (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={formData.deliveryRequired || false}
-              onChange={e => setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }))}
-              icon={<LocalShippingIcon color="disabled" />}
-              checkedIcon={<LocalShippingIcon color="primary" />}
-            />
-          }
-          label={<Typography sx={{ fontWeight: 700 }}>Enable Delivery</Typography>}
-        />
-        {formData.deliveryRequired && selectedCustomer && (
-          <Button size="small" startIcon={<HomeIcon />} onClick={copyCustomerAddress} sx={{ textTransform: 'none' }}>
+  // Memoized delivery modal content to prevent re-renders
+  const DeliveryModalContent = useMemo(() => (
+    <>
+      {/* Address Section */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <LocationOnIcon sx={{ color: '#0f766e', fontSize: 22 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e' }}>
+            Delivery Address
+          </Typography>
+        </Box>
+
+        {selectedCustomer && (
+          <Button 
+            size="small" 
+            variant="outlined"
+            startIcon={<HomeIcon />}
+            onClick={copyCustomerAddress}
+            fullWidth
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              borderColor: '#0f766e',
+              color: '#0f766e',
+              mb: 1.5,
+              py: 1,
+              '&:hover': {
+                bgcolor: alpha('#0f766e', 0.05),
+                borderColor: '#0f766e',
+              }
+            }}
+          >
             Use Customer Address
           </Button>
         )}
+
+        <TextField 
+          label="Delivery Address" 
+          multiline 
+          rows={3}
+          fullWidth 
+          value={formData.deliveryAddress || ''} 
+          onChange={handleDeliveryAddressChange}
+          placeholder="Enter complete delivery address or click 'Use Customer Address'"
+          size="small"
+          variant="outlined"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              fontSize: '0.95rem',
+            },
+            '& .MuiOutlinedInput-input::placeholder': {
+              opacity: 0.6,
+            }
+          }}
+        />
+        <Typography variant="caption" sx={{ color: '#64748b', mt: 0.75, display: 'block' }}>
+          Street, building, apartment, city, postal code
+        </Typography>
       </Box>
-      <Collapse in={formData.deliveryRequired}>
-        <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb' }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={8}>
-              <TextField label="Delivery Address" multiline rows={2} fullWidth value={formData.deliveryAddress || ''} onChange={e => setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }))} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField label="Delivery Charge" type="number" fullWidth value={formData.deliveryCharge || ''} onChange={e => { const val = parseFloat(e.target.value); const cleanVal = isNaN(val) ? '' : Math.max(0, val); setFormData(prev => ({ ...prev, deliveryCharge: cleanVal })); }} InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography> }} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Delivery Paid By</InputLabel>
-                <MuiSelect value={formData.deliveryPaidBy || ''} label="Delivery Paid By" onChange={e => setFormData(prev => ({ ...prev, deliveryPaidBy: e.target.value }))}>
-                  <MenuItem value="CUSTOMER">Customer (To Pay)</MenuItem>
-                  <MenuItem value="SHOP">Shop (Inclusive)</MenuItem>
-                </MuiSelect>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField label="Delivery Notes" placeholder="Special instructions..." fullWidth value={formData.deliveryNotes || ''} onChange={e => setFormData(prev => ({ ...prev, deliveryNotes: e.target.value }))} />
-            </Grid>
-          </Grid>
+
+      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.1) }} />
+
+      {/* Charge & Payment Section */}
+      <Box sx={{ mb: 2.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <LocalOfferIcon sx={{ color: '#0f766e', fontSize: 22 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e' }}>
+            Delivery Charge & Payment
+          </Typography>
         </Box>
-      </Collapse>
-    </Box>
-  );
+
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={6}>
+            <TextField
+              label="Charge Amount"
+              type="number"
+              fullWidth
+              size="small"
+              value={formData.deliveryCharge || ''}
+              onChange={handleDeliveryChargeChange}
+              InputProps={{
+                startAdornment: <Typography sx={{ mr: 0.75, color: '#0f766e', fontWeight: 800, fontSize: '1rem' }}>₹</Typography>,
+              }}
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontSize: '0.9rem' }}>Paid By</InputLabel>
+              <MuiSelect
+                value={formData.deliveryPaidBy || ''}
+                label="Paid By"
+                onChange={handleDeliveryPaidByChange}
+                sx={{
+                  borderRadius: 2,
+                  '& .MuiOutlinedInput-input': {
+                    py: 1,
+                  }
+                }}
+              >
+                <MenuItem value="CUSTOMER">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <span>Customer</span>
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>(To Pay)</Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem value="SHOP">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <span>Shop</span>
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>(Inclusive)</Typography>
+                  </Box>
+                </MenuItem>
+              </MuiSelect>
+            </FormControl>
+          </Grid>
+        </Grid>
+
+        {formData.deliveryCharge > 0 && (
+          <Box sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: alpha('#0f766e', 0.08),
+            border: `1.5px solid ${alpha('#0f766e', 0.2)}`,
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f766e' }}>
+                Delivery Charge:
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: '#0f766e' }}>
+                ₹{Number(formData.deliveryCharge).toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ height: 1, bgcolor: alpha('#0f766e', 0.1), mb: 1 }} />
+            <Typography variant="caption" sx={{ color: '#0f766e', fontWeight: 700 }}>
+              Paid by: <span style={{ fontWeight: 900 }}>{formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'}</span>
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.1) }} />
+
+      {/* Special Instructions Section */}
+      <Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e', mb: 1.5 }}>
+          Special Instructions
+        </Typography>
+        <TextField
+          label="Delivery Notes"
+          placeholder="E.g., Ring bell twice, Gate code 1234, Leave at reception..."
+          fullWidth
+          multiline
+          rows={2}
+          size="small"
+          value={formData.deliveryNotes || ''}
+          onChange={handleDeliveryNotesChange}
+          variant="outlined"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              fontSize: '0.95rem',
+            },
+            '& .MuiOutlinedInput-input::placeholder': {
+              opacity: 0.6,
+            }
+          }}
+        />
+        <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.75 }}>
+          Optional: Add any special instructions for delivery personnel
+        </Typography>
+      </Box>
+    </>
+  ), [formData, selectedCustomer, handleDeliveryAddressChange, handleDeliveryChargeChange, handleDeliveryPaidByChange, handleDeliveryNotesChange, copyCustomerAddress]);
 
   // -----------------------------------------------------------------------
-  // COMPACT MODE — used in the right-panel of the redesigned split layout
+  // COMPACT MODE
   // -----------------------------------------------------------------------
   if (compact) {
     const selectStyles = {
@@ -175,7 +321,6 @@ const CustomerSection = ({
 
     return (
       <Box>
-        {/* Row 1: Customer search + add */}
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Select
@@ -196,7 +341,6 @@ const CustomerSection = ({
           </Tooltip>
         </Box>
 
-        {/* Row 2: GST toggle + delivery icon + status chips */}
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
             <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>Retail</Typography>} sx={{ mr: 1 }} />
@@ -210,17 +354,27 @@ const CustomerSection = ({
               />
             </Tooltip>
           </RadioGroup>
+          
           <Tooltip title={formData.deliveryRequired ? 'Delivery enabled — click to edit' : 'Enable delivery'}>
-            <Button
-              variant={formData.deliveryRequired ? 'contained' : 'outlined'}
-              color={formData.deliveryRequired ? 'primary' : 'inherit'}
-              size="small"
-              onClick={() => setOptionsOpen(true)}
-              sx={{ minWidth: 36, p: 0.5, borderRadius: 1.5 }}
-            >
-              <LocalShippingIcon fontSize="small" />
-            </Button>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.deliveryRequired || false}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }));
+                    if (e.target.checked) {
+                      setDeliveryModalOpen(true);
+                    }
+                  }}
+                  icon={<LocalShippingIcon color="disabled" />}
+                  checkedIcon={<LocalShippingIcon color="primary" />}
+                />
+              }
+              label={<Typography variant="caption" fontWeight={600}>Delivery</Typography>}
+              sx={{ mr: 0 }}
+            />
           </Tooltip>
+          
           {isPharmacy && formData.doctorName && (
             <Chip label="Rx ✓" size="small" color="success" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
           )}
@@ -229,7 +383,97 @@ const CustomerSection = ({
           )}
         </Box>
 
-        {/* Options Dialog (Delivery, Pharmacy Rx, Jewellery PAN) */}
+        {/* Delivery Modal */}
+        <Dialog 
+          open={deliveryModalOpen} 
+          onClose={() => setDeliveryModalOpen(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            fontWeight: 900,
+            bgcolor: alpha('#0f766e', 0.05),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            fontSize: '1.1rem',
+            color: '#0f766e',
+            borderBottom: `2px solid ${alpha('#0f766e', 0.1)}`,
+            pb: 2
+          }}>
+            <LocalShippingIcon sx={{ fontSize: 28 }} />
+            <span>Delivery Details</span>
+            {formData.deliveryRequired && (
+              <Chip 
+                icon={<DoneIcon sx={{ fontSize: 16 }} />}
+                label="Active" 
+                size="small" 
+                color="success"
+                variant="outlined"
+                sx={{ ml: 'auto', fontWeight: 700, fontSize: '0.7rem' }}
+              />
+            )}
+          </DialogTitle>
+          <DialogContent sx={{ 
+            mt: 0,
+            pt: 2.5,
+            pb: 2.5,
+            px: 3,
+            backgroundColor: 'transparent',
+          }}>
+            {DeliveryModalContent}
+          </DialogContent>
+          <DialogActions sx={{
+            p: 2.5,
+            bgcolor: alpha('#0f766e', 0.02),
+            borderTop: `1px solid ${alpha('#0f766e', 0.1)}`,
+            display: 'flex',
+            gap: 1,
+            justifyContent: 'flex-end'
+          }}>
+            <Button 
+              onClick={() => setDeliveryModalOpen(false)}
+              variant="text"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                color: '#64748b',
+                '&:hover': {
+                  bgcolor: alpha('#0f766e', 0.05),
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => setDeliveryModalOpen(false)}
+              variant="contained"
+              sx={{
+                background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                textTransform: 'none',
+                fontWeight: 800,
+                borderRadius: 2,
+                boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+                '&:hover': {
+                  boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+                },
+                px: 3,
+                py: 1.2,
+              }}
+              startIcon={<DoneIcon />}
+            >
+              Save & Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Options Dialog */}
         <Dialog open={optionsOpen} onClose={() => setOptionsOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
             <TuneIcon color="primary" /> Sale Options
@@ -237,7 +481,6 @@ const CustomerSection = ({
             {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 'auto', bgcolor: '#ede9fe', color: '#7c3aed' }} />}
           </DialogTitle>
           <DialogContent dividers>
-            {/* Pharmacy Prescription */}
             {isPharmacy && (
               <Box sx={{ mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -265,7 +508,6 @@ const CustomerSection = ({
               </Box>
             )}
 
-            {/* Jewellery PAN */}
             {isJewellery && (
               <Box sx={{ mb: 3 }}>
                 {isHighValueJewellery && (
@@ -285,19 +527,15 @@ const CustomerSection = ({
                     <TextField label="Purpose / Occasion" fullWidth value={formData.jewelleryPurpose || ''} onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))} placeholder="e.g., Wedding, Birthday Gift" helperText="Printed on invoice" />
                   </Grid>
                 </Grid>
-                <Divider sx={{ mt: 2 }} />
               </Box>
             )}
-
-            {/* Delivery */}
-            {deliveryDetailsForm}
           </DialogContent>
           <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
             <Button onClick={() => setOptionsOpen(false)} variant="contained">Done</Button>
           </DialogActions>
         </Dialog>
 
-        {/* New Customer / Patient Modal */}
+        {/* New Customer Modal */}
         <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
             <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -363,7 +601,6 @@ const CustomerSection = ({
           </Typography>
 
           <Grid container spacing={3}>
-            {/* Customer/Patient Selection */}
             <Grid item xs={12} md={7}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
                 {isPharmacy ? 'SELECT PATIENT' : 'SELECT CUSTOMER'}
@@ -400,7 +637,6 @@ const CustomerSection = ({
                 </Tooltip>
               </Box>
               
-              {/* GST Warning Logic — only relevant for non-pharmacy (pharmacy has item-level GST) */}
               <Collapse in={isGstMissing && !isPharmacy}>
                 <Alert 
                   severity="warning" 
@@ -412,8 +648,7 @@ const CustomerSection = ({
               </Collapse>
             </Grid>
 
-          {/* ---- INVOICE TYPE — Jewellery label ---- */}
-          <Grid item xs={12} md={5}>
+            <Grid item xs={12} md={5}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
                 INVOICE TYPE {!isPharmacy && !isJewellery && isGstDisabled && "(GST requires customer GSTIN)"}
               </Typography>
@@ -455,7 +690,6 @@ const CustomerSection = ({
                 <Typography variant="subtitle2" fontWeight={700} color="primary">
                   Prescription Details
                 </Typography>
-                {/* Capture Prescription Button */}
                 <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
                   {prescriptionImage && (
                     <Tooltip title="Prescription captured">
@@ -510,10 +744,8 @@ const CustomerSection = ({
             </Box>
           )}
 
-          {/* ---- JEWELLERY: High-Value Transaction PAN Capture ---- */}
           {isJewellery && (
             <Box sx={{ mb: 2 }}>
-              {/* PAN Alert for high-value cash transactions */}
               {isHighValueJewellery && (
                 <Alert
                   severity={isPanMissing ? 'warning' : (isPanError ? 'error' : 'success')}
@@ -580,12 +812,194 @@ const CustomerSection = ({
             </Box>
           )}
 
-          {/* Delivery Section */}
-          {deliveryDetailsForm}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.deliveryRequired || false}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, deliveryRequired: e.target.checked }));
+                      if (e.target.checked) {
+                        setDeliveryModalOpen(true);
+                      }
+                    }}
+                    icon={<LocalShippingIcon color="disabled" />}
+                    checkedIcon={<LocalShippingIcon color="primary" />}
+                  />
+                }
+                label={<Typography sx={{ fontWeight: 700 }}>Enable Delivery</Typography>}
+              />
+              {formData.deliveryRequired && (
+                <Chip 
+                  label="Configured" 
+                  size="small" 
+                  color="success" 
+                  variant="outlined" 
+                  icon={<DoneIcon />}
+                  sx={{ fontWeight: 700 }}
+                  onClick={() => setDeliveryModalOpen(true)}
+                  clickable
+                />
+              )}
+            </Box>
+
+            {formData.deliveryRequired && (
+              <Box sx={{
+                p: 2.5,
+                borderRadius: 2,
+                bgcolor: alpha('#0f766e', 0.05),
+                border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+                mb: 2,
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
+                  <LocationOnIcon sx={{ color: '#0f766e', mt: 0.5, flexShrink: 0, fontSize: 20 }} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                      Delivery Address
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#0f766e', wordBreak: 'break-word', fontWeight: 600 }}>
+                      {formData.deliveryAddress ? formData.deliveryAddress : <Typography variant="caption" sx={{ fontStyle: 'italic', color: '#94a3b8' }}>Not set yet</Typography>}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <LocalOfferIcon sx={{ color: '#0f766e', flexShrink: 0, fontSize: 20 }} />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                      Charge Details
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#0f766e', fontWeight: 800 }}>
+                      ₹{Number(formData.deliveryCharge || 0).toFixed(2)} <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: '#0f766e', ml: 1 }}>({formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'})</Typography>
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {formData.deliveryNotes && (
+                  <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha('#0f766e', 0.2)}` }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                      Special Instructions
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#0f766e', display: 'block' }}>
+                      {formData.deliveryNotes}
+                    </Typography>
+                  </Box>
+                )}
+
+                <Button 
+                  size="small" 
+                  variant="text"
+                  startIcon={<EditIcon />}
+                  onClick={() => setDeliveryModalOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 800,
+                    color: '#0f766e',
+                    mt: 1.5,
+                    p: 0,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Edit Details
+                </Button>
+              </Box>
+            )}
+          </Box>
         </CardContent>
       </Card>
 
-      {/* NEW CUSTOMER / PATIENT MODAL WITH VALIDATION */}
+      {/* Delivery Modal */}
+      <Dialog 
+        open={deliveryModalOpen} 
+        onClose={() => setDeliveryModalOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          fontWeight: 900,
+          bgcolor: alpha('#0f766e', 0.05),
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          fontSize: '1.1rem',
+          color: '#0f766e',
+          borderBottom: `2px solid ${alpha('#0f766e', 0.1)}`,
+          pb: 2
+        }}>
+          <LocalShippingIcon sx={{ fontSize: 28 }} />
+          <span>Delivery Details</span>
+          {formData.deliveryRequired && (
+            <Chip 
+              icon={<DoneIcon sx={{ fontSize: 16 }} />}
+              label="Active" 
+              size="small" 
+              color="success"
+              variant="outlined"
+              sx={{ ml: 'auto', fontWeight: 700, fontSize: '0.7rem' }}
+            />
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ 
+          mt: 0,
+          pt: 2.5,
+          pb: 2.5,
+          px: 3,
+          backgroundColor: 'transparent',
+        }}>
+          {DeliveryModalContent}
+        </DialogContent>
+        <DialogActions sx={{
+          p: 2.5,
+          bgcolor: alpha('#0f766e', 0.02),
+          borderTop: `1px solid ${alpha('#0f766e', 0.1)}`,
+          display: 'flex',
+          gap: 1,
+          justifyContent: 'flex-end'
+        }}>
+          <Button 
+            onClick={() => setDeliveryModalOpen(false)}
+            variant="text"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              color: '#64748b',
+              '&:hover': {
+                bgcolor: alpha('#0f766e', 0.05),
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => setDeliveryModalOpen(false)}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+              textTransform: 'none',
+              fontWeight: 800,
+              borderRadius: 2,
+              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+              '&:hover': {
+                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+              },
+              px: 3,
+              py: 1.2,
+            }}
+            startIcon={<DoneIcon />}
+          >
+            Save & Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* NEW CUSTOMER / PATIENT MODAL */}
       <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
           <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />

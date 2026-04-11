@@ -28,6 +28,7 @@ import {
   FormControlLabel,
   Alert,
   Snackbar,
+  alpha,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -43,7 +44,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-
 import RefreshIcon from '@mui/icons-material/Refresh';
 
 import API, {
@@ -55,6 +55,17 @@ import API, {
 } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
+
+// Modern color palette
+const theme = {
+  primary: '#0f766e',
+  primaryLight: '#14b8a6',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#dc2626',
+  textPrimary: '#1e293b',
+  textSecondary: '#64748b',
+};
 
 const statusConfig = {
   COMPLETED: { label: 'Completed', color: 'success' },
@@ -80,7 +91,6 @@ const isToday = (dateString) => {
   return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
 };
 
-// WhatsApp helpers
 const normalizePhoneForWhatsApp = (raw) => {
   if (!raw) return '';
   const digits = String(raw).replace(/\D/g, '');
@@ -93,7 +103,6 @@ const withDownloadParam = (urlOrPath) => {
   return urlOrPath.includes('?') ? `${urlOrPath}&download=true` : `${urlOrPath}?download=true`;
 };
 
-// CSV escaping helper
 const csvCell = (value) => {
   const s = String(value ?? '');
   return `"${s.replace(/"/g, '""')}"`;
@@ -114,13 +123,12 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // ✅ Enhancement: store expanded row by stable key, not by index
   const [expandedSaleKey, setExpandedSaleKey] = useState(null);
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Export loading state
   const [exporting, setExporting] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(null); // Track which sale's invoice is loading
 
   // Modal States
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -151,7 +159,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       .finally(() => setLoading(false));
   }, [showSnackbar]);
 
-  // Sync search from URL → state
   useEffect(() => {
     const urlSearch = params.get('search') || '';
     setSearch(urlSearch);
@@ -162,17 +169,193 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     loadData();
   }, [refreshTrigger, loadData]);
 
-  // ✅ Enhancement: reset pagination when filters change
   useEffect(() => {
     setPage(0);
   }, [search, startDate, endDate]);
 
-  // --- Summary Calculation for Return ---
   const totalReturnValue = useMemo(() => {
     return returnItems.reduce((acc, item) => acc + item.returnQuantity * item.unitPrice, 0);
   }, [returnItems]);
 
-  // --- Return Logic ---
+  // ============ INVOICE HELPERS (FIXED) ============
+
+  const getSignedInvoicePath = async (saleId) => {
+    const res = await API.get(`/api/sales/${saleId}/signed-url`);
+    return res.data;
+  };
+
+  const toAbsoluteInvoiceUrl = (signedPath) => {
+    if (!signedPath) return '';
+    if (String(signedPath).startsWith('http')) return signedPath;
+    const base = String(API_BASE_URL || '').replace(/\/$/, '');
+    const path = String(signedPath).startsWith('/') ? signedPath : `/${signedPath}`;
+    return `${base}${path}`;
+  };
+
+  /**
+   * Fetch PDF Blob with native fetch API (bypasses axios interceptors)
+   * Opens in NEW tab WITHOUT affecting current page
+   */
+  const openInvoiceBlobPreview = async (signedPath) => {
+    try {
+      const response = await fetch(signedPath, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/pdf' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      if (!blob.type.includes('pdf')) {
+        throw new Error('Invalid file type received');
+      }
+
+      const fileURL = URL.createObjectURL(blob);
+
+      // Open in NEW window - doesn't affect current page
+      const previewWindow = window.open(
+        fileURL,
+        `invoice_preview_${Date.now()}`,
+        'width=1000,height=800,noopener,noreferrer'
+      );
+
+      if (!previewWindow || previewWindow.closed) {
+        showSnackbar('Popup blocked. Please allow popups to view the invoice.', 'warning');
+        URL.revokeObjectURL(fileURL);
+      } else {
+        // Revoke URL after 2 minutes
+        setTimeout(() => {
+          URL.revokeObjectURL(fileURL);
+        }, 120000);
+      }
+    } catch (err) {
+      console.error('Preview Error:', err);
+      showSnackbar('Failed to open invoice preview', 'error');
+    }
+  };
+
+  /**
+   * Download PDF Blob with native fetch API
+   * Triggers download WITHOUT navigating away
+   */
+  const downloadInvoiceBlob = async (signedPath, filename) => {
+    try {
+      const downloadUrl = withDownloadParam(signedPath);
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/pdf' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      if (!blob.type.includes('pdf')) {
+        throw new Error('Invalid file type received');
+      }
+
+      const fileURL = URL.createObjectURL(blob);
+
+      // Create temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = fileURL;
+      link.setAttribute('download', filename);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Revoke URL immediately after download
+      setTimeout(() => {
+        URL.revokeObjectURL(fileURL);
+      }, 100);
+
+      showSnackbar('Invoice downloaded successfully', 'success');
+    } catch (err) {
+      console.error('Download Error:', err);
+      showSnackbar('Failed to download invoice', 'error');
+    }
+  };
+
+  const handlePrintInvoice = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    setInvoiceLoading(saleId);
+    try {
+      const signedPath = await getSignedInvoicePath(saleId);
+      await openInvoiceBlobPreview(signedPath);
+    } catch (err) {
+      console.error('Print Invoice Error:', err);
+      showSnackbar('Could not generate PDF', 'error');
+    } finally {
+      setInvoiceLoading(null);
+    }
+  };
+
+  const handleDownloadInvoice = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    setInvoiceLoading(saleId);
+    try {
+      const signedPath = await getSignedInvoicePath(saleId);
+      await downloadInvoiceBlob(signedPath, `invoice_${sale.invoiceNo || saleId}.pdf`);
+    } catch (err) {
+      console.error('Download Invoice Error:', err);
+      showSnackbar('Failed to download invoice', 'error');
+    } finally {
+      setInvoiceLoading(null);
+    }
+  };
+
+  const handleWhatsAppInvoice = async (sale) => {
+    try {
+      const saleId = sale.id || sale.saleId;
+      const rawPhone = sale.phone || sale.customer?.phone || '';
+      const phone = normalizePhoneForWhatsApp(rawPhone);
+
+      if (!phone) {
+        showSnackbar('Customer phone number missing/invalid', 'warning');
+        return;
+      }
+
+      const signedPath = await getSignedInvoicePath(saleId);
+      const absolute = toAbsoluteInvoiceUrl(signedPath);
+      const downloadLink = withDownloadParam(absolute);
+
+      const amount = sale.totalAmount
+        ? `₹${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+        : '';
+      const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
+
+      // Plain text message (no emojis which don't encode well in URLs)
+      const lines = [
+        shop?.name ? `Invoice from ${shop.name}` : null,
+        `Invoice: ${sale.invoiceNo || saleId}`,
+        date ? `Date: ${date}` : null,
+        amount ? `Amount: ${amount}` : null,
+        '',
+        'Download your invoice:',
+        downloadLink,
+        '',
+        'Thank you for your business!',
+      ].filter(Boolean);
+
+      const message = encodeURIComponent(lines.join('\n'));
+      const url = `https://wa.me/${phone}?text=${message}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('WhatsApp Invoice Error:', err);
+      showSnackbar('Could not prepare WhatsApp link', 'error');
+    }
+  };
+
+  // ============ RETURN LOGIC ============
+
   const handleOpenReturn = async (sale) => {
     const saleId = sale.id || sale.saleId;
     setSelectedSale(sale);
@@ -197,7 +380,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
         })),
       );
     } catch (err) {
-      showSnackbar('Failed to load items for return.', 'error');
+      showSnackbar('Failed to load items for return', 'error');
       setReturnDialogOpen(false);
     } finally {
       setLoadingDetails(false);
@@ -209,7 +392,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     const validItems = returnItems.filter((i) => i.returnQuantity > 0);
 
     if (validItems.length === 0) {
-      showSnackbar('Please enter a return quantity for at least one item.', 'warning');
+      showSnackbar('Please enter a return quantity for at least one item', 'warning');
       return;
     }
 
@@ -233,7 +416,8 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     }
   };
 
-  // --- Cancel Logic ---
+  // ============ CANCEL LOGIC ============
+
   const handleOpenCancel = (sale) => {
     setSelectedSale(sale);
     setCancelReason('');
@@ -252,118 +436,8 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     }
   };
 
-  // ────────────────────────────────────────────────
-  // Invoice Signed URL + Blob helpers (Preview/Download + WhatsApp link)
-  // ────────────────────────────────────────────────
-  const getSignedInvoicePath = async (saleId) => {
-    const res = await API.get(`/api/sales/${saleId}/signed-url`);
-    return res.data;
-  };
+  // ============ FILTERING ============
 
-  const toAbsoluteInvoiceUrl = (signedPath) => {
-    if (!signedPath) return '';
-    if (String(signedPath).startsWith('http')) return signedPath;
-    // Ensure absolute link for WhatsApp / external devices
-    const base = String(API_BASE_URL || '').replace(/\/$/, '');
-    const path = String(signedPath).startsWith('/') ? signedPath : `/${signedPath}`;
-    return `${base}${path}`;
-  };
-
-  const openInvoiceBlobPreview = async (signedPath) => {
-    const response = await API.get(signedPath, { responseType: 'blob' });
-    const file = new Blob([response.data], { type: 'application/pdf' });
-    const fileURL = URL.createObjectURL(file);
-
-    const pdfWindow = window.open(fileURL, '_blank', 'noopener,noreferrer');
-    if (!pdfWindow) window.location.assign(fileURL);
-
-    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
-  };
-
-  const downloadInvoiceBlob = async (signedPath, filename) => {
-    const response = await API.get(withDownloadParam(signedPath), { responseType: 'blob' });
-    const file = new Blob([response.data], { type: 'application/pdf' });
-    const fileURL = URL.createObjectURL(file);
-
-    const a = document.createElement('a');
-    a.href = fileURL;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
-  };
-
-  const handlePrintInvoice = async (sale) => {
-    const saleId = sale.id || sale.saleId;
-    try {
-      const signedPath = await getSignedInvoicePath(saleId);
-      await openInvoiceBlobPreview(signedPath);
-    } catch (err) {
-      console.error('In-browser PDF Error:', err);
-      showSnackbar('Could not generate PDF. Please check your connection.', 'error');
-    }
-  };
-
-  const handleDownloadInvoice = async (sale) => {
-    const saleId = sale.id || sale.saleId;
-    try {
-      const signedPath = await getSignedInvoicePath(saleId);
-      await downloadInvoiceBlob(signedPath, `invoice_${sale.invoiceNo || saleId}.pdf`);
-      showSnackbar('Invoice downloaded', 'success');
-    } catch (err) {
-      console.error('Download invoice error:', err);
-      showSnackbar('Invoice download failed', 'error');
-    }
-  };
-
-  // ✅ Enhancement: WhatsApp message includes PDF download link
-  const handleWhatsAppInvoice = async (sale) => {
-    try {
-      const saleId = sale.id || sale.saleId;
-
-      const rawPhone = sale.phone || sale.customer?.phone || '';
-      const phone = normalizePhoneForWhatsApp(rawPhone);
-
-      if (!phone) {
-        showSnackbar('Customer phone number missing/invalid', 'warning');
-        return;
-      }
-
-      const signedPath = await getSignedInvoicePath(saleId);
-      const absolute = toAbsoluteInvoiceUrl(signedPath);
-      const downloadLink = withDownloadParam(absolute);
-
-      const amount =
-        sale.totalAmount != null
-          ? `₹${Number(sale.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-          : '';
-      const date = sale.date ? new Date(sale.date).toLocaleDateString('en-IN') : '';
-
-      const lines = [
-        shop?.name ? `Invoice from *${shop.name}*` : null,
-        `🧾 *Invoice #${sale.invoiceNo || saleId}*`,
-        date ? `📅 Date: ${date}` : null,
-        amount ? `💰 Amount: ${amount}` : null,
-        '',
-        'Download invoice PDF:',
-        downloadLink,
-        '',
-        'Thank you for your purchase! 🙏',
-      ].filter(Boolean);
-
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      console.error('WhatsApp invoice error:', err);
-      showSnackbar('Could not prepare WhatsApp invoice link', 'error');
-    }
-  };
-
-  // ────────────────────────────────────────────────
-  // Filtering
-  // ────────────────────────────────────────────────
   const filteredSales = useMemo(() => {
     const searchLower = search.toLowerCase();
 
@@ -384,7 +458,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
   const paginatedSales = filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // Sync local search back to URL (shareable)
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearch(value);
@@ -396,7 +469,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     navigate({ search: p.toString() }, { replace: true });
   };
 
-  // Export filtered sales to CSV (with proper escaping)
   const handleExportCSV = () => {
     if (filteredSales.length === 0) {
       showSnackbar('No data to export', 'warning');
@@ -442,17 +514,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {isFilteredView ? (
-              <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: '#f1f5f9', mr: 1 }}>
+              <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: alpha(theme.primary, 0.1), color: theme.primary }}>
                 <ArrowBackIcon />
               </IconButton>
             ) : (
-              <HistoryIcon color="primary" sx={{ fontSize: 32 }} />
+              <Box sx={{ p: 1.2, borderRadius: 2, bgcolor: alpha(theme.primary, 0.1) }}>
+                <HistoryIcon sx={{ fontSize: 28, color: theme.primary }} />
+              </Box>
             )}
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: theme.textPrimary }}>
                 {isFilteredView ? 'Invoice Lookup' : 'Sales History'}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color={theme.textSecondary}>
                 Manage returns, payments, and invoice status
               </Typography>
             </Box>
@@ -464,7 +538,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
               disabled={loading}
               onClick={loadData}
-              sx={{ borderRadius: 2, fontWeight: 700 }}
+              sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
             >
               Refresh
             </Button>
@@ -473,7 +547,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
               disabled={exporting || filteredSales.length === 0}
               onClick={handleExportCSV}
-              sx={{ bgcolor: '#10b981', borderRadius: 2, fontWeight: 700 }}
+              sx={{ bgcolor: theme.success, borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
             >
               {exporting ? 'Exporting...' : 'Export CSV'}
             </Button>
@@ -490,6 +564,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             alignItems: 'center',
             bgcolor: '#f8fafc',
             flexWrap: 'wrap',
+            border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
           }}
         >
           <TextField
@@ -504,7 +579,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                 </InputAdornment>
               ),
             }}
-            sx={{ bgcolor: 'white', minWidth: 250 }}
+            sx={{ bgcolor: 'white', minWidth: 250, borderRadius: 2 }}
           />
           <Divider orientation="vertical" flexItem />
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -516,7 +591,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               InputLabelProps={{ shrink: true }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              sx={{ bgcolor: 'white' }}
+              sx={{ bgcolor: 'white', borderRadius: 2 }}
             />
             <TextField
               type="date"
@@ -525,27 +600,27 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               InputLabelProps={{ shrink: true }}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              sx={{ bgcolor: 'white' }}
+              sx={{ bgcolor: 'white', borderRadius: 2 }}
             />
           </Stack>
         </Paper>
       </Stack>
 
       {/* Main Table */}
-      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', border: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>
         <TableContainer>
           <Table size="small">
-            <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+            <TableHead sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
               <TableRow>
                 <TableCell width={50} />
-                <TableCell sx={{ fontWeight: 700 }}>Invoice #</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Customer</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Invoice #</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Customer</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Date</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: theme.textPrimary }}>
                   Total
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Payment</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Payment</TableCell>
               </TableRow>
             </TableHead>
 
@@ -553,12 +628,12 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
-                    <CircularProgress />
+                    <CircularProgress sx={{ color: theme.primary }} />
                   </TableCell>
                 </TableRow>
               ) : paginatedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 5, color: theme.textSecondary }}>
                     No transactions found.
                   </TableCell>
                 </TableRow>
@@ -568,28 +643,43 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                   const isExpanded = expandedSaleKey === saleKey;
                   const payStatus = getPaymentStatus(sale.dueAmount);
                   const isCancelable = sale.status === 'DRAFT' || (sale.status === 'COMPLETED' && isToday(sale.date));
+                  const isLoadingThisSale = invoiceLoading === saleKey;
 
                   return (
                     <React.Fragment key={saleKey}>
-                      <TableRow hover>
+                      <TableRow hover sx={{ '&:hover': { bgcolor: alpha(theme.primary, 0.02) } }}>
                         <TableCell>
-                          <IconButton size="small" onClick={() => setExpandedSaleKey(isExpanded ? null : saleKey)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setExpandedSaleKey(isExpanded ? null : saleKey)}
+                            sx={{ color: theme.primary }}
+                          >
                             {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                           </IconButton>
                         </TableCell>
 
-                        <TableCell sx={{ fontWeight: 600 }}>{sale.invoiceNo}</TableCell>
-                        <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
-                        <TableCell>{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        <TableCell sx={{ fontWeight: 700, color: theme.textPrimary }}>{sale.invoiceNo}</TableCell>
+                        <TableCell sx={{ color: theme.textPrimary }}>{sale.customerName || 'Walk-in'}</TableCell>
+                        <TableCell sx={{ color: theme.textSecondary }}>{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 800, color: theme.primary }}>
                           {formatAmount(sale.totalAmount)}
                         </TableCell>
                         <TableCell>
-                          <Chip label={sale.status} color={statusConfig[sale.status]?.color || 'default'} size="small" />
+                          <Chip 
+                            label={sale.status} 
+                            color={statusConfig[sale.status]?.color || 'default'} 
+                            size="small" 
+                            sx={{ fontWeight: 700 }}
+                          />
                         </TableCell>
                         <TableCell>
                           {sale.status !== 'DRAFT' && (
-                            <Chip label={payStatus} size="small" color={paymentStatusColors[payStatus] || 'default'} />
+                            <Chip 
+                              label={payStatus} 
+                              size="small" 
+                              color={paymentStatusColors[payStatus] || 'default'}
+                              sx={{ fontWeight: 700 }}
+                            />
                           )}
                         </TableCell>
                       </TableRow>
@@ -597,19 +687,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                       <TableRow>
                         <TableCell colSpan={7} sx={{ p: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ p: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <Box sx={{ p: 3, bgcolor: alpha(theme.primary, 0.02), borderBottom: `1px solid ${alpha(theme.primary, 0.1)}` }}>
                               <Stack direction="row" spacing={4} divider={<Divider orientation="vertical" flexItem />}>
                                 <Stack spacing={1.5} sx={{ minWidth: 240 }}>
-                                  <Typography variant="overline" color="textSecondary">
+                                  <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
                                     Transaction Actions
                                   </Typography>
 
                                   {sale.status === 'DRAFT' ? (
                                     <Button
                                       variant="contained"
-                                      color="warning"
                                       startIcon={<PlayArrowIcon />}
                                       onClick={() => navigate(`/sales?resumeId=${sale.id}`)}
+                                      sx={{ background: `linear-gradient(135deg, ${theme.warning} 0%, ${theme.primaryLight} 100%)`, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
                                     >
                                       Resume Draft
                                     </Button>
@@ -617,26 +707,29 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                     <>
                                       <Button
                                         variant="contained"
-                                        startIcon={<PrintIcon />}
+                                        startIcon={isLoadingThisSale ? <CircularProgress size={20} color="inherit" /> : <PrintIcon />}
                                         onClick={() => handlePrintInvoice(sale)}
-                                        sx={{ bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' } }}
+                                        disabled={isLoadingThisSale}
+                                        sx={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primaryLight} 100%)`, textTransform: 'none', fontWeight: 700, borderRadius: 2, color: 'white' }}
                                       >
-                                        Print / Preview
+                                        {isLoadingThisSale ? 'Opening...' : 'Print / Preview'}
                                       </Button>
 
                                       <Button
                                         variant="outlined"
-                                        startIcon={<DownloadIcon />}
+                                        startIcon={isLoadingThisSale ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
                                         onClick={() => handleDownloadInvoice(sale)}
+                                        disabled={isLoadingThisSale}
+                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, borderColor: theme.primary, color: theme.primary }}
                                       >
-                                        Download PDF
+                                        {isLoadingThisSale ? 'Downloading...' : 'Download PDF'}
                                       </Button>
 
                                       <Button
                                         variant="contained"
                                         startIcon={<WhatsAppIcon />}
                                         onClick={() => handleWhatsAppInvoice(sale)}
-                                        sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#1ebe5d' }, color: '#fff' }}
+                                        sx={{ bgcolor: '#25D366', textTransform: 'none', fontWeight: 700, borderRadius: 2, color: '#fff', '&:hover': { bgcolor: '#1ebe5d' } }}
                                       >
                                         WhatsApp Invoice
                                       </Button>
@@ -647,6 +740,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                           color="secondary"
                                           startIcon={<AssignmentReturnIcon />}
                                           onClick={() => handleOpenReturn(sale)}
+                                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
                                         >
                                           Return Items
                                         </Button>
@@ -660,6 +754,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                       color="error"
                                       startIcon={<CancelIcon />}
                                       onClick={() => handleOpenCancel(sale)}
+                                      sx={{ textTransform: 'none', fontWeight: 700 }}
                                     >
                                       {sale.status === 'DRAFT' ? 'Discard Draft' : 'Cancel Sale'}
                                     </Button>
@@ -667,19 +762,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                 </Stack>
 
                                 <Box sx={{ flexGrow: 1 }}>
-                                  <Typography variant="overline" color="textSecondary">
+                                  <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
                                     Financial Summary
                                   </Typography>
-                                  <Stack spacing={1} sx={{ mt: 1 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
-                                      <Typography variant="body2">Total Bill Amount:</Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                  <Stack spacing={1.5} sx={{ mt: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                      <Typography variant="body2" sx={{ color: theme.textSecondary }}>Total Bill Amount:</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 800, color: theme.textPrimary }}>
                                         {formatAmount(sale.totalAmount)}
                                       </Typography>
                                     </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '300px' }}>
-                                      <Typography variant="body2">Current Outstanding:</Typography>
-                                      <Typography variant="body2" color="error.main" sx={{ fontWeight: 700 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                      <Typography variant="body2" sx={{ color: theme.textSecondary }}>Current Outstanding:</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 800, color: theme.danger }}>
                                         {formatAmount(sale.dueAmount)}
                                       </Typography>
                                     </Box>
@@ -687,11 +782,10 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                     {Number(sale.dueAmount) > 0 && (
                                       <Button
                                         variant="contained"
-                                        color="success"
                                         size="small"
                                         startIcon={<PaymentsIcon />}
                                         onClick={() => navigate(`/customer-payments?saleId=${sale.saleId}`)}
-                                        sx={{ mt: 1, width: 'fit-content', borderRadius: 2 }}
+                                        sx={{ mt: 1, width: 'fit-content', borderRadius: 2, bgcolor: theme.success, textTransform: 'none', fontWeight: 700 }}
                                       >
                                         Receive Payment
                                       </Button>
@@ -718,31 +812,32 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
+          sx={{ bgcolor: alpha(theme.primary, 0.02), borderTop: `1px solid ${alpha(theme.primary, 0.1)}` }}
         />
       </Paper>
 
       {/* RETURN DIALOG */}
       <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
+        <DialogTitle sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), color: theme.textPrimary }}>
           Process Return: {selectedSale?.invoiceNo}
         </DialogTitle>
         <DialogContent dividers>
           {loadingDetails ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
-              <CircularProgress size={30} />
-              <Typography variant="caption">Loading purchased items...</Typography>
+              <CircularProgress size={30} sx={{ color: theme.primary }} />
+              <Typography variant="caption" color={theme.textSecondary}>Loading purchased items...</Typography>
             </Box>
           ) : (
             <Stack spacing={3} sx={{ mt: 1 }}>
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
-                  <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                  <TableHead sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>Item Description</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>
+                      <TableCell sx={{ fontWeight: 800 }}>Item Description</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 800 }}>
                         Available
                       </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                      <TableCell align="right" sx={{ fontWeight: 800 }}>
                         Returning
                       </TableCell>
                     </TableRow>
@@ -751,10 +846,10 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                     {returnItems.map((item, index) => (
                       <TableRow key={item.saleItemId}>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
                             {item.itemName}
                           </Typography>
-                          <Typography variant="caption" color="textSecondary">
+                          <Typography variant="caption" color={theme.textSecondary}>
                             {formatAmount(item.unitPrice)} / unit
                           </Typography>
                         </TableCell>
@@ -765,7 +860,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                 {item.netQty}
                               </Typography>
                               {item.returnedQty > 0 && (
-                                <Typography variant="caption" color="error">
+                                <Typography variant="caption" sx={{ color: theme.danger }}>
                                   ({item.returnedQty} already ret.)
                                 </Typography>
                               )}
@@ -790,14 +885,14 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                       </TableRow>
                     ))}
 
-                    <TableRow sx={{ bgcolor: '#f0fdf4' }}>
+                    <TableRow sx={{ bgcolor: alpha(theme.success, 0.05) }}>
                       <TableCell colSpan={2} align="right">
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                           Total Return Value:
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="subtitle2" color="success.main" sx={{ fontWeight: 800 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 900, color: theme.success }}>
                           {formatAmount(totalReturnValue)}
                         </Typography>
                       </TableCell>
@@ -815,19 +910,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                 onChange={(e) => setReturnReason(e.target.value)}
               />
 
-              <Box sx={{ p: 2, bgcolor: '#fff7ed', borderRadius: 2, border: '1px solid #ffedd5' }}>
+              <Box sx={{ p: 2, bgcolor: alpha(theme.warning, 0.08), borderRadius: 2, border: `1px solid ${alpha(theme.warning, 0.2)}` }}>
                 <FormControlLabel
                   control={<Checkbox checked={isRefundPayment} onChange={(e) => setIsRefundPayment(e.target.checked)} />}
                   label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Issue Refund / Add to Customer Credit?</Typography>}
                 />
-                <Typography variant="caption" display="block" color="textSecondary" sx={{ ml: 4 }}>
-                  This will reduce the invoice total and adjust the customer&apos;s ledger balance.
+                <Typography variant="caption" display="block" color={theme.textSecondary} sx={{ ml: 4, mt: 0.5 }}>
+                  This will reduce the invoice total and adjust the customer's ledger balance.
                 </Typography>
               </Box>
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 2, bgcolor: alpha(theme.primary, 0.04) }}>
           <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
@@ -835,6 +930,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             onClick={submitReturn}
             disabled={loadingDetails || totalReturnValue <= 0}
             startIcon={<AssignmentReturnIcon />}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
           >
             Confirm Return {totalReturnValue > 0 && `(${formatAmount(totalReturnValue)})`}
           </Button>
@@ -843,11 +939,11 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
       {/* CANCEL DIALOG */}
       <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 800 }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: theme.danger, fontWeight: 800 }}>
           <WarningAmberIcon /> Confirm Cancellation
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 2, color: theme.textPrimary }}>
             Are you sure you want to cancel <strong>Invoice {selectedSale?.invoiceNo}</strong>? This action reverses all
             stock and payment entries permanently.
           </Typography>
@@ -860,9 +956,9 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             autoFocus
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, bgcolor: alpha(theme.primary, 0.04) }}>
           <Button onClick={() => setCancelDialogOpen(false)}>No, Keep Sale</Button>
-          <Button variant="contained" color="error" onClick={submitCancel} disabled={!cancelReason.trim()}>
+          <Button variant="contained" color="error" onClick={submitCancel} disabled={!cancelReason.trim()} sx={{ textTransform: 'none', fontWeight: 700 }}>
             Cancel Sale Now
           </Button>
         </DialogActions>
@@ -873,8 +969,9 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} variant="filled">
+        <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

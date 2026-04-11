@@ -5,7 +5,7 @@ import {
   Checkbox, Chip, Stack, Card, Alert, Snackbar,
   Dialog, DialogTitle, DialogContent, DialogActions,
   IconButton, Badge, Fade, Divider, CircularProgress,
-  Skeleton, Tooltip, Tab, Tabs, InputAdornment
+  Skeleton, Tooltip, Tab, Tabs, InputAdornment, alpha
 } from '@mui/material';
 import {
   ReceiptLong, Payment, SentimentSatisfiedAlt,
@@ -13,7 +13,7 @@ import {
   CheckCircleOutline, Close, PictureAsPdf, Wallet,
   Refresh as RefreshIcon, ErrorOutline,
   Visibility as VisibilityIcon, Search as SearchIcon,
-  Print as PrintIcon
+  Print as PrintIcon, TrendingDown, History as HistoryIcon
 } from '@mui/icons-material';
 import {
   getSuppliers,
@@ -24,6 +24,21 @@ import {
   getSupplierPaymentSummary,
 } from '../services/api';
 
+// Modern color palette
+const theme = {
+  primary: '#0f766e',
+  primaryLight: '#14b8a6',
+  secondary: '#7c3aed',
+  danger: '#dc2626',
+  warning: '#f59e0b',
+  success: '#10b981',
+  background: '#f8fafc',
+  cardBg: '#ffffff',
+  borderColor: '#e2e8f0',
+  textPrimary: '#1e293b',
+  textSecondary: '#64748b',
+};
+
 const PAYMENT_MODES = [
   { value: 'CASH', label: 'Cash' },
   { value: 'UPI', label: 'UPI / QR' },
@@ -32,6 +47,20 @@ const PAYMENT_MODES = [
   { value: 'CARD', label: 'Card' },
   { value: 'OTHER', label: 'Other' },
 ];
+
+const formInputSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2.5,
+    bgcolor: '#ffffff',
+    transition: 'all 0.3s ease',
+    border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
+    '& fieldset': { borderColor: 'transparent' },
+    '&:hover fieldset': { borderColor: alpha(theme.primary, 0.3) },
+    '&.Mui-focused fieldset': { borderColor: theme.primary, borderWidth: '2px' }
+  },
+  '& .MuiInputLabel-root': { fontWeight: 700, color: theme.textSecondary },
+  '& .MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.75)' }
+};
 
 export default function SupplierPaymentPage() {
   // --- Data States ---
@@ -54,7 +83,7 @@ export default function SupplierPaymentPage() {
   const [receiptData, setReceiptData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // --- Tab State (right panel) ---
+  // --- Tab State ---
   const [activeTab, setActiveTab] = useState(0);
 
   // --- History search/filter states ---
@@ -79,9 +108,6 @@ export default function SupplierPaymentPage() {
 
       setSuppliers(suppliersList);
 
-      // Batch-load payment summaries to get real paymentStatus / paidAmount for each PO.
-      // The backend PurchaseOrderDto does not include paymentStatus, so we call the
-      // summary endpoint per PO in parallel and merge the result in.
       if (posList.length > 0) {
         const summaries = await Promise.allSettled(
           posList.map((po) => getSupplierPaymentSummary(po.id))
@@ -145,14 +171,12 @@ export default function SupplierPaymentPage() {
 
   const getPODue = useCallback(
     (po) => {
-      // Prefer server-computed amountDue, fall back to totalAmount - paidAmount
       if (po.amountDue !== undefined) return Math.max(0, Number(po.amountDue));
       return Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0));
     },
     []
   );
 
-  // POs for the selected supplier that are not fully paid (PENDING or PARTIALLY_PAID)
   const supplierPOs = useMemo(() =>
     allPOs.filter(po =>
       po.supplierId === selectedSupplierId &&
@@ -166,7 +190,6 @@ export default function SupplierPaymentPage() {
       .reduce((sum, po) => sum + getPODue(po), 0);
   }, [selectedPOs, allPOs, getPODue]);
 
-  // Summary stats
   const stats = useMemo(() => {
     const totalPayable = allPOs
       .filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED')
@@ -177,7 +200,6 @@ export default function SupplierPaymentPage() {
     return { totalPayable, pendingCount };
   }, [allPOs, getPODue]);
 
-  // --- Filtered history for the history tab ---
   const filteredHistory = useMemo(() => {
     return history.filter((h) => {
       const matchMode = !historyModeFilter || h.paymentMethod === historyModeFilter;
@@ -190,7 +212,6 @@ export default function SupplierPaymentPage() {
       );
       const payDate = h.paymentDate ? new Date(h.paymentDate) : null;
       const matchFrom = !historyDateFrom || (payDate && payDate >= new Date(historyDateFrom));
-      // Use end-of-day in local time by constructing a date at 23:59:59.999
       const toEnd = historyDateTo ? new Date(historyDateTo) : null;
       if (toEnd) toEnd.setHours(23, 59, 59, 999);
       const matchTo = !historyDateTo || (payDate && payDate <= toEnd);
@@ -198,13 +219,11 @@ export default function SupplierPaymentPage() {
     });
   }, [history, historyModeFilter, historySearch, historyDateFrom, historyDateTo, suppliers]);
 
-  // --- Pending PO count (memoised to avoid re-filtering on every render) ---
   const pendingPOCount = useMemo(
     () => allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length,
     [allPOs]
   );
 
-  // --- View PO Items ---
   const handleViewPOItems = useCallback(async (po) => {
     setPoItemsDialog({ open: true, po, items: [], loading: true });
     try {
@@ -216,7 +235,6 @@ export default function SupplierPaymentPage() {
     }
   }, []);
 
-  // Escape HTML entities to prevent XSS when writing to the print window
   const escapeHtml = (str) =>
     String(str || '')
       .replace(/&/g, '&amp;')
@@ -225,7 +243,6 @@ export default function SupplierPaymentPage() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  // --- Print Receipt in a separate window so only the voucher is printed ---
   const handlePrintReceipt = useCallback(() => {
     if (!receiptData) return;
     const win = window.open('', '_blank', 'width=480,height=700');
@@ -235,44 +252,46 @@ export default function SupplierPaymentPage() {
 <html><head><title>Payment Voucher</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 32px; color: #0f172a; background: #f8fafc; }
+  .container { background: white; padding: 24px; border-radius: 12px; max-width: 400px; margin: 0 auto; }
   .header { text-align: center; margin-bottom: 24px; }
-  .header h1 { font-size: 22px; font-weight: 900; }
+  .header h1 { font-size: 22px; font-weight: 900; color: #0f766e; }
   .header p  { color: #64748b; font-size: 13px; margin-top: 4px; }
-  .amount    { text-align: center; margin: 20px 0; }
+  .amount    { text-align: center; margin: 24px 0; padding: 20px; background: #f0fdf4; border-radius: 8px; border: 2px solid #10b981; }
   .amount .val { font-size: 36px; font-weight: 900; color: #059669; }
-  .amount .lbl { color: #64748b; font-size: 13px; margin-top: 4px; }
-  hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
-  .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
-  .row .label { color: #64748b; }
-  .row .value { font-weight: 700; }
-  .notes { margin-top: 20px; background: #f8fafc; padding: 12px; border-radius: 6px; font-size: 13px; color: #475569; }
-  .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #94a3b8; }
-  @media print { body { padding: 16px; } }
+  .amount .lbl { color: #64748b; font-size: 13px; margin-top: 8px; }
+  hr { border: none; border-top: 1.5px solid #e2e8f0; margin: 20px 0; }
+  .row { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 14px; }
+  .row .label { color: #64748b; font-weight: 600; }
+  .row .value { font-weight: 700; color: #1e293b; }
+  .notes { margin-top: 20px; background: #f0fdf4; padding: 12px; border-radius: 6px; font-size: 13px; color: #047857; }
+  .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #94a3b8; }
+  @media print { body { padding: 0; background: white; } .container { border: none; } }
 </style></head><body>
-<div class="header">
-  <h1>Payment Voucher</h1>
-  <p>VyaparSathi &#8212; Supplier Payment Receipt</p>
+<div class="container">
+  <div class="header">
+    <h1>Payment Voucher</h1>
+    <p>VyaparSathi &#8212; Supplier Payment Receipt</p>
+  </div>
+  <div class="amount">
+    <div class="val">&#8377;${escapeHtml(amt)}</div>
+    <div class="lbl">✓ Payment Recorded Successfully</div>
+  </div>
+  <hr/>
+  <div class="row"><span class="label">Supplier</span><span class="value">${escapeHtml(receiptData.supplierName)}</span></div>
+  <div class="row"><span class="label">Payment Date</span><span class="value">${escapeHtml(receiptData.date)}</span></div>
+  <div class="row"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receiptData.id || 'N/A')}</span></div>
+  <div class="row"><span class="label">Payment Mode</span><span class="value">${escapeHtml(receiptData.mode)}</span></div>
+  <div class="row"><span class="label">Ref / UTR Number</span><span class="value">${escapeHtml(receiptData.ref || 'N/A')}</span></div>
+  ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(receiptData.notes)}</div>` : ''}
+  <div class="footer">This is a computer-generated receipt. No signature required.</div>
 </div>
-<div class="amount">
-  <div class="val">&#8377;${escapeHtml(amt)}</div>
-  <div class="lbl">Payment Recorded Successfully</div>
-</div>
-<hr/>
-<div class="row"><span class="label">Supplier</span><span class="value">${escapeHtml(receiptData.supplierName)}</span></div>
-<div class="row"><span class="label">Payment Date</span><span class="value">${escapeHtml(receiptData.date)}</span></div>
-<div class="row"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receiptData.id || 'N/A')}</span></div>
-<div class="row"><span class="label">Payment Mode</span><span class="value">${escapeHtml(receiptData.mode)}</span></div>
-<div class="row"><span class="label">Ref / UTR Number</span><span class="value">${escapeHtml(receiptData.ref || 'N/A')}</span></div>
-${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(receiptData.notes)}</div>` : ''}
-<div class="footer">This is a computer-generated receipt. No signature required.</div>
 </body></html>`);
     win.document.close();
     win.focus();
     win.print();
-  }, [receiptData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [receiptData]);
 
-  // --- Submit Payment ---
   const handlePaymentSubmit = async () => {
     if (!selectedSupplierId) {
       setNotification({ open: true, message: 'Please select a supplier.', severity: 'error' });
@@ -302,9 +321,8 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
 
       const result = await recordBulkSupplierPayment(payload);
       const resultArray = Array.isArray(result) ? result : [result];
-
-      // Show receipt for first payment
       const firstPayment = resultArray[0];
+      
       setReceiptData({
         id: firstPayment?.transactionId || firstPayment?.id || `TXN-${Date.now()}`,
         amount: payAmount,
@@ -322,7 +340,6 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
       setSelectedPOs([]);
       setNotification({ open: true, message: 'Payment recorded successfully!', severity: 'success' });
 
-      // Reload data & history
       await loadData();
       await loadPaymentHistory(selectedSupplierId);
     } catch (err) {
@@ -346,126 +363,276 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
 
   if (isLoadingData) {
     return (
-      <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f1f5f9', minHeight: '100vh' }}>
-        <Grid container spacing={2} mb={4}>
-          {[1, 2, 3].map(i => <Grid item xs={12} sm={4} key={i}><Skeleton variant="rounded" height={80} sx={{ borderRadius: 4 }} /></Grid>)}
+      <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: theme.background, minHeight: '100vh' }}>
+        <Grid container spacing={3} mb={4}>
+          {[1, 2, 3].map(i => <Grid item xs={12} sm={4} key={i}><Skeleton variant="rounded" height={100} sx={{ borderRadius: 3 }} /></Grid>)}
         </Grid>
         <Grid container spacing={4}>
-          <Grid item xs={12} lg={5}><Skeleton variant="rounded" height={500} sx={{ borderRadius: 6 }} /></Grid>
-          <Grid item xs={12} lg={7}><Skeleton variant="rounded" height={500} sx={{ borderRadius: 6 }} /></Grid>
+          <Grid item xs={12} lg={5}><Skeleton variant="rounded" height={500} sx={{ borderRadius: 3 }} /></Grid>
+          <Grid item xs={12} lg={7}><Skeleton variant="rounded" height={500} sx={{ borderRadius: 3 }} /></Grid>
         </Grid>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f1f5f9', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: theme.background, minHeight: '100vh' }}>
 
-      {/* 1. TOP DASHBOARD RIBBON */}
-      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" mb={3} spacing={2}>
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        alignItems={{ sm: 'center' }} 
+        justifyContent="space-between" 
+        mb={4} 
+        spacing={2}
+      >
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Payment color="primary" sx={{ fontSize: 28 }} />
-            <Typography variant="h5" fontWeight={900} color="#0f172a">Supplier Payments</Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+            <Box sx={{ 
+              p: 1.2, 
+              borderRadius: 2.5, 
+              bgcolor: alpha(theme.primary, 0.1),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Payment sx={{ fontSize: 26, color: theme.primary, fontWeight: 800 }} />
+            </Box>
+            <Typography variant="h5" fontWeight={900} color={theme.textPrimary}>
+              Supplier Payments
+            </Typography>
           </Stack>
-          <Typography variant="body2" color="text.secondary">Manage and reconcile payments to your suppliers</Typography>
+          <Typography variant="body2" color={theme.textSecondary} sx={{ ml: 5.5 }}>
+            Manage and reconcile payments to your suppliers
+          </Typography>
         </Box>
         <Tooltip title="Refresh Data">
-          <IconButton onClick={loadData} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+          <IconButton 
+            onClick={loadData} 
+            sx={{ 
+              bgcolor: '#ffffff', 
+              border: `1.5px solid ${alpha(theme.primary, 0.2)}`,
+              color: theme.primary,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                bgcolor: alpha(theme.primary, 0.05),
+                transform: 'rotate(180deg)'
+              }
+            }}
+          >
             <RefreshIcon />
           </IconButton>
         </Tooltip>
       </Stack>
 
-      <Grid container spacing={2} mb={4}>
+      {/* ── STATS CARDS ────────────────────────────────────── */}
+      <Grid container spacing={2.5} mb={4}>
         {[
-          { label: 'Total Payable', val: `₹${formatCurrency(stats.totalPayable)}`, color: '#e11d48', icon: <Wallet /> },
-          { label: 'Active Suppliers', val: suppliers.length, color: '#059669', icon: <AccountBalance />, isQty: true },
-          { label: 'Pending Orders', val: stats.pendingCount, color: '#2563eb', icon: <ReceiptLong />, isQty: true }
+          { 
+            label: 'Total Payable', 
+            val: `₹${formatCurrency(stats.totalPayable)}`, 
+            color: theme.danger, 
+            icon: <TrendingDown /> 
+          },
+          { 
+            label: 'Active Suppliers', 
+            val: suppliers.length, 
+            color: theme.success, 
+            icon: <AccountBalance />, 
+            isQty: true 
+          },
+          { 
+            label: 'Pending Orders', 
+            val: stats.pendingCount, 
+            color: theme.secondary, 
+            icon: <ReceiptLong />, 
+            isQty: true 
+          }
         ].map((stat, i) => (
           <Grid item xs={12} sm={4} key={i}>
-            <Card elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ bgcolor: `${stat.color}15`, p: 1.5, borderRadius: 3, color: stat.color }}>{stat.icon}</Box>
+            <Card 
+              elevation={0} 
+              sx={{ 
+                p: 3, 
+                borderRadius: 3, 
+                border: `1.5px solid ${alpha(stat.color, 0.15)}`,
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2.5,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: `0 8px 24px ${alpha(stat.color, 0.15)}`,
+                  transform: 'translateY(-2px)',
+                  borderColor: alpha(stat.color, 0.3)
+                }
+              }}
+            >
+              <Box sx={{ 
+                bgcolor: alpha(stat.color, 0.1), 
+                p: 2, 
+                borderRadius: 2.5, 
+                color: stat.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {stat.icon}
+              </Box>
               <Box>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase' }}>{stat.label}</Typography>
-                <Typography variant="h5" fontWeight={900}>{stat.isQty ? stat.val : stat.val}</Typography>
+                <Typography 
+                  variant="caption" 
+                  fontWeight={800} 
+                  color={theme.textSecondary} 
+                  sx={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
+                >
+                  {stat.label}
+                </Typography>
+                <Typography variant="h5" fontWeight={900} color={stat.color} sx={{ mt: 0.5 }}>
+                  {stat.val}
+                </Typography>
               </Box>
             </Card>
           </Grid>
         ))}
       </Grid>
 
+      {/* ── MAIN CONTENT GRID ──────────────────────────────── */}
       <Grid container spacing={4}>
-        {/* 2. PAYMENT CONSOLE (LEFT) */}
+        {/* LEFT: PAYMENT CONSOLE */}
         <Grid item xs={12} lg={5}>
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 6, border: '1px solid #e2e8f0', position: 'sticky', top: 24 }}>
-            <Stack direction="row" alignItems="center" gap={1} mb={3}>
-              <Payment color="primary" />
-              <Typography variant="h6" fontWeight={900}>Payment Console</Typography>
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              p: 3.5, 
+              borderRadius: 3, 
+              border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
+              position: 'sticky', 
+              top: 24,
+              boxShadow: `0 2px 8px ${alpha(theme.primary, 0.08)}`
+            }}
+          >
+            <Stack direction="row" alignItems="center" gap={1.5} mb={3}>
+              <Box sx={{ 
+                p: 1, 
+                borderRadius: 1.5, 
+                bgcolor: alpha(theme.primary, 0.1),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Payment sx={{ fontSize: 22, color: theme.primary }} />
+              </Box>
+              <Typography variant="h6" fontWeight={900} color={theme.textPrimary}>
+                Payment Console
+              </Typography>
             </Stack>
 
-            <Stack spacing={2.5}>
+            <Stack spacing={3}>
               {/* Supplier Select */}
               <TextField
-                select fullWidth label="Select Supplier"
+                select 
+                fullWidth 
+                label="Select Supplier"
                 value={selectedSupplierId}
                 onChange={(e) => setSelectedSupplierId(e.target.value)}
                 sx={formInputSx}
+                size="small"
               >
                 {suppliers.length === 0 ? (
                   <MenuItem disabled>No suppliers found</MenuItem>
                 ) : suppliers.map(s => (
-                  <MenuItem key={s.id} value={s.id} sx={{ justifyContent: 'space-between' }}>
-                    <Typography fontWeight={600}>{s.name}</Typography>
+                  <MenuItem key={s.id} value={s.id}>
+                    <Typography fontWeight={700}>{s.name}</Typography>
                   </MenuItem>
                 ))}
               </TextField>
 
+              {/* Supplier Details */}
               {activeSupplier && (
                 <Fade in={!!activeSupplier}>
-                  <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #cbd5e1' }}>
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      p: 2.5, 
+                      bgcolor: alpha(theme.primary, 0.04),
+                      border: `1.5px solid ${alpha(theme.primary, 0.12)}`,
+                      borderRadius: 2.5
+                    }}
+                  >
                     {activeSupplier.phone && (
-                      <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                        <Typography variant="caption" fontWeight={700}>Phone:</Typography>
-                        <Typography variant="caption">{activeSupplier.phone}</Typography>
+                      <Stack direction="row" justifyContent="space-between" mb={1}>
+                        <Typography variant="caption" fontWeight={800} color={theme.textSecondary}>Phone:</Typography>
+                        <Typography variant="caption" fontWeight={700}>{activeSupplier.phone}</Typography>
                       </Stack>
                     )}
                     {activeSupplier.email && (
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="caption" fontWeight={700}>Email:</Typography>
-                        <Typography variant="caption">{activeSupplier.email}</Typography>
+                        <Typography variant="caption" fontWeight={800} color={theme.textSecondary}>Email:</Typography>
+                        <Typography variant="caption" fontWeight={700} sx={{ wordBreak: 'break-word' }}>{activeSupplier.email}</Typography>
                       </Stack>
                     )}
-                  </Box>
+                  </Card>
                 </Fade>
               )}
 
-              {/* Amount */}
+              {/* Amount Input */}
               <TextField
-                fullWidth label="Amount to Transfer (₹)" type="number"
-                value={amount} onChange={(e) => setAmount(e.target.value)}
+                fullWidth 
+                label="Amount to Transfer (₹)" 
+                type="number"
+                value={amount} 
+                onChange={(e) => setAmount(e.target.value)}
                 sx={formInputSx}
+                size="small"
                 inputProps={{ min: 0, step: '0.01' }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                }}
               />
 
               {/* PO Selection */}
               {selectedSupplierId && (
                 <Box>
-                  <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    SELECT POs TO PAY AGAINST
+                  <Typography 
+                    variant="caption" 
+                    fontWeight={800} 
+                    color={theme.textSecondary} 
+                    sx={{ mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5 }}
+                  >
+                    Select POs to Pay Against
                   </Typography>
                   {supplierPOs.length === 0 ? (
-                    <Box sx={{ p: 2, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #cbd5e1' }}>
-                      <Typography variant="caption" color="text.secondary">No pending purchase orders for this supplier.</Typography>
-                    </Box>
+                    <Card 
+                      elevation={0}
+                      sx={{ 
+                        p: 2.5, 
+                        textAlign: 'center', 
+                        bgcolor: alpha(theme.success, 0.05),
+                        border: `1.5px dashed ${alpha(theme.success, 0.2)}`,
+                        borderRadius: 2.5
+                      }}
+                    >
+                      <Typography variant="caption" color={theme.textSecondary} fontWeight={600}>
+                        ✓ No pending purchase orders for this supplier.
+                      </Typography>
+                    </Card>
                   ) : (
-                    <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
+                    <Card 
+                      elevation={0}
+                      sx={{ 
+                        borderRadius: 2.5, 
+                        overflow: 'hidden', 
+                        maxHeight: 240, 
+                        overflowY: 'auto',
+                        border: `1.5px solid ${alpha(theme.primary, 0.15)}`
+                      }}
+                    >
                       <Table size="small" stickyHeader>
                         <TableHead>
-                          <TableRow>
-                            <TableCell padding="checkbox" sx={{ bgcolor: '#f8fafc' }} />
-                            <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc', fontSize: '0.72rem' }}>PO #</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc', fontSize: '0.72rem' }}>Due</TableCell>
+                          <TableRow sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
+                            <TableCell padding="checkbox" sx={{ bgcolor: alpha(theme.primary, 0.04), borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }} />
+                            <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>PO #</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Due</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -473,38 +640,54 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                             const due = getPODue(po);
                             return (
                               <TableRow
-                                key={po.id} hover
+                                key={po.id} 
+                                hover
                                 onClick={() => setSelectedPOs(prev =>
                                   prev.includes(po.id) ? prev.filter(x => x !== po.id) : [...prev, po.id]
                                 )}
-                                sx={{ cursor: 'pointer' }}
+                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: alpha(theme.primary, 0.04) } }}
                               >
                                 <TableCell padding="checkbox">
                                   <Checkbox checked={selectedPOs.includes(po.id)} size="small" />
                                 </TableCell>
                                 <TableCell>
-                                  <Typography variant="caption" fontWeight={700}>{po.poNumber}</Typography>
-                                  <Typography variant="caption" color="text.secondary" display="block">
+                                  <Typography variant="caption" fontWeight={800}>{po.poNumber}</Typography>
+                                  <Typography variant="caption" color={theme.textSecondary} display="block" sx={{ fontSize: '0.65rem' }}>
                                     {po.orderDate ? new Date(po.orderDate).toLocaleDateString('en-IN') : ''}
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right">
-                                  <Typography variant="caption" fontWeight={900} color="error.main">₹{formatCurrency(due)}</Typography>
+                                  <Typography variant="caption" fontWeight={900} sx={{ color: theme.danger }}>
+                                    ₹{formatCurrency(due)}
+                                  </Typography>
                                 </TableCell>
                               </TableRow>
                             );
                           })}
                         </TableBody>
                       </Table>
-                    </Paper>
+                    </Card>
                   )}
                   {selectedPOs.length > 0 && (
                     <Button
-                      size="small" variant="outlined" color="primary"
+                      size="small" 
+                      variant="outlined" 
                       onClick={() => setAmount(totalPayableSelected.toFixed(2))}
-                      sx={{ mt: 1, borderRadius: 2, fontWeight: 700, fontSize: '0.72rem' }}
+                      sx={{ 
+                        mt: 1.5, 
+                        borderRadius: 2, 
+                        fontWeight: 700, 
+                        fontSize: '0.75rem',
+                        borderColor: alpha(theme.primary, 0.3),
+                        color: theme.primary,
+                        textTransform: 'none',
+                        '&:hover': {
+                          bgcolor: alpha(theme.primary, 0.05),
+                          borderColor: theme.primary
+                        }
+                      }}
                     >
-                      Fill Total Due: ₹{formatCurrency(totalPayableSelected)}
+                      Auto-Fill: ₹{formatCurrency(totalPayableSelected)}
                     </Button>
                   )}
                 </Box>
@@ -513,73 +696,140 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
               {/* Payment Mode + Ref */}
               <Stack direction="row" spacing={2}>
                 <TextField
-                  select sx={{ flex: 1, ...formInputSx }} label="Mode"
-                  value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}
+                  select 
+                  label="Mode"
+                  value={paymentMode} 
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                  sx={{ flex: 1, ...formInputSx }}
+                  size="small"
                 >
                   {PAYMENT_MODES.map(m => (
                     <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
                   ))}
                 </TextField>
                 <TextField
-                  sx={{ flex: 1, ...formInputSx }} label="Ref / UTR No."
-                  value={refNumber} onChange={(e) => setRefNumber(e.target.value)}
+                  label="Ref / UTR No."
+                  value={refNumber} 
+                  onChange={(e) => setRefNumber(e.target.value)}
+                  sx={{ flex: 1, ...formInputSx }}
+                  size="small"
                 />
               </Stack>
 
+              {/* Notes */}
               <TextField
-                fullWidth label="Internal Notes"
-                multiline rows={2} value={notes}
+                fullWidth 
+                label="Internal Notes"
+                multiline 
+                rows={2} 
+                value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 sx={formInputSx}
+                size="small"
               />
 
+              {/* Submit Button */}
               <Button
-                variant="contained" fullWidth size="large"
+                variant="contained" 
+                fullWidth 
+                size="large"
                 onClick={handlePaymentSubmit}
                 disabled={isProcessing || !selectedSupplierId || !amount || selectedPOs.length === 0}
-                sx={{ borderRadius: 4, py: 2, fontWeight: 900, textTransform: 'none', fontSize: '1rem', boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.4)' }}
+                sx={{ 
+                  borderRadius: 2.5, 
+                  py: 1.8, 
+                  fontWeight: 900, 
+                  textTransform: 'none', 
+                  fontSize: '1rem',
+                  background: (isProcessing || !selectedSupplierId || !amount || selectedPOs.length === 0)
+                    ? undefined
+                    : `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primaryLight} 100%)`,
+                  boxShadow: (isProcessing || !selectedSupplierId || !amount || selectedPOs.length === 0)
+                    ? 'none'
+                    : `0 8px 24px ${alpha(theme.primary, 0.35)}`,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: `linear-gradient(135deg, #065f46 0%, ${theme.primary} 100%)`,
+                    boxShadow: `0 12px 32px ${alpha(theme.primary, 0.5)}`,
+                    transform: 'translateY(-2px)'
+                  }
+                }}
               >
-                {isProcessing ? <CircularProgress size={24} color="inherit" /> : 'Confirm & Record Payment'}
+                {isProcessing ? (
+                  <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
+                ) : null}
+                {isProcessing
+                  ? 'Processing...'
+                  : 'Confirm & Record Payment'
+                }
               </Button>
             </Stack>
           </Paper>
         </Grid>
 
-        {/* 3. RIGHT PANEL: TABS — Pending POs | Payment History */}
+        {/* RIGHT: TABS ─────────────────────────────────────── */}
         <Grid item xs={12} lg={7}>
-          <Card variant="outlined" sx={{ borderRadius: 6, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <Card 
+            elevation={0} 
+            sx={{ 
+              borderRadius: 3, 
+              border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
+              overflow: 'hidden',
+              boxShadow: `0 2px 8px ${alpha(theme.primary, 0.08)}`
+            }}
+          >
             <Tabs
               value={activeTab}
               onChange={(_, v) => setActiveTab(v)}
-              sx={{ borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc', px: 2, pt: 1 }}
+              sx={{ 
+                borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}`, 
+                bgcolor: alpha(theme.primary, 0.04), 
+                px: 2, 
+                pt: 1.5,
+                '& .MuiTab-root': {
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  textTransform: 'none',
+                  transition: 'all 0.3s ease',
+                  color: theme.textSecondary,
+                  '&.Mui-selected': { color: theme.primary }
+                },
+                '& .MuiTabs-indicator': {
+                  bgcolor: theme.primary,
+                  height: 3,
+                  borderRadius: '3px 3px 0 0'
+                }
+              }}
               textColor="primary"
               indicatorColor="primary"
             >
-              <Tab label={`Pending POs (${pendingPOCount})`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
-              <Tab label={`Payment History${selectedSupplierId && history.length ? ` (${history.length})` : ''}`} sx={{ fontWeight: 700, fontSize: '0.82rem' }} />
+              <Tab label={`Pending POs (${pendingPOCount})`} />
+              <Tab label={`Payment History${selectedSupplierId && history.length ? ` (${history.length})` : ''}`} />
             </Tabs>
 
-            {/* TAB 0 – Pending POs */}
+            {/* TAB 0: Pending POs */}
             {activeTab === 0 && (
-              <TableContainer sx={{ maxHeight: 480 }}>
+              <TableContainer sx={{ maxHeight: 500 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>PO Number</TableCell>
-                      <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Supplier</TableCell>
-                      <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Date</TableCell>
-                      <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Status</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Total</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Balance Due</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Items</TableCell>
+                    <TableRow sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
+                      <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>PO Number</TableCell>
+                      <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Supplier</TableCell>
+                      <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Status</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Total</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Due</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Items</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                          <SentimentSatisfiedAlt sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
-                          <Typography color="text.secondary">No pending purchase orders. You're all caught up!</Typography>
+                        <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                          <SentimentSatisfiedAlt sx={{ fontSize: 48, color: alpha(theme.success, 0.3), mb: 1, display: 'block', mx: 'auto' }} />
+                          <Typography color={theme.textSecondary} fontWeight={700}>
+                            No pending purchase orders. All caught up! ✓
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -587,15 +837,19 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                         const supplier = suppliers.find(s => s.id === po.supplierId);
                         const due = getPODue(po);
                         return (
-                          <TableRow key={po.id} hover>
+                          <TableRow 
+                            key={po.id} 
+                            hover
+                            sx={{ '&:hover': { bgcolor: alpha(theme.primary, 0.04) } }}
+                          >
                             <TableCell>
                               <Typography variant="body2" fontWeight={800}>{po.poNumber}</Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2">{supplier?.name || '—'}</Typography>
+                              <Typography variant="body2" fontWeight={700}>{supplier?.name || '—'}</Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" color={theme.textSecondary}>
                                 {po.orderDate ? new Date(po.orderDate).toLocaleDateString('en-IN') : '—'}
                               </Typography>
                             </TableCell>
@@ -608,10 +862,10 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                               />
                             </TableCell>
                             <TableCell align="right">
-                              <Typography variant="body2">₹{formatCurrency(po.totalAmount)}</Typography>
+                              <Typography variant="body2" fontWeight={700}>₹{formatCurrency(po.totalAmount)}</Typography>
                             </TableCell>
                             <TableCell align="right">
-                              <Typography variant="body2" fontWeight={900} color="error.main">
+                              <Typography variant="body2" fontWeight={900} sx={{ color: theme.danger }}>
                                 ₹{formatCurrency(due)}
                               </Typography>
                             </TableCell>
@@ -620,7 +874,7 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                                 <IconButton
                                   size="small"
                                   onClick={() => handleViewPOItems(po)}
-                                  sx={{ color: '#6366f1' }}
+                                  sx={{ color: theme.primary, transition: 'all 0.3s ease', '&:hover': { transform: 'scale(1.15)' } }}
                                 >
                                   <VisibilityIcon fontSize="small" />
                                 </IconButton>
@@ -635,11 +889,11 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
               </TableContainer>
             )}
 
-            {/* TAB 1 – Payment History */}
+            {/* TAB 1: Payment History */}
             {activeTab === 1 && (
-              <Box sx={{ p: 2 }}>
-                {/* Search / Filter bar */}
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2}>
+              <Box sx={{ p: 3 }}>
+                {/* Filters */}
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2.5}>
                   <TextField
                     size="small"
                     placeholder="Search by ref, TXN ID, supplier…"
@@ -649,14 +903,18 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                          <SearchIcon fontSize="small" sx={{ color: theme.textSecondary, opacity: 0.6 }} />
                         </InputAdornment>
                       ),
                     }}
                   />
                   <TextField
-                    select size="small" label="Mode" sx={{ flex: 1, ...formInputSx }}
-                    value={historyModeFilter} onChange={(e) => setHistoryModeFilter(e.target.value)}
+                    select 
+                    size="small" 
+                    label="Mode" 
+                    sx={{ flex: 1, ...formInputSx }}
+                    value={historyModeFilter} 
+                    onChange={(e) => setHistoryModeFilter(e.target.value)}
                   >
                     <MenuItem value="">All Modes</MenuItem>
                     {PAYMENT_MODES.map(m => (
@@ -664,93 +922,170 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                     ))}
                   </TextField>
                 </Stack>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2} alignItems="center">
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2.5} alignItems="center">
                   <TextField
-                    size="small" type="date" label="From" sx={{ flex: 1, ...formInputSx }}
-                    value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)}
+                    size="small" 
+                    type="date" 
+                    label="From" 
+                    sx={{ flex: 1, ...formInputSx }}
+                    value={historyDateFrom} 
+                    onChange={(e) => setHistoryDateFrom(e.target.value)}
                     InputLabelProps={{ shrink: true }}
                   />
                   <TextField
-                    size="small" type="date" label="To" sx={{ flex: 1, ...formInputSx }}
-                    value={historyDateTo} onChange={(e) => setHistoryDateTo(e.target.value)}
+                    size="small" 
+                    type="date" 
+                    label="To" 
+                    sx={{ flex: 1, ...formInputSx }}
+                    value={historyDateTo} 
+                    onChange={(e) => setHistoryDateTo(e.target.value)}
                     InputLabelProps={{ shrink: true }}
                   />
                   {(historySearch || historyModeFilter || historyDateFrom || historyDateTo) && (
-                    <Button size="small" onClick={() => { setHistorySearch(''); setHistoryModeFilter(''); setHistoryDateFrom(''); setHistoryDateTo(''); }} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      Clear Filters
+                    <Button 
+                      size="small" 
+                      onClick={() => { 
+                        setHistorySearch(''); 
+                        setHistoryModeFilter(''); 
+                        setHistoryDateFrom(''); 
+                        setHistoryDateTo(''); 
+                      }} 
+                      sx={{ fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'none' }}
+                    >
+                      Clear All
                     </Button>
                   )}
                 </Stack>
 
                 {!selectedSupplierId ? (
-                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
-                    <ErrorOutline sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      Select a supplier from the Payment Console to see their payment history.
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      p: 4, 
+                      textAlign: 'center', 
+                      borderRadius: 2.5,
+                      bgcolor: alpha(theme.warning, 0.05),
+                      border: `1.5px dashed ${alpha(theme.warning, 0.2)}`
+                    }}
+                  >
+                    <ErrorOutline sx={{ fontSize: 40, color: alpha(theme.warning, 0.4), mb: 1 }} />
+                    <Typography color={theme.textSecondary} variant="body2" fontWeight={600}>
+                      Select a supplier from the Payment Console to view history.
                     </Typography>
-                  </Paper>
+                  </Card>
                 ) : isLoadingHistory ? (
                   <Stack spacing={2}>
-                    {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={72} sx={{ borderRadius: 4 }} />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: 2.5 }} />)}
                   </Stack>
                 ) : filteredHistory.length === 0 ? (
-                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
-                    <ErrorOutline sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
-                    <Typography color="text.secondary" variant="body2">
-                      {history.length === 0 ? 'No payment history for this supplier.' : 'No results match your filters.'}
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      p: 4, 
+                      textAlign: 'center', 
+                      borderRadius: 2.5,
+                      bgcolor: alpha(theme.textSecondary, 0.04),
+                      border: `1.5px dashed ${alpha(theme.textSecondary, 0.15)}`
+                    }}
+                  >
+                    <HistoryIcon sx={{ fontSize: 40, color: alpha(theme.textSecondary, 0.3), mb: 1 }} />
+                    <Typography color={theme.textSecondary} variant="body2" fontWeight={600}>
+                      {history.length === 0 ? 'No payment history yet.' : 'No results match your filters.'}
                     </Typography>
-                  </Paper>
+                  </Card>
                 ) : (
-                  <Stack spacing={2} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                  <Stack spacing={2} sx={{ maxHeight: 400, overflowY: 'auto', pr: 0.5 }}>
                     {filteredHistory.map((h, idx) => (
-                      <Paper
+                      <Card
                         key={h.id || idx}
-                        variant="outlined"
-                        sx={{ p: 2, borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: '0.2s', '&:hover': { borderColor: '#2563eb', bgcolor: '#f8fafc' } }}
+                        elevation={0}
+                        sx={{ 
+                          p: 2.5, 
+                          borderRadius: 2.5,
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
+                          transition: 'all 0.3s ease', 
+                          '&:hover': { 
+                            borderColor: alpha(theme.primary, 0.4),
+                            bgcolor: alpha(theme.primary, 0.02),
+                            boxShadow: `0 4px 12px ${alpha(theme.primary, 0.1)}`
+                          } 
+                        }}
                       >
-                        <Stack direction="row" spacing={2} alignItems="center">
+                        <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
                           <Badge color="success" variant="dot" overlap="circular">
-                            <Box sx={{ bgcolor: '#f1f5f9', p: 1.5, borderRadius: 3 }}><ReceiptLong color="action" /></Box>
+                            <Box sx={{ 
+                              bgcolor: alpha(theme.success, 0.1), 
+                              p: 1.5, 
+                              borderRadius: 2.5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <ReceiptLong sx={{ color: theme.success, fontSize: 20 }} />
+                            </Box>
                           </Badge>
-                          <Box>
-                            <Typography variant="body2" fontWeight={800}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" fontWeight={800} noWrap>
                               {suppliers.find(s => s.id === h.supplierId)?.name || 'Supplier'}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <Typography variant="caption" color={theme.textSecondary} sx={{ display: 'block' }}>
                               {h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—'}
                               {h.transactionId ? ` • ${h.transactionId}` : ''}
                             </Typography>
                             {h.reference && (
-                              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6366f1' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 800, color: theme.primary, display: 'block' }}>
                                 Ref: {h.reference}
                               </Typography>
                             )}
                           </Box>
                         </Stack>
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography variant="subtitle1" fontWeight={900}>₹{formatCurrency(h.amount)}</Typography>
-                          <Stack direction="row" gap={0.5} justifyContent="flex-end">
+                        <Box sx={{ textAlign: 'right', ml: 1.5 }}>
+                          <Typography variant="subtitle1" fontWeight={900} color={theme.primary}>
+                            ₹{formatCurrency(h.amount)}
+                          </Typography>
+                          <Stack direction="row" gap={0.75} justifyContent="flex-end" sx={{ mt: 1 }}>
                             <Chip
                               label={PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod || 'N/A'}
-                              size="small" variant="outlined"
-                              sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800 }}
+                              size="small" 
+                              variant="outlined"
+                              sx={{ 
+                                height: 22, 
+                                fontSize: '0.65rem', 
+                                fontWeight: 800,
+                                borderColor: alpha(theme.primary, 0.25),
+                                color: theme.primary
+                              }}
                             />
                             <Tooltip title="View Receipt">
-                              <IconButton size="small" onClick={() => setReceiptData({
-                                id: h.transactionId || h.id,
-                                amount: h.amount,
-                                mode: PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod,
-                                supplierName: suppliers.find(s => s.id === h.supplierId)?.name || '',
-                                date: h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—',
-                                ref: h.reference || 'N/A',
-                                notes: h.notes,
-                              })}>
-                                <ReceiptLong sx={{ fontSize: 16 }} />
+                              <IconButton 
+                                size="small" 
+                                onClick={() => setReceiptData({
+                                  id: h.transactionId || h.id,
+                                  amount: h.amount,
+                                  mode: PAYMENT_MODES.find(m => m.value === h.paymentMethod)?.label || h.paymentMethod,
+                                  supplierName: suppliers.find(s => s.id === h.supplierId)?.name || '',
+                                  date: h.paymentDate ? new Date(h.paymentDate).toLocaleString('en-IN') : '—',
+                                  ref: h.reference || 'N/A',
+                                  notes: h.notes,
+                                })}
+                                sx={{
+                                  color: theme.primary,
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    bgcolor: alpha(theme.primary, 0.1),
+                                    transform: 'scale(1.1)'
+                                  }
+                                }}
+                              >
+                                <ReceiptLong fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </Stack>
                         </Box>
-                      </Paper>
+                      </Card>
                     ))}
                   </Stack>
                 )}
@@ -760,98 +1095,130 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
         </Grid>
       </Grid>
 
-      {/* PO ITEMS DIALOG */}
-      <Dialog
-        open={poItemsDialog.open}
-        onClose={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}
-        fullWidth maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 4 } }}
+ {/* ── PO ITEMS DIALOG ────────────────────────────────── */}
+<Dialog
+  open={poItemsDialog.open}
+  onClose={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}
+  fullWidth 
+  maxWidth="sm"
+  PaperProps={{ sx: { borderRadius: 3 } }}
+>
+  <DialogTitle sx={{ pb: 1 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Box>
+        <Typography variant="h6" fontWeight={900}>PO Items</Typography>
+        {poItemsDialog.po && (
+          <Typography variant="caption" color={theme.textSecondary}>
+            {poItemsDialog.po.poNumber} — {suppliers.find(s => s.id === poItemsDialog.po?.supplierId)?.name || ''}
+          </Typography>
+        )}
+      </Box>
+      <IconButton onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}>
+        <Close />
+      </IconButton>
+    </Stack>
+  </DialogTitle>
+  <Divider />
+  <DialogContent sx={{ p: 0 }}>
+    {poItemsDialog.loading ? (
+      <Stack spacing={1.5} sx={{ p: 2 }}>
+        {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={48} />)}
+      </Stack>
+    ) : poItemsDialog.items.length === 0 ? (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography color={theme.textSecondary} variant="body2" fontWeight={600}>
+          No items found for this PO.
+        </Typography>
+      </Box>
+    ) : (
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
+              <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Item</TableCell>
+              <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>SKU</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Qty</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Unit Cost</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Total</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {poItemsDialog.items.map((item, idx) => (
+              <TableRow key={item.id || idx} hover sx={{ '&:hover': { bgcolor: alpha(theme.primary, 0.04) } }}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={700}>{item.name || '—'}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color={theme.textSecondary}>{item.sku || '—'}</Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <Typography variant="body2" fontWeight={700}>{item.quantity || 0}</Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2">₹{formatCurrency(item.unitCost)}</Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" fontWeight={900} color={theme.primary}>
+                    ₹{formatCurrency((item.quantity || 0) * (item.unitCost || 0))}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    )}
+  </DialogContent>
+  <DialogActions sx={{ p: 2, bgcolor: alpha(theme.primary, 0.04) }}>
+    <Button 
+      variant="outlined" 
+      onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })} 
+      sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+    >
+      Close
+    </Button>
+  </DialogActions>
+</Dialog>
+
+      {/* ── RECEIPT MODAL ──────────────────────────────────── */}
+      <Dialog 
+        open={!!receiptData} 
+        onClose={() => setReceiptData(null)} 
+        PaperProps={{ sx: { borderRadius: 3, width: '100%', maxWidth: 480, p: 0 } }}
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Box>
-            <Typography variant="h6" fontWeight={900}>PO Items</Typography>
-            {poItemsDialog.po && (
-              <Typography variant="caption" color="text.secondary">
-                {poItemsDialog.po.poNumber} — {suppliers.find(s => s.id === poItemsDialog.po?.supplierId)?.name || ''}
-              </Typography>
-            )}
-          </Box>
-          <IconButton onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })}>
-            <Close />
-          </IconButton>
+        <DialogTitle sx={{ pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" fontWeight={900}>Payment Voucher</Typography>
+          <IconButton onClick={() => setReceiptData(null)} size="small"><Close /></IconButton>
         </DialogTitle>
         <Divider />
-        <DialogContent sx={{ p: 0 }}>
-          {poItemsDialog.loading ? (
-            <Stack spacing={1.5} sx={{ p: 2 }}>
-              {[1, 2, 3].map(i => <Skeleton key={i} variant="rounded" height={48} />)}
-            </Stack>
-          ) : poItemsDialog.items.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary" variant="body2">No items found for this PO.</Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Item</TableCell>
-                    <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>SKU</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Qty</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Unit Cost</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {poItemsDialog.items.map((item, idx) => (
-                    <TableRow key={item.id || idx} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={700}>{item.name || '—'}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">{item.sku || '—'}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">{item.quantity || 0}</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2">₹{formatCurrency(item.unitCost)}</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight={800}>
-                          ₹{formatCurrency((item.quantity || 0) * (item.unitCost || 0))}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
-          <Button variant="outlined" onClick={() => setPoItemsDialog({ open: false, po: null, items: [], loading: false })} sx={{ fontWeight: 700, borderRadius: 2 }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* DIGITAL RECEIPT MODAL */}
-      <Dialog open={!!receiptData} onClose={() => setReceiptData(null)} PaperProps={{ sx: { borderRadius: 6, width: '100%', maxWidth: 450, p: 1 } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" fontWeight={900}>Payment Voucher</Typography>
-          <IconButton onClick={() => setReceiptData(null)}><Close /></IconButton>
-        </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 3 }}>
           {receiptData && (
-            <Box sx={{ p: 2 }}>
-              <Box sx={{ textAlign: 'center', mb: 3 }}>
-                <CheckCircleOutline sx={{ fontSize: 64, color: '#059669', mb: 1 }} />
-                <Typography variant="h4" fontWeight={900}>₹{formatCurrency(receiptData.amount)}</Typography>
-                <Typography variant="body2" color="text.secondary">Payment Recorded Successfully</Typography>
+            <Stack spacing={2.5}>
+              {/* Success Header */}
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Box sx={{ 
+                  p: 2, 
+                  borderRadius: 3, 
+                  bgcolor: alpha(theme.success, 0.1),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1.5
+                }}>
+                  <CheckCircleOutline sx={{ fontSize: 48, color: theme.success }} />
+                </Box>
+                <Typography variant="h5" fontWeight={900} sx={{ mt: 1 }}>
+                  ₹{formatCurrency(receiptData.amount)}
+                </Typography>
+                <Typography variant="body2" color={theme.textSecondary} fontWeight={600}>
+                  Payment Recorded Successfully
+                </Typography>
               </Box>
-              <Divider sx={{ mb: 3 }} />
-              <Stack spacing={2}>
+
+              <Divider />
+
+              {/* Details */}
+              <Stack spacing={1.5}>
                 {[
                   { label: 'Supplier', val: receiptData.supplierName },
                   { label: 'Payment Date', val: receiptData.date },
@@ -859,56 +1226,82 @@ ${receiptData.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(r
                   { label: 'Payment Mode', val: receiptData.mode },
                   { label: 'Ref / UTR Number', val: receiptData.ref },
                 ].filter(r => r.val).map((row, i) => (
-                  <Stack key={i} direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+                  <Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="body2" color={theme.textSecondary} fontWeight={600}>{row.label}</Typography>
                     <Typography variant="body2" fontWeight={800}>{row.val}</Typography>
                   </Stack>
                 ))}
               </Stack>
+
               {receiptData.notes && (
-                <Box sx={{ mt: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Notes:</Typography>
-                  <Typography variant="body2" sx={{ fontStyle: 'italic' }}>{receiptData.notes}</Typography>
-                </Box>
+                <>
+                  <Divider />
+                  <Box sx={{ p: 2, bgcolor: alpha(theme.primary, 0.04), borderRadius: 2 }}>
+                    <Typography variant="caption" fontWeight={800} color={theme.textSecondary} sx={{ display: 'block', mb: 0.5 }}>
+                      Notes
+                    </Typography>
+                    <Typography variant="body2">{receiptData.notes}</Typography>
+                  </Box>
+                </>
               )}
-            </Box>
+            </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: 2.5, bgcolor: alpha(theme.primary, 0.04), gap: 1 }}>
           <Button
-            fullWidth variant="outlined"
+            fullWidth 
+            variant="outlined"
             startIcon={<PrintIcon />}
             onClick={handlePrintReceipt}
-            sx={{ borderRadius: 3 }}
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 700,
+              textTransform: 'none',
+              borderColor: alpha(theme.primary, 0.3),
+              color: theme.primary,
+              '&:hover': {
+                bgcolor: alpha(theme.primary, 0.05),
+                borderColor: theme.primary
+              }
+            }}
           >
             Print Voucher
           </Button>
-          <Button fullWidth variant="contained" startIcon={<PictureAsPdf />} sx={{ borderRadius: 3 }} onClick={() => setReceiptData(null)}>
+          <Button 
+            fullWidth 
+            variant="contained"
+            onClick={() => setReceiptData(null)}
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 700,
+              textTransform: 'none',
+              background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primaryLight} 100%)`
+            }}
+          >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* ── NOTIFICATIONS ──────────────────────────────────── */}
       <Snackbar
-        open={notification.open} autoHideDuration={4000}
+        open={notification.open} 
+        autoHideDuration={4000}
         onClose={() => setNotification({ ...notification, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={notification.severity} variant="filled" sx={{ borderRadius: 3, fontWeight: 700 }}>
+        <Alert 
+          severity={notification.severity} 
+          variant="filled" 
+          sx={{ 
+            borderRadius: 2.5, 
+            fontWeight: 700,
+            fontSize: '0.9rem'
+          }}
+        >
           {notification.message}
         </Alert>
       </Snackbar>
     </Box>
   );
 }
-
-const formInputSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 4,
-    bgcolor: 'white',
-    transition: '0.2s',
-    '&:hover fieldset': { borderColor: '#2563eb' },
-    '&.Mui-focused fieldset': { borderWidth: '2px' }
-  },
-  '& .MuiInputLabel-root': { fontWeight: 600 }
-};
