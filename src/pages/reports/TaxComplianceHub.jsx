@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
 import { 
   Box, Typography, Paper, Grid, Button, Stack, Card, CardContent, 
@@ -22,6 +23,7 @@ export default function TaxComplianceHub() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // State for selectors
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -69,9 +71,9 @@ export default function TaxComplianceHub() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#1E293B">Tax Compliance Hub</Typography>
+          <Typography variant="h4" fontWeight={900} color="#1E293B">{t('taxComplianceHub.title')}</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Automated financial data exports for your Chartered Accountant.
+            {t('taxComplianceHub.subtitle')}
           </Typography>
         </Box>
         {!isMobile && (

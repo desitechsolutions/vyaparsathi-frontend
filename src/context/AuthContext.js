@@ -37,10 +37,11 @@ export const AuthProvider = ({ children }) => {
     if (message && !logoutToastShown.current) {
       logoutToastShown.current = true;
 
-      // FIX: Instead of toast.dismiss() (which causes the crash), 
-      // we just fire the error toast. The 'limit={1}' in the container 
-      // ensures only one is visible.
+      // Use a stable toastId so react-toastify's built-in deduplication
+      // prevents duplicates without needing limit={1} (which triggers the
+      // "removalReason" crash when the evicted toast's close button is clicked).
       toast.error(message, {
+        toastId: 'logout-notification',
         autoClose: 4000,
         pauseOnFocusLoss: false,
         onClose: () => {
@@ -173,13 +174,9 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {/* FIX: limit={1} handles the "duplicate toast" issue naturally.
-         standardizing the ToastContainer helps avoid the removalReason error.
-      */}
       <ToastContainer
         position="top-center"
         autoClose={4000}
-        limit={1}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick

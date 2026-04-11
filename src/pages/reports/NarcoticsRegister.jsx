@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, Button, CircularProgress, Stack,
   Card, CardContent, Avatar, Alert, Chip, Table, TableBody,
@@ -23,9 +24,9 @@ const SCHEDULE_LABELS = {
 
 const formatDate = (d) => d ? dayjs(d).format('DD MMM YYYY, hh:mm A') : '—';
 
-const downloadCSV = (data, from, to) => {
+const downloadCSV = (data, from, to, t) => {
   const rows = [
-    ['Narcotics & Controlled Drug Register'],
+    [t('narcoticsReport.title')],
     [`Period: ${from} to ${to}`],
     [],
     ['Date', 'Invoice No', 'Item Name', 'Schedule', 'Qty', 'Unit', 'Customer', 'Doctor', 'Patient', 'Batch No'],
@@ -47,6 +48,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function NarcoticsRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [data, setData] = useState(null);
@@ -88,7 +90,7 @@ export default function NarcoticsRegister() {
         <Box>
           <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
             <GppMaybe color="error" />
-            <Typography variant="h4" fontWeight={900} color="#0f172a">Narcotics & Controlled Drug Register</Typography>
+            <Typography variant="h4" fontWeight={900} color="#0f172a">{t('narcoticsReport.title')}</Typography>
           </Stack>
           <Typography color="text.secondary">
             Mandatory log for Schedule H, H1, and X (narcotic) drug sales — required for regulatory compliance
@@ -98,7 +100,7 @@ export default function NarcoticsRegister() {
           <Button
             variant="outlined"
             startIcon={<FileDownload />}
-            onClick={() => downloadCSV(data, from, to)}
+            onClick={() => downloadCSV(data, from, to, t)}
             sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'white' }}
           >
             Export CSV
@@ -115,11 +117,11 @@ export default function NarcoticsRegister() {
       <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
-            <TextField label="From Date" type="date" value={from} fullWidth
+            <TextField label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <TextField label="To Date" type="date" value={to} fullWidth
+            <TextField label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} sm={4}>
@@ -165,7 +167,7 @@ export default function NarcoticsRegister() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                    {['Date & Invoice', 'Item Name', 'Schedule', 'Qty', 'Customer', 'Prescribing Doctor', 'Patient', 'Batch No'].map(h => (
+                    {[t('narcoticsReport.columns.date'), t('narcoticsReport.columns.item'), t('narcoticsReport.columns.schedule'), t('narcoticsReport.columns.qty'), t('reportsCommon.allCustomers'), t('narcoticsReport.columns.doctor'), t('narcoticsReport.columns.patient'), 'Batch No'].map(h => (
                       <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
                         {h}
                       </TableCell>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, CircularProgress, 
   Table, TableHead, TableRow, TableCell, TableBody, Stack, Avatar, 
@@ -37,6 +38,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function CustomerSales() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,8 +86,8 @@ export default function CustomerSales() {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Customer Insights</Typography>
-          <Typography color="text.secondary">Revenue breakdown and receivable tracking per client</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('customerSalesReport.title')}</Typography>
+          <Typography color="text.secondary">{t('customerSalesReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
@@ -103,13 +105,13 @@ export default function CustomerSales() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
-              label="From" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={3}>
             <TextField
-              label="To" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
@@ -148,10 +150,10 @@ export default function CustomerSales() {
           <Table sx={{ minWidth: 700 }}>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>Customer Name</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Total Sales</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Total Due</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{	('customerSalesReport.columns.customer')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('customerSalesReport.columns.totalAmount')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('reportsCommon.amount')}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800 }}>{	('reportsCommon.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

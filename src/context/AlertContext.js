@@ -12,17 +12,14 @@ export const AlertProvider = ({ children }) => {
   const getAlerts = useCallback(async () => {
     try {
       const response = await fetchLowStockAlerts();
-      setAlerts(response.data || []);
+      setAlerts(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Failed to fetch low stock alerts:", error);
       setAlerts([]);
     } finally {
-      // Only set loading to false on the initial load
-      if (isLoading) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
-  }, [isLoading]); // Keep isLoading dependency for the initial load logic
+  }, []); // No dependencies – setAlerts and setIsLoading are stable
 
   useEffect(() => {
     getAlerts(); // Fetch on initial load
@@ -34,7 +31,7 @@ export const AlertProvider = ({ children }) => {
 
   // FIX: Wrap the function in useCallback to stabilize its reference
   const manuallySetAlerts = useCallback((newAlerts) => {
-    setAlerts(newAlerts);
+    setAlerts(Array.isArray(newAlerts) ? newAlerts : []);
   }, []); // setAlerts is stable, so the dependency array is empty
 
   const value = {

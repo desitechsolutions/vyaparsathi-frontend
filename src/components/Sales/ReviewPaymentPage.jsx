@@ -52,15 +52,24 @@ const ReviewPaymentPage = ({
   // CALCULATIONS
   // =======================
   const subtotal = parseFloat(formData.totalAmount) || 0;
-  const discountedTotal = (subtotal - discount);
 
-  // Issue 5: Calculate total GST from item-level gstRate
+  // Calculate GST from item-level gstRate.
+  // For pharmacy, GST is already inclusive in MRP (informational only — do NOT add to total).
+  // For all other shops, GST is exclusive and must be added on top.
   const totalGst = (formData.items || []).reduce((sum, item) => {
     if (formData.isGstRequired !== 'yes') return sum;
     const rate = Number(item.gstRate) || 0;
     const lineTotal = Number(item.qty) * Number(item.unitPrice);
-    return sum + (lineTotal * rate / 100);
+    // Pharmacy: extract inclusive GST (price already contains GST)
+    // Others: calculate exclusive GST added on top
+    return sum + (isPharmacy
+      ? lineTotal * rate / (100 + rate)
+      : lineTotal * rate / 100);
   }, 0);
+
+  // For non-pharmacy with exclusive GST, add GST to the subtotal before applying discount
+  const exclusiveGst = !isPharmacy ? totalGst : 0;
+  const discountedTotal = subtotal + exclusiveGst - discount;
 
   // Automatic allocation of advance
   const advanceApplied = Math.min(availableAdvance, discountedTotal);
@@ -119,7 +128,7 @@ const ReviewPaymentPage = ({
       <Container maxWidth="xl">
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a' }}>Review & Payment</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', fontSize: { xs: '1.3rem', sm: '1.5rem', md: '2.125rem' } }}>Review & Payment</Typography>
             <Typography variant="body2" color="textSecondary">Record payment distribution to complete sale</Typography>
           </Box>
           <Button startIcon={<ArrowBackIcon />} onClick={onCancel} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
@@ -127,8 +136,8 @@ const ReviewPaymentPage = ({
           </Button>
         </Stack>
 
-        <Grid container spacing={4}>
-          <Grid item xs={12} lg={8}>
+        <Grid container spacing={{ xs: 2, md: 4 }}>
+          <Grid item xs={12} lg={8} order={{ xs: 2, lg: 1 }}>
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} md={7}>
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
@@ -235,17 +244,17 @@ const ReviewPaymentPage = ({
             </Paper>
           </Grid>
 
-          <Grid item xs={12} lg={4}>
-            <Box sx={{ position: 'sticky', top: 24 }}>
-              <Paper elevation={12} sx={{ p: 4, borderRadius: 4, bgcolor: '#0f172a', color: 'white' }}>
-                <Typography variant="h5" sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 2, fontWeight: 800 }}>Billing Summary</Typography>
-                <Stack spacing={3} sx={{ my: 4 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography sx={{ opacity: 0.7 }}>Subtotal</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</Typography>
+          <Grid item xs={12} lg={4} order={{ xs: 1, lg: 2 }}>
+            <Box sx={{ position: { lg: 'sticky' }, top: 24 }}>
+              <Paper elevation={12} sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, bgcolor: '#0f172a', color: 'white' }}>
+                <Typography variant="h6" sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 2, fontWeight: 800 }}>Billing Summary</Typography>
+                <Stack spacing={2} sx={{ my: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ opacity: 0.7, flexShrink: 0 }}>Subtotal</Typography>
+                    <Typography sx={{ fontWeight: 600, textAlign: 'right' }}>₹{subtotal.toFixed(2)}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography sx={{ opacity: 0.7 }}>Extra Discount</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ opacity: 0.7, flexShrink: 0 }}>Extra Discount</Typography>
                     <TextField
                       size="small" type="number" value={discount}
                       sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'white', textAlign: 'right', fontWeight: 800 }}}
@@ -255,46 +264,48 @@ const ReviewPaymentPage = ({
                           const cleanDiscount = isNaN(val) ? 0 : Math.max(0, Math.min(val, subtotal));
                           setDiscount(cleanDiscount);
                         }}
-                        inputProps={{ min: 0, max: subtotal }
+                        inputProps={{ min: 0, max: subtotal, step: 'any' }
                       }
                     />
                   </Box>
 
                   {/* DISPLAY APPLIED ADVANCE FROM creditBalance */}
                   {advanceApplied > 0 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#4ade80' }}>Advance Applied</Typography>
-                      <Typography sx={{ fontWeight: 600, color: '#4ade80' }}>- ₹{advanceApplied.toFixed(2)}</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                      <Typography sx={{ color: '#4ade80', flexShrink: 0 }}>Advance Applied</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#4ade80', textAlign: 'right' }}>- ₹{advanceApplied.toFixed(2)}</Typography>
                     </Box>
                   )}
 
-                  {/* Issue 5: Show GST total when applicable */}
+                  {/* Show GST: for non-pharmacy it is added to total; for pharmacy it is informational only */}
                   {formData.isGstRequired === 'yes' && totalGst > 0 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#93c5fd', opacity: 0.9 }}>
-                        {isPharmacy ? 'Inclusive GST' : 'Total GST'}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                      <Typography sx={{ color: '#93c5fd', opacity: 0.9, flexShrink: 0 }}>
+                        {isPharmacy ? 'Inclusive GST (info)' : 'GST (+)'}
                       </Typography>
-                      <Typography sx={{ fontWeight: 600, color: '#93c5fd' }}>₹{totalGst.toFixed(2)}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#93c5fd', textAlign: 'right' }}>
+                        {isPharmacy ? '' : '+ '}₹{totalGst.toFixed(2)}
+                      </Typography>
                     </Box>
                   )}
 
                   <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900 }}>Net Payable</Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#4ade80' }}>₹{netPayable}</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 900, flexShrink: 0 }}>Net Payable</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: '#4ade80', textAlign: 'right', overflowWrap: 'break-word', minWidth: 0 }}>₹{netPayable}</Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>Paid Now</Typography>
-                    <Typography variant="body2">₹{totalPayment.toFixed(2)}</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.8, flexShrink: 0 }}>Paid Now</Typography>
+                    <Typography variant="body2" sx={{ textAlign: 'right' }}>₹{totalPayment.toFixed(2)}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1.5, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
-                    <Typography variant="body2" color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>Balance Due</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 800 }} color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>₹{remaining}</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                    <Typography variant="body2" color={Number(remaining) > 0 ? '#f87171' : '#4ade80'} sx={{ flexShrink: 0 }}>Balance Due</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, textAlign: 'right' }} color={Number(remaining) > 0 ? '#f87171' : '#4ade80'}>₹{remaining}</Typography>
                   </Box>
                 </Stack>
-                <Button fullWidth variant="contained" onClick={handleConfirmAction} disabled={loading} sx={{ py: 2, fontWeight: 900, borderRadius: 3, fontSize: '1.1rem', bgcolor: '#4ade80', color: '#064e3b', '&:hover': { bgcolor: '#22c55e' } }}>
+                <Button fullWidth variant="contained" onClick={handleConfirmAction} disabled={loading} sx={{ py: 2, fontWeight: 900, borderRadius: 3, fontSize: { xs: '1rem', sm: '1.1rem' }, bgcolor: '#4ade80', color: '#064e3b', '&:hover': { bgcolor: '#22c55e' } }}>
                   {loading ? 'PROCESSING...' : 'COMPLETE SALE'}
                 </Button>
               </Paper>

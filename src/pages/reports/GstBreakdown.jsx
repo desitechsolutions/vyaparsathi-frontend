@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Divider, CircularProgress, 
   Table, TableHead, TableRow, TableCell, TableBody, Stack, Avatar, Chip, Alert
@@ -39,6 +40,7 @@ const downloadCSV = (data, from, to) => {
 
 export default function GstBreakdown() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [from, setFrom] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [to, setTo] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
   const [report, setReport] = useState([]);
@@ -82,8 +84,8 @@ export default function GstBreakdown() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">Tax Breakdown</Typography>
-          <Typography color="text.secondary">Itemized GST figures grouped by tax slabs</Typography>
+          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('gstBreakdownReport.title')}</Typography>
+          <Typography color="text.secondary">{t('gstBreakdownReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
@@ -91,7 +93,7 @@ export default function GstBreakdown() {
             onClick={() => downloadCSV(report, from, to)}
             sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
           >
-            Export CSV
+            {t('reportsCommon.export')}
           </Button>
         )}
       </Stack>
@@ -100,13 +102,13 @@ export default function GstBreakdown() {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
-              label="From Date" type="date" value={from} fullWidth
+              label={t('reportsCommon.from')} type="date" value={from} fullWidth
               onChange={e => setFrom(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
             <TextField
-              label="To Date" type="date" value={to} fullWidth
+              label={t('reportsCommon.to')} type="date" value={to} fullWidth
               onChange={e => setTo(e.target.value)} InputLabelProps={{ shrink: true }}
             />
           </Grid>
@@ -130,12 +132,12 @@ export default function GstBreakdown() {
           <Table sx={{ minWidth: 650 }}>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>Tax Slab</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Taxable Value</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>CGST</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>SGST</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>IGST</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Total Tax</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.rate')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.taxableAmount')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.cgst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.sgst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.igst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.total')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -156,7 +158,7 @@ export default function GstBreakdown() {
               })}
               {/* Grand Total Row */}
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                <TableCell sx={{ fontWeight: 900 }}>Grand Total</TableCell>
+                <TableCell sx={{ fontWeight: 900 }}>{t('reportsCommon.total')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.taxable.toLocaleString('en-IN')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.cgst.toLocaleString('en-IN')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.sgst.toLocaleString('en-IN')}</TableCell>

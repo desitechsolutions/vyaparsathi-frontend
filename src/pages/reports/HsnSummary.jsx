@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, Chip, Button, Stack, TableContainer } from '@mui/material';
 import { ArrowBackIosNew, FileDownload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function HsnSummary() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [data] = useState([
     { hsn: '6109', desc: 'Cotton T-Shirts', qty: 150, taxable: 45000, tax: 2250 },
     { hsn: '6403', desc: 'Leather Footwear', qty: 40, taxable: 85000, tax: 10200 },
@@ -15,8 +17,8 @@ export default function HsnSummary() {
       <Button startIcon={<ArrowBackIosNew />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>Back</Button>
       <Stack direction="row" justifyContent="space-between" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900}>HSN Summary</Typography>
-          <Typography color="text.secondary">HSN-wise tax distribution for GSTR filing</Typography>
+          <Typography variant="h4" fontWeight={900}>{t('hsnSummaryReport.title')}</Typography>
+          <Typography color="text.secondary">{t('hsnSummaryReport.subtitle')}</Typography>
         </Box>
         <Button variant="outlined" startIcon={<FileDownload />}>Export HSN CSV</Button>
       </Stack>
@@ -25,11 +27,11 @@ export default function HsnSummary() {
         <Table>
           <TableHead sx={{ bgcolor: '#f8fafc' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 800 }}>HSN Code</TableCell>
-              <TableCell sx={{ fontWeight: 800 }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 800 }}>{t('hsnSummaryReport.columns.hsn')}</TableCell>
+              <TableCell sx={{ fontWeight: 800 }}>{t('hsnSummaryReport.columns.description')}</TableCell>
               <TableCell align="right" sx={{ fontWeight: 800 }}>Qty Sold</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 800 }}>Taxable Value</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 800 }}>Total Tax</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800 }}>{t('hsnSummaryReport.columns.taxableValue')}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 800 }}>{t('hsnSummaryReport.columns.total')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

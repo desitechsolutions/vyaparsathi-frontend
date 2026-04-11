@@ -2,32 +2,36 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   IconButton, Button, Drawer, TextField, MenuItem, Select, InputLabel, FormControl,
-  Chip, Tooltip, CircularProgress, Snackbar, Alert, Autocomplete, Divider, TableSortLabel, 
+  Chip, CircularProgress, Snackbar, Alert, Autocomplete, Divider, 
   Grid, Card, CardContent, Stack
 } from '@mui/material';
 import {
-  Edit, Visibility, Print, Close, AssignmentInd, Send, FileDownload,
+  Visibility, Print, Close, FileDownload,
   ClearAll, Inbox, LocalShipping, CheckCircle, AccessTime, Search
 } from '@mui/icons-material';
 import { useReactToPrint } from 'react-to-print';
 import { CSVLink } from 'react-csv';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import {
-  fetchDeliveries, updateDeliveryDetails, assignDeliveryPerson,
+  fetchDeliveries, assignDeliveryPerson,
   updateDeliveryStatus, fetchDeliveryPersons, createDeliveryPerson
 } from '../services/api';
 import PrintableDelivery from '../components/PrintableDelivery';
 
-const statusConfig = {
-  PENDING: { label: "Pending", color: "default", icon: <AccessTime fontSize="small" />, order: 1 },
-  PACKED: { label: "Packed", color: "warning", icon: <Inbox fontSize="small" />, order: 2 },
-  OUT_FOR_DELIVERY: { label: "Out for Delivery", color: "info", icon: <LocalShipping fontSize="small" />, order: 3 },
-  IN_TRANSIT: { label: "In Transit", color: "secondary", icon: <LocalShipping fontSize="small" />, order: 4 },
-  DELIVERED: { label: "Delivered", color: "success", icon: <CheckCircle fontSize="small" />, order: 5 },
-  CANCELLED: { label: "Cancelled", color: "error", icon: <Close fontSize="small" />, order: 0 }
-};
-
 const DeliveryManagement = () => {
+  const { t } = useTranslation();
+
+  // Memoized config to react to language changes
+  const statusConfig = useMemo(() => ({
+    PENDING: { label: t('deliveryPage.statusPENDING'), color: "default", icon: <AccessTime fontSize="small" />, order: 1 },
+    PACKED: { label: t('deliveryPage.statusPACKED'), color: "warning", icon: <Inbox fontSize="small" />, order: 2 },
+    OUT_FOR_DELIVERY: { label: t('deliveryPage.statusOUT_FOR_DELIVERY'), color: "info", icon: <LocalShipping fontSize="small" />, order: 3 },
+    IN_TRANSIT: { label: t('deliveryPage.statusIN_TRANSIT'), color: "secondary", icon: <LocalShipping fontSize="small" />, order: 4 },
+    DELIVERED: { label: t('deliveryPage.statusDELIVERED'), color: "success", icon: <CheckCircle fontSize="small" />, order: 5 },
+    CANCELLED: { label: t('deliveryPage.statusCANCELLED'), color: "error", icon: <Close fontSize="small" />, order: 0 }
+  }), [t]);
+
   // --- State Management ---
   const [deliveries, setDeliveries] = useState([]);
   const [deliveryPersons, setDeliveryPersons] = useState([]);
@@ -39,9 +43,7 @@ const DeliveryManagement = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [sortConfig, setSortConfig] = useState({ key: 'updatedAt', direction: 'desc' });
-  const [editMode, setEditMode] = useState(false);
-  const [editDelivery, setEditDelivery] = useState(null);
+  const [sortConfig] = useState({ key: 'updatedAt', direction: 'desc' });
   const [assignMode, setAssignMode] = useState(false);
   const [assignPerson, setAssignPerson] = useState({ name: "", phone: "", notes: "" });
   const [updateStatus, setUpdateStatus] = useState("");
@@ -65,11 +67,11 @@ const DeliveryManagement = () => {
         if (updated) setSelectedDelivery(updated);
       }
     } catch (error) {
-      showSnackbar("Failed to load delivery data.", "error");
+      showSnackbar(t('deliveryPage.msgLoadError'), "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -101,7 +103,6 @@ const DeliveryManagement = () => {
     return filtered;
   }, [deliveries, filterStatus, search, dateRange, sortConfig]);
 
-  // --- Stats Summary ---
   const stats = useMemo(() => ({
     total: processedDeliveries.length,
     pending: processedDeliveries.filter(d => d.deliveryStatus === 'PENDING').length,
@@ -112,7 +113,7 @@ const DeliveryManagement = () => {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: selectedDelivery ? `Delivery_${selectedDelivery.invoiceNumber}` : 'Delivery',
-    onAfterPrint: () => showSnackbar("Print completed!", "success"),
+    onAfterPrint: () => showSnackbar(t('deliveryPage.msgPrintSuccess'), "success"),
   });
 
   const showSnackbar = (message, severity = 'info') => setSnackbar({ open: true, message, severity });
@@ -125,16 +126,14 @@ const DeliveryManagement = () => {
 
   const handleOpenDrawer = (d) => {
     setSelectedDelivery(d);
-    setEditDelivery({ ...d });
     setDrawerOpen(true);
-    setEditMode(false);
     setAssignMode(false);
     setUpdateStatus("");
     setAssignPerson({ name: "", phone: "", notes: "" });
   };
 
   const handleAssignPerson = async () => {
-    if (!assignPerson.name || !assignPerson.phone) return showSnackbar("Name and phone are required", "warning");
+    if (!assignPerson.name || !assignPerson.phone) return showSnackbar(t('deliveryPage.msgAssignReq'), "warning");
     setIsSubmitting(true);
     try {
       let personToAssign = assignPerson;
@@ -147,10 +146,10 @@ const DeliveryManagement = () => {
         personToAssign = newPersonRes.data;
       }
       await assignDeliveryPerson(selectedDelivery.deliveryId, personToAssign);
-      showSnackbar("Person assigned successfully", "success");
+      showSnackbar(t('deliveryPage.msgAssignSuccess'), "success");
       setAssignMode(false);
       await loadData(selectedDelivery.deliveryId);
-    } catch (e) { showSnackbar("Assignment failed", "error"); }
+    } catch (e) { showSnackbar(t('deliveryPage.msgAssignError'), "error"); }
     finally { setIsSubmitting(false); }
   };
 
@@ -159,41 +158,29 @@ const DeliveryManagement = () => {
     setIsSubmitting(true);
     try {
       await updateDeliveryStatus(selectedDelivery.deliveryId, updateStatus, "Admin");
-      showSnackbar("Status updated", "success");
+      showSnackbar(t('deliveryPage.msgUpdateSuccess'), "success");
       setUpdateStatus("");
       await loadData(selectedDelivery.deliveryId);
-    } catch (e) { showSnackbar("Update failed", "error"); }
+    } catch (e) { showSnackbar(t('deliveryPage.msgUpdateError'), "error"); }
     finally { setIsSubmitting(false); }
   };
 
-  // Fix: Prevent moving after Delivered and prevent same-status updates
   const canTransitionTo = (targetStatus) => {
     if (!selectedDelivery) return true;
-    
     const currentStatus = selectedDelivery.deliveryStatus;
-    
-    // 1. Prevent updating to the exact same status
     if (targetStatus === currentStatus) return false;
-
-    // 2. Prevent any changes if already Delivered or Cancelled (Terminal states)
     if (currentStatus === 'DELIVERED' || currentStatus === 'CANCELLED') return false;
-
     const currentOrder = statusConfig[currentStatus]?.order || 0;
     const targetOrder = statusConfig[targetStatus]?.order || 0;
-    
-    // Allow cancellation only if not delivered
     if (targetStatus === 'CANCELLED') return true;
-
-    // Only allow forward progression
     return targetOrder > currentOrder;
   };
 
   const csvHeaders = [
-    { label: "Delivery ID", key: "deliveryId" },
-    { label: "Order #", key: "invoiceNumber" },
-    { label: "Customer", key: "customerName" },
-    { label: "Status", key: "deliveryStatus" },
-    { label: "Updated At", key: "updatedAt" }
+    { label: t('deliveryPage.tableOrder'), key: "invoiceNumber" },
+    { label: t('deliveryPage.tableCustomer'), key: "customerName" },
+    { label: t('deliveryPage.tableStatus'), key: "deliveryStatus" },
+    { label: t('deliveryPage.tableDate'), key: "updatedAt" }
   ];
 
   return (
@@ -211,22 +198,22 @@ const DeliveryManagement = () => {
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a237e' }}>Delivery Management</Typography>
-          <Typography variant="body2" color="text.secondary">Track and manage your customer fulfillments</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a237e' }}>{t('deliveryPage.title')}</Typography>
+          <Typography variant="body2" color="text.secondary">{t('deliveryPage.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <CSVLink data={processedDeliveries} headers={csvHeaders} filename="deliveries.csv" style={{ textDecoration: 'none' }}>
-            <Button variant="outlined" startIcon={<FileDownload />}>Export</Button>
+            <Button variant="outlined" startIcon={<FileDownload />}>{t('deliveryPage.export')}</Button>
           </CSVLink>
-          <Button variant="contained" startIcon={<Print />} onClick={handlePrint} disabled={!selectedDelivery}>Print Label</Button>
+          <Button variant="contained" startIcon={<Print />} onClick={handlePrint} disabled={!selectedDelivery}>{t('deliveryPage.printLabel')}</Button>
         </Stack>
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Shipments', val: stats.total, color: '#1a237e', icon: <LocalShipping /> },
-          { label: 'Pending', val: stats.pending, color: '#ed6c02', icon: <AccessTime /> },
-          { label: 'Delivered', val: stats.delivered, color: '#2e7d32', icon: <CheckCircle /> }
+          { label: t('deliveryPage.statsTotal'), val: stats.total, color: '#1a237e', icon: <LocalShipping /> },
+          { label: t('deliveryPage.statsPending'), val: stats.pending, color: '#ed6c02', icon: <AccessTime /> },
+          { label: t('deliveryPage.statsDelivered'), val: stats.delivered, color: '#2e7d32', icon: <CheckCircle /> }
         ].map((stat, i) => (
           <Grid item xs={12} sm={4} key={i}>
             <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e8' }}>
@@ -245,22 +232,22 @@ const DeliveryManagement = () => {
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e0e4e8' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
-            <TextField fullWidth size="small" placeholder="Search customer, invoice or address..." 
+            <TextField fullWidth size="small" placeholder={t('deliveryPage.searchPlaceholder')} 
               value={search} onChange={e => setSearch(e.target.value)}
               InputProps={{ startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} /> }} />
           </Grid>
           <Grid item xs={6} md={2}>
             <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select label="Status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <MenuItem value="">All Status</MenuItem>
+              <InputLabel>{t('deliveryPage.filterStatus')}</InputLabel>
+              <Select label={t('deliveryPage.filterStatus')} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                <MenuItem value="">{t('deliveryPage.filterAllStatus')}</MenuItem>
                 {Object.entries(statusConfig).map(([key, { label }]) => (<MenuItem key={key} value={key}>{label}</MenuItem>))}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} md={2}><TextField fullWidth size="small" type="date" label="Start" value={dateRange.start} onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-          <Grid item xs={6} md={2}><TextField fullWidth size="small" type="date" label="End" value={dateRange.end} onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-          <Grid item xs={6} md={2}><Button fullWidth variant="text" onClick={clearFilters} startIcon={<ClearAll />}>Reset</Button></Grid>
+          <Grid item xs={6} md={2}><TextField fullWidth size="small" type="date" label={t('deliveryPage.filterStart')} value={dateRange.start} onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={6} md={2}><TextField fullWidth size="small" type="date" label={t('deliveryPage.filterEnd')} value={dateRange.end} onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={6} md={2}><Button fullWidth variant="text" onClick={clearFilters} startIcon={<ClearAll />}>{t('deliveryPage.filterReset')}</Button></Grid>
         </Grid>
       </Paper>
 
@@ -268,19 +255,19 @@ const DeliveryManagement = () => {
         <Table stickyHeader size="medium">
           <TableHead>
             <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Order #</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Delivery Agent</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Action</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableOrder')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableStatus')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableCustomer')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableAgent')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableDate')}</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableAction')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10 }}><CircularProgress size={30} /></TableCell></TableRow>
             ) : processedDeliveries.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10 }}><Typography color="text.secondary">No deliveries found matching filters</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10 }}><Typography color="text.secondary">{t('deliveryPage.tableNoResults')}</Typography></TableCell></TableRow>
             ) : processedDeliveries.map(d => (
               <TableRow key={d.deliveryId} hover onClick={() => handleOpenDrawer(d)} sx={{ cursor: 'pointer' }}>
                 <TableCell><b>#{d.invoiceNumber || d.saleId}</b></TableCell>
@@ -299,7 +286,7 @@ const DeliveryManagement = () => {
                       <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>{d.deliveryPerson.name[0]}</Avatar>
                       <Typography variant="body2">{d.deliveryPerson.name}</Typography>
                     </Box>
-                  ) : <Typography variant="caption" color="error">Not Assigned</Typography>}
+                  ) : <Typography variant="caption" color="error">{t('deliveryPage.tableNotAssigned')}</Typography>}
                 </TableCell>
                 <TableCell>{dayjs(d.updatedAt).format('DD MMM, YYYY')}</TableCell>
                 <TableCell align="center">
@@ -315,21 +302,14 @@ const DeliveryManagement = () => {
         anchor="right" 
         open={drawerOpen} 
         onClose={() => setDrawerOpen(false)} 
-        PaperProps={{ 
-          sx: { 
-            width: { xs: "100vw", sm: 450 }, 
-            p: 0,
-            mt: '64px',
-            height: 'calc(100% - 64px)'
-          } 
-        }}
+        PaperProps={{ sx: { width: { xs: "100vw", sm: 450 }, p: 0, mt: '64px', height: 'calc(100% - 64px)' } }}
       >
         {selectedDelivery && (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 3, bgcolor: '#1a237e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
-                <Typography variant="h6">Delivery Details</Typography>
-                <Typography variant="caption">Order #{selectedDelivery.invoiceNumber}</Typography>
+                <Typography variant="h6">{t('deliveryPage.drawerDetailsTitle')}</Typography>
+                <Typography variant="caption">{t('deliveryPage.tableOrder')} #{selectedDelivery.invoiceNumber}</Typography>
               </Box>
               <IconButton onClick={() => setDrawerOpen(false)} sx={{ color: 'white' }}><Close /></IconButton>
             </Box>
@@ -337,45 +317,41 @@ const DeliveryManagement = () => {
             <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
               <Card variant="outlined" sx={{ mb: 3, borderRadius: 2 }}>
                 <CardContent>
-                  <Typography variant="subtitle2" color="primary" gutterBottom>Customer Information</Typography>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>{t('deliveryPage.drawerCustomerInfo')}</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{selectedDelivery.customerName}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selectedDelivery.deliveryAddress}</Typography>
                   <Divider sx={{ my: 1.5 }} />
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2">Shipping Fee:</Typography>
+                    <Typography variant="body2">{t('deliveryPage.drawerShippingFee')}:</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 'bold' }}>₹{selectedDelivery.deliveryCharge}</Typography>
                   </Stack>
                 </CardContent>
               </Card>
 
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Fulfillment Status</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>{t('deliveryPage.drawerFulfillmentStatus')}</Typography>
               <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                 <FormControl fullWidth size="small">
                   <Select value={updateStatus} onChange={e => setUpdateStatus(e.target.value)} displayEmpty>
-                    <MenuItem value="" disabled>Change Status...</MenuItem>
+                    <MenuItem value="" disabled>{t('deliveryPage.drawerChangeStatus')}</MenuItem>
                     {Object.entries(statusConfig).map(([k, v]) => (
                       <MenuItem key={k} value={k} disabled={!canTransitionTo(k)}>
-                        {v.label} {k === selectedDelivery.deliveryStatus ? "(Current)" : !canTransitionTo(k) ? "(Restricted)" : ""}
+                        {v.label} {k === selectedDelivery.deliveryStatus ? t('deliveryPage.drawerCurrent') : !canTransitionTo(k) ? t('deliveryPage.drawerRestricted') : ""}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Button 
-                    variant="contained" 
-                    disabled={!updateStatus || updateStatus === selectedDelivery.deliveryStatus || isSubmitting} 
-                    onClick={handleUpdateStatus}
-                >
-                    Update
+                <Button variant="contained" disabled={!updateStatus || updateStatus === selectedDelivery.deliveryStatus || isSubmitting} onClick={handleUpdateStatus}>
+                    {t('deliveryPage.drawerUpdateBtn')}
                 </Button>
               </Stack>
 
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Delivery Agent</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>{t('deliveryPage.drawerAgentTitle')}</Typography>
               {!assignMode ? (
                 <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2">
-                    {selectedDelivery.deliveryPerson ? selectedDelivery.deliveryPerson.name : 'No agent assigned'}
+                    {selectedDelivery.deliveryPerson ? selectedDelivery.deliveryPerson.name : t('deliveryPage.drawerNoAgent')}
                   </Typography>
-                  <Button size="small" onClick={() => setAssignMode(true)} disabled={selectedDelivery.deliveryStatus === 'DELIVERED'}>{selectedDelivery.deliveryPerson ? 'Change' : 'Assign'}</Button>
+                  <Button size="small" onClick={() => setAssignMode(true)} disabled={selectedDelivery.deliveryStatus === 'DELIVERED'}>{selectedDelivery.deliveryPerson ? t('deliveryPage.drawerChange') : t('deliveryPage.drawerAssign')}</Button>
                 </Box>
               ) : (
                 <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2 }}>
@@ -391,19 +367,19 @@ const DeliveryManagement = () => {
                             setAssignPerson(v);
                         }
                     }}
-                    renderInput={(params) => <TextField {...params} label="Agent Name" size="small" placeholder="Type new or select existing" />}
+                    renderInput={(params) => <TextField {...params} label={t('deliveryPage.drawerAgentNameLabel')} size="small" placeholder={t('deliveryPage.drawerAgentNamePlaceholder')} />}
                   />
-                  <TextField fullWidth size="small" label="Phone" sx={{ my: 1 }} value={assignPerson.phone} onChange={e => setAssignPerson(p => ({ ...p, phone: e.target.value }))} />
+                  <TextField fullWidth size="small" label={t('deliveryPage.drawerPhoneLabel')} sx={{ my: 1 }} value={assignPerson.phone} onChange={e => setAssignPerson(p => ({ ...p, phone: e.target.value }))} />
                   <Stack direction="row" spacing={1}>
                     <Button fullWidth variant="contained" size="small" onClick={handleAssignPerson} disabled={isSubmitting}>
-                      {isSubmitting ? <CircularProgress size={20} /> : 'Save & Assign'}
+                      {isSubmitting ? <CircularProgress size={20} /> : t('deliveryPage.drawerSaveAssignBtn')}
                     </Button>
-                    <Button fullWidth variant="outlined" size="small" onClick={() => setAssignMode(false)}>Cancel</Button>
+                    <Button fullWidth variant="outlined" size="small" onClick={() => setAssignMode(false)}>{t('deliveryPage.drawerCancelBtn')}</Button>
                   </Stack>
                 </Box>
               )}
 
-              <Typography variant="subtitle2" sx={{ mt: 4, mb: 1, fontWeight: 'bold' }}>History</Typography>
+              <Typography variant="subtitle2" sx={{ mt: 4, mb: 1, fontWeight: 'bold' }}>{t('deliveryPage.drawerHistoryTitle')}</Typography>
               <Box sx={{ pl: 2, borderLeft: '2px solid #e0e0e0' }}>
                 {selectedDelivery.statusHistory?.slice().reverse().map((h, i) => (
                   <Box key={i} sx={{ position: 'relative', mb: 2, pl: 2 }}>
@@ -417,7 +393,7 @@ const DeliveryManagement = () => {
             </Box>
 
             <Box sx={{ p: 2, borderTop: '1px solid #eee' }}>
-              <Button fullWidth variant="contained" startIcon={<Print />} onClick={handlePrint} sx={{ py: 1.5, borderRadius: 2 }}>Print Delivery Label</Button>
+              <Button fullWidth variant="contained" startIcon={<Print />} onClick={handlePrint} sx={{ py: 1.5, borderRadius: 2 }}>{t('deliveryPage.drawerPrintFullLabel')}</Button>
             </Box>
           </Box>
         )}

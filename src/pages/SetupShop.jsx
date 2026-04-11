@@ -54,7 +54,7 @@ const INDUSTRIES = [
 ];
 
 const SetupShop = () => {
-  const { logout, silentRefresh } = useAuthContext();
+  const { logout, silentRefresh, user } = useAuthContext();
   const navigate = useNavigate();
   const { refetchShop } = useShopConfig();
   const fileInputRef = useRef(null);
@@ -73,6 +73,8 @@ const SetupShop = () => {
     industryType: '',
     locale: 'en',
     logo: null,
+    email: user?.email || '',
+    phone: user?.phone || '',
   });
   
   const [errors, setErrors] = useState({});
@@ -292,6 +294,12 @@ const SetupShop = () => {
                     <TextField select label="State" name="state" value={form.state} onChange={handleChange} fullWidth required error={!!errors.state} helperText={errors.state}>
                       {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Shop Email" name="email" type="email" value={form.email} onChange={handleChange} fullWidth placeholder="shop@example.com" error={!!errors.email} helperText={errors.email} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Shop Phone" name="phone" value={form.phone} onChange={handleChange} fullWidth placeholder="10 digit mobile" inputProps={{ maxLength: 10 }} error={!!errors.phone} helperText={errors.phone} />
                   </Grid>
                   <Grid item xs={12}>
                     <TextField label="Shop Address" name="address" value={form.address} onChange={handleChange} fullWidth multiline rows={2} InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon color="primary" /></InputAdornment> }} />
