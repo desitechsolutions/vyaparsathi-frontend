@@ -62,42 +62,54 @@ const ResetPassword = () => {
   };
 
   if (isValidating) return (
-    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+    <Box display="flex" justifyContent="center" alignItems="center" py={4}>
       <CircularProgress />
     </Box>
   );
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" p={2}>
-      <Paper elevation={3} sx={{ p: 4, width: '100%', maxWidth: 400, borderRadius: 3 }}>
-        <Stack spacing={2} alignItems="center">
-          <Avatar sx={{ bgcolor: 'primary.main', mb: 1 }}>
-            <LockResetIcon />
-          </Avatar>
-          <Typography variant="h5" fontWeight="bold">Reset Your PIN</Typography>
-          
-          {error && <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ width: '100%' }}>PIN reset successfully! Redirecting to login...</Alert>}
+    <Box sx={{ width: '100%' }}>
+      <Stack spacing={3} alignItems="center">
+        <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56, mb: 1 }}>
+          <LockResetIcon sx={{ fontSize: 36 }} />
+        </Avatar>
+        <Typography variant="h5" fontWeight="900" sx={{ color: '#0f172a' }}>Reset Your PIN</Typography>
+        
+        {error && <Alert severity="error" sx={{ width: '100%', borderRadius: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ width: '100%', borderRadius: 2 }}>PIN reset successfully! Redirecting to login...</Alert>}
 
-          {tokenValid && !success && (
-            <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+        {tokenValid && !success && (
+          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+            <Stack spacing={2}>
               <TextField
                 label="New PIN"
                 type="password"
                 fullWidth
-                margin="normal"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
+                variant="outlined"
+                size="medium"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
               />
               <TextField
                 label="Confirm New PIN"
                 type="password"
                 fullWidth
-                margin="normal"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                variant="outlined"
+                size="medium"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
               />
               <Button
                 type="submit"
@@ -105,20 +117,39 @@ const ResetPassword = () => {
                 fullWidth
                 size="large"
                 disabled={isSubmitting}
-                sx={{ mt: 3 }}
+                sx={{ 
+                  py: 1.3, 
+                  fontWeight: 900, 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                  '&:hover:not(:disabled)': {
+                    boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.3s'
+                }}
               >
-                {isSubmitting ? <CircularProgress size={24} /> : "Update PIN"}
+                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Update PIN"}
               </Button>
-            </Box>
-          )}
-          
-          {!tokenValid && !isValidating && (
-            <Button onClick={() => navigate('/login')} sx={{ mt: 2 }}>
-              Back to Login
-            </Button>
-          )}
-        </Stack>
-      </Paper>
+            </Stack>
+          </Box>
+        )}
+        
+        {!tokenValid && !isValidating && (
+          <Button 
+            onClick={() => navigate('/login')} 
+            sx={{ 
+              mt: 2,
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Back to Login
+          </Button>
+        )}
+      </Stack>
     </Box>
   );
 };

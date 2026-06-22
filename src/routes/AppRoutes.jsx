@@ -29,7 +29,10 @@ import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import Suppliers from '../pages/Suppliers';
-import PublicLayout from '../components/layout/PublicLayout'; 
+import PublicLayout from '../components/layout/PublicLayout';
+import LandingLayout from '../components/layout/LandingLayout';
+import AuthLayout from '../components/layout/AuthLayout';
+import LandingPage from '../pages/LandingPage';
 import ReceivingPage from '../pages/ReceivingPage';
 import DeliveryManagement from '../pages/DeliveryManagement';
 import LowStockAlerts from '../pages/LowStockAlerts';
@@ -46,6 +49,7 @@ import PayrollDashboard from '../pages/PayrollDashboard';
 import PricingPage from '../pages/PricingPage';
 import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
 import ResetPassword from '../pages/ResetPassword';
+import ComingSoonPage from '../pages/public/ComingSoonPage';
 import AdminLayout from '../components/layout/AdminLayout';
 import TechAdminDashboard from '../pages/admin/TechAdminDashboard';
 import AdminPaymentQueue from '../pages/admin/AdminPaymentQueue';
@@ -69,11 +73,53 @@ function AppRoutes() {
   return (
     <AlertProvider>
       <Routes>
-        {/* 1. Public Layout: No Sidebar, No ShopGuard */}
-        <Route element={<PublicLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup-shop" element={<SetupShop />} />
-          <Route path="auth/reset-password" element={<ResetPassword />} />
+        {/* 0. Public Marketing Routes — LandingLayout (EnterpriseHeader + EnterpriseFooter) */}
+        <Route element={<LandingLayout />}>
+          <Route
+            index
+            path="/"
+            element={
+              user ? (
+                isSuperAdmin ? (
+                  <Navigate to="/admin/dashboard" replace />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              ) : (
+                <LandingPage />
+              )
+            }
+          />
+          {/* Public pricing for guest users only */}
+          {!user && <Route path="/pricing" element={<PricingPage />} />}
+
+          {/* Placeholder marketing routes */}
+          <Route path="/about" element={<ComingSoonPage sectionName="About Us" />} />
+          <Route path="/careers" element={<ComingSoonPage sectionName="Careers" />} />
+          <Route path="/blog" element={<ComingSoonPage sectionName="Blog" />} />
+          <Route path="/docs" element={<ComingSoonPage sectionName="Documentation" />} />
+          <Route path="/docs/api" element={<ComingSoonPage sectionName="API Reference" />} />
+          <Route path="/help" element={<ComingSoonPage sectionName="Help Center" />} />
+        </Route>
+
+        {/* 1. Auth Routes — AuthLayout (Split-Screen Layout) */}
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/login"
+            element={
+              user ? (
+                isSuperAdmin ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/dashboard" replace />
+              ) : <Login />
+            }
+          />
+          <Route
+            path="/setup-shop"
+            element={user ? <Navigate to="/dashboard" replace /> : <SetupShop />}
+          />
+          <Route
+            path="/auth/reset-password"
+            element={user ? <Navigate to="/" replace /> : <ResetPassword />}
+          />
         </Route>
 
         {/* 2. Admin Routes - Active ONLY for Super Admin */}
@@ -92,7 +138,7 @@ function AppRoutes() {
             <Route path="shops" element={<GlobalShopManagement />} />
             <Route path="support" element={<AdminSupport />} />
             <Route path="users" element={<SystemUserManagement />} />
-             <Route path="plans" element={<PlanConfigManager />} />
+            <Route path="plans" element={<PlanConfigManager />} />
           </Route>
         )}
 
@@ -102,12 +148,12 @@ function AppRoutes() {
             path="/"
             element={
               <PrivateRoute>
-                <ShopProvider> 
-          <ShopGuard>
-            <MainLayout />
-          </ShopGuard>
-        </ShopProvider>
-      </PrivateRoute>
+                <ShopProvider>
+                  <ShopGuard>
+                    <MainLayout />
+                  </ShopGuard>
+                </ShopProvider>
+              </PrivateRoute>
             }
           >
             {/* PUBLIC WITHIN APP (No Tier Required) */}
@@ -140,7 +186,7 @@ function AppRoutes() {
             <Route path="receiving/:poId" element={<TierGuard requiredTier="PRO"><ReceivingPage /></TierGuard>} />
             <Route path="supplier-payments" element={<TierGuard requiredTier="PRO"><SupplierPaymentPage /></TierGuard>} />
             <Route path="backup" element={<TierGuard requiredTier="PRO"><Backup /></TierGuard>} />
-            
+
             {/* Reports Group (PRO Tier) */}
             <Route path="reports" element={<TierGuard requiredTier="PRO"><ReportsIndex /></TierGuard>} />
             <Route path="reports/daily" element={<TierGuard requiredTier="PRO"><DailyReport /></TierGuard>} />
@@ -164,23 +210,11 @@ function AppRoutes() {
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />
             <Route path="audit" element={<TierGuard requiredTier="ENTERPRISE"><AuditLogs /></TierGuard>} />
 
-           <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         )}
 
-        {/* Root Redirect based on role */}
-        <Route 
-          path="/" 
-          element={
-            isSuperAdmin ? (
-              <Navigate to="/admin/dashboard" replace />
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
-          } 
-        />
-        
-        {/* Global Catch-all */}
+        {/* Global Catch-all — redirect unknown routes to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AlertProvider>

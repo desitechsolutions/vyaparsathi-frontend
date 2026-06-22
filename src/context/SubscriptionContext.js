@@ -25,21 +25,24 @@ export const SubscriptionProvider = ({ children }) => {
      * This ensures prices and features match what the Admin set.
      */
     const loadPlansFromDB = useCallback(async () => {
+        setLoading(true);
         try {
             const plansData = await fetchActivePricingPlans();
             setDynamicPlans(plansData);
         } catch (err) {
             console.error("Failed to fetch dynamic pricing plans:", err);
             // Non-blocking error: the app will still function with current sub status
+        } finally {
+            setLoading(false);
         }
     }, []);
 
     const refreshStatus = useCallback(async (showLoading = true) => {
         if (!user) {
             setSubscription(null);
-            setLoading(false);
             isInitialLoad.current = true;
             prevStatusRef.current = null;
+            loadPlansFromDB();
             return;
         }
 
