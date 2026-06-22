@@ -12,6 +12,7 @@ import {
   MenuItem,
   Alert,
   Fade,
+  Snackbar,
 } from '@mui/material';
 import PhoneIcon from '@mui/icons-material/Phone';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -20,24 +21,55 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SendIcon from '@mui/icons-material/Send';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import CircularProgress from '@mui/material/CircularProgress';
+import { bookDemo } from '../../services/api';
 
 const ContactSection = () => {
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     businessType: '',
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const handleSubmit = (e) => {
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate demo request submission
-    setSubmitted(true);
-    setTimeout(() => {
-      setFormData({ name: '', phone: '', businessType: '', message: '' });
-      setSubmitted(false);
-    }, 4000);
+    setLoading(true);
+    try {
+      const response = await bookDemo({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company: formData.businessType,
+        serviceType: 'VyaparSathi Live Demo',
+        message: formData.message || 'Request for Live Demo'
+      });
+      // Accept status 200 or 201 as success regardless of response payload format
+      if (response.status === 200 || response.status === 201 || (response.data && response.data.success)) {
+        setSubmitted(true);
+        setSnackbar({ open: true, message: '✨ Request received! Our team will call you within 24 hours.', severity: 'success' });
+        setFormData({ name: '', email: '', phone: '', businessType: '', message: '' });
+        setTimeout(() => {
+          setSubmitted(false);
+        }, 5000);
+      } else {
+        setSnackbar({ open: true, message: 'Something went wrong. Please try again.', severity: 'error' });
+      }
+    } catch (error) {
+      console.error("Demo Submission Error:", error);
+      setSnackbar({ open: true, message: 'Failed to submit demo request. Please try again or contact us directly.', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -338,7 +370,20 @@ const ContactSection = () => {
                     onChange={handleChange}
                     fullWidth
                     required
-                    disabled={submitted}
+                    disabled={loading || submitted}
+                    variant="outlined"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
+                  />
+
+                  <TextField
+                    label="Email Address"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                    disabled={loading || submitted}
                     variant="outlined"
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
                   />
@@ -350,7 +395,7 @@ const ContactSection = () => {
                     onChange={handleChange}
                     fullWidth
                     required
-                    disabled={submitted}
+                    disabled={loading || submitted}
                     inputProps={{ maxLength: 10 }}
                     variant="outlined"
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
@@ -364,7 +409,7 @@ const ContactSection = () => {
                     onChange={handleChange}
                     fullWidth
                     required
-                    disabled={submitted}
+                    disabled={loading || submitted}
                     variant="outlined"
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
                   >
@@ -385,7 +430,7 @@ const ContactSection = () => {
                     fullWidth
                     multiline
                     rows={3}
-                    disabled={submitted}
+                    disabled={loading || submitted}
                     variant="outlined"
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
                   />
@@ -393,8 +438,8 @@ const ContactSection = () => {
                   <Button
                     type="submit"
                     variant="contained"
-                    disabled={submitted || !formData.name.trim() || formData.phone.length < 10 || !formData.businessType}
-                    endIcon={<SendIcon />}
+                    disabled={loading || submitted || !formData.name.trim() || !formData.email.trim() || formData.phone.length < 10 || !formData.businessType}
+                    endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                     sx={{
                       py: 1.6,
                       fontWeight: 800,
@@ -411,7 +456,7 @@ const ContactSection = () => {
                       transition: 'all 0.2s',
                     }}
                   >
-                    Request Demo call
+                    {loading ? 'Submitting...' : 'Request Demo call'}
                   </Button>
                 </Stack>
               </Box>
@@ -419,6 +464,18 @@ const ContactSection = () => {
           </Grid>
         </Grid>
       </Container>
+
+      {/* Global Feedback Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%', borderRadius: 2, fontWeight: 600 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

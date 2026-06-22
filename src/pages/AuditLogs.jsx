@@ -9,9 +9,12 @@ import {
   AddCircle, LaptopMac, FileDownload, Close 
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
+import isBetween from 'dayjs/plugin/isBetween';
 // Make sure all three are exported from your api.js
 import { fetchAuditLogs, exportAuditLogs, fetchAuditLogsByUser } from '../services/api';
 import { useTranslation } from 'react-i18next';
+
+dayjs.extend(isBetween);
 
 const getActionStyle = (action) => {
   const act = action ? action.toLowerCase() : '';
@@ -70,14 +73,19 @@ export default function AuditLogs() {
     }
   }, []);
 
-  // Use a single useEffect to control logic flow
+  // Re-fetch general logs when page/dates/rows change
+  useEffect(() => {
+    if (!selectedUser) {
+      loadLogs();
+    }
+  }, [page, rowsPerPage, startDate, endDate, selectedUser, loadLogs]);
+
+  // Re-fetch user-specific logs ONLY when the selectedUser changes
   useEffect(() => {
     if (selectedUser) {
       loadUserLogs(selectedUser);
-    } else {
-      loadLogs();
     }
-  }, [selectedUser, loadLogs, loadUserLogs]);
+  }, [selectedUser, loadUserLogs]);
 
   const handleExport = async (format) => {
     try {
@@ -99,11 +107,23 @@ export default function AuditLogs() {
     }
   };
 
-  const filteredLogs = logs.filter(log => 
-    (log.username?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-    (log.action?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-    (log.details?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  );
+  const filteredLogs = logs.filter(log => {
+    const matchesSearch = 
+      (log.username?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (log.action?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (log.details?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+      
+    if (!matchesSearch) return false;
+    
+    if (selectedUser) {
+      const logDate = dayjs(log.timestamp);
+      const start = dayjs(startDate).startOf('day');
+      const end = dayjs(endDate).endOf('day');
+      return logDate.isBetween(start, end, 'day', '[]');
+    }
+    
+    return true;
+  });
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
@@ -198,7 +218,7 @@ export default function AuditLogs() {
               {filteredLogs
                 .slice(selectedUser ? page * rowsPerPage : 0, selectedUser ? (page + 1) * rowsPerPage : filteredLogs.length)
                 .map((log) => (
-                  <TableRow key={log.id || Math.random()} hover>
+                  <TableRow key={log.id || `${log.timestamp}-${log.username}-${log.action}`} hover>
                     <TableCell>{dayjs(log.timestamp).format('DD MMM, hh:mm A')}</TableCell>
                     <TableCell>
                       <Stack 
@@ -245,7 +265,7 @@ export default function AuditLogs() {
         
         <TablePagination
           component="div"
-          count={totalElements}
+          count={selectedUser ? filteredLogs.length : totalElements}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={(e, newPage) => setPage(newPage)}

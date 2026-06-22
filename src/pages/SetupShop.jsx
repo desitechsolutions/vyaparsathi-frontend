@@ -21,6 +21,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CategoryIcon from '@mui/icons-material/Category';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import InventoryIcon from '@mui/icons-material/Inventory';
 
 const STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
@@ -174,13 +175,25 @@ const SetupShop = () => {
     });
 
     try {
-      await setupShop(formData);
+      const res = await setupShop(formData);
+      const newShopId = res?.data?.id;
       if (silentRefresh) {
-      await silentRefresh(); 
-    }
+        await silentRefresh(); 
+      }
       await refetchShop();
+      
+      // Initialize the onboarding checklist in localStorage
+      if (newShopId) {
+        const initialChecklist = {
+          productAdded: false,
+          stockAdded: false,
+          saleMade: false,
+          shopSetup: true
+        };
+        localStorage.setItem(`onboarding_checklist_${newShopId}`, JSON.stringify(initialChecklist));
+      }
+      
       setSetupComplete(true);
-      setTimeout(() => navigate('/', { replace: true }), 1600);
     } catch (err) {
       setErrors({ submit: err?.response?.data?.message || 'Setup failed. Please try again.' });
     } finally {
@@ -214,11 +227,130 @@ const SetupShop = () => {
           </Stepper>
 
           {setupComplete ? (
-            <Paper variant="outlined" sx={{ textAlign: 'center', py: 8, borderRadius: 4, bgcolor: 'rgba(76, 175, 80, 0.04)', borderColor: 'success.light' }}>
-              <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-              <Typography variant="h5" fontWeight={800} gutterBottom>Ready to go!</Typography>
-              <Typography variant="body2" color="text.secondary">Your shop has been configured successfully.</Typography>
-              <CircularProgress size={24} sx={{ mt: 4 }} />
+            <Paper variant="outlined" sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                <CheckCircleIcon sx={{ fontSize: 70, color: 'success.main', mb: 1.5 }} />
+                <Typography variant="h4" fontWeight={900} gutterBottom sx={{ color: '#0f172a' }}>
+                  You're all set! 🎉
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 450, mx: 'auto' }}>
+                  Welcome to <strong>{form.name}</strong>. Let's make your first operations count. What would you like to do first?
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                <Grid item xs={12} sm={4}>
+                  <Paper 
+                    variant="outlined"
+                    sx={{ 
+                      p: 2.5, 
+                      borderRadius: 3, 
+                      textAlign: 'center', 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderColor: '#e2e8f0',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',
+                        transform: 'translateY(-3px)'
+                      }
+                    }}
+                    onClick={() => navigate('/items')}
+                  >
+                    <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', mb: 2, width: 48, height: 48 }}>
+                      <CategoryIcon />
+                    </Avatar>
+                    <Typography variant="subtitle1" fontWeight={800} gutterBottom>
+                      Add Products
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Populate your inventory catalog with products, categories, and stock limits.
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} sm={4}>
+                  <Paper 
+                    variant="outlined"
+                    sx={{ 
+                      p: 2.5, 
+                      borderRadius: 3, 
+                      textAlign: 'center', 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderColor: '#e2e8f0',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',
+                        transform: 'translateY(-3px)'
+                      }
+                    }}
+                    onClick={() => navigate('/stock')}
+                  >
+                    <Avatar sx={{ bgcolor: 'info.light', color: 'info.main', mb: 2, width: 48, height: 48 }}>
+                      <InventoryIcon />
+                    </Avatar>
+                    <Typography variant="subtitle1" fontWeight={800} gutterBottom>
+                      Add Stock
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Update inventory levels, set alert levels, and record batch info.
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} sm={4}>
+                  <Paper 
+                    variant="outlined"
+                    sx={{ 
+                      p: 2.5, 
+                      borderRadius: 3, 
+                      textAlign: 'center', 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderColor: '#e2e8f0',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',
+                        transform: 'translateY(-3px)'
+                      }
+                    }}
+                    onClick={() => navigate('/sales')}
+                  >
+                    <Avatar sx={{ bgcolor: 'secondary.light', color: 'secondary.main', mb: 2, width: 48, height: 48 }}>
+                      <StorefrontIcon />
+                    </Avatar>
+                    <Typography variant="subtitle1" fontWeight={800} gutterBottom>
+                      Make a Sale
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Open the POS screen to create a bill, calculate taxes, and print invoices.
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              <Box sx={{ textAlign: 'center' }}>
+                <Button 
+                  variant="text" 
+                  onClick={() => navigate('/')} 
+                  sx={{ fontWeight: 700, textTransform: 'none' }}
+                >
+                  Skip & Go to Dashboard →
+                </Button>
+              </Box>
             </Paper>
           ) : (
             <Box component="form" onSubmit={handleSubmit} noValidate>

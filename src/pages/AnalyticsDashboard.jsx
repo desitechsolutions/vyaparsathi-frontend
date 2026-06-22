@@ -9,9 +9,10 @@ import {
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   MenuItem, Select, FormControl, Card, CardContent,
   Avatar, Chip, Stack, Divider, Dialog, DialogTitle, DialogContent, 
-  DialogActions, TextField, LinearProgress, Checkbox, Alert, IconButton, Tooltip as MuiTooltip
+  DialogActions, TextField, LinearProgress, Checkbox, Alert, IconButton, Tooltip as MuiTooltip,
+  Snackbar
 } from '@mui/material';
-
+import { useAlerts } from '../context/AlertContext';
 // Icons
 import DownloadIcon from '@mui/icons-material/Download';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -28,7 +29,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   fetchItemDemand, fetchCustomerTrends,
   fetchFuturePurchaseOrders, fetchTopItems, fetchChurnPrediction,
-  fetchSeasonalTrends, exportProcurementPlan
+  fetchSeasonalTrends, exportProcurementPlan, fetchItems
 } from '../services/api';
 
 const CHART_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
@@ -36,7 +37,7 @@ const CHART_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState({
-    demand: [], trends: [], topItems: [], churn: [], purchase: [], seasonal: []
+    demand: [], trends: [], topItems: [], churn: [], purchase: [], seasonal: [], totalItems: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -44,6 +45,9 @@ const AnalyticsDashboard = () => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [orderModal, setOrderModal] = useState({ open: false, item: null });
   const [orderQty, setOrderQty] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  
+  const handleCloseSnackbar = () => setSnackbar(prev => ({ ...prev, open: false }));
 
   useEffect(() => {
     loadAllData();
@@ -61,10 +65,11 @@ const AnalyticsDashboard = () => {
         fetchTopItems(),
         fetchChurnPrediction(),
         fetchFuturePurchaseOrders(),
-        fetchSeasonalTrends()
+        fetchSeasonalTrends(),
+        fetchItems()
       ]);
 
-      const [demandRes, trendsRes, topRes, churnRes, purchaseRes, seasonalRes] = results;
+      const [demandRes, trendsRes, topRes, churnRes, purchaseRes, seasonalRes, itemsRes] = results;
 
       const safeData = (res) => (res.status === 'fulfilled' ? (res.value?.data || []) : []);
 
@@ -95,7 +100,8 @@ const AnalyticsDashboard = () => {
         topItems: safeData(topRes),
         churn: safeData(churnRes),
         purchase: safeData(purchaseRes),
-        seasonal: transformedSeasonal
+        seasonal: transformedSeasonal,
+        totalItems: safeData(itemsRes).length
       });
 
       // Show partial error if some calls failed
@@ -113,9 +119,17 @@ const AnalyticsDashboard = () => {
     }
   };
 
+  const { alerts } = useAlerts();
+  
   // Financial Metrics
   const totalRevenueAtRisk = data.churn.reduce((sum, item) => sum + (item.revenueAtRisk || 0), 0);
   const totalInvestmentNeeded = data.purchase.reduce((sum, item) => sum + (item.estimatedCost || 0), 0);
+  
+  // Dynamic Inventory Health Score
+  const lowStockCount = alerts?.length || 0;
+  const inventoryHealth = data.totalItems > 0
+    ? Math.max(0, Math.min(100, Math.round(((data.totalItems - lowStockCount) / data.totalItems) * 100)))
+    : 100;
 
   const handleSelectAll = (e) => {
     setSelectedItems(e.target.checked ? data.purchase.map(p => p.itemId) : []);
@@ -135,8 +149,9 @@ const AnalyticsDashboard = () => {
       link.href = window.URL.createObjectURL(blob);
       link.download = `Procurement_Plan_${new Date().toISOString().split('T')[0]}.${exportFormat}`;
       link.click();
+      setSnackbar({ open: true, message: 'Procurement plan exported successfully!', severity: 'success' });
     } catch (err) {
-      alert('Export failed.');
+      setSnackbar({ open: true, message: 'Export failed. Please try again.', severity: 'error' });
     }
   };
 
@@ -205,7 +220,7 @@ const AnalyticsDashboard = () => {
             <Grid item xs={12} sm={6} md={3}><StatCard title="Revenue At Risk" value={`₹${totalRevenueAtRisk.toLocaleString()}`} icon={<TrendingDownIcon />} color="error" subtitle="Potential Churn Leakage" /></Grid>
             <Grid item xs={12} sm={6} md={3}><StatCard title="VIP Churn" value={data.churn.filter(c => c.churnProbability > 0.7).length} icon={<GroupIcon />} color="warning" subtitle="High-Risk VIP Customers" /></Grid>
             <Grid item xs={12} sm={6} md={3}><StatCard title="Procurement" value={`₹${totalInvestmentNeeded.toLocaleString()}`} icon={<WarningAmberIcon />} color="primary" subtitle="Investment Required" /></Grid>
-            <Grid item xs={12} sm={6} md={3}><StatCard title="Inventory Health" value="82%" icon={<SpeedIcon />} color="success" subtitle="Stock Optimization Level" /></Grid>
+            <Grid item xs={12} sm={6} md={3}><StatCard title="Inventory Health" value={`${inventoryHealth}%`} icon={<SpeedIcon />} color="success" subtitle="Stock Optimization Level" /></Grid>
 
             {/* MAIN CHARTS */}
             <Grid item xs={12} lg={8}>
@@ -403,6 +418,18 @@ const AnalyticsDashboard = () => {
             </Button>
         </DialogActions>
       </Dialog>
+
+      {/* TOAST NOTIFICATION */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%', borderRadius: 2 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

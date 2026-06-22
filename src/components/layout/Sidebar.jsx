@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-  Divider, Box, Collapse, useMediaQuery, useTheme, ListSubheader
+  Divider, Box, Collapse, useMediaQuery, useTheme, ListSubheader, Typography
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -43,11 +43,11 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { t } = useTranslation();
-  
+
   const { user } = useAuthContext();
   const { hasAccess } = useSubscription();
-  const { isPharmacy } = useShop();
-  
+  const { isPharmacy, shop, shopLoading } = useShop();
+
   const userRole = user?.role;
   const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
 
@@ -142,7 +142,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         { text: 'auditLogs', icon: <NotificationsIcon />, path: '/audit', requiredTier: 'ENTERPRISE' },
         { text: 'notifications', icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
         { text: 'Shop Setting', icon: <Settings />, path: '/admin/settings' },
-        {text: 'Billing & Plans', icon: <AccountBalanceWallet />, path: '/admin/billing'}
+        { text: 'Billing & Plans', icon: <AccountBalanceWallet />, path: '/admin/billing' }
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
@@ -159,7 +159,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     // New Tier Access Check
     const isLocked = !hasAccess(item.requiredTier);
     const isActuallyActive = location.pathname === item.path;
-    
+
     return (
       <ListItem key={item.text} disablePadding>
         <ListItemButton
@@ -182,8 +182,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           <ListItemIcon sx={{ minWidth: 40, color: (isActuallyActive && !isLocked) ? 'inherit' : 'primary.main' }}>
             {item.icon}
           </ListItemIcon>
-          <ListItemText 
-            primary={t(item.text)} 
+          <ListItemText
+            primary={t(item.text)}
             primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: (isActuallyActive && !isLocked) ? 700 : 500 }}
           />
           {isLocked && <LockIcon sx={{ fontSize: 14, color: '#bf953f', ml: 1 }} />}
@@ -218,63 +218,79 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       )
     );
 
-const drawerContent = (
-  <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-    <Toolbar sx={{ justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }}>
-      {isPharmacy ? 'PHARMA POS' : 'BILLING APP'}
-    </Toolbar>
-    
-    <Box sx={{ px: 1 }}>
-      <SubscriptionStatusCard />
-    </Box>
-
-    <Box sx={{ flex: 1, overflowY: 'auto', mt: 1 }}>
-      {/* ADD disableSticky TO ALL SUBHEADERS BELOW */}
-      
-      <List 
-        subheader={
-          <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px', mt: 1 }}>
-            {t('sidebar.core', 'Operations')}
-          </ListSubheader>
-        }
-      >
-        {renderMenu(mainItems)}
-      </List>
-      
-      <Divider sx={{ my: 1, mx: 2 }} />
-      
-      <List 
-        subheader={
-          <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
-            {t('sidebar.inventory', 'Stock & Supply')}
-          </ListSubheader>
-        }
-      >
-        {renderMenu(inventoryItems)}
-      </List>
-
-      {isAdminOrOwner && (
-        <>
-          <Divider sx={{ my: 1, mx: 2 }} />
-          <List 
-            subheader={
-              <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
-                {t('sidebar.management', 'Management')}
-              </ListSubheader>
-            }
+  const drawerContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Toolbar sx={{ px: 2, display: 'flex', alignItems: 'center', gap: 1.5, minHeight: { xs: 60, sm: 70 } }}>
+        <TrendingUpOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="subtitle1"
+            noWrap
+            sx={{ fontWeight: '800', color: 'text.primary', lineHeight: 1.2 }}
           >
-            {renderMenu(adminItems)}
-          </List>
-        </>
-      )}
-    </Box>
+            {shopLoading ? '...' : (shop?.name || t('appName'))}
+          </Typography>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{ display: 'block', fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}
+          >
+            {isPharmacy ? 'Pharma ERP' : 'VyaparSathi ERP'}
+          </Typography>
+        </Box>
+      </Toolbar>
 
-    <Divider />
-    <List sx={{ p: 0 }}>
-      {renderItem({ text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' })}
-    </List>
-  </Box>
-);
+      <Box sx={{ px: 1 }}>
+        <SubscriptionStatusCard />
+      </Box>
+
+      <Box sx={{ flex: 1, overflowY: 'auto', mt: 1 }}>
+        {/* ADD disableSticky TO ALL SUBHEADERS BELOW */}
+
+        <List
+          subheader={
+            <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px', mt: 1 }}>
+              {t('sidebar.core', 'Operations')}
+            </ListSubheader>
+          }
+        >
+          {renderMenu(mainItems)}
+        </List>
+
+        <Divider sx={{ my: 1, mx: 2 }} />
+
+        <List
+          subheader={
+            <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
+              {t('sidebar.inventory', 'Stock & Supply')}
+            </ListSubheader>
+          }
+        >
+          {renderMenu(inventoryItems)}
+        </List>
+
+        {isAdminOrOwner && (
+          <>
+            <Divider sx={{ my: 1, mx: 2 }} />
+            <List
+              subheader={
+                <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '24px' }}>
+                  {t('sidebar.management', 'Management')}
+                </ListSubheader>
+              }
+            >
+              {renderMenu(adminItems)}
+            </List>
+          </>
+        )}
+      </Box>
+
+      <Divider />
+      <List sx={{ p: 0 }}>
+        {renderItem({ text: 'aboutUs', icon: <InfoIcon />, path: '/about-us' })}
+      </List>
+    </Box>
+  );
 
   return (
     <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
@@ -282,7 +298,7 @@ const drawerContent = (
         variant={isMobile ? "temporary" : "permanent"}
         open={isMobile ? mobileOpen : true}
         onClose={onDrawerToggle}
-        ModalProps={{ keepMounted: true }} 
+        ModalProps={{ keepMounted: true }}
         sx={{
           '& .MuiDrawer-paper': {
             width: drawerWidth,

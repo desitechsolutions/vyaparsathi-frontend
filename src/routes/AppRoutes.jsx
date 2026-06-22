@@ -114,7 +114,13 @@ function AppRoutes() {
           />
           <Route
             path="/setup-shop"
-            element={user ? <Navigate to="/dashboard" replace /> : <SetupShop />}
+            element={
+              user ? (
+                user.shopId ? <Navigate to="/dashboard" replace /> : <SetupShop />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
           />
           <Route
             path="/auth/reset-password"

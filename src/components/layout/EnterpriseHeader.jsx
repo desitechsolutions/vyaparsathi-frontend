@@ -482,7 +482,7 @@ const EnterpriseHeader = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                  Empowering Businesses Through Digital Innovation
+                  Empowering India's Digital Future
                 </Typography>
                 <Typography
                   variant="caption"

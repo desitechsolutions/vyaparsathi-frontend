@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Box, Snackbar, Alert, CircularProgress, Divider, Chip,
-  Typography, Paper, Button, Tooltip, Stack, Dialog, DialogTitle, 
+  Typography, Paper, Button, Tooltip, Stack, Dialog, DialogTitle,
   DialogContent, DialogActions, alpha
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
@@ -13,12 +13,13 @@ import InvoiceModal from '../components/Sales/InvoiceModal';
 import SalesHistory from '../components/Sales/SalesHistory';
 import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import { buildSalePayload } from '../utils/salesUtils';
-import { 
-  fetchCustomers, createSale, fetchItemVariants, createCustomer, 
+import {
+  fetchCustomers, createSale, fetchItemVariants, createCustomer,
   draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes
 } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
 import { useShop } from '../context/ShopContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import PersonIcon from '@mui/icons-material/Person';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -57,7 +58,7 @@ const initialSearchParams = {
  */
 const generateFilterOptions = (variants, field, isPharmacy = false) => {
   const baseOption = { value: '', label: `All ${field.charAt(0).toUpperCase() + field.slice(1)}s` };
-  
+
   if (field === 'name' && isPharmacy) {
     const nameMap = new Map();
     variants.forEach(v => {
@@ -197,7 +198,11 @@ const useLoadData = () => {
 const Sales = () => {
   const { t } = useTranslation();
   const { isPharmacy, isJewellery, industryType, shop } = useShop();
+  const { getStatus } = useSubscription();
   const { tabValue, setTabValue, resumeId, clearParams } = useURLParams();
+
+  const hasBanner = getStatus() === 'PENDING';
+  const outerHeight = hasBanner ? 'calc(100vh - 164px)' : 'calc(100vh - 100px)';
 
   // ── FORM STATES ──
   const [formData, setFormData] = useState(initialFormData);
@@ -583,7 +588,7 @@ const Sales = () => {
       bgcolor: alpha('#0f766e', 0.04),
       display: 'flex',
       flexDirection: 'column',
-      height: 'calc(100vh - 100px)',
+      height: outerHeight,
       overflow: 'hidden'
     }}>
       <SalesTabs
@@ -600,7 +605,8 @@ const Sales = () => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            height: 'calc(100vh - 250px)'
+            flex: 1,
+            minHeight: '200px'
           }}>
             <CircularProgress sx={{ color: '#0f766e' }} />
           </Box>
@@ -608,7 +614,7 @@ const Sales = () => {
           <Box sx={{
             display: { xs: 'block', md: 'flex' },
             gap: 1.5,
-            height: { md: 'calc(100vh - 158px)' },
+            height: { md: '100%' },
             overflow: 'hidden',
             px: { xs: 1, md: 0 },
             pt: { xs: 1, md: 0 },
@@ -979,7 +985,7 @@ const ActionBar = ({
 
       <Tooltip title={
         !formData.customerId ? 'Please select a customer' :
-        !isDeliveryValid ? 'Complete delivery details' : ''
+          !isDeliveryValid ? 'Complete delivery details' : ''
       }>
         <span>
           <Button

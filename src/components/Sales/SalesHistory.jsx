@@ -649,8 +649,8 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                     <React.Fragment key={saleKey}>
                       <TableRow hover sx={{ '&:hover': { bgcolor: alpha(theme.primary, 0.02) } }}>
                         <TableCell>
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             onClick={() => setExpandedSaleKey(isExpanded ? null : saleKey)}
                             sx={{ color: theme.primary }}
                           >
@@ -665,18 +665,18 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                           {formatAmount(sale.totalAmount)}
                         </TableCell>
                         <TableCell>
-                          <Chip 
-                            label={sale.status} 
-                            color={statusConfig[sale.status]?.color || 'default'} 
-                            size="small" 
+                          <Chip
+                            label={sale.status}
+                            color={statusConfig[sale.status]?.color || 'default'}
+                            size="small"
                             sx={{ fontWeight: 700 }}
                           />
                         </TableCell>
                         <TableCell>
                           {sale.status !== 'DRAFT' && (
-                            <Chip 
-                              label={payStatus} 
-                              size="small" 
+                            <Chip
+                              label={payStatus}
+                              size="small"
                               color={paymentStatusColors[payStatus] || 'default'}
                               sx={{ fontWeight: 700 }}
                             />
@@ -698,7 +698,8 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                     <Button
                                       variant="contained"
                                       startIcon={<PlayArrowIcon />}
-                                      onClick={() => navigate(`/sales?resumeId=${sale.id}`)}
+
+                                      onClick={() => navigate(`/sales?resumeId=${sale.saleId}`)}
                                       sx={{ background: `linear-gradient(135deg, ${theme.warning} 0%, ${theme.primaryLight} 100%)`, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
                                     >
                                       Resume Draft
