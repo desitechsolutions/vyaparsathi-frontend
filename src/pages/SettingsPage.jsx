@@ -22,6 +22,7 @@ import {
   AccountBalance,
   ReceiptLong,
   ColorLens,
+  Description,
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
   CheckCircle as CheckIcon,
@@ -60,6 +61,12 @@ const SettingsPage = () => {
     signaturePath: "",
     drugLicenseNumber: "",
     industryType: "",
+    upiId: "",
+    invoicePrefix: "",
+    companyWebsite: "",
+    invoiceFooter: "",
+    supportContact: "",
+    invoiceDueDays: 30,
   });
 
   const [errors, setErrors] = useState({});
@@ -177,6 +184,12 @@ const SettingsPage = () => {
           signaturePath: res.data.signaturePath || "",
           drugLicenseNumber: res.data.drugLicenseNumber || "",
           industryType: res.data.industryType || "",
+          upiId: res.data.upiId || "",
+          invoicePrefix: res.data.invoicePrefix || "",
+          companyWebsite: res.data.companyWebsite || "",
+          invoiceFooter: res.data.invoiceFooter || "",
+          supportContact: res.data.supportContact || "",
+          invoiceDueDays: res.data.invoiceDueDays != null ? res.data.invoiceDueDays : 30,
         };
         setShopData(data);
         initialDataRef.current = data;
@@ -341,6 +354,7 @@ const SettingsPage = () => {
               <Tab icon={<ColorLens />} iconPosition="start" label="Branding" />
               <Tab icon={<AccountBalance />} iconPosition="start" label="Tax & Bank" />
               <Tab icon={<ReceiptLong />} iconPosition="start" label="Terms" />
+              <Tab icon={<Description />} iconPosition="start" label="Invoicing" />
             </Tabs>
           </Paper>
         </Grid>
@@ -449,6 +463,33 @@ const SettingsPage = () => {
                 </Box>
               </Stack>
             )}
+
+            {activeTab === 4 && (
+              <Stack spacing={4}>
+                <Typography variant="h6" fontWeight={700}>Invoicing Defaults</Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth label="Invoice Prefix" name="invoicePrefix" value={shopData.invoicePrefix} onChange={handleTextChange} placeholder="e.g. INV-" helperText="Optional. Leave blank to use shop code." />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth label="Default Due Days" name="invoiceDueDays" type="number" value={shopData.invoiceDueDays} onChange={handleTextChange} helperText="Number of days until invoice is due." />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth label="Support Contact" name="supportContact" value={shopData.supportContact} onChange={handleTextChange} placeholder="e.g. support@company.com or 1800-123" helperText="Printed on the invoice for queries." />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth label="Company Website" name="companyWebsite" value={shopData.companyWebsite} onChange={handleTextChange} placeholder="e.g. www.mycompany.com" />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth label="UPI ID for QR Code" name="upiId" value={shopData.upiId} onChange={handleTextChange} placeholder="e.g. name@bank" helperText="Used to generate a payment QR on invoices." />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField fullWidth label="Custom Invoice Footer" name="invoiceFooter" multiline rows={3} value={shopData.invoiceFooter} onChange={handleTextChange} placeholder="e.g. Thank you for your business!" />
+                  </Grid>
+                </Grid>
+              </Stack>
+            )}
+
 
             <Box sx={{ mt: 5, pt: 3, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <Button variant="text" color="inherit" onClick={handleCancel} disabled={!isDirty}>Discard</Button>
