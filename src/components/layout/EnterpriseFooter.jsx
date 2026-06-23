@@ -63,10 +63,10 @@ const EnterpriseFooter = () => {
   ];
 
   const socialLinks = [
-    { icon: WhatsAppIcon, href: 'https://wa.me/919910007071', label: 'WhatsApp', color: '#25D366' },
-    { icon: FacebookIcon, href: '#', label: 'Facebook', color: '#1877F2' },
+    { icon: WhatsAppIcon, href: 'https://wa.me/919508156282', label: 'WhatsApp', color: '#25D366' },
+    { icon: FacebookIcon, href: 'https://www.facebook.com/profile.php?id=100069144071939', label: 'Facebook', color: '#1877F2' },
     { icon: TwitterIcon, href: '#', label: 'Twitter', color: '#1DA1F2' },
-    { icon: LinkedInIcon, href: '#', label: 'LinkedIn', color: '#0A66C2' },
+    { icon: LinkedInIcon, href: 'https://www.linkedin.com/company/desitech-solutions/', label: 'LinkedIn', color: '#0A66C2' },
     { icon: InstagramIcon, href: '#', label: 'Instagram', color: '#E4405F' },
   ];
 
@@ -127,16 +127,23 @@ const EnterpriseFooter = () => {
 
               {/* Contact Details */}
               <Stack spacing={1.5}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <PhoneIcon sx={{ fontSize: 16, color: '#60A5FA', flexShrink: 0 }} />
-                  <MuiLink href="tel:+919910007071" underline="none" sx={{ color: '#CBD5E1', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: '#60A5FA' } }}>
-                    +91-9910-007-071
-                  </MuiLink>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <PhoneIcon sx={{ fontSize: 16, color: '#60A5FA', flexShrink: 0 }} />
+                    <MuiLink href="tel:+919508156282" underline="none" sx={{ color: '#CBD5E1', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: '#60A5FA' } }}>
+                      +91-9508-156-282
+                    </MuiLink>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pl: 3.5 }}>
+                    <MuiLink href="tel:+918447769695" underline="none" sx={{ color: '#CBD5E1', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: '#60A5FA' } }}>
+                      +91-8447-769-695
+                    </MuiLink>
+                  </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <EmailIcon sx={{ fontSize: 16, color: '#60A5FA', flexShrink: 0 }} />
-                  <MuiLink href="mailto:support@vyaparsathi.com" underline="none" sx={{ color: '#CBD5E1', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: '#60A5FA' } }}>
-                    support@vyaparsathi.com
+                  <MuiLink href="mailto:support@desitechsolutions.com" underline="none" sx={{ color: '#CBD5E1', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: '#60A5FA' } }}>
+                    support@desitechsolutions.com
                   </MuiLink>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
@@ -287,7 +294,7 @@ const EnterpriseFooter = () => {
               <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <Button
                   fullWidth
-                  href="https://wa.me/919910007071"
+                  href="https://wa.me/919508156282"
                   target="_blank"
                   startIcon={<WhatsAppIcon />}
                   sx={{
@@ -362,8 +369,8 @@ const EnterpriseFooter = () => {
               gap={1}
             >
               {[
-                { label: t('enterpriseFooter.links.privacy'), href: '#' },
-                { label: t('enterpriseFooter.links.terms'), href: '#' },
+                { label: t('enterpriseFooter.links.privacy'), href: 'https://www.desitechsolutions.com/privacy-policy' },
+                { label: t('enterpriseFooter.links.terms'), href: 'https://www.desitechsolutions.com/terms-of-service' },
                 { label: t('enterpriseFooter.links.cookies'), href: '#' },
               ].map((link, idx) => (
                 <MuiLink

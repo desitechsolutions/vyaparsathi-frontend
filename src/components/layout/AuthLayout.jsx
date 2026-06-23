@@ -307,7 +307,7 @@ const AuthLayout = () => {
             <Stack direction="row" spacing={4}>
               <Box>
                 <Typography variant="h6" fontWeight={800} color="#F59E0B">
-                  1,200+
+                  10+
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                   Active Shops
@@ -315,7 +315,7 @@ const AuthLayout = () => {
               </Box>
               <Box>
                 <Typography variant="h6" fontWeight={800} color="#F59E0B">
-                  ₹50Cr+
+                  ₹10Lakh+
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                   Transacted Volume

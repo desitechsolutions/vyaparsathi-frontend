@@ -146,7 +146,7 @@ const FAQSection = () => {
           <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap" gap={1}>
             <Box
               component="a"
-              href="mailto:support@vyaparsathi.com"
+              href="mailto:support@desitechsolutions.com"
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -168,7 +168,7 @@ const FAQSection = () => {
             </Box>
             <Box
               component="a"
-              href="https://wa.me/919910007071"
+              href="https://wa.me/919508156282"
               target="_blank"
               sx={{
                 display: 'flex',

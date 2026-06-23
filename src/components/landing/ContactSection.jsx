@@ -156,7 +156,7 @@ const ContactSection = () => {
                         },
                       }}
                     >
-                      <Stack direction="row" spacing={2} alignItems="center">
+                      <Stack direction="row" spacing={2} alignItems="flex-start">
                         <Box
                           sx={{
                             width: 44,
@@ -167,16 +167,20 @@ const ContactSection = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0
                           }}
                         >
                           <PhoneIcon />
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                            Call Sales
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>
+                            Call Sales / Enquiry
                           </Typography>
-                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B">
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="tel:+919508156282" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                             +91 9508156282
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="tel:+918447769695" style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginTop: 4 }}>
+                            +91 8447769695
                           </Typography>
                         </Box>
                       </Stack>
@@ -199,7 +203,7 @@ const ContactSection = () => {
                         },
                       }}
                     >
-                      <Stack direction="row" spacing={2} alignItems="center">
+                      <Stack direction="row" spacing={2} alignItems="flex-start">
                         <Box
                           sx={{
                             width: 44,
@@ -210,16 +214,20 @@ const ContactSection = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0
                           }}
                         >
                           <WhatsAppIcon />
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>
                             WhatsApp Support
                           </Typography>
-                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B">
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="https://wa.me/919508156282" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                             +91 9508156282
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="https://wa.me/918447769695" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginTop: 4 }}>
+                            +91 8447769695
                           </Typography>
                         </Box>
                       </Stack>
@@ -242,7 +250,7 @@ const ContactSection = () => {
                         },
                       }}
                     >
-                      <Stack direction="row" spacing={2.5} alignItems="center">
+                      <Stack direction="row" spacing={2.5} alignItems="flex-start">
                         <Box
                           sx={{
                             width: 44,
@@ -253,16 +261,23 @@ const ContactSection = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0
                           }}
                         >
                           <EmailIcon />
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                            Email Address
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>
+                            Email Addresses
                           </Typography>
-                          <Typography variant="subtitle1" fontWeight={800} color="#1E293B">
-                            info@desitechsolutions.com
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="mailto:support@desitechsolutions.com" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                            support@desitechsolutions.com (Support)
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="mailto:sales@desitechsolutions.com" style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginTop: 4 }}>
+                            sales@desitechsolutions.com (Sales)
+                          </Typography>
+                          <Typography variant="subtitle2" fontWeight={800} color="#1E293B" component="a" href="mailto:info@desitechsolutions.com" style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginTop: 4 }}>
+                            info@desitechsolutions.com (General Enquiry)
                           </Typography>
                         </Box>
                       </Stack>

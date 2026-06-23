@@ -29,7 +29,6 @@ import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import Suppliers from '../pages/Suppliers';
-import PublicLayout from '../components/layout/PublicLayout';
 import LandingLayout from '../components/layout/LandingLayout';
 import AuthLayout from '../components/layout/AuthLayout';
 import LandingPage from '../pages/LandingPage';

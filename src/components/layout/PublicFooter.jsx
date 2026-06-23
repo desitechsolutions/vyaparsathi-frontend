@@ -57,8 +57,8 @@ const PublicFooter = () => {
   ];
 
   const socialIcons = [
-    { icon: WhatsAppIcon, label: 'WhatsApp', href: 'https://wa.me/919910007071' },
-    { icon: EmailIcon, label: 'Email', href: 'mailto:support@vyaparsathi.com' },
+    { icon: WhatsAppIcon, label: 'WhatsApp', href: 'https://wa.me/919508156282' },
+    { icon: EmailIcon, label: 'Email', href: 'mailto:info@desitechsolutions.com' },
     { icon: FacebookIcon, label: 'Facebook', href: '#facebook' },
     { icon: TwitterIcon, label: 'Twitter', href: '#twitter' },
     { icon: LinkedInIcon, label: 'LinkedIn', href: '#linkedin' },
@@ -110,16 +110,23 @@ const PublicFooter = () => {
 
               {/* Contact Info */}
               <Stack spacing={1.5} sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PhoneIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                  <MuiLink href="tel:+919910007071" underline="none" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
-                    +91-9910-007-071
-                  </MuiLink>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhoneIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                    <MuiLink href="tel:+919508156282" underline="none" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
+                      +91-9508-156-282
+                    </MuiLink>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 3.25 }}>
+                    <MuiLink href="tel:+918447769695" underline="none" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
+                      +91-8447-769-695
+                    </MuiLink>
+                  </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <EmailIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                  <MuiLink href="mailto:support@vyaparsathi.com" underline="none" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
-                    support@vyaparsathi.com
+                  <MuiLink href="mailto:support@desitechsolutions.com" underline="none" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
+                    support@desitechsolutions.com
                   </MuiLink>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>

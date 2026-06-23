@@ -1422,7 +1422,7 @@ const resources = {
       // ── Landing Page ──────────────────────────────────────────────────
       landingPage: {
         hero: {
-          badge: 'Trusted by 1,200+ Businesses Across India',
+          badge: ' Built for Indian Businesses of Every Size',
           headline1: 'Run Your Entire Business',
           headline2: 'from One Powerful Platform',
           subHeadline: 'VyaparSathi gives retailers, wholesalers, and distributors a complete cloud-based ERP — from billing and GST compliance to inventory and payroll.',
@@ -1509,10 +1509,10 @@ const resources = {
         },
         metrics: {
           sectionTitle: 'Trusted by Growing Businesses Across India',
-          businesses: { value: '1,200+', label: 'Active Businesses' },
-          transactions: { value: '₹50Cr+', label: 'Transactions Processed' },
+          businesses: { value: '10+', label: 'Active Businesses' },
+          transactions: { value: '₹10L+', label: 'Transactions Processed' },
           uptime: { value: '99.9%', label: 'Platform Uptime' },
-          languages: { value: '10+', label: 'Languages Supported' },
+          languages: { value: '2+', label: 'Languages Supported' },
         },
         testimonials: {
           sectionBadge: 'Customer Stories',
@@ -1603,7 +1603,7 @@ const resources = {
         },
         finalCta: {
           headline: 'Ready to Transform Your Business?',
-          subheadline: 'Join 1,200+ businesses already using VyaparSathi. Start completely free today.',
+          subheadline: 'Built for Indian Businesses of Every Size.Start Managing Your Business Smarter — Free Today.',
           primaryCta: 'Start Free Trial',
           secondaryCta: 'Talk to Sales',
           note: 'No credit card required • Free 14-day trial • Cancel anytime',
@@ -2999,7 +2999,7 @@ const resources = {
       // ── Landing Page (HI) ────────────────────────────────────────────
       landingPage: {
         hero: {
-          badge: '1,200+ व्यवसायों का भरोसा',
+          badge: 'छोटे, मध्यम और बड़े सभी भारतीय व्यवसायों के लिए',
           headline1: 'अपना पूरा व्यवसाय चलाएं',
           headline2: 'एक शक्तिशाली प्लेटफॉर्म से',
           subHeadline: 'व्यापारसाथी खुदरा, थोक और वितरकों को एक पूर्ण क्लाउड-आधारित ईआरपी देता है — बिलिंग और जीएसटी से इन्वेंटरी और वेतन तक।',
@@ -3037,10 +3037,10 @@ const resources = {
         },
         metrics: {
           sectionTitle: 'भारत भर में बढ़ते व्यवसायों का भरोसा',
-          businesses: { value: '1,200+', label: 'सक्रिय व्यवसाय' },
-          transactions: { value: '₹50 करोड़+', label: 'लेनदेन प्रोसेस' },
+          businesses: { value: '10+', label: 'सक्रिय व्यवसाय' },
+          transactions: { value: '₹10 लाख', label: 'लेनदेन प्रोसेस' },
           uptime: { value: '99.9%', label: 'प्लेटफॉर्म अपटाइम' },
-          languages: { value: '10+', label: 'भाषाएं समर्थित' },
+          languages: { value: '2+', label: 'भाषाएं समर्थित' },
         },
         testimonials: {
           sectionBadge: 'ग्राहक कहानियां',
@@ -3104,7 +3104,7 @@ const resources = {
         },
         finalCta: {
           headline: 'अपना व्यवसाय बदलने के लिए तैयार हैं?',
-          subheadline: '1,200+ व्यवसायों से जुड़ें जो पहले से व्यापारसाथी का उपयोग कर रहे हैं।',
+          subheadline: 'हर आकार के भारतीय व्यवसायों के लिए बनाया गया। आज ही अपने व्यवसाय को स्मार्ट तरीके से प्रबंधित करना शुरू करें।',
           primaryCta: 'मुफ्त ट्रायल शुरू करें',
           secondaryCta: 'बिक्री से बात करें',
           note: 'क्रेडिट कार्ड की आवश्यकता नहीं • 14-दिन का मुफ्त ट्रायल • कभी भी रद्द करें',

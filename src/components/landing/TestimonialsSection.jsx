@@ -211,7 +211,7 @@ const TestimonialsSection = () => {
         >
           {[
             { value: '4.8/5', label: 'Average Rating', icon: '⭐' },
-            { value: '1,200+', label: 'Happy Businesses', icon: '🏪' },
+            { value: '10+', label: 'Happy Businesses', icon: '🏪' },
             { value: '98%', label: 'Satisfaction Rate', icon: '😊' },
           ].map((stat, i) => (
             <Stack key={i} direction="row" alignItems="center" spacing={1.5}>
