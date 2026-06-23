@@ -11,6 +11,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import HelpCenterIcon from '@mui/icons-material/HelpCenter';
 import GavelIcon from '@mui/icons-material/Gavel';
+import EmailIcon from '@mui/icons-material/Email';
 import useWebSocket from '../../hooks/useWebSocket';
 import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 
@@ -84,15 +85,16 @@ const TechAdminSidebar = () => {
     { text: 'Verify Payments', icon: <PaymentsIcon />, path: '/admin/payments' },
     { text: 'Shop Directory', icon: <StorefrontIcon />, path: '/admin/shops' },
     { text: 'System Users', icon: <PeopleIcon />, path: '/admin/users' },
+    { text: 'Newsletter Subscribers', icon: <EmailIcon />, path: '/admin/newsletter' },
   ];
 
   const systemMenu = [
     { text: 'Global Analytics', icon: <AssessmentIcon />, path: '/admin/analytics' },
     { 
-    text: 'Pricing Plans', 
-    icon: <SettingsSuggestIcon />, 
-    path: '/admin/plans'
-  },
+      text: 'Pricing Plans', 
+      icon: <SettingsSuggestIcon />, 
+      path: '/admin/plans'
+    },
     { text: 'Audit Logs', icon: <GavelIcon />, path: '/admin/audit' },
     {
       text: 'Support Tickets',

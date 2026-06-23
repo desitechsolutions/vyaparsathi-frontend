@@ -56,6 +56,7 @@ import { useAuthContext } from '../context/AuthContext';
 import AdminSupport from '../pages/admin/AdminSupport';
 import GlobalShopManagement from '../pages/admin/GlobalShopManagement';
 import SystemUserManagement from '../pages/admin/SystemUserManagement';
+import NewsletterManager from '../pages/admin/NewsletterManager';
 import SettingsPage from '../pages/SettingsPage';
 import NotFound from '../pages/NotFound';
 import BillingDashboard from '../components/subscriptions/BillingDashboard';
@@ -144,6 +145,7 @@ function AppRoutes() {
             <Route path="support" element={<AdminSupport />} />
             <Route path="users" element={<SystemUserManagement />} />
             <Route path="plans" element={<PlanConfigManager />} />
+            <Route path="newsletter" element={<NewsletterManager />} />
           </Route>
         )}
 

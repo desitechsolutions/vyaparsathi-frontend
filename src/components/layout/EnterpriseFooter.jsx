@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Grid, Typography, Stack, Divider,
-  Link as MuiLink, IconButton, TextField, Button, Chip
+  Link as MuiLink, IconButton, TextField, Button, Chip, CircularProgress
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
@@ -17,11 +17,36 @@ import FlagIcon from '@mui/icons-material/Flag';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useTranslation } from 'react-i18next';
+import { subscribeNewsletter } from '../../services/api';
+import { toast } from 'react-toastify';
 
 const EnterpriseFooter = () => {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setLoading(true);
+    try {
+      const response = await subscribeNewsletter(email, 'FOOTER');
+      if (response.message && (response.message.toLowerCase().includes('already') || response.message.toLowerCase().includes('duplicate'))) {
+        toast.info(response.message);
+      } else {
+        toast.success(response.message || 'Subscribed successfully!');
+      }
+      setSubscribed(true);
+    } catch (err) {
+      console.error('Subscription error:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to subscribe. Please try again.';
+      toast.error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const footerSections = [
     {
@@ -242,12 +267,13 @@ const EnterpriseFooter = () => {
                 Product updates, tips & business growth insights.
               </Typography>
               {!subscribed ? (
-                <Box component="form" onSubmit={(e) => { e.preventDefault(); if (email) setSubscribed(true); }}>
+                <Box component="form" onSubmit={handleSubscribe}>
                   <TextField
                     fullWidth
                     size="small"
                     type="email"
                     required
+                    disabled={loading}
                     placeholder={t('enterpriseFooter.newsletter.placeholder')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -268,7 +294,8 @@ const EnterpriseFooter = () => {
                     fullWidth
                     type="submit"
                     variant="contained"
-                    endIcon={<ArrowForwardIcon />}
+                    disabled={loading}
+                    endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ArrowForwardIcon />}
                     sx={{
                       fontWeight: 800,
                       textTransform: 'none',
@@ -278,7 +305,7 @@ const EnterpriseFooter = () => {
                       '&:hover': { bgcolor: '#FBBF24' }
                     }}
                   >
-                    {t('enterpriseFooter.newsletter.cta')}
+                    {loading ? 'Subscribing...' : t('enterpriseFooter.newsletter.cta')}
                   </Button>
                 </Box>
               ) : (

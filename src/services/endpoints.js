@@ -143,6 +143,13 @@ receiveGoods: `${API_BASE}/receiving/receive-goods`,
     exportProcurementPlan: `${API_BASE}/analytics/export/procurement-plan`,
     revenueLeakage: `${API_BASE}/analytics/revenue-leakage`,
   },
+  newsletter: {
+    subscribe: `${API_BASE}/newsletter/subscribe`,
+    unsubscribe: `${API_BASE}/newsletter/unsubscribe`,
+    adminSubscribers: `${API_BASE}/admin/newsletter/subscribers`,
+    adminStats: `${API_BASE}/admin/newsletter/stats`,
+    adminExport: `${API_BASE}/admin/newsletter/export`,
+  },
 };
 
 export default endpoints;

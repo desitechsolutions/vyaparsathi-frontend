@@ -550,4 +550,28 @@ export const updateUserStatus = (userId, isActive) =>
 export const updateUserRole = (userId, role) =>
   API.patch(endpoints.userRole(userId), { role }).then(r => r.data);
 
+// --- NEWSLETTER SUBSCRIPTION ---
+
+export const subscribeNewsletter = (email, source = 'FOOTER') =>
+  API.post(endpoints.newsletter.subscribe, { email, source }).then(r => r.data);
+
+export const fetchNewsletterSubscribers = (page = 0, size = 10, search = '', active = null, source = '') => {
+  const params = { page, size };
+  if (search) params.email = search;
+  if (active !== null && active !== undefined && active !== '') params.active = active;
+  if (source) params.source = source;
+  return API.get(endpoints.newsletter.adminSubscribers, { params }).then(r => r.data);
+};
+
+export const fetchNewsletterStats = () =>
+  API.get(endpoints.newsletter.adminStats).then(r => r.data);
+
+export const exportNewsletterCsv = (search = '', active = null, source = '') => {
+  const params = {};
+  if (search) params.email = search;
+  if (active !== null && active !== undefined && active !== '') params.active = active;
+  if (source) params.source = source;
+  return API.get(endpoints.newsletter.adminExport, { params, responseType: 'blob' });
+};
+
 export default API;
