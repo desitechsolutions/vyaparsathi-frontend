@@ -70,7 +70,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
     // Show "Patients" for pharmacy, "Customers" for others
     isPharmacy
-      ? { text: 'Patients', icon: <MedicalServicesIcon />, path: '/customers' }
+      ? { text: 'sidebar.patients', icon: <MedicalServicesIcon />, path: '/customers' }
       : { text: 'customers', icon: <PeopleIcon />, path: '/customers' },
     // Hide delivery for pharmacy (medicines are typically dispensed in-store)
     ...(!isPharmacy ? [{ text: 'delivery', icon: <LocalShippingIcon />, path: '/delivery', requiredTier: 'STARTER' }] : []),
@@ -81,7 +81,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const inventoryItems = [
     // Rename "Item Catalog" to "Medicines" for pharmacy
     {
-      text: isPharmacy ? 'Medicines & Products' : 'itemCatalog',
+      text: isPharmacy ? 'sidebar.medicines' : 'itemCatalog',
       icon: isPharmacy ? <VaccinesIcon /> : <CategoryIcon />,
       path: '/items',
     },
@@ -95,15 +95,15 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   // Build pharmacy-specific or general report children
   const reportChildren = [
     { text: 'overview', icon: <AssessmentIcon />, path: '/reports', requiredTier: 'PRO' },
-    { text: 'dailyReport', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
-    { text: 'salesSummary', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
+    { text: 'dailyReport.title', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
+    { text: 'salesSummaryReport.title', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
     // Pharmacy-only reports
     ...(isPharmacy ? [
-      { text: 'Expiry Report', icon: <AssessmentIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
-      { text: 'Narcotics Register', icon: <AssessmentIcon />, path: '/reports/narcotics-register', requiredTier: 'PRO' },
-      { text: 'Purchase Register', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
+      { text: 'expiryReport.title', icon: <AssessmentIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
+      { text: 'narcoticsReport.title', icon: <AssessmentIcon />, path: '/reports/narcotics-register', requiredTier: 'PRO' },
+      { text: 'purchaseRegisterReport.title', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
     ] : []),
-    { text: 'Tax Compliance', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
+    { text: 'taxComplianceHub.title', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
   ];
 
   // 3. Strategic & Financial (Admin/Owner only)
@@ -115,7 +115,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       open: openStates.payments,
       onClick: () => toggleNested('payments'),
       children: [
-        { text: isPharmacy ? 'Patient Payments' : 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
+        { text: isPharmacy ? 'sidebar.patientPayments' : 'customerPayments', icon: <PeopleIcon />, path: '/customer-payments' },
         { text: 'supplierPayments', icon: <PeopleIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       ],
     },
@@ -141,8 +141,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         { text: 'payroll.title', icon: <PaymentsIcon />, path: '/admin/payroll', requiredTier: 'ENTERPRISE' },
         { text: 'auditLogs', icon: <NotificationsIcon />, path: '/audit', requiredTier: 'ENTERPRISE' },
         { text: 'notifications', icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
-        { text: 'Shop Setting', icon: <Settings />, path: '/admin/settings' },
-        { text: 'Billing & Plans', icon: <AccountBalanceWallet />, path: '/admin/billing' }
+        { text: 'sidebar.shopSettings', icon: <Settings />, path: '/admin/settings' },
+        { text: 'sidebar.billingPlans', icon: <AccountBalanceWallet />, path: '/admin/billing' }
       ],
     },
     { text: 'backup', icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
@@ -303,9 +303,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#ffffff',
-            borderRight: '1px solid #e2e8f0',
-            boxShadow: 'none'
+            boxShadow: 'none',
           },
         }}
         anchor="left"

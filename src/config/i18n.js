@@ -63,6 +63,16 @@ const resources = {
         no: 'No',
       },
 
+      sidebar: {
+        core: 'Operations',
+        inventory: 'Stock & Supply',
+        management: 'Management',
+        medicines: 'Medicines & Products',
+        patients: 'Patients',
+        patientPayments: 'Patient Payments',
+        shopSettings: 'Shop Settings',
+        billingPlans: 'Billing & Plans',
+      },
       dashboardPage: {
         hello: "Hello",
         errorLoad: 'Failed to load dashboard data.',
@@ -117,6 +127,7 @@ const resources = {
       },
       itemsPage: {
         title: 'Items',
+        subtitle:'Manage and track your current stock',
         notAvailable: 'N/A',
         description: 'DESCRIPTION',
         searchPlaceholder: 'Search items...',
@@ -1721,8 +1732,21 @@ const resources = {
         yes: 'हाँ',
         no: 'नहीं',
       },
+
+      sidebar: {
+        core: 'संचालन',
+        inventory: 'स्टॉक और आपूर्ति',
+        management: 'प्रबंधन',
+        medicines: 'दवाइयां और उत्पाद',
+        patients: 'मरीज़',
+        patientPayments: 'मरीज़ भुगतान',
+        shopSettings: 'दुकान सेटिंग',
+        billingPlans: 'बिलिंग और योजनाएं',
+      },
+
       itemsPage: {
         title: 'आइटम्स',
+        subtitle:'अपने स्टॉक को आसानी से मैनेज और ट्रैक करें।',
         notAvailable: 'उपलब्ध नहीं',
         description: 'विवरण',
         searchPlaceholder: 'आइटम्स खोजें...',
