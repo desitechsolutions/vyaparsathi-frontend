@@ -23,21 +23,9 @@ import {
   getPurchaseOrderById,
   getSupplierPaymentSummary,
 } from '../services/api';
+import { useAppPalette } from '../hooks/useAppPalette';
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  secondary: '#7c3aed',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  success: '#10b981',
-  background: '#f8fafc',
-  cardBg: '#ffffff',
-  borderColor: '#e2e8f0',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const PAYMENT_MODES = [
   { value: 'CASH', label: 'Cash' },
@@ -48,21 +36,28 @@ const PAYMENT_MODES = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-const formInputSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 2.5,
-    bgcolor: '#ffffff',
-    transition: 'all 0.3s ease',
-    border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
-    '& fieldset': { borderColor: 'transparent' },
-    '&:hover fieldset': { borderColor: alpha(theme.primary, 0.3) },
-    '&.Mui-focused fieldset': { borderColor: theme.primary, borderWidth: '2px' }
-  },
-  '& .MuiInputLabel-root': { fontWeight: 700, color: theme.textSecondary },
-  '& .MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.75)' }
-};
+// formInputSx is defined inside the component (see below) so it can
+// use the live palette from useAppPalette() instead of static colors.
 
 export default function SupplierPaymentPage() {
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const theme = useAppPalette();
+
+  // Input styles derived from live palette
+  const formInputSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2.5,
+      bgcolor: 'background.paper',
+      transition: 'all 0.3s ease',
+      border: `1.5px solid ${alpha(theme.teal, 0.15)}`,
+      '& fieldset': { borderColor: 'transparent' },
+      '&:hover fieldset': { borderColor: alpha(theme.teal, 0.3) },
+      '&.Mui-focused fieldset': { borderColor: theme.teal, borderWidth: '2px' }
+    },
+    '& .MuiInputLabel-root': { fontWeight: 700, color: theme.textSecondary },
+    '& .MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.75)' }
+  };
+
   // --- Data States ---
   const [suppliers, setSuppliers] = useState([]);
   const [allPOs, setAllPOs] = useState([]);
@@ -410,7 +405,7 @@ export default function SupplierPaymentPage() {
           <IconButton 
             onClick={loadData} 
             sx={{ 
-              bgcolor: '#ffffff', 
+              bgcolor: 'background.paper', 
               border: `1.5px solid ${alpha(theme.primary, 0.2)}`,
               color: theme.primary,
               transition: 'all 0.3s ease',

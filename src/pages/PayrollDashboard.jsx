@@ -138,7 +138,7 @@ export default function PayrollDashboard() {
     .reduce((a, b) => a + Number(b.baseSalary), 0);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Header & Controls */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
@@ -172,7 +172,7 @@ export default function PayrollDashboard() {
           )}
           <Button 
             variant="contained" startIcon={<Add />} onClick={() => setOpenAddModal(true)}
-            sx={{ borderRadius: 3, fontWeight: 700, textTransform: 'none', bgcolor: '#1e293b' }}
+            sx={{ borderRadius: 3, fontWeight: 700, textTransform: 'none', bgcolor: 'background.paper' }}
           >
             Add Staff
           </Button>
@@ -181,8 +181,8 @@ export default function PayrollDashboard() {
 
       <SalarySummaryCards data={staffList} />
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', mt: 4, overflow: 'hidden' }}>
-        <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'white' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', mt: 4, overflow: 'hidden' }}>
+        <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'background.paper' }}>
           <Typography variant="h6" fontWeight={800}>Staff Management</Typography>
           <Button startIcon={<Download />} size="small">Export CSV</Button>
         </Box>

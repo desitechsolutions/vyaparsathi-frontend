@@ -11,7 +11,11 @@ function PrivateRoute({ children }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const redirectPath = location.pathname + location.search;
+    if (location.pathname !== '/login') {
+      sessionStorage.setItem('redirectAfterLogin', redirectPath);
+    }
+    return <Navigate to={`/login?expired=1&redirect=${encodeURIComponent(redirectPath)}`} replace />;
   }
 
   return children;

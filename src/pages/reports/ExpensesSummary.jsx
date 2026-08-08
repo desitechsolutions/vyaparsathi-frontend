@@ -61,7 +61,7 @@ export default function ExpensesSummary() {
   useEffect(() => { handleFetch(); }, []);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -75,14 +75,14 @@ export default function ExpensesSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expensesSummaryReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('expensesSummaryReport.title')}</Typography>
           <Typography color="text.secondary">{t('expensesSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
           <Button 
             variant="outlined" startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+            sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
           >
             Export
           </Button>
@@ -90,7 +90,7 @@ export default function ExpensesSummary() {
       </Stack>
 
       {/* Filters */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -122,15 +122,15 @@ export default function ExpensesSummary() {
       ) : report ? (
         <Box>
           {/* Main Hero KPI */}
-          <Card elevation={0} sx={{ mb: 4, borderRadius: 4, border: '2px solid #fee2e2', bgcolor: '#fff5f5' }}>
+          <Card elevation={0} sx={{ mb: 4, borderRadius: 4, border: '2px solid', borderColor: 'error.light', bgcolor: 'action.hover' }}>
             <CardContent sx={{ p: 4 }}>
               <Stack direction="row" spacing={3} alignItems="center">
-                <Avatar sx={{ width: 64, height: 64, bgcolor: '#ef4444' }}>
+                <Avatar sx={{ width: 64, height: 64, bgcolor: '#ef4444', color: '#fff' }}>
                   <TrendingDown fontSize="large" />
                 </Avatar>
                 <Box>
                   <Typography variant="overline" fontWeight={800} color="error.main">Total Outflow</Typography>
-                  <Typography variant="h3" fontWeight={900} color="#1e293b">
+                  <Typography variant="h3" fontWeight={900} color="text.primary">
                     ₹{Number(report.totalExpenses).toLocaleString('en-IN')}
                   </Typography>
                 </Box>
@@ -141,8 +141,8 @@ export default function ExpensesSummary() {
           <Grid container spacing={4}>
             {/* Detailed Breakdown */}
             <Grid item xs={12} md={7}>
-              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0', height: '100%' }}>
-                <Typography variant="h6" fontWeight={800} mb={4}>Distribution</Typography>
+              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', height: '100%' }}>
+                <Typography variant="h6" fontWeight={800} color="text.primary" mb={4}>Distribution</Typography>
                 
                 <ExpenseRow 
                   label="Operational Expenses" 
@@ -166,13 +166,13 @@ export default function ExpensesSummary() {
 
             {/* Quick Tips/Summary */}
             <Grid item xs={12} md={5}>
-              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1', height: '100%' }}>
-                <Typography variant="subtitle1" fontWeight={800} mb={2}>Summary Insight</Typography>
+              <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', border: '1px dashed', borderColor: 'divider', height: '100%' }}>
+                <Typography variant="subtitle1" fontWeight={800} color="text.primary" mb={2}>Summary Insight</Typography>
                 <Typography variant="body2" color="text.secondary" lineHeight={1.8}>
                   Between <strong>{dayjs(from).format('DD MMM')}</strong> and <strong>{dayjs(to).format('DD MMM')}</strong>, your 
                   highest expenditure was on <strong>{report.inventoryPurchases > report.operationalExpenses ? 'Inventory' : 'Operations'}</strong>.
                 </Typography>
-                <Divider sx={{ my: 3 }} />
+                <Divider sx={{ my: 3, borderColor: 'divider' }} />
                 <Typography variant="caption" color="text.disabled" sx={{ textTransform: 'uppercase', fontWeight: 700 }}>
                   Note: Values are calculated based on recorded payment vouchers.
                 </Typography>
@@ -182,7 +182,7 @@ export default function ExpensesSummary() {
         </Box>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <AccountBalance sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+          <AccountBalance sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary">Select a date range to view expenses.</Typography>
         </Box>
       )}
@@ -208,7 +208,7 @@ const ExpenseRow = ({ label, value, total, icon, color }) => {
         sx={{ 
           height: 10, 
           borderRadius: 5, 
-          bgcolor: '#f1f5f9',
+          bgcolor: 'background.default',
           '& .MuiLinearProgress-bar': { bgcolor: color }
         }} 
       />

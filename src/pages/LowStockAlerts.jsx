@@ -75,15 +75,15 @@ const LowStockAlerts = () => {
       
       {/* HEADER CARDS */}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
-        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, flex: 1, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, flex: 1, border: '1px solid', display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar sx={{ bgcolor: '#fee2e2', color: '#ef4444' }}><WarningIcon /></Avatar>
             <Box>
                 <Typography variant="h5" fontWeight={800}>{stats.criticalCount} / {alerts.length}</Typography>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>CRITICAL ALERTS</Typography>
             </Box>
         </Paper>
-        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, flex: 1, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ bgcolor: '#dbeafe', color: '#3b82f6' }}><AccountBalanceWalletIcon /></Avatar>
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, flex: 1, border: '1px solid', display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}><AccountBalanceWalletIcon /></Avatar>
             <Box>
                 <Typography variant="h5" fontWeight={800}>₹{stats.totalCost.toLocaleString()}</Typography>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>EST. REPLENISHMENT COST</Typography>
@@ -93,8 +93,8 @@ const LowStockAlerts = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 2, bgcolor: 'white' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 2, bgcolor: 'background.paper' }}>
             <TextField 
                 size="small" 
                 placeholder="Search by SKU or Name..." 
@@ -117,7 +117,7 @@ const LowStockAlerts = () => {
 
         <TableContainer>
           <Table size="small">
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'background.default' }}>
               <TableRow>
                 <TableCell padding="checkbox">
                     <Checkbox 
@@ -126,12 +126,12 @@ const LowStockAlerts = () => {
                         onChange={handleSelectAll} 
                     />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.item').toUpperCase()}</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.currentStock').toUpperCase()}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>EST. UNIT COST</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>INVESTMENT</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.status').toUpperCase()}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#64748b' }}>{t('lowStockPage.columns.actions').toUpperCase()}</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>{t('lowStockPage.columns.item').toUpperCase()}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: 'text.secondary' }}>{t('lowStockPage.columns.currentStock').toUpperCase()}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>EST. UNIT COST</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>INVESTMENT</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: 'text.secondary' }}>{t('lowStockPage.columns.status').toUpperCase()}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>{t('lowStockPage.columns.actions').toUpperCase()}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -150,7 +150,7 @@ const LowStockAlerts = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={700}>{alert.itemName}</Typography>
-                      <Typography variant="caption" sx={{ bgcolor: '#f1f5f9', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace' }}>{alert.sku}</Typography>
+                      <Typography variant="caption" sx={{ bgcolor: 'background.default', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace' }}>{alert.sku}</Typography>
                     </TableCell>
                     <TableCell sx={{ minWidth: 150 }}>
                         <Stack spacing={0.5}>

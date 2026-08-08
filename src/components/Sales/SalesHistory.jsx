@@ -55,17 +55,9 @@ import API, {
 } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#dc2626',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const statusConfig = {
   COMPLETED: { label: 'Completed', color: 'success' },
@@ -112,6 +104,8 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { shop } = useShop();
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const theme = useAppPalette();
 
   const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -562,7 +556,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             display: 'flex',
             gap: 2,
             alignItems: 'center',
-            bgcolor: '#f8fafc',
+            bgcolor: 'background.default',
             flexWrap: 'wrap',
             border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
           }}
@@ -579,7 +573,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                 </InputAdornment>
               ),
             }}
-            sx={{ bgcolor: 'white', minWidth: 250, borderRadius: 2 }}
+            sx={{ bgcolor: 'background.paper', minWidth: 250, borderRadius: 2 }}
           />
           <Divider orientation="vertical" flexItem />
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -591,7 +585,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               InputLabelProps={{ shrink: true }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              sx={{ bgcolor: 'white', borderRadius: 2 }}
+              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
             />
             <TextField
               type="date"
@@ -600,7 +594,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
               InputLabelProps={{ shrink: true }}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              sx={{ bgcolor: 'white', borderRadius: 2 }}
+              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
             />
           </Stack>
         </Paper>

@@ -7,7 +7,7 @@ const StatCard = ({ title, value, icon, colorName }) => {
   const colorBase = theme.palette[colorName] || theme.palette.primary;
 
   return (
-    <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', height: '100%' }}>
+    <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', height: '100%' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Avatar sx={{ bgcolor: `${colorBase.main}15`, color: colorBase.main, width: 56, height: 56 }}>
           {icon}

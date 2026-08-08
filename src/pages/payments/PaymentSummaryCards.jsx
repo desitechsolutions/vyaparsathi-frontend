@@ -9,21 +9,9 @@ import StarsIcon from '@mui/icons-material/Stars';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  secondary: '#7c3aed',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  success: '#10b981',
-  background: '#f8fafc',
-  cardBg: '#ffffff',
-  borderColor: '#e2e8f0',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const PaymentSummaryCards = ({ 
   totalDue, 
@@ -31,10 +19,10 @@ const PaymentSummaryCards = ({
   selectedSaleObj, 
   formatAmount, 
   advanceBalance, 
-  isBulk,
-  theme: themeProps
+  isBulk
 }) => {
-  const customTheme = themeProps || theme;
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const customTheme = useAppPalette();
   
   const paidPercentage = selectedSaleObj && selectedSaleObj.totalAmount > 0
     ? Math.min(100, Math.max(0, ((selectedSaleObj.totalAmount - selectedSaleObj.dueAmount) / selectedSaleObj.totalAmount) * 100))
@@ -46,7 +34,7 @@ const PaymentSummaryCards = ({
     overflow: 'hidden',
     border: `1.5px solid ${alpha(customTheme.primary, 0.15)}`,
     transition: 'all 0.3s ease',
-    background: '#ffffff',
+    background: 'background.paper',
   };
 
   return (

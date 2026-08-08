@@ -22,7 +22,7 @@ const AboutUs = () => {
   ];
 
   return (
-    <Box sx={{ flexGrow: 1, py: { xs: 4, md: 8 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ flexGrow: 1, py: { xs: 4, md: 8 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="lg">
         
         {/* HERO SECTION */}
@@ -30,7 +30,7 @@ const AboutUs = () => {
           <Typography variant="overline" color="primary" sx={{ fontWeight: 800, letterSpacing: 2 }}>
             Engineering Excellence Since 2019
           </Typography>
-          <Typography variant="h2" fontWeight={900} gutterBottom sx={{ color: '#0f172a' }}>
+          <Typography variant="h2" fontWeight={900} gutterBottom sx={{ color: 'text.primary' }}>
             DesiTech <Box component="span" sx={{ color: 'primary.main' }}>Solutions</Box>
           </Typography>
           <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, m: '0 auto' }}>
@@ -42,7 +42,7 @@ const AboutUs = () => {
         {/* MISSION & VISION */}
         <Grid container spacing={4} sx={{ mb: 10 }}>
           <Grid item xs={12} md={6}>
-            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid #e2e8f0' }}>
+            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid' }}>
               <BusinessCenter sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
               <Typography variant="h5" fontWeight={800} gutterBottom>Our Vision</Typography>
               <Typography variant="body1" color="text.secondary" lineHeight={1.8}>
@@ -52,7 +52,7 @@ const AboutUs = () => {
             </Paper>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid #e2e8f0' }}>
+            <Paper elevation={0} sx={{ p: 4, height: '100%', borderRadius: 4, border: '1px solid' }}>
               <Lightbulb sx={{ fontSize: 40, color: 'secondary.main', mb: 2 }} />
               <Typography variant="h5" fontWeight={800} gutterBottom>Our Mission</Typography>
               <Typography variant="body1" color="text.secondary" lineHeight={1.8}>
@@ -68,7 +68,7 @@ const AboutUs = () => {
         <Grid container spacing={3} sx={{ mb: 10 }}>
           {services.map((s, i) => (
             <Grid item xs={12} sm={6} md={4} key={i}>
-              <Card elevation={0} sx={{ height: '100%', borderRadius: 4, border: '1px solid #e2e8f0', '&:hover': { borderColor: 'primary.main', bgcolor: '#f1f5f9' } }}>
+              <Card elevation={0} sx={{ height: '100%', borderRadius: 4, border: '1px solid', '&:hover': { borderColor: 'primary.main', bgcolor: 'background.default' } }}>
                 <CardContent>
                   <Avatar sx={{ bgcolor: 'primary.light', mb: 2 }}>{s.icon}</Avatar>
                   <Typography variant="h6" fontWeight={800}>{s.title}</Typography>
@@ -112,7 +112,7 @@ const AboutUs = () => {
         </Grid>
 
         {/* LEGAL IDENTITY SECTION */}
-        <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: '#0f172a', color: 'white', mb: 10 }}>
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', color: 'text.primary', mb: 10 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={3}>
             <Box>
               <Typography variant="h5" fontWeight={800} gutterBottom>Legal Identity</Typography>
@@ -144,7 +144,7 @@ const AboutUs = () => {
 };
 
 const LeaderCard = ({ name, role, desc, skills }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', textAlign: 'center', p: 3, height: '100%' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', textAlign: 'center', p: 3, height: '100%' }}>
     <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main', mx: 'auto', mb: 2, fontSize: 32, fontWeight: 800 }}>{name[0]}</Avatar>
     <Typography variant="h6" fontWeight={800}>{name}</Typography>
     <Typography variant="caption" color="primary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>{role}</Typography>

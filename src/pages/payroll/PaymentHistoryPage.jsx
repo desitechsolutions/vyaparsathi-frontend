@@ -159,7 +159,7 @@ export default function PaymentHistoryPage() {
   };
 
   return (
-    <Box sx={{ p: 4, bgcolor: '#f1f5f9', minHeight: '100vh' }}>
+    <Box sx={{ p: 4, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Stack spacing={4}>
         {/* Navigation & Breadcrumbs */}
         <Box>
@@ -168,7 +168,7 @@ export default function PaymentHistoryPage() {
             <Typography color="text.primary">Staff Ledger</Typography>
           </Breadcrumbs>
           <Stack direction="row" spacing={2} alignItems="center">
-            <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: 'white', boxShadow: 1 }}><ArrowBack /></IconButton>
+            <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: 'background.paper', boxShadow: 1 }}><ArrowBack /></IconButton>
             <Box>
               <Typography variant="h4" fontWeight={900} color="#1e293b">{stats.staffName}</Typography>
               <Typography variant="body2" color="text.secondary">Detailed Payment Records</Typography>
@@ -182,7 +182,7 @@ export default function PaymentHistoryPage() {
             <Grid item xs={12} md={4}>
               <Card sx={{ borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: '#eff6ff', color: '#1e40af' }}><Payments /></Avatar>
+                  <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.12)', color: '#1e40af' }}><Payments /></Avatar>
                   <Box>
                     <Typography variant="caption" fontWeight={700} color="text.secondary">TOTAL PAID</Typography>
                     <Typography variant="h5" fontWeight={800}>₹{stats.totalPaid.toLocaleString('en-IN')}</Typography>
@@ -193,7 +193,7 @@ export default function PaymentHistoryPage() {
             <Grid item xs={12} md={4}>
               <Card sx={{ borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: '#f0fdf4', color: '#166534' }}><TrendingUp /></Avatar>
+                  <Avatar sx={{ bgcolor: 'rgba(34, 197, 94, 0.12)', color: '#166534' }}><TrendingUp /></Avatar>
                   <Box>
                     <Typography variant="caption" fontWeight={700} color="text.secondary">AVG. MONTHLY</Typography>
                     <Typography variant="h5" fontWeight={800}>₹{Math.round(stats.avgSalary).toLocaleString('en-IN')}</Typography>
@@ -204,7 +204,7 @@ export default function PaymentHistoryPage() {
             <Grid item xs={12} md={4}>
               <Card sx={{ borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: '#fff7ed', color: '#9a3412' }}><EventNote /></Avatar>
+                  <Avatar sx={{ bgcolor: 'rgba(245, 158, 11, 0.08)', color: '#9a3412' }}><EventNote /></Avatar>
                   <Box>
                     <Typography variant="caption" fontWeight={700} color="text.secondary">LAST PAYOUT</Typography>
                     <Typography variant="h5" fontWeight={800}>₹{stats.lastPaid.toLocaleString('en-IN')}</Typography>
@@ -218,13 +218,13 @@ export default function PaymentHistoryPage() {
         {/* Main History Table */}
         <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: 'none' }}>
           <Table>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'background.default' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>PERIOD</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>PAY DATE</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>NET PAID</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>MODE</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: '#64748b' }} align="right">ACTIONS</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>PERIOD</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>PAY DATE</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>NET PAID</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>MODE</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }} align="right">ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -241,8 +241,8 @@ export default function PaymentHistoryPage() {
                     <TableCell><Chip label={record?.paymentMode || 'CASH'} size="small" variant="outlined" sx={{ fontWeight: 600 }} /></TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <IconButton onClick={() => generatePayslip(record)} color="primary" sx={{ bgcolor: '#f0f7ff' }}><Download fontSize="small" /></IconButton>
-                        <IconButton onClick={() => handleShare(record)} color="secondary" sx={{ bgcolor: '#fdf2f8' }}><Share fontSize="small" /></IconButton>
+                        <IconButton onClick={() => generatePayslip(record)} color="primary" sx={{ bgcolor: 'rgba(59, 130, 246, 0.08)' }}><Download fontSize="small" /></IconButton>
+                        <IconButton onClick={() => handleShare(record)} color="secondary" sx={{ bgcolor: 'rgba(219, 39, 119, 0.08)' }}><Share fontSize="small" /></IconButton>
                       </Stack>
                     </TableCell>
                   </TableRow>

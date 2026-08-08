@@ -124,11 +124,11 @@ const ReviewPaymentPage = ({
   };
 
   return (
-    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="xl">
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', fontSize: { xs: '1.3rem', sm: '1.5rem', md: '2.125rem' } }}>Review & Payment</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '1.3rem', sm: '1.5rem', md: '2.125rem' } }}>Review & Payment</Typography>
             <Typography variant="body2" color="textSecondary">Record payment distribution to complete sale</Typography>
           </Box>
           <Button startIcon={<ArrowBackIcon />} onClick={onCancel} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
@@ -154,7 +154,7 @@ const ReviewPaymentPage = ({
                 </Paper>
               </Grid>
               <Grid item xs={12} md={5}>
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: '#f1f5f9', border: '1px solid #cbd5e1' }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: 'background.default', border: '1px solid #cbd5e1' }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                     <LocalShippingIcon color="primary" />
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>Logistics</Typography>
@@ -174,7 +174,7 @@ const ReviewPaymentPage = ({
 
             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
               <Table size="small">
-                <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow>
+                <TableHead sx={{ bgcolor: 'background.default' }}><TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Product Details</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700 }}>Qty</TableCell>
                     {formData.isGstRequired === 'yes' && (
@@ -246,7 +246,7 @@ const ReviewPaymentPage = ({
 
           <Grid item xs={12} lg={4} order={{ xs: 1, lg: 2 }}>
             <Box sx={{ position: { lg: 'sticky' }, top: 24 }}>
-              <Paper elevation={12} sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, bgcolor: '#0f172a', color: 'white' }}>
+              <Paper elevation={12} sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 4, bgcolor: 'grey.900', color: 'grey.50' }}>
                 <Typography variant="h6" sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 2, fontWeight: 800 }}>Billing Summary</Typography>
                 <Stack spacing={2} sx={{ my: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
@@ -257,7 +257,7 @@ const ReviewPaymentPage = ({
                     <Typography sx={{ opacity: 0.7, flexShrink: 0 }}>Extra Discount</Typography>
                     <TextField
                       size="small" type="number" value={discount}
-                      sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'white', textAlign: 'right', fontWeight: 800 }}}
+                      sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'grey.50', textAlign: 'right', fontWeight: 800 }}}
                       onChange={(e) => {
                           const val = parseFloat(e.target.value);
                           // Ensure discount is at least 0 and doesn't exceed the subtotal
@@ -311,7 +311,7 @@ const ReviewPaymentPage = ({
               </Paper>
 
               {Number(remaining) > 0 && (
-                <Alert severity="info" variant="outlined" sx={{ mt: 2, borderRadius: 2, bgcolor: 'white' }}>
+                <Alert severity="info" variant="outlined" sx={{ mt: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   Balance ₹{remaining} will be added to ledger.
                 </Alert>
               )}

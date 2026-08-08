@@ -36,6 +36,7 @@ import WorkIcon from '@mui/icons-material/Work';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import ContactMailIcon from '@mui/icons-material/ContactMail';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import EmailIcon from '@mui/icons-material/Email';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -143,6 +144,7 @@ const useMenuConfig = (t) => ({
         items: [
           { icon: HandshakeIcon, label: 'Partnership Programs', desc: 'Grow together with us', href: 'https://www.desitechsolutions.com/about', external: true },
           { icon: ContactMailIcon, label: 'Contact Us', desc: 'Get in touch', href: '/#contact' },
+          { icon: EmailIcon, label: 'Newsletter Subscription', desc: 'Subscribe for updates', href: '/#newsletter' },
         ]
       }
     ]
@@ -543,7 +545,7 @@ const EnterpriseHeader = () => {
                     fontWeight: 600,
                     fontSize: '0.88rem',
                     textTransform: 'none',
-                    color: '#334155',
+                    color: 'text.primary',
                     px: 1.5,
                     py: 1,
                     borderRadius: 2,
@@ -583,7 +585,7 @@ const EnterpriseHeader = () => {
                       fontWeight: 700,
                       fontSize: '0.88rem',
                       textTransform: 'none',
-                      color: '#334155',
+                      color: 'text.primary',
                       px: 2,
                       '&:hover': { color: 'primary.main', bgcolor: 'rgba(0,0,0,0.04)' }
                     }}
@@ -621,7 +623,7 @@ const EnterpriseHeader = () => {
               {isMobile && (
                 <IconButton
                   onClick={() => setDrawerOpen(true)}
-                  sx={{ color: '#334155', ml: 0.5 }}
+                  sx={{ color: 'text.primary', ml: 0.5 }}
                 >
                   <MenuIcon />
                 </IconButton>
@@ -728,7 +730,7 @@ const EnterpriseHeader = () => {
                                 <Icon sx={{ fontSize: 18, color: 'primary.main', mr: 1.5 }} />
                                 <ListItemText
                                   primary={item.label}
-                                  primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: '#334155' }}
+                                  primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: 'text.primary' }}
                                 />
                               </ListItemButton>
                             </ListItem>

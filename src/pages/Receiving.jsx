@@ -231,7 +231,7 @@ const Receiving = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', p: { xs: 2, sm: 3, md: 4 } }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: { xs: 2, sm: 3, md: 4 } }}>
       <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={loading}>
         <CircularProgress color="inherit" />
       </Backdrop>

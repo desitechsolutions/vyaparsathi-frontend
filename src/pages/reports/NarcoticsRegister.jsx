@@ -77,7 +77,7 @@ export default function NarcoticsRegister() {
   const scheduleHCount = (data || []).filter(r => r.drugSchedule === 'SCHEDULE_H').length;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Button
         startIcon={<ArrowBackIosNew sx={{ fontSize: '0.8rem !important' }} />}
         onClick={() => navigate('/reports')}
@@ -90,7 +90,7 @@ export default function NarcoticsRegister() {
         <Box>
           <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
             <GppMaybe color="error" />
-            <Typography variant="h4" fontWeight={900} color="#0f172a">{t('narcoticsReport.title')}</Typography>
+            <Typography variant="h4" fontWeight={900} color="text.primary">{t('narcoticsReport.title')}</Typography>
           </Stack>
           <Typography color="text.secondary">
             Mandatory log for Schedule H, H1, and X (narcotic) drug sales — required for regulatory compliance
@@ -101,7 +101,7 @@ export default function NarcoticsRegister() {
             variant="outlined"
             startIcon={<FileDownload />}
             onClick={() => downloadCSV(data, from, to, t)}
-            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'white' }}
+            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'background.paper' }}
           >
             Export CSV
           </Button>
@@ -114,7 +114,7 @@ export default function NarcoticsRegister() {
       </Alert>
 
       {/* Date Filter */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
             <TextField label={t('reportsCommon.from')} type="date" value={from} fullWidth
@@ -142,33 +142,33 @@ export default function NarcoticsRegister() {
           {/* Stats */}
           <Grid container spacing={3} mb={4}>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<MedicalServices />} color="#ef4444" bg="#fee2e2"
+              <StatCard icon={<MedicalServices />} color="#ef4444" bg="rgba(239, 68, 68, 0.15)"
                 label="Schedule X (Narcotics)" value={scheduleXCount} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<MedicalServices />} color="#d97706" bg="#fef3c7"
+              <StatCard icon={<MedicalServices />} color="#d97706" bg="rgba(217, 119, 6, 0.15)"
                 label="Schedule H1 Drugs" value={scheduleH1Count} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<MedicalServices />} color="#2563eb" bg="#dbeafe"
+              <StatCard icon={<MedicalServices />} color="#2563eb" bg="rgba(37, 99, 235, 0.15)"
                 label="Schedule H Drugs" value={scheduleHCount} />
             </Grid>
           </Grid>
 
           {data.length === 0 ? (
-            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid #e2e8f0' }}>
-              <MedicalServices sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+              <MedicalServices sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
               <Typography variant="h6" fontWeight={700} color="text.secondary">
                 No controlled drug sales recorded in this period
               </Typography>
             </Paper>
           ) : (
-            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
               <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
                     {[t('narcoticsReport.columns.date'), t('narcoticsReport.columns.item'), t('narcoticsReport.columns.schedule'), t('narcoticsReport.columns.qty'), t('reportsCommon.allCustomers'), t('narcoticsReport.columns.doctor'), t('narcoticsReport.columns.patient'), 'Batch No'].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
+                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: 'text.secondary' }}>
                         {h}
                       </TableCell>
                     ))}
@@ -176,13 +176,13 @@ export default function NarcoticsRegister() {
                 </TableHead>
                 <TableBody>
                   {data.map((row, idx) => (
-                    <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
+                    <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={700}>{dayjs(row.saleDate).format('DD MMM YYYY')}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="text.primary">{dayjs(row.saleDate).format('DD MMM YYYY')}</Typography>
                         <Typography variant="caption" color="text.secondary" fontFamily="monospace">{row.invoiceNo}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="subtitle2" fontWeight={700}>{row.itemName}</Typography>
+                        <Typography variant="subtitle2" fontWeight={700} color="text.primary">{row.itemName}</Typography>
                         {row.composition && (
                           <Typography variant="caption" color="text.secondary">{row.composition}</Typography>
                         )}
@@ -196,10 +196,10 @@ export default function NarcoticsRegister() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={700}>{row.qty} {row.unit}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="text.primary">{row.qty} {row.unit}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{row.customerName || '—'}</Typography>
+                        <Typography variant="body2" color="text.primary">{row.customerName || '—'}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={600} color={row.doctorName ? 'text.primary' : 'error.main'}>
@@ -207,10 +207,10 @@ export default function NarcoticsRegister() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{row.patientName || '—'}</Typography>
+                        <Typography variant="body2" color="text.primary">{row.patientName || '—'}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontFamily="monospace">{row.batchNumber || '—'}</Typography>
+                        <Typography variant="body2" fontFamily="monospace" color="text.primary">{row.batchNumber || '—'}</Typography>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -225,7 +225,7 @@ export default function NarcoticsRegister() {
 }
 
 const StatCard = ({ icon, color, bg, label, value }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: bg, color }}>{icon}</Avatar>
       <Box>

@@ -189,10 +189,10 @@ const NewsletterManager = () => {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 4, gap: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={900} sx={{ color: 'white', letterSpacing: '-0.02em', mb: 0.5 }}>
+          <Typography variant="h5" fontWeight={900} sx={{ color: 'text.primary', letterSpacing: '-0.02em', mb: 0.5 }}>
             Newsletter Subscribers
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
             Monitor subscriber growth, filter channels, and export audience database.
           </Typography>
         </Box>
@@ -202,8 +202,8 @@ const NewsletterManager = () => {
             onClick={() => { loadStats(); loadSubscribers(); }}
             startIcon={<Refresh />}
             sx={{
-              color: 'rgba(255, 255, 255, 0.7)',
-              borderColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'text.primary',
+              borderColor: 'divider',
               borderRadius: '8px',
               textTransform: 'none',
               '&:hover': {
@@ -219,8 +219,8 @@ const NewsletterManager = () => {
             startIcon={<Add />}
             onClick={() => setAddDialogOpen(true)}
             sx={{
-              bgcolor: '#38bdf8',
-              color: '#0f172a',
+              bgcolor: 'primary.main',
+              color: 'text.primary',
               fontWeight: 700,
               textTransform: 'none',
               borderRadius: '8px',
@@ -253,7 +253,7 @@ const NewsletterManager = () => {
             title: 'Unsubscribed Users',
             value: stats.unsubscribedSubscribers,
             icon: <Cancel sx={{ fontSize: 24 }} />,
-            color: '#f43f5e',
+            color: 'error.main',
             desc: 'Opted out manually'
           },
           {
@@ -268,9 +268,9 @@ const NewsletterManager = () => {
             <Paper
               sx={{
                 p: 3,
-                bgcolor: '#1e293b',
+                bgcolor: 'background.paper',
                 borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.05)',
+                border: '1px solid', borderColor: 'divider',
                 backgroundImage: 'none',
                 position: 'relative',
                 overflow: 'hidden'
@@ -293,17 +293,17 @@ const NewsletterManager = () => {
               >
                 {metric.icon}
               </Box>
-              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: 1.1 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: 1.1 }}>
                 {metric.title}
               </Typography>
               {statsLoading ? (
                 <Box sx={{ mt: 1, mb: 0.5 }}><CircularProgress size={24} sx={{ color: metric.color }} /></Box>
               ) : (
-                <Typography variant="h4" fontWeight={900} sx={{ color: 'white', mt: 0.5, mb: 0.5 }}>
+                <Typography variant="h4" fontWeight={900} sx={{ color: 'text.primary', mt: 0.5, mb: 0.5 }}>
                   {metric.value}
                 </Typography>
               )}
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 500 }}>
                 {metric.desc}
               </Typography>
             </Paper>
@@ -318,9 +318,9 @@ const NewsletterManager = () => {
         sx={{
           p: 2.5,
           mb: 3,
-          bgcolor: '#1e293b',
+          bgcolor: 'background.paper',
           borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.05)',
+          border: '1px solid', borderColor: 'divider',
           backgroundImage: 'none'
         }}
       >
@@ -335,22 +335,22 @@ const NewsletterManager = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: 'rgba(255,255,255,0.3)' }} />
+                  <Search sx={{ color: 'text.disabled' }} />
                 </InputAdornment>
               ),
               sx: {
-                color: 'white',
-                bgcolor: '#0f172a',
+                color: 'text.primary',
+                bgcolor: 'background.paper',
                 borderRadius: '8px',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                '&.Mui-focused fieldset': { borderColor: '#38bdf8' }
+                '& fieldset': { borderColor: 'divider' },
+                '&:hover fieldset': { borderColor: 'divider' },
+                '&.Mui-focused fieldset': { borderColor: 'primary.main' }
               }
             }}
           />
 
           <FormControl size="small" sx={{ minWidth: 150, width: { xs: '100%', md: 'auto' } }}>
-            <InputLabel id="active-filter-label" sx={{ color: 'rgba(255,255,255,0.4)', '&.Mui-focused': { color: '#38bdf8' } }}>Status</InputLabel>
+            <InputLabel id="active-filter-label" sx={{ color: 'text.secondary', '&.Mui-focused': { color: 'primary.main' } }}>Status</InputLabel>
             <Select
               labelId="active-filter-label"
               id="active-filter"
@@ -358,13 +358,13 @@ const NewsletterManager = () => {
               label="Status"
               onChange={(e) => { setActiveFilter(e.target.value); setPage(0); }}
               sx={{
-                color: 'white',
-                bgcolor: '#0f172a',
+                color: 'text.primary',
+                bgcolor: 'background.paper',
                 borderRadius: '8px',
-                '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#38bdf8' },
-                '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)' }
+                '.MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                '.MuiSvgIcon-root': { color: 'text.secondary' }
               }}
             >
               <MenuItem value="">All Statuses</MenuItem>
@@ -374,7 +374,7 @@ const NewsletterManager = () => {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 150, width: { xs: '100%', md: 'auto' } }}>
-            <InputLabel id="source-filter-label" sx={{ color: 'rgba(255,255,255,0.4)', '&.Mui-focused': { color: '#38bdf8' } }}>Source</InputLabel>
+            <InputLabel id="source-filter-label" sx={{ color: 'text.secondary', '&.Mui-focused': { color: 'primary.main' } }}>Source</InputLabel>
             <Select
               labelId="source-filter-label"
               id="source-filter"
@@ -382,13 +382,13 @@ const NewsletterManager = () => {
               label="Source"
               onChange={(e) => { setSourceFilter(e.target.value); setPage(0); }}
               sx={{
-                color: 'white',
-                bgcolor: '#0f172a',
+                color: 'text.primary',
+                bgcolor: 'background.paper',
                 borderRadius: '8px',
-                '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#38bdf8' },
-                '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)' }
+                '.MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                '.MuiSvgIcon-root': { color: 'text.secondary' }
               }}
             >
               <MenuItem value="">All Sources</MenuItem>
@@ -404,7 +404,7 @@ const NewsletterManager = () => {
             disabled={subscribers.length === 0}
             startIcon={<GetApp />}
             sx={{
-              color: '#38bdf8',
+              color: 'primary.main',
               borderColor: 'rgba(56, 189, 248, 0.2)',
               borderRadius: '8px',
               textTransform: 'none',
@@ -412,7 +412,7 @@ const NewsletterManager = () => {
               whiteSpace: 'nowrap',
               width: { xs: '100%', md: 'auto' },
               '&:hover': {
-                borderColor: '#38bdf8',
+                borderColor: 'primary.main',
                 bgcolor: 'rgba(56, 189, 248, 0.05)'
               },
               '&.Mui-disabled': {
@@ -430,9 +430,9 @@ const NewsletterManager = () => {
       <TableContainer
         component={Paper}
         sx={{
-          bgcolor: '#1e293b',
+          bgcolor: 'background.paper',
           borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.05)',
+          border: '1px solid', borderColor: 'divider',
           overflow: 'hidden',
           backgroundImage: 'none',
           boxShadow: 'none'
@@ -441,24 +441,24 @@ const NewsletterManager = () => {
         <Table>
           <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
             <TableRow>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SUBSCRIBER EMAIL</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SOURCE</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SUBSCRIBED AT</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>UNSUBSCRIBED AT</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>STATUS</TableCell>
-              <TableCell align="right" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>ACTIONS</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SUBSCRIBER EMAIL</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SOURCE</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>SUBSCRIBED AT</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>UNSUBSCRIBED AT</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>STATUS</TableCell>
+              <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>ACTIONS</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 10, borderBottom: 0 }}>
-                  <CircularProgress sx={{ color: '#38bdf8' }} />
+                  <CircularProgress sx={{ color: 'primary.main' }} />
                 </TableCell>
               </TableRow>
             ) : subscribers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 10, borderBottom: 0, color: 'rgba(255,255,255,0.3)' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 10, borderBottom: 0, color: 'text.disabled' }}>
                   No newsletter subscribers found matching the filters.
                 </TableCell>
               </TableRow>
@@ -467,25 +467,25 @@ const NewsletterManager = () => {
                 <TableRow key={row.id} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' } }}>
                   <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Box sx={{ p: 0.8, bgcolor: 'rgba(56, 189, 248, 0.08)', borderRadius: '6px', color: '#38bdf8', display: 'flex' }}>
+                      <Box sx={{ p: 0.8, bgcolor: 'rgba(25, 118, 210, 0.08)', borderRadius: '6px', color: 'primary.main', display: 'flex' }}>
                         <Email sx={{ fontSize: 16 }} />
                       </Box>
                       <Typography variant="body2" fontWeight={700} color="white">{row.email}</Typography>
                     </Stack>
                   </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', py: 2 }}>
+                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'text.primary', py: 2 }}>
                     <Chip
                       label={row.source || 'Landing Page'}
                       size="small"
                       sx={{
                         bgcolor: 'rgba(255,255,255,0.04)',
-                        color: 'rgba(255,255,255,0.7)',
+                        color: 'text.primary',
                         fontWeight: 600,
                         fontSize: '0.7rem'
                       }}
                     />
                   </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', py: 2 }}>
+                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'text.secondary', py: 2 }}>
                     {row.subscribedAt ? new Date(row.subscribedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                   </TableCell>
                   <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(244,63,94,0.6)', py: 2 }}>
@@ -548,12 +548,12 @@ const NewsletterManager = () => {
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[5, 10, 20, 50]}
           sx={{
-            color: 'rgba(255,255,255,0.6)',
+            color: 'text.secondary',
             borderTop: '1px solid rgba(255,255,255,0.05)',
-            '.MuiTablePagination-selectIcon': { color: 'rgba(255,255,255,0.4)' },
+            '.MuiTablePagination-selectIcon': { color: 'text.secondary' },
             '.MuiIconButton-root': {
-              color: 'white',
-              '&.Mui-disabled': { color: 'rgba(255,255,255,0.2)' }
+              color: 'text.primary',
+              '&.Mui-disabled': { color: 'text.disabled' }
             }
           }}
         />
@@ -565,10 +565,9 @@ const NewsletterManager = () => {
         onClose={() => setAddDialogOpen(false)}
         PaperProps={{
           sx: {
-            bgcolor: '#1e293b',
-            color: 'white',
+            bgcolor: 'background.paper', color: 'text.primary',
             borderRadius: '16px',
-            border: '1px solid rgba(255,255,255,0.05)',
+            border: '1px solid', borderColor: 'divider',
             p: 1,
             width: '100%',
             maxWidth: '450px'
@@ -578,7 +577,7 @@ const NewsletterManager = () => {
         <Box component="form" onSubmit={handleAddSubscriber}>
           <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Manually Add Subscriber</DialogTitle>
           <DialogContent>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mb: 3 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
               Enter the email address of the user who requested a subscription. They will receive a welcome email with their unsubscribe link.
             </Typography>
             <TextField
@@ -589,20 +588,20 @@ const NewsletterManager = () => {
               disabled={adding}
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.4)', '&.Mui-focused': { color: '#38bdf8' } } }}
+              InputLabelProps={{ sx: { color: 'text.secondary', '&.Mui-focused': { color: 'primary.main' } } }}
               InputProps={{
                 sx: {
-                  color: 'white',
-                  bgcolor: '#0f172a',
-                  '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                  '&.Mui-focused fieldset': { borderColor: '#38bdf8' }
+                  color: 'text.primary',
+                  bgcolor: 'background.paper',
+                  '& fieldset': { borderColor: 'divider' },
+                  '&:hover fieldset': { borderColor: 'divider' },
+                  '&.Mui-focused fieldset': { borderColor: 'primary.main' }
                 }
               }}
               sx={{ mb: 2.5 }}
             />
             <FormControl fullWidth size="small">
-              <InputLabel id="dialog-source-label" sx={{ color: 'rgba(255,255,255,0.4)', '&.Mui-focused': { color: '#38bdf8' } }}>Channel Source</InputLabel>
+              <InputLabel id="dialog-source-label" sx={{ color: 'text.secondary', '&.Mui-focused': { color: 'primary.main' } }}>Channel Source</InputLabel>
               <Select
                 labelId="dialog-source-label"
                 id="dialog-source"
@@ -610,12 +609,12 @@ const NewsletterManager = () => {
                 label="Channel Source"
                 onChange={(e) => setNewSource(e.target.value)}
                 sx={{
-                  color: 'white',
-                  bgcolor: '#0f172a',
-                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#38bdf8' },
-                  '.MuiSvgIcon-root': { color: 'rgba(255,255,255,0.4)' }
+                  color: 'text.primary',
+                  bgcolor: 'background.paper',
+                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                  '.MuiSvgIcon-root': { color: 'text.secondary' }
                 }}
               >
                 <MenuItem value="MANUAL_ADMIN">Admin Panel Manual</MenuItem>
@@ -629,10 +628,10 @@ const NewsletterManager = () => {
               onClick={() => setAddDialogOpen(false)}
               disabled={adding}
               sx={{
-                color: 'rgba(255,255,255,0.6)',
+                color: 'text.secondary',
                 textTransform: 'none',
                 fontWeight: 600,
-                '&:hover': { color: 'white' }
+                '&:hover': { color: 'text.primary' }
               }}
             >
               Cancel
@@ -642,8 +641,8 @@ const NewsletterManager = () => {
               variant="contained"
               disabled={adding}
               sx={{
-                bgcolor: '#38bdf8',
-                color: '#0f172a',
+                bgcolor: 'primary.main',
+                color: 'text.primary',
                 fontWeight: 700,
                 textTransform: 'none',
                 borderRadius: '8px',

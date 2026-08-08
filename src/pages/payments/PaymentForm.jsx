@@ -19,21 +19,9 @@ import {
   AccountBalance as BankIcon,
   CheckCircleOutline as CheckIcon,
 } from '@mui/icons-material';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  secondary: '#7c3aed',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  success: '#10b981',
-  background: '#f8fafc',
-  cardBg: '#ffffff',
-  borderColor: '#e2e8f0',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const METHOD_META = {
   CASH:        { label: 'Cash',        Icon: CashIcon,   color: '#059669', bg: alpha('#10b981', 0.08) },
@@ -49,9 +37,10 @@ const PaymentForm = ({
   onCustomerChange, onSaleChange, onMethodChange, 
   onAddMethod, onRemoveMethod, onPaymentDateChange, 
   onSubmit, paymentMethodOptions, needsTransactionId, formatAmount,
-  globalNotes, setGlobalNotes, theme: themeProps
+  globalNotes, setGlobalNotes
 }) => {
-  const customTheme = themeProps || theme;
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const customTheme = useAppPalette();
   
   const selectedSaleObj = customerSales.find(s => String(s.saleId) === String(selectedSale));
   const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
@@ -64,10 +53,10 @@ const PaymentForm = ({
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
-      bgcolor: '#fff',
+      bgcolor: 'background.paper',
       transition: 'all 0.3s ease',
-      '& fieldset': { borderColor: '#cbd5e1', transition: 'border-color 0.3s ease' },
-      '&:hover fieldset': { borderColor: '#94a3b8' },
+      '& fieldset': { borderColor: 'divider', transition: 'border-color 0.3s ease' },
+      '&:hover fieldset': { borderColor: 'divider' },
       '&.Mui-focused fieldset': { borderColor: customTheme.primary },
     },
     '& .MuiOutlinedInput-input': {
@@ -78,8 +67,9 @@ const PaymentForm = ({
   const cardHeaderSx = {
     px: 2.5,
     py: 2,
-    background: 'linear-gradient(135deg, #f0fdf4 0%, #f0fdfa 100%)',
-    borderBottom: `2px solid ${alpha(customTheme.primary, 0.15)}`,
+    bgcolor: 'background.default',
+    borderBottom: '1px solid',
+    borderColor: 'divider',
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
@@ -87,13 +77,14 @@ const PaymentForm = ({
 
   const cardSx = {
     borderRadius: 3,
-    border: `1.5px solid ${alpha(customTheme.primary, 0.12)}`,
+    border: '1.5px solid',
+    borderColor: 'divider',
     overflow: 'hidden',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
     transition: 'all 0.3s ease',
     '&:hover': {
       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      borderColor: alpha(customTheme.primary, 0.25),
+      borderColor: 'primary.main',
     },
   };
 
@@ -308,7 +299,7 @@ const PaymentForm = ({
                             sx={{
                               '& .MuiOutlinedInput-root': {
                                 borderRadius: 2,
-                                bgcolor: '#fff',
+                                bgcolor: 'background.paper',
                                 fontWeight: 800,
                                 fontSize: '1.1rem',
                                 transition: 'all 0.3s ease',
@@ -450,12 +441,17 @@ const PaymentForm = ({
             elevation={0}
             sx={{
               borderRadius: 3,
-              border: `2px solid ${isOverpaid ? alpha(customTheme.warning, 0.5) : totalEntered > 0 ? alpha(customTheme.success, 0.4) : alpha(customTheme.borderColor, 0.5)}`,
+              border: '2px solid',
+              borderColor: isOverpaid 
+                ? 'warning.light' 
+                : totalEntered > 0 
+                  ? 'success.light' 
+                  : 'divider',
               overflow: 'hidden',
               transition: 'all 0.3s ease',
               background: totalEntered > 0 
-                ? 'linear-gradient(135deg, #f0fdf4 0%, #f0fdfa 100%)'
-                : '#ffffff',
+                ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%)'
+                : 'background.paper',
             }}
           >
             <Box sx={{ p: 3 }}>

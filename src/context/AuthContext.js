@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const logoutToastShown = useRef(false);
 
   // ---------------- LOGOUT ----------------
-  const logout = useCallback(async (message) => {
+  const logout = useCallback(async (message, isExpired = false) => {
     if (isLoggingOut.current) return; 
     isLoggingOut.current = true;
 
@@ -34,12 +34,17 @@ export const AuthProvider = ({ children }) => {
     delete API.defaults.headers.common['Authorization'];
     setUser(null);
 
+    let redirectUrl = '/login';
+    if (isExpired && window.location.pathname !== '/login') {
+      const currentRoute = window.location.pathname + window.location.search;
+      sessionStorage.setItem('redirectAfterLogin', currentRoute);
+      redirectUrl = `/login?expired=1&redirect=${encodeURIComponent(currentRoute)}`;
+    } else if (!isExpired) {
+      sessionStorage.removeItem('redirectAfterLogin');
+    }
+
     if (message && !logoutToastShown.current) {
       logoutToastShown.current = true;
-
-      // Use a stable toastId so react-toastify's built-in deduplication
-      // prevents duplicates without needing limit={1} (which triggers the
-      // "removalReason" crash when the evicted toast's close button is clicked).
       toast.error(message, {
         toastId: 'logout-notification',
         autoClose: 4000,
@@ -51,7 +56,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (location.pathname !== '/login') {
-      navigate('/login', { replace: true });
+      navigate(redirectUrl, { replace: true });
     }
 
     // Release lock
@@ -144,7 +149,7 @@ export const AuthProvider = ({ children }) => {
     const cleanup = startSmartIdleTimer({
       onTimeout: () => {
         if (!isLoggingOut.current) {
-          logout('Logged out due to inactivity.');
+          logout('Logged out due to inactivity.', true);
         }
       },
     });
@@ -164,9 +169,19 @@ export const AuthProvider = ({ children }) => {
       setUser(decoded);
 
       logoutToastShown.current = false; 
-      navigate('/', { replace: true });
+
+      const queryParams = new URLSearchParams(window.location.search);
+      const redirectParam = queryParams.get('redirect');
+      const savedRedirect = redirectParam || sessionStorage.getItem('redirectAfterLogin');
+      sessionStorage.removeItem('redirectAfterLogin');
+
+      if (savedRedirect && savedRedirect !== '/login' && savedRedirect !== '/') {
+        navigate(savedRedirect, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch {
-      logout('Invalid session.');
+      logout('Invalid session.', true);
     }
   };
 

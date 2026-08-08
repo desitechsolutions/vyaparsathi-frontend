@@ -585,7 +585,7 @@ const Sales = () => {
 
   return (
     <Box sx={{
-      bgcolor: alpha('#0f766e', 0.04),
+      bgcolor: 'background.default',
       display: 'flex',
       flexDirection: 'column',
       height: outerHeight,
@@ -608,7 +608,7 @@ const Sales = () => {
             flex: 1,
             minHeight: '200px'
           }}>
-            <CircularProgress sx={{ color: '#0f766e' }} />
+            <CircularProgress color="primary" />
           </Box>
         ) : !showReviewPage ? (
           <Box sx={{
@@ -624,7 +624,8 @@ const Sales = () => {
               flex: { md: '0 0 54%' },
               width: { xs: '100%', md: '54%' },
               borderRadius: 2,
-              border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+              border: '1px solid',
+              borderColor: 'divider',
               overflow: 'auto',
               mb: { xs: 1.5, md: 0 },
             }}>
@@ -686,27 +687,28 @@ const Sales = () => {
               {/* Customer Header */}
               <Paper elevation={0} sx={{
                 borderRadius: '8px 8px 0 0',
-                border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+                border: '1px solid',
+                borderColor: 'divider',
                 borderBottom: 'none',
                 p: 1.5,
                 flexShrink: 0,
-                bgcolor: alpha('#0f766e', 0.02),
+                bgcolor: 'action.hover',
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <PersonIcon fontSize="small" sx={{ color: '#0f766e' }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e' }}>
+                  <PersonIcon fontSize="small" color="primary" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
                     {isPharmacy ? 'Patient' : 'Customer'}
                   </Typography>
                   {isPharmacy && (
                     <Chip
                       label="Rx"
                       size="small"
+                      color="error"
                       sx={{
                         ml: 1,
                         height: 18,
                         fontSize: '0.65rem',
-                        bgcolor: alpha('#dc2626', 0.1),
-                        color: '#dc2626'
+                        fontWeight: 700
                       }}
                     />
                   )}
@@ -714,12 +716,12 @@ const Sales = () => {
                     <Chip
                       label="💎"
                       size="small"
+                      color="secondary"
                       sx={{
                         ml: 1,
                         height: 18,
                         fontSize: '0.65rem',
-                        bgcolor: alpha('#7c3aed', 0.1),
-                        color: '#7c3aed'
+                        fontWeight: 700
                       }}
                     />
                   )}
@@ -747,9 +749,10 @@ const Sales = () => {
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+                border: '1px solid',
+                borderColor: 'divider',
                 borderTop: `1px solid ${alpha('#0f766e', 0.08)}`,
-                bgcolor: '#fff',
+                bgcolor: 'background.paper',
               }}>
                 <SalesSummary
                   embedded
@@ -871,7 +874,7 @@ const ActionBar = ({
 }) => (
   <Paper elevation={0} sx={{
     borderRadius: '0 0 8px 8px',
-    border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+    border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
     borderTop: '2px solid #e2e8f0',
     p: 1.5,
     bgcolor: 'rgba(255,255,255,0.97)',
@@ -886,7 +889,7 @@ const ActionBar = ({
         <Typography
           variant="caption"
           sx={{
-            color: '#64748b',
+            color: 'text.secondary',
             fontWeight: 800,
             display: 'block',
             lineHeight: 1,
@@ -899,7 +902,7 @@ const ActionBar = ({
           variant="h6"
           sx={{
             fontWeight: 900,
-            color: '#0f766e',
+            color: 'var(--color-teal)',
             lineHeight: 1
           }}
         >
@@ -911,7 +914,7 @@ const ActionBar = ({
         <Typography
           variant="caption"
           sx={{
-            color: '#64748b',
+            color: 'text.secondary',
             fontWeight: 800,
             display: 'block',
             lineHeight: 1,
@@ -924,7 +927,7 @@ const ActionBar = ({
           variant="subtitle1"
           sx={{
             fontWeight: 900,
-            color: '#0f766e',
+            color: 'var(--color-teal)',
             lineHeight: 1
           }}
         >
@@ -975,7 +978,7 @@ const ActionBar = ({
         <Typography
           variant="caption"
           sx={{
-            color: '#dc2626',
+            color: 'var(--color-error)',
             fontWeight: 700
           }}
         >
@@ -999,9 +1002,9 @@ const ActionBar = ({
               textTransform: 'none',
               fontWeight: 800,
               borderRadius: 2,
-              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
               '&:hover': {
-                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.08)}`,
               },
             }}
           >
@@ -1023,7 +1026,7 @@ const DrugAlertDialog = ({ open, pendingItem, onCancel, onConfirm }) => (
       alignItems: 'center',
       gap: 1,
       bgcolor: alpha('#dc2626', 0.1),
-      color: '#dc2626',
+      color: 'var(--color-error)',
       fontWeight: 800,
     }}>
       <WarningAmberIcon />
@@ -1045,7 +1048,7 @@ const DrugAlertDialog = ({ open, pendingItem, onCancel, onConfirm }) => (
         Confirm that a valid prescription has been checked.
       </Typography>
     </DialogContent>
-    <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+    <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
       <Button onClick={onCancel} color="inherit">
         Cancel
       </Button>
@@ -1053,7 +1056,7 @@ const DrugAlertDialog = ({ open, pendingItem, onCancel, onConfirm }) => (
         variant="contained"
         onClick={onConfirm}
         sx={{
-          bgcolor: '#0f766e',
+          bgcolor: 'var(--color-teal)',
           textTransform: 'none',
           fontWeight: 700
         }}

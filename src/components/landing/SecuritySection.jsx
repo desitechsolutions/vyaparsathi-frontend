@@ -22,7 +22,7 @@ const SecuritySection = () => {
     <Box
       id="security"
       sx={{
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         py: { xs: 10, md: 14, lg: 18 },
       }}
     >
@@ -87,7 +87,7 @@ const SecuritySection = () => {
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-8px)',
-                      bgcolor: '#fff',
+                      bgcolor: 'background.paper',
                       boxShadow: `0 20px 60px ${color}15`,
                       borderColor: `${color}30`,
                     }

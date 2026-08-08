@@ -91,7 +91,7 @@ const PublicPricingSection = () => {
   return (
     <Box
       id="pricing"
-      sx={{ bgcolor: '#F8FAFC', py: { xs: 10, md: 14, lg: 18 } }}
+      sx={{ bgcolor: 'background.default', py: { xs: 10, md: 14, lg: 18 } }}
     >
       <Container maxWidth="xl" sx={{ px: { xs: 3, lg: 6 } }}>
         {/* Header */}
@@ -147,7 +147,7 @@ const PublicPricingSection = () => {
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: '0.85rem',
-                    '&.Mui-selected': { bgcolor: '#fff', color: '#2563EB', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }
+                    '&.Mui-selected': { bgcolor: 'background.paper', color: '#2563EB', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }
                   }
                 }}
               >

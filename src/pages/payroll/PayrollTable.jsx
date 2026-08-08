@@ -57,7 +57,7 @@ export default function PayrollTable({
   return (
     <TableContainer>
       <Table sx={{ minWidth: 800 }}>
-        <TableHead sx={{ bgcolor: '#f8fafc' }}>
+        <TableHead sx={{ bgcolor: 'background.default' }}>
           <TableRow>
             <TableCell padding="checkbox">
               <Checkbox
@@ -66,11 +66,11 @@ export default function PayrollTable({
                 onChange={handleSelectAll}
               />
             </TableCell>
-            <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>STAFF MEMBER</TableCell>
-            <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>BASE SALARY</TableCell>
-            <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>ADVANCE BAL.</TableCell>
-            <TableCell sx={{ fontWeight: 800, color: '#64748b' }}>PAYMENT STATUS</TableCell>
-            <TableCell sx={{ fontWeight: 800, color: '#64748b' }} align="right">ACTIONS</TableCell>
+            <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>STAFF MEMBER</TableCell>
+            <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>BASE SALARY</TableCell>
+            <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>ADVANCE BAL.</TableCell>
+            <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>PAYMENT STATUS</TableCell>
+            <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }} align="right">ACTIONS</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -157,7 +157,7 @@ export default function PayrollTable({
                         <IconButton 
                           size="small" 
                           onClick={() => navigate(`/payroll/history/${row.id}`)}
-                          sx={{ color: '#64748b' }}
+                          sx={{ color: 'text.secondary' }}
                         >
                           <History fontSize="small" />
                         </IconButton>

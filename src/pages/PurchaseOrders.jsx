@@ -122,9 +122,9 @@ const PurchaseOrders = () => {
 
     if (!isLoading && orders.length === 0) {
       return (
-        <Box textAlign="center" mt={8} p={4} sx={{ bgcolor: 'grey.100', borderRadius: 2 }}>
-          <ShoppingBagIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
-          <Typography variant="h5" color="text.secondary" mb={2}>
+        <Box textAlign="center" mt={8} p={4} sx={{ bgcolor: 'background.paper', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <ShoppingBagIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+          <Typography variant="h5" color="text.primary" fontWeight={700} mb={1}>
             {t('purchaseOrdersPage.noOrders')}
           </Typography>
           <Typography color="text.secondary" mb={3}>
@@ -134,6 +134,7 @@ const PurchaseOrders = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => handleOpenModal('create')}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
           >
             {t('purchaseOrdersPage.createOrder')}
           </Button>
@@ -156,86 +157,99 @@ const PurchaseOrders = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, bgcolor: 'grey.50', minHeight: '100vh' }}>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 } }}>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <ShoppingBagIcon color="primary" sx={{ fontSize: '2.5rem', mr: 1.5 }} />
-        <Typography variant="h4" fontWeight={700}>
-          {t('purchaseOrdersPage.title')}
-        </Typography>
-      </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <ShoppingBagIcon color="primary" sx={{ fontSize: '2.5rem', mr: 1.5 }} />
+          <Typography variant="h4" fontWeight={800} color="text.primary">
+            {t('purchaseOrdersPage.title')}
+          </Typography>
+        </Box>
 
-      <PurchaseOrderFilters
-        search={search}
-        setSearch={setSearch}
-        allSuppliers={allSuppliers}
-        onAddNew={() => handleOpenModal('create')}
-      />
-
-      {renderContent()}
-
-      {modalOpen && (
-        <PurchaseOrderModal
-          open={modalOpen}
-          onClose={handleCloseModal}
-          mode={modalMode}
-          selectedPo={selectedPo}
-          onSubmit={handleCreateOrUpdate}
+        <PurchaseOrderFilters
+          search={search}
+          setSearch={setSearch}
           allSuppliers={allSuppliers}
-          showSnackbar={handleSnackbarClose}
-          onSubmitPO={handleSubmitPO} // <-- for modal edit submit
+          onAddNew={() => handleOpenModal('create')}
         />
-      )}
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialog?.open || false} onClose={cancelDelete}>
-        <DialogTitle>{t('purchaseOrdersPage.deleteOrder')}</DialogTitle>
-        <DialogContent>
-          Are you sure you want to delete this purchase order?
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelDelete} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {renderContent()}
 
-      {/* Submit PO confirmation dialog for Card */}
-      <Dialog open={submitDialog} onClose={cancelCardSubmit}>
-        <DialogTitle>{t('purchaseOrdersPage.title')}</DialogTitle>
-        <DialogContent>
-          Are you sure you want to submit this purchase order?
-          <br />
-          <strong>Once submitted, it cannot be edited.</strong>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelCardSubmit} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            onClick={confirmCardSubmit}
-            color="primary"
-            variant="contained"
-            disabled={isSubmitting}
-          >
-            Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+        {modalOpen && (
+          <PurchaseOrderModal
+            open={modalOpen}
+            onClose={handleCloseModal}
+            mode={modalMode}
+            selectedPo={selectedPo}
+            onSubmit={handleCreateOrUpdate}
+            allSuppliers={allSuppliers}
+            showSnackbar={handleSnackbarClose}
+            onSubmitPO={handleSubmitPO} // <-- for modal edit submit
+          />
+        )}
+
+        {/* Delete confirmation dialog */}
+        <Dialog
+          open={deleteDialog?.open || false}
+          onClose={cancelDelete}
+          PaperProps={{ sx: { borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: 'error.main' }}>{t('purchaseOrdersPage.deleteOrder')}</DialogTitle>
+          <DialogContent sx={{ color: 'text.primary' }}>
+            Are you sure you want to delete this purchase order?
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={cancelDelete} color="inherit" sx={{ fontWeight: 700 }}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDelete} color="error" variant="contained" sx={{ fontWeight: 800, borderRadius: 2 }}>
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Submit PO confirmation dialog for Card */}
+        <Dialog
+          open={submitDialog}
+          onClose={cancelCardSubmit}
+          PaperProps={{ sx: { borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>{t('purchaseOrdersPage.title')}</DialogTitle>
+          <DialogContent sx={{ color: 'text.primary' }}>
+            Are you sure you want to submit this purchase order?
+            <br />
+            <Typography component="span" fontWeight="bold" color="warning.main">
+              Once submitted, it cannot be edited.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={cancelCardSubmit} color="inherit" sx={{ fontWeight: 700 }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmCardSubmit}
+              color="primary"
+              variant="contained"
+              disabled={isSubmitting}
+              sx={{ fontWeight: 800, borderRadius: 2 }}
+            >
+              Submit
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 };
 

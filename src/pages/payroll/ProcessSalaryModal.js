@@ -56,14 +56,14 @@ export default function ProcessSalaryModal({ open, onClose, staff, period, onCon
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 900, bgcolor: '#f8fafc', py: 2 }}>
+      <DialogTitle sx={{ fontWeight: 900, bgcolor: 'background.default', py: 2 }}>
         Process Salary: {period.month} {period.year}
       </DialogTitle>
       
       <DialogContent sx={{ mt: 2 }}>
         <Stack spacing={3}>
           {/* Staff Info Header */}
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#eff6ff', border: '1px solid #dbeafe' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.12)', border: '1px solid', borderColor: 'primary.light' }}>
             <Typography variant="subtitle1" fontWeight={800} color="#1e3a8a">
               {staff?.name} ({staff?.role})
             </Typography>
@@ -133,8 +133,7 @@ export default function ProcessSalaryModal({ open, onClose, staff, period, onCon
           <Box sx={{ 
             p: 3, 
             borderRadius: 3, 
-            bgcolor: '#1e293b', 
-            color: 'white',
+            bgcolor: 'background.paper', color: 'text.primary',
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center'
@@ -145,14 +144,14 @@ export default function ProcessSalaryModal({ open, onClose, staff, period, onCon
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+      <DialogActions sx={{ p: 3, bgcolor: 'background.default' }}>
         <Button onClick={onClose} color="inherit" sx={{ fontWeight: 700 }}>Cancel</Button>
         <Button 
           onClick={handleConfirm} 
           variant="contained" 
           startIcon={<Payments />}
           disabled={netAmount < 0 || Number(formData.advanceDeduction) > currentAdvanceBalance}
-          sx={{ borderRadius: 2, fontWeight: 700, px: 4, bgcolor: '#1e293b' }}
+          sx={{ borderRadius: 2, fontWeight: 700, px: 4, bgcolor: 'background.paper' }}
         >
           Disburse Salary
         </Button>

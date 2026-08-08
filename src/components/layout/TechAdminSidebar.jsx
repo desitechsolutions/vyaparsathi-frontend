@@ -123,7 +123,7 @@ const TechAdminSidebar = () => {
           borderRadius: '8px',
           margin: '4px 12px',
           transition: '0.2s',
-          ...(location.pathname === item.path ? activeStyle : { color: '#94a3b8' }),
+          ...(location.pathname === item.path ? activeStyle : { color: 'text.secondary' }),
         }}
       >
         <ListItemIcon
@@ -163,17 +163,17 @@ const TechAdminSidebar = () => {
       <Toolbar />
 
       <Box sx={{ p: 2 }}>
-        <Typography variant="overline" sx={{ color: '#94a3b8', fontWeight: 800, ml: 2 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, ml: 2 }}>
           Management
         </Typography>
       </Box>
 
       <List>{adminMenu.map(renderItem)}</List>
 
-      <Divider sx={{ my: 2, bgcolor: '#334155' }} />
+      <Divider sx={{ my: 2, bgcolor: 'background.paper' }} />
 
       <Box sx={{ p: 2 }}>
-        <Typography variant="overline" sx={{ color: '#94a3b8', fontWeight: 800, ml: 2 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, ml: 2 }}>
           System
         </Typography>
       </Box>
@@ -196,12 +196,12 @@ const TechAdminSidebar = () => {
             bgcolor: connected ? '#10b981' : '#ef4444'
           }} />
 
-          <Typography variant="caption" sx={{ color: '#64748b' }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
             {connected ? 'Live Sync Active' : 'Offline'}
           </Typography>
         </Box>
 
-        <Typography variant="caption" sx={{ color: '#475569' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           VyaparSathi v0.1.0<br />Staff Panel
         </Typography>
       </Box>

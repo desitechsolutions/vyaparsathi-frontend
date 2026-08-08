@@ -211,19 +211,18 @@ const SupportChatWidget = ({ user }) => {
               overflow: 'hidden',
 
               borderRadius: 4,
-              border: '1px solid #e2e8f0',
+              border: '1px solid',
               boxShadow: '0px 8px 32px rgba(0,0,0,0.2)',
 
               pointerEvents: 'auto',
-              bgcolor: 'white',
+              bgcolor: 'background.paper',
             }}
           >
             {/* Header */}
             <Box
               sx={{
                 p: 2,
-                bgcolor: '#1e293b',
-                color: 'white',
+                bgcolor: 'background.paper', color: 'text.primary',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -263,7 +262,7 @@ const SupportChatWidget = ({ user }) => {
                 flexGrow: 1,
                 p: 2,
                 overflowY: 'auto',
-                bgcolor: '#f8fafc',
+                bgcolor: 'background.default',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -298,7 +297,7 @@ const SupportChatWidget = ({ user }) => {
                           borderRadius: isAdmin ? '15px 15px 15px 2px' : '15px 15px 2px 15px',
                           bgcolor: isAdmin ? 'white' : '#1e293b',
                           color: isAdmin ? 'black' : 'white',
-                          border: isAdmin ? '1px solid #e2e8f0' : 'none',
+                          border: isAdmin ? '1px solid' : 'none',
                           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                         }}
                       >
@@ -345,7 +344,7 @@ const SupportChatWidget = ({ user }) => {
             </Box>
 
             {/* Input Area */}
-            <Box sx={{ p: 2, bgcolor: 'white', borderTop: '1px solid #e2e8f0', pointerEvents: 'auto' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: '1px solid', pointerEvents: 'auto' }}>
               <Stack direction="row" spacing={1}>
                 <TextField
                   fullWidth
@@ -364,7 +363,7 @@ const SupportChatWidget = ({ user }) => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 3,
-                      bgcolor: '#f1f5f9',
+                      bgcolor: 'background.default',
                     },
                   }}
                 />
@@ -374,7 +373,7 @@ const SupportChatWidget = ({ user }) => {
                     bgcolor: '#ef4444',
                     color: 'white',
                     '&:hover': { bgcolor: '#dc2626' },
-                    '&.Mui-disabled': { bgcolor: '#cbd5e1' },
+                    '&.Mui-disabled': { bgcolor: 'action.disabled' },
                   }}
                   onClick={handleSend}
                   disabled={!text.trim() || loading || !user?.shopId}
@@ -411,9 +410,8 @@ const SupportChatWidget = ({ user }) => {
                   if (!isDragging) setIsOpen(!isOpen);
                 }}
                 sx={{
-                  bgcolor: '#1e293b',
-                  color: 'white',
-                  '&:hover': { bgcolor: '#334155' },
+                  bgcolor: 'background.paper', color: 'text.primary',
+                  '&:hover': { bgcolor: 'background.paper' },
                   boxShadow: '0px 4px 12px rgba(0,0,0,0.3)',
                   cursor: isDragging ? 'grabbing' : 'grab',
                 }}

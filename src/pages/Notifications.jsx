@@ -94,7 +94,7 @@ export default function Notifications() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
           <Typography variant="h4" fontWeight={900} color="#0f172a">{t('notificationsPage.title')}</Typography>
@@ -125,7 +125,7 @@ export default function Notifications() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
         <Tabs 
           value={tabValue} 
           onChange={(e, v) => setTabValue(v)} 
@@ -153,13 +153,13 @@ export default function Notifications() {
                     alignItems="flex-start"
                     sx={{ 
                       bgcolor: notif.read ? 'transparent' : 'rgba(59, 130, 246, 0.04)',
-                      '&:hover': { bgcolor: '#f8fafc', cursor: notif.read ? 'default' : 'pointer' },
+                      '&:hover': { bgcolor: 'background.default', cursor: notif.read ? 'default' : 'pointer' },
                       transition: '0.2s',
                       py: 2
                     }}
                   >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+                      <Avatar sx={{ bgcolor: 'background.paper', border: '1px solid' }}>
                         {getIcon(notif.type)}
                       </Avatar>
                     </ListItemAvatar>
@@ -199,7 +199,7 @@ export default function Notifications() {
         )}
       </Paper>
 
-      <Paper sx={{ mt: 4, p: 3, borderRadius: 4, bgcolor: '#f1f5f9', border: '1px dashed #cbd5e1' }}>
+      <Paper sx={{ mt: 4, p: 3, borderRadius: 4, bgcolor: 'background.default', border: '1px dashed #cbd5e1' }}>
         <Stack direction="row" spacing={2} alignItems="center">
           <WarningAmber color="action" />
           <Typography variant="body2" color="text.secondary">

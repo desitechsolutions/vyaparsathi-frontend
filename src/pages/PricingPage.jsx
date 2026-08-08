@@ -91,7 +91,7 @@ const PricingPage = () => {
   ];
 
   return (
-    <Box sx={{ bgcolor: '#FFFFFF', minHeight: '100vh', overflowX: 'hidden' }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', overflowX: 'hidden' }}>
       
       {isExpired && (
         <Box sx={{ bgcolor: '#FEF2F2', borderBottom: '1px solid #FECACA', py: 2 }}>
@@ -115,7 +115,7 @@ const PricingPage = () => {
         </Box>
       )}
 
-      <Box sx={{ bgcolor: '#F4F7FF', pt: { xs: 4, md: 6 }, pb: { xs: 15, md: 20 }, textAlign: 'center' }}>
+      <Box sx={{ bgcolor: 'action.hover', pt: { xs: 4, md: 6 }, pb: { xs: 15, md: 20 }, textAlign: 'center' }}>
         <Container maxWidth="md">
           
           {fromBilling && (
@@ -124,11 +124,11 @@ const PricingPage = () => {
                 startIcon={<ArrowBackIcon />} 
                 onClick={() => navigate('/admin/billing')}
                 sx={{ 
-                  color: '#64748B', 
+                  color: 'text.secondary', 
                   fontWeight: 800, 
                   textTransform: 'none',
                   fontSize: '0.9rem',
-                  '&:hover': { bgcolor: 'transparent', color: '#2563EB' } 
+                  '&:hover': { bgcolor: 'transparent', color: 'primary.main' } 
                 }}
               >
                 Back to Billing
@@ -136,16 +136,16 @@ const PricingPage = () => {
             </Box>
           )}
 
-          <Typography variant="h3" sx={{ fontWeight: 900, color: '#1E293B', mb: 2, letterSpacing: '-0.02em', fontSize: { xs: '2rem', md: '3rem' }, mt: fromBilling ? 0 : 4 }}>
+          <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary', mb: 2, letterSpacing: '-0.02em', fontSize: { xs: '2rem', md: '3rem' }, mt: fromBilling ? 0 : 4 }}>
             Plans for businesses of all sizes
           </Typography>
-          <Typography variant="h6" sx={{ color: '#64748B', mb: 6, fontWeight: 400, fontSize: '1.1rem' }}>
+          <Typography variant="h6" sx={{ color: 'text.secondary', mb: 6, fontWeight: 400, fontSize: '1.1rem' }}>
             Get the tools you need to manage your business efficiently.
           </Typography>
 
           <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
-            <Typography variant="body2" sx={{ fontWeight: billingCycle === 'monthly' ? 700 : 500, color: billingCycle === 'monthly' ? '#1E293B' : '#64748B' }}>Monthly</Typography>
-            <Paper elevation={0} sx={{ p: 0.5, borderRadius: '50px', bgcolor: '#E2E8F0', display: 'flex' }}>
+            <Typography variant="body2" sx={{ fontWeight: billingCycle === 'monthly' ? 700 : 500, color: billingCycle === 'monthly' ? 'text.primary' : 'text.secondary' }}>Monthly</Typography>
+            <Paper elevation={0} sx={{ p: 0.5, borderRadius: '50px', bgcolor: 'action.selected', display: 'flex' }}>
               <ToggleButtonGroup
                 value={billingCycle}
                 exclusive
@@ -154,7 +154,7 @@ const PricingPage = () => {
                   '& .MuiToggleButton-root': { 
                     border: 'none', borderRadius: '50px !important', px: 3, py: 0.8, 
                     textTransform: 'none', fontWeight: 700, fontSize: '0.85rem',
-                    '&.Mui-selected': { bgcolor: '#FFF', color: '#2563EB', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }
+                    '&.Mui-selected': { bgcolor: 'background.paper', color: 'primary.main', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }
                   } 
                 }}
               >
@@ -163,8 +163,8 @@ const PricingPage = () => {
               </ToggleButtonGroup>
             </Paper>
             <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="body2" sx={{ fontWeight: billingCycle === 'yearly' ? 700 : 500, color: billingCycle === 'yearly' ? '#1E293B' : '#64748B' }}>Yearly</Typography>
-              <Chip label="SAVE ON ANNUAL" size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 900, height: 20, fontSize: '0.65rem' }} />
+              <Typography variant="body2" sx={{ fontWeight: billingCycle === 'yearly' ? 700 : 500, color: billingCycle === 'yearly' ? 'text.primary' : 'text.secondary' }}>Yearly</Typography>
+              <Chip label="SAVE ON ANNUAL" size="small" color="success" sx={{ fontWeight: 900, height: 20, fontSize: '0.65rem' }} />
             </Stack>
           </Stack>
         </Container>
@@ -172,9 +172,9 @@ const PricingPage = () => {
 
       <Container id="pricing-grid" maxWidth="lg" sx={{ mt: -12, pb: 10 }}>
         <Grid container sx={{ 
-          border: '1px solid #E2E8F0', 
+          border: '1px solid', borderColor: 'divider', 
           borderRadius: '16px', 
-          bgcolor: '#FFF', 
+          bgcolor: 'background.paper', 
           overflow: 'hidden', 
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05)' 
         }}>
@@ -198,20 +198,21 @@ const PricingPage = () => {
 
             return (
               <Grid item key={plan.id} xs={12} md={plans.length > 0 ? 12/plans.length : 4} sx={{ 
-                borderRight: index !== plans.length - 1 ? { md: '1px solid #E2E8F0' } : 'none',
-                borderBottom: { xs: '1px solid #E2E8F0', md: 'none' },
-                bgcolor: isHighlighted ? '#F8FAFF' : '#FFF'
+                borderRight: index !== plans.length - 1 ? { md: '1px solid', borderColor: 'divider' } : 'none',
+                borderBottom: { xs: '1px solid', md: 'none' },
+                borderColor: 'divider',
+                bgcolor: isHighlighted ? 'action.hover' : 'background.paper'
               }}>
                 <Box sx={{ p: { xs: 4, md: 5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   
                   {isHighlighted ? (
-                    <Typography variant="caption" sx={{ color: '#2563EB', fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', textTransform: 'uppercase', letterSpacing: 1 }}>
                       <StarIcon sx={{ fontSize: 14, mr: 0.5 }} /> Recommended
                     </Typography>
                   ) : <Box sx={{ height: 21, mb: 1 }} />}
                   
-                  <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#1E293B' }}>{plan.displayName || plan.tier}</Typography>
-                  <Typography variant="body2" sx={{ color: '#64748B', mb: 4, height: 40 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: 'text.primary' }}>{plan.displayName || plan.tier}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 4, height: 40 }}>
                     {plan.tier === 'FREE' && "Experience basic features at no cost."}
                     {plan.tier === 'STARTER' && "Essential features for small business owners."}
                     {plan.tier === 'PRO' && "Advanced tools for growing businesses."}
@@ -223,7 +224,7 @@ const PricingPage = () => {
                       <Typography 
                         variant="body1" 
                         sx={{ 
-                          color: '#94A3B8', 
+                          color: 'text.disabled', 
                           textDecoration: 'line-through', 
                           fontWeight: 600,
                           mb: -0.5 
@@ -233,18 +234,18 @@ const PricingPage = () => {
                       </Typography>
                     )}
                     <Stack direction="row" alignItems="baseline">
-                      <Typography variant="h3" sx={{ fontWeight: 900, color: '#1E293B' }}>
+                      <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>
                         ₹{pricePerMonth}
                       </Typography>
-                      <Typography variant="subtitle1" sx={{ color: '#64748B', ml: 1, fontWeight: 500 }}>
+                      <Typography variant="subtitle1" sx={{ color: 'text.secondary', ml: 1, fontWeight: 500 }}>
                         / month
                       </Typography>
                     </Stack>
-                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600, display: 'block', mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mt: 0.5 }}>
                       {billingCycle === 'yearly' ? 'per Organization per Month' : 'per Organization'}
                     </Typography>
                     
-                    <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, display: 'block' }}>
                       {billingCycle === 'yearly' ? '(Billed annually) ' : ''}
                       {plan.yearlyPrice > 0 ? `₹${gstTotal} incl. 18% GST` : 'Free Forever'}
                     </Typography>
@@ -257,13 +258,6 @@ const PricingPage = () => {
                     disabled={isPaidActive || (status === 'PENDING' && !isThisPlanTier) || plan.tier === 'FREE'}
                     sx={{ 
                       py: 1.5, mb: 5, borderRadius: '8px', fontWeight: 800, textTransform: 'none',
-                      bgcolor: isHighlighted ? '#2563EB' : 'transparent',
-                      color: isHighlighted ? '#FFF' : '#2563EB',
-                      border: isHighlighted ? 'none' : '2px solid #2563EB',
-                      '&:hover': { 
-                        bgcolor: isHighlighted ? '#1D4ED8' : 'rgba(37, 99, 235, 0.04)',
-                        border: isHighlighted ? 'none' : '2px solid #1D4ED8'
-                      }
                     }}
                   >
                     {plan.tier === 'FREE' ? 'Default Plan' : isPaidActive ? 'Current Plan' : isTrialActive ? 'On Trial (Upgrade Now)' : isPendingThisPlan ? 'Verifying...' : (isPlanExpired ? 'Renew Plan' : 'Buy Now')}
@@ -271,7 +265,7 @@ const PricingPage = () => {
 
                   <Divider sx={{ mb: 4 }} />
 
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: '#1E293B' }}>Features included:</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.primary' }}>Features included:</Typography>
                   <List sx={{ p: 0, flexGrow: 1 }}>
                     {(plan.features || [])
                       .slice() 
@@ -291,9 +285,9 @@ const PricingPage = () => {
                           <ListItem key={i} disableGutters sx={{ py: 0.6 }}>
                             <ListItemIcon sx={{ minWidth: 30 }}>
                               {isExcluded ? (
-                                <CloseIcon sx={{ color: '#FDA4AF', fontSize: 18 }} /> 
+                                <CloseIcon sx={{ color: 'error.light', fontSize: 18 }} /> 
                               ) : (
-                                <CheckCircleIcon sx={{ color: '#10B981', fontSize: 18 }} /> 
+                                <CheckCircleIcon sx={{ color: 'success.main', fontSize: 18 }} /> 
                               )}
                             </ListItemIcon>
                             <ListItemText 
@@ -318,7 +312,7 @@ const PricingPage = () => {
       {isTrialAvailable ? (
         <Container maxWidth="lg" sx={{ mb: 10 }}>
           <Paper elevation={0} sx={{ 
-            p: 5, borderRadius: '16px', bgcolor: '#1E293B', color: '#FFF', 
+            p: 5, borderRadius: '16px', bgcolor: 'background.paper', color: 'text.primary', 
             display: 'flex', flexDirection: { xs: 'column', md: 'row' }, 
             alignItems: 'center', justifyContent: 'space-between', gap: 3 
           }}>
@@ -343,7 +337,7 @@ const PricingPage = () => {
                   setStartingTrial(false); 
                 }
               }}
-              sx={{ bgcolor: '#FFF', color: '#1E293B', fontWeight: 800, px: 6, py: 2, '&:hover': { bgcolor: '#F1F5F9' } }}
+              sx={{ bgcolor: 'background.paper', color: 'text.primary', fontWeight: 800, px: 6, py: 2, '&:hover': { bgcolor: 'action.hover' } }}
             >
               {startingTrial ? <CircularProgress size={24} /> : 'Get Started for Free'}
             </Button>
@@ -359,13 +353,13 @@ const PricingPage = () => {
         </Container>
       )}
 
-      <Box sx={{ bgcolor: '#F8FAFC', py: 12 }}>
+      <Box sx={{ bgcolor: 'background.default', py: 12 }}>
         <Container maxWidth="md">
-          <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 8, color: '#1E293B' }}>Common Questions</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 8, color: 'text.primary' }}>Common Questions</Typography>
           {faqs.map((faq, index) => (
             <Accordion key={index} elevation={0} sx={{ bgcolor: 'transparent', borderBottom: '1px solid #E2E8F0', '&:before': { display: 'none' } }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography sx={{ fontWeight: 700, color: '#334155' }}>{faq.q}</Typography>
+                <Typography sx={{ fontWeight: 700, color: 'text.primary' }}>{faq.q}</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant="body2" sx={{ color: '#64748B', lineHeight: 1.7 }}>{faq.a}</Typography>
@@ -375,10 +369,10 @@ const PricingPage = () => {
         </Container>
       </Box>
 
-      <Box sx={{ py: 10, bgcolor: '#FFF', borderTop: '1px solid #E2E8F0' }}>
+      <Box sx={{ py: 10, bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider' }}>
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 8 }}>
-            <Typography variant="h4" sx={{ fontWeight: 900, color: '#1E293B', mb: 2 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', mb: 2 }}>
               Have more questions?
             </Typography>
             <Typography variant="body1" sx={{ color: '#64748B' }}>
@@ -414,7 +408,7 @@ const PricingPage = () => {
                     p: 4, 
                     height: '100%', 
                     borderRadius: '16px', 
-                    border: '1px solid #E2E8F0',
+                    border: '1px solid', borderColor: 'divider',
                     transition: '0.3s',
                     '&:hover': { boxShadow: '0 10px 30px rgba(0,0,0,0.05)', borderColor: item.color }
                   }}
@@ -428,7 +422,7 @@ const PricingPage = () => {
                       <Typography variant="caption" sx={{ fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>
                         Email
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E293B', display: 'block' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', display: 'block' }}>
                         <a href={`mailto:${item.email}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                           {item.email}
                         </a>
@@ -441,7 +435,7 @@ const PricingPage = () => {
                           Call/WhatsApp
                         </Typography>
                         {item.phones.map((phone, pIdx) => (
-                          <Typography key={pIdx} variant="body2" sx={{ fontWeight: 600, color: '#1E293B', display: 'block' }}>
+                          <Typography key={pIdx} variant="body2" sx={{ fontWeight: 600, color: 'text.primary', display: 'block' }}>
                             <a href={`tel:${phone.replace(/\s+/g, '')}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                               {phone}
                             </a>
@@ -457,7 +451,7 @@ const PricingPage = () => {
         </Container>
       </Box>
 
-      <Box sx={{ mt: 12, textAlign: 'center', py: 6, borderTop: '1px solid #E2E8F0' }}>
+      <Box sx={{ mt: 12, textAlign: 'center', py: 6, borderTop: '1px solid', borderColor: 'divider' }}>
             <Stack direction="row" justifyContent="center" spacing={{ xs: 2, md: 6 }} sx={{ mb: 4, opacity: 0.7 }}>
                 <Stack direction="row" alignItems="center" spacing={1}><SecurityIcon fontSize="small" color="primary"/> <Typography variant="caption" fontWeight={800}>SECURE UPI PAYMENTS</Typography></Stack>
                 <Stack direction="row" alignItems="center" spacing={1}><VerifiedUserIcon fontSize="small" color="primary"/> <Typography variant="caption" fontWeight={800}>MANUAL VERIFICATION</Typography></Stack>
@@ -465,7 +459,7 @@ const PricingPage = () => {
             <Typography variant="h6" sx={{ fontStyle: 'italic', color: 'text.secondary', maxWidth: '800px', mx: 'auto', fontWeight: 500, lineHeight: 1.6 }}>
                 "Built for business owners who value simplicity and transparency. No hidden charges, no complicated contracts—just the tools you need to succeed."
             </Typography>
-            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 900, color: '#1E293B', letterSpacing: 1 }}>
+            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 900, color: 'text.primary', letterSpacing: 1 }}>
                 — TEAM VYAPARSATHI
             </Typography>
         </Box>
@@ -483,7 +477,7 @@ const PricingPage = () => {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               width: { xs: '95%', md: 850 }, 
-              bgcolor: '#FFFFFF',
+              bgcolor: 'background.default',
               borderRadius: '24px',
               boxShadow: '0 40px 100px rgba(0,0,0,0.2)',
               outline: 'none',
@@ -496,7 +490,7 @@ const PricingPage = () => {
       <Box
         sx={{
           width: { xs: '100%', md: '42%' },
-          bgcolor: '#F8FAFC',
+          bgcolor: 'background.default',
           p: 4,
           borderRight: '1px solid #E2E8F0',
           display: 'flex',
@@ -547,8 +541,8 @@ const PricingPage = () => {
             sx={{
               p: 2,
               borderRadius: '16px',
-              bgcolor: '#FFF',
-              border: '1px solid #E2E8F0',
+              bgcolor: 'background.paper',
+              border: '1px solid', borderColor: 'divider',
               display: 'inline-block',
               lineHeight: 0,
               boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
@@ -571,7 +565,7 @@ const PricingPage = () => {
       <Box sx={{ flex: 1, p: { xs: 3, md: 5 }, display: 'flex', flexDirection: 'column' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h6" fontWeight={800}>Payment Instructions</Typography>
-          <IconButton size="small" onClick={() => !isSubmitting && setOpenPayment(false)} sx={{ bgcolor: '#F1F5F9' }}>
+          <IconButton size="small" onClick={() => !isSubmitting && setOpenPayment(false)} sx={{ bgcolor: 'action.hover' }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Stack>
@@ -588,7 +582,7 @@ const PricingPage = () => {
                   {item.step}
                 </Box>
               </ListItemIcon>
-              <ListItemText primary={item.text} primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: '#475569' }} />
+              <ListItemText primary={item.text} primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: 'text.secondary' }} />
             </ListItem>
           ))}
         </List>
@@ -618,7 +612,7 @@ const PricingPage = () => {
             onChange={(e) => setUtr(e.target.value.replace(/\D/g, '').slice(0, 12))}
             error={!!error}
             helperText={error || "Verification takes 1-2 hours"}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', bgcolor: '#F8FAFC' } }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', bgcolor: 'background.default' } }}
           />
         </Box>
 

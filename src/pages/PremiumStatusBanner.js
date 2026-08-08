@@ -21,7 +21,7 @@ export default function PremiumStatusBanner() {
           cursor: 'pointer',
           borderRadius: expanded ? '16px' : '30px',
           border: '1px solid #fed7aa',
-          bgcolor: '#fff7ed',
+          bgcolor: 'rgba(245, 158, 11, 0.08)',
           overflow: 'hidden',
           transition: 'all 0.3s ease',
           '&:hover': { bgcolor: '#ffedd5' }

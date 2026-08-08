@@ -105,7 +105,7 @@ const FeaturesShowcaseSection = () => {
     <Box
       id="features"
       sx={{
-        bgcolor: '#F8FAFC',
+        bgcolor: 'background.default',
         py: { xs: 10, md: 14, lg: 18 },
       }}
     >
@@ -178,7 +178,7 @@ const FeaturesShowcaseSection = () => {
             { value: '10+', label: 'Language Support' },
           ].map((stat, i) => (
             <Grid item xs={6} md={3} key={i}>
-              <Box sx={{ textAlign: 'center', p: 3, borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', bgcolor: '#fff', transition: '0.3s', '&:hover': { boxShadow: '0 8px 30px rgba(0,0,0,0.06)', transform: 'translateY(-4px)' } }}>
+              <Box sx={{ textAlign: 'center', p: 3, borderRadius: 3, border: '1px solid rgba(0,0,0,0.06)', bgcolor: 'background.paper', transition: '0.3s', '&:hover': { boxShadow: '0 8px 30px rgba(0,0,0,0.06)', transform: 'translateY(-4px)' } }}>
                 <Typography variant="h4" fontWeight={900} sx={{ color: '#1E293B', mb: 0.5 }}>{stat.value}</Typography>
                 <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>{stat.label}</Typography>
               </Box>

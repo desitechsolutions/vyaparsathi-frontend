@@ -150,7 +150,7 @@ const Customers = () => {
   ];
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         {isPharmacy && <MedicalServicesIcon color="primary" sx={{ fontSize: 36 }} />}
         <Typography variant="h4" sx={{ fontWeight: 800 }}>
@@ -163,7 +163,7 @@ const Customers = () => {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid' }}>
             <Stack direction="row" spacing={2} alignItems="center">
               <Avatar sx={{ bgcolor: isPharmacy ? '#e0f2e9' : '#e0f2fe', color: isPharmacy ? '#166534' : '#0369a1' }}>
                 {isPharmacy ? <MedicalServicesIcon /> : <AccountIcon />}
@@ -178,9 +178,9 @@ const Customers = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+          <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid' }}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar sx={{ bgcolor: '#fef2f2', color: '#dc2626' }}><TrendingUpIcon /></Avatar>
+              <Avatar sx={{ bgcolor: 'rgba(239, 68, 68, 0.08)', color: '#dc2626' }}><TrendingUpIcon /></Avatar>
               <Box>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>{t('customersPage.totalReceivable')}</Typography>
                 <Typography variant="h5" fontWeight={800} color="error.main">₹{stats.totalAmount.toLocaleString('en-IN')}</Typography>
@@ -190,7 +190,7 @@ const Customers = () => {
         </Grid>
       </Grid>
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
         <DataGrid
           rows={customers}
           columns={columns}
@@ -199,7 +199,7 @@ const Customers = () => {
           disableRowSelectionOnClick
           slots={{ toolbar: CustomToolbar }}
           slotProps={{ toolbar: { onAddClick: () => { setEditingCustomer(null); setFormData(initialFormState); setIsDialogOpen(true); }, isPharmacy, t } }}
-          sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f1f5f9' } }}
+          sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.default' } }}
         />
       </Paper>
 

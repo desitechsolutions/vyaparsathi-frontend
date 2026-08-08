@@ -120,7 +120,7 @@ const Expenses = () => {
   ];
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expensesPage.title')}</Typography>
@@ -137,8 +137,8 @@ const Expenses = () => {
         <Grid item xs={12} md={4}><StatCard icon={<PieChart color="warning" />} label={t('expensesPage.highestSingle')} value={`₹${stats.highest.toLocaleString()}`} color="#f59e0b" /></Grid>
       </Grid>
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
+        <Box sx={{ height: 600, width: '100%', bgcolor: 'background.paper' }}>
           <DataGrid
             rows={expenses}
             columns={columns}
@@ -149,7 +149,7 @@ const Expenses = () => {
                 <GridToolbarQuickFilter sx={{ width: 300 }} placeholder={t('expensesPage.searchPlaceholder')} />
               </GridToolbarContainer>
             )}}
-            sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc' } }}
+            sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.default' } }}
           />
         </Box>
       </Paper>
@@ -197,7 +197,7 @@ const Expenses = () => {
 };
 
 const StatCard = ({ icon, label, value, color }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       <Box sx={{ bgcolor: `${color}15`, p: 2, borderRadius: 3, display: 'flex' }}>{icon}</Box>
       <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography><Typography variant="h5" fontWeight={900}>{value}</Typography></Box>

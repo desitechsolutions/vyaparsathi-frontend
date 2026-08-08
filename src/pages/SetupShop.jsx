@@ -227,10 +227,10 @@ const SetupShop = () => {
           </Stepper>
 
           {setupComplete ? (
-            <Paper variant="outlined" sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+            <Paper variant="outlined" sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', border: '1px solid', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
               <Box sx={{ textAlign: 'center', mb: 4 }}>
                 <CheckCircleIcon sx={{ fontSize: 70, color: 'success.main', mb: 1.5 }} />
-                <Typography variant="h4" fontWeight={900} gutterBottom sx={{ color: '#0f172a' }}>
+                <Typography variant="h4" fontWeight={900} gutterBottom sx={{ color: 'text.primary' }}>
                   You're all set! 🎉
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 450, mx: 'auto' }}>
@@ -252,7 +252,7 @@ const SetupShop = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
-                      borderColor: '#e2e8f0',
+                      borderColor: 'divider',
                       '&:hover': {
                         borderColor: 'primary.main',
                         boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',
@@ -286,7 +286,7 @@ const SetupShop = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
-                      borderColor: '#e2e8f0',
+                      borderColor: 'divider',
                       '&:hover': {
                         borderColor: 'primary.main',
                         boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',
@@ -320,7 +320,7 @@ const SetupShop = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
-                      borderColor: '#e2e8f0',
+                      borderColor: 'divider',
                       '&:hover': {
                         borderColor: 'primary.main',
                         boxShadow: '0 8px 24px rgba(15, 118, 110, 0.08)',

@@ -126,7 +126,7 @@ export default function AuditLogs() {
   });
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
           <Typography variant="h4" fontWeight={900} color="#0f172a">{t('auditLogsPage.title')}</Typography>
@@ -154,7 +154,7 @@ export default function AuditLogs() {
             value={startDate}
             onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
             InputLabelProps={{ shrink: true }}
-            sx={{ bgcolor: 'white' }}
+            sx={{ bgcolor: 'background.paper' }}
           />
           <TextField
             type="date"
@@ -163,15 +163,15 @@ export default function AuditLogs() {
             value={endDate}
             onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
             InputLabelProps={{ shrink: true }}
-            sx={{ bgcolor: 'white' }}
+            sx={{ bgcolor: 'background.paper' }}
           />
           <Tooltip title="Export to Excel">
-            <IconButton onClick={() => handleExport('excel')} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+            <IconButton onClick={() => handleExport('excel')} sx={{ bgcolor: 'background.paper', border: '1px solid' }}>
               <FileDownload color="primary" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Refresh">
-            <IconButton onClick={selectedUser ? () => loadUserLogs(selectedUser) : loadLogs} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+            <IconButton onClick={selectedUser ? () => loadUserLogs(selectedUser) : loadLogs} sx={{ bgcolor: 'background.paper', border: '1px solid' }}>
               <History />
             </IconButton>
           </Tooltip>
@@ -182,7 +182,7 @@ export default function AuditLogs() {
         Logs are read-only and cannot be modified by any user, including Administrators.
       </Alert>
 
-      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
         {loading && <LinearProgress color="primary" />}
         
         <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
@@ -206,12 +206,12 @@ export default function AuditLogs() {
           <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.timestamp')}</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.user')}</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.action')}</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.entity')}</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>{t('auditLogsPage.columns.details')}</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>IP Address</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>{t('auditLogsPage.columns.timestamp')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>{t('auditLogsPage.columns.user')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>{t('auditLogsPage.columns.action')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>{t('auditLogsPage.columns.entity')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>{t('auditLogsPage.columns.details')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.default' }}>IP Address</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -240,7 +240,7 @@ export default function AuditLogs() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" sx={{ bgcolor: '#f1f5f9', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'background.default', px: 1, py: 0.5, borderRadius: 1 }}>
                         {log.entity} {log.entityId !== 'N/A' ? `#${log.entityId}` : ''}
                       </Typography>
                     </TableCell>

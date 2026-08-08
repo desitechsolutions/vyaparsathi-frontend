@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { DataGrid } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -254,7 +255,7 @@ const Stock = () => {
           <Typography variant="caption" color="text.secondary">{t('stock.columns.skuLabel')} {params.row.sku}</Typography>
           <Stack direction="row" spacing={0.5} mt={0.5}>
             <Chip label={params.row.color} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-            <Chip label={params.row.size} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#e2e8f0' }} />
+            <Chip label={params.row.size} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'action.selected' }} />
           </Stack>
         </Box>
       ),
@@ -268,7 +269,7 @@ const Stock = () => {
           <Typography variant="body2" fontWeight={800} color={params.value < 10 ? 'error.main' : 'success.main'} mb={0.5}>
             {params.value} {params.row.unit}
           </Typography>
-          <LinearProgress variant="determinate" value={Math.min((params.value / 100) * 100, 100)} color={params.value < 10 ? 'error' : 'primary'} sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9' }} />
+          <LinearProgress variant="determinate" value={Math.min((params.value / 100) * 100, 100)} color={params.value < 10 ? 'error' : 'primary'} sx={{ height: 4, borderRadius: 2, bgcolor: 'background.default' }} />
         </Box>
       ),
     },
@@ -333,14 +334,13 @@ const Stock = () => {
         const today = new Date();
         const expiryDate = new Date(expiry);
         const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        let color = 'success.main';
-        let bg = '#f0fdf4';
-        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
-        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
-        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        let colorToken = 'success.main';
+        if (daysLeft <= 0) { colorToken = 'error.main'; }
+        else if (daysLeft <= 30) { colorToken = 'error.main'; }
+        else if (daysLeft <= 90) { colorToken = 'warning.main'; }
         return (
-          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
-            <Typography variant="caption" fontWeight={700} color={color}>
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: colorToken, opacity: daysLeft <= 90 ? 0.15 : 0.1 }}>
+            <Typography variant="caption" fontWeight={700} color={colorToken}>
               {daysLeft <= 0 ? 'EXPIRED' : daysLeft <= 90 ? `${daysLeft}d left` : new Date(expiry).toLocaleDateString('en-IN')}
             </Typography>
           </Box>
@@ -394,7 +394,7 @@ const Stock = () => {
             variant="determinate"
             value={Math.min((Number(params.value) / 100) * 100, 100)}
             color={Number(params.value) < 10 ? 'error' : 'primary'}
-            sx={{ height: 4, borderRadius: 2, bgcolor: '#f1f5f9', mt: 0.5 }}
+            sx={{ height: 4, borderRadius: 2, bgcolor: 'background.default', mt: 0.5 }}
           />
         </Box>
       ),
@@ -409,14 +409,13 @@ const Stock = () => {
         const today = new Date();
         const expiryDate = new Date(expiry);
         const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        let color = 'success.main';
-        let bg = '#f0fdf4';
-        if (daysLeft <= 0) { color = 'error.main'; bg = '#fef2f2'; }
-        else if (daysLeft <= 30) { color = 'error.main'; bg = '#fef2f2'; }
-        else if (daysLeft <= 90) { color = 'warning.main'; bg = '#fffbeb'; }
+        let colorToken2 = 'success.main';
+        if (daysLeft <= 0) { colorToken2 = 'error.main'; }
+        else if (daysLeft <= 30) { colorToken2 = 'error.main'; }
+        else if (daysLeft <= 90) { colorToken2 = 'warning.main'; }
         return (
-          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: bg }}>
-            <Typography variant="caption" fontWeight={700} color={color}>
+          <Box sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: colorToken2, opacity: 0.12 }}>
+            <Typography variant="caption" fontWeight={700} color={colorToken2}>
               {new Date(expiry).toLocaleDateString('en-IN')}
               {daysLeft <= 0 ? ' — EXPIRED' : daysLeft <= 90 ? ` (${daysLeft}d)` : ''}
             </Typography>
@@ -443,11 +442,11 @@ const Stock = () => {
   ];
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', pb: 5 }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 5 }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} mb={4} spacing={2}>
           <Box>
-            <Typography variant="h4" fontWeight={900} color="#0f172a">
+            <Typography variant="h4" fontWeight={900} color="text.primary">
               {t('stock.title')}
             </Typography>
             <Typography color="text.secondary">
@@ -455,7 +454,7 @@ const Stock = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2} flexWrap="wrap">
-            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}>
               {t('stock.actions.export')}
             </Button>
             {isPharmacy && (
@@ -464,7 +463,7 @@ const Stock = () => {
                 color="secondary"
                 startIcon={<FileUploadIcon />}
                 onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
-                sx={{ borderRadius: 2, fontWeight: 700, height: 48, bgcolor: 'white' }}
+                sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}
               >
                 {t('stock.actions.bulkImport')}
               </Button>
@@ -497,14 +496,14 @@ const Stock = () => {
               icon={<AttachMoney color="success" />} 
               label={t('stock.stats.investmentValue')} 
               value={`₹${formatCurrency(stats.totalValue)}`} 
-              color="#10b981" 
+              color="success.main" 
             />
           </Grid>
         </Grid>
 
-        <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
           {isPharmacy && (
-            <Box sx={{ borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }}>
+            <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
               <Tabs
                 value={viewTab}
                 onChange={(_, v) => setViewTab(v)}
@@ -515,7 +514,7 @@ const Stock = () => {
               </Tabs>
             </Box>
           )}
-          <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'white' }} spacing={2} justifyContent="space-between">
+          <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }} spacing={2} justifyContent="space-between">
             <TextField 
               size="small" 
               placeholder={t('stock.searchPlaceholder')} 
@@ -524,21 +523,21 @@ const Stock = () => {
               InputProps={{ 
                 startAdornment: <InputAdornment position="start"><Search fontSize="small" color="action" /></InputAdornment> 
               }} 
-              sx={{ width: 400, '& .MuiInputBase-root': { borderRadius: 2, bgcolor: '#f8fafc' } }} 
+              sx={{ width: 400, '& .MuiInputBase-root': { borderRadius: 2 } }} 
             />
             <Button startIcon={<ShowChart />} size="small" color="primary" variant="outlined" onClick={() => setAnalyticsOpen(true)} sx={{ borderRadius: 2, fontWeight: 700 }}>
               {t('stock.actions.analytics')}
             </Button>
           </Stack>
           {(!isPharmacy || viewTab === 0) && (
-            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+            <Box sx={{ height: 600, width: '100%' }}>
               <DataGrid 
                 rows={filteredRows} 
                 columns={columns} 
                 loading={loading} 
                 disableRowSelectionOnClick 
                 rowHeight={75} 
-                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }} 
+                sx={{ border: 0 }} 
                 localeText={{
                   noRowsLabel: t('stock.noData'),
                   columnHeaderSortIconLabel: t('stock.sort'),
@@ -547,7 +546,7 @@ const Stock = () => {
             </Box>
           )}
           {isPharmacy && viewTab === 1 && (
-            <Box sx={{ height: 600, width: '100%', bgcolor: 'white' }}>
+            <Box sx={{ height: 600, width: '100%' }}>
               <DataGrid
                 rows={batchStock.filter(
                   (b) =>
@@ -560,7 +559,7 @@ const Stock = () => {
                 loading={loading}
                 disableRowSelectionOnClick
                 rowHeight={70}
-                sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', fontWeight: 'bold' } }}
+                sx={{ border: 0 }}
                 localeText={{ noRowsLabel: t('stock.noBatchStock') }}
               />
             </Box>
@@ -589,16 +588,18 @@ const Stock = () => {
             >
               {t('stock.import.downloadTemplate')}
             </Button>
-            <Box
+          <Box
               sx={{
-                border: '2px dashed #94a3b8',
+                border: '2px dashed',
+                borderColor: 'divider',
                 borderRadius: 3,
                 p: 3,
                 textAlign: 'center',
-                bgcolor: importFile ? '#f0fdf4' : '#f8fafc',
+                bgcolor: importFile ? 'success.main' : 'background.default',
+                opacity: importFile ? 0.15 : 1,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                '&:hover': { borderColor: '#6366f1', bgcolor: '#f5f3ff' },
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
               }}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -636,7 +637,7 @@ const Stock = () => {
             )}
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}>
             {importResult?.errorCount === 0 ? t('common.close') : t('common.cancel')}
           </Button>
@@ -707,7 +708,7 @@ const Stock = () => {
             </TextField>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setExportDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button 
             variant="contained" 
@@ -742,7 +743,7 @@ const Stock = () => {
               renderInput={(params) => <TextField {...params} label={t('stock.form.selectVariant')} placeholder={t('stock.form.searchVariant')} />}
             />
             {selectedVariant && (
-              <Box sx={{ p: 2, bgcolor: '#f0f9ff', borderRadius: 3, border: '1px dashed #0ea5e9' }}>
+              <Box sx={{ p: 2, bgcolor: 'rgba(3, 105, 161, 0.08)', borderRadius: 3, border: '1px dashed #0ea5e9' }}>
                 <Grid container alignItems="center">
                   <Grid item xs={6}>
                     <Typography variant="caption">{t('stock.form.retailPrice')}</Typography>
@@ -836,7 +837,7 @@ const Stock = () => {
             </Grid>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 3, bgcolor: 'background.default' }}>
           <Button onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={handleSubmit} disabled={isSubmitting} sx={{ borderRadius: 2, fontWeight: 700 }}>
             {isSubmitting ? <CircularProgress size={24} /> : t('stock.actions.completeEntry')}
@@ -850,7 +851,7 @@ const Stock = () => {
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             {selectedVariant && (
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fffbeb', borderColor: '#fef3c7', borderRadius: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.08)', borderColor: '#fef3c7', borderRadius: 2 }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                   <InfoIcon color="warning" />
                   <Box>
@@ -889,7 +890,7 @@ const Stock = () => {
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 3, bgcolor: 'background.default' }}>
           <Button onClick={() => setAdjustOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="warning" onClick={handleAdjustSubmit} disabled={isSubmitting || !formData.quantity || !formData.reason}>
             {t('stock.actions.applyAdjustment')}
@@ -954,7 +955,7 @@ const Stock = () => {
               </Typography>
             </Box>
             <Divider />
-            <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, border: '1px solid #dcfce7' }}>
+            <Box sx={{ p: 2, bgcolor: 'rgba(34, 197, 94, 0.12)', borderRadius: 3, border: '1px solid #dcfce7' }}>
               <Typography variant="caption" color="success.main" fontWeight={800}>
                 {t('stock.stats.estimatedProfit')}
               </Typography>
@@ -982,7 +983,7 @@ const Stock = () => {
 };
 
 const StatCard = ({ icon, label, value, color }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
       <Box sx={{ bgcolor: `${color}15`, p: 2, borderRadius: 3, display: 'flex' }}>{icon}</Box>
       <Box>

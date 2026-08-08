@@ -14,7 +14,7 @@ const TechAdminHeader = () => {
   const [anchorEl, setAnchorEl] = React.useState(null);
 
   return (
-    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: '#0f172a' }}>
+    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: 'primary.main' }}>
       <Toolbar sx={{ justifyContent: 'space-between' }}>
         
         {/* Branding */}

@@ -235,7 +235,7 @@ const UserManagementPage = () => {
     ], [handleStatusChange, t]);
 
     return (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h4" fontWeight="bold">{t('userManagementPage.title')}</Typography>
                 <Button 

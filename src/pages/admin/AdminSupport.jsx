@@ -117,28 +117,27 @@ const AdminSupport = () => {
             elevation={0}
             sx={{ 
               height: '100%', 
-              bgcolor: '#1e293b', 
-              color: 'white', 
+              bgcolor: 'background.paper', color: 'text.primary', 
               borderRadius: 3, 
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.05)'
+              border: '1px solid', borderColor: 'divider'
             }}
           >
             <Box sx={{ p: 2.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 900, color: '#ec4899', letterSpacing: -0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: 'secondary.main', letterSpacing: -0.5 }}>
                 Support Center
               </Typography>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
                 <Box sx={{ width: 8, height: 8, bgcolor: connected ? '#4ade80' : '#f87171', borderRadius: '50%', boxShadow: connected ? '0 0 8px #4ade80' : 'none' }} />
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase' }}>
                   {connected ? 'System Live' : 'Connecting...'}
                 </Typography>
               </Stack>
             </Box>
 
-            <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
+            <Divider sx={{ bgcolor: 'text.disabled' }} />
             
             <List sx={{ flexGrow: 1, overflowY: 'auto', py: 0 }}>
               {sortedConversations.map((shop) => (
@@ -203,8 +202,8 @@ const AdminSupport = () => {
               height: '100%', 
               borderRadius: 3, 
               overflow: 'hidden', 
-              border: '1px solid #e2e8f0',
-              bgcolor: 'white' 
+              border: '1px solid',
+              bgcolor: 'background.paper' 
             }}
           >
             {activeShopId ? (
@@ -215,9 +214,9 @@ const AdminSupport = () => {
                 connected={connected}
               />
             ) : (
-              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: '#f8fafc', textAlign: 'center', p: 3 }}>
-                <Avatar sx={{ width: 100, height: 100, mb: 3, bgcolor: 'white', border: '1px solid #e2e8f0' }}>
-                  <StorefrontIcon sx={{ fontSize: 50, color: '#cbd5e1' }} />
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ width: 100, height: 100, mb: 3, bgcolor: 'background.paper', border: '1px solid' }}>
+                  <StorefrontIcon sx={{ fontSize: 50, color: 'action.disabled' }} />
                 </Avatar>
                 <Typography variant="h5" fontWeight={900} color="#1e293b" gutterBottom>
                   Admin Support Desktop

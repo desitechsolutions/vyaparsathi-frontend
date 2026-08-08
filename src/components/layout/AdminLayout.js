@@ -1,12 +1,11 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { Box, CssBaseline, Toolbar } from '@mui/material';
+import { Box, Toolbar } from '@mui/material';
 import TechAdminHeader from './TechAdminHeader'; // Your new Admin Header
 import TechAdminSidebar from './TechAdminSidebar'; // A simplified Admin Sidebar
 
 const AdminLayout = () => (
   <Box sx={{ display: 'flex' }}>
-    <CssBaseline />
     {/* Admin Specific Header - No search/subscription logic */}
     <TechAdminHeader /> 
     
@@ -18,9 +17,9 @@ const AdminLayout = () => (
       sx={{ 
         flexGrow: 1, 
         p: 3, 
-        bgcolor: '#0f172a', // Darker theme for Admin "God-mode"
+        bgcolor: 'background.default', // Darker theme for Admin "God-mode"
         minHeight: '100vh',
-        color: '#f8fafc'
+        color: 'text.primary'
       }}
     >
       <Toolbar />

@@ -70,11 +70,13 @@ const ReportsIndex = () => {
         elevation={0} 
         sx={{ 
           borderRadius: 4, 
-          border: '1px solid #e2e8f0', 
+          border: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
           transition: '0.3s',
           '&:hover': { 
             transform: 'translateY(-5px)', 
-            boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
+            boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 10px 20px rgba(0,0,0,0.5)' : '0 10px 20px rgba(0,0,0,0.05)',
             borderColor: report.color 
           } 
         }}
@@ -93,11 +95,11 @@ const ReportsIndex = () => {
                 {report.icon}
               </Avatar>
               <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
+                <Typography variant="subtitle1" fontWeight={800} color="text.primary">
                   {report.title}
                 </Typography>
               </Box>
-              <ChevronRight sx={{ color: '#cbd5e1' }} />
+              <ChevronRight sx={{ color: 'action.disabled' }} />
             </Stack>
             <Typography variant="body2" color="text.secondary">
               {report.desc}
@@ -109,10 +111,10 @@ const ReportsIndex = () => {
   );
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', p: { xs: 2, sm: 3, md: 4 } }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', p: { xs: 2, sm: 3, md: 4 } }}>
       <Container maxWidth="lg">
         <Box sx={{ mb: 6 }}>
-          <Typography variant="h4" fontWeight={900} color="#0f172a" gutterBottom>
+          <Typography variant="h4" fontWeight={900} color="text.primary" gutterBottom>
             {t('reportsIndex.title')}
           </Typography>
           <Typography variant="body1" color="text.secondary">

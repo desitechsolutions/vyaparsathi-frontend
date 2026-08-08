@@ -13,16 +13,23 @@ const StyledModal = styled(Modal)({
   backdropFilter: 'blur(5px)',
 });
 
-const ModalContent = styled(Box)({
-  backgroundColor: '#fff',
-  borderRadius: '12px',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+const ModalContent = styled(Box)(({ theme }) => ({
+  backgroundColor: theme.palette.background.paper,
+  color: theme.palette.text.primary,
+  borderRadius: '16px',
+  boxShadow: theme.shadows[12],
   padding: '2rem',
-  width: '90%',
+  width: '95%',
   maxWidth: '800px',
   maxHeight: '90vh',
   overflowY: 'auto',
-});
+  border: `1px solid ${theme.palette.divider}`,
+  '& .MuiInputBase-input.Mui-disabled': {
+    color: theme.palette.text.primary,
+    WebkitTextFillColor: theme.palette.text.primary,
+    opacity: 0.85
+  }
+}));
 
 const initialFormState = {
   poNumber: '',
@@ -254,28 +261,28 @@ useEffect(() => {
   };
 
   const renderViewMode = () => {
-    if (!selectedPo) return <Typography>No Purchase Order selected.</Typography>;
+    if (!selectedPo) return <Typography color="text.secondary">No Purchase Order selected.</Typography>;
     const supplier = allSuppliers.find(s => s.id === selectedPo.supplierId);
     return (
       <Box>
-        <Typography variant="h5" fontWeight="bold" mb={2}>Purchase Order Details</Typography>
+        <Typography variant="h5" fontWeight="bold" mb={2} color="text.primary">Purchase Order Details</Typography>
         <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}> <Typography><strong>PO Number:</strong> {selectedPo.poNumber}</Typography> </Grid>
-            <Grid item xs={12} sm={6}> <Typography><strong>Supplier:</strong> {supplier?.name || 'N/A'}</Typography> </Grid>
-            <Grid item xs={12} sm={6}> <Typography><strong>Order Date:</strong> {new Date(selectedPo.orderDate).toLocaleDateString()}</Typography> </Grid>
-            <Grid item xs={12} sm={6}> <Typography><strong>Expected Delivery:</strong> {selectedPo.expectedDeliveryDate ? new Date(selectedPo.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</Typography> </Grid>
-            <Grid item xs={12} sm={6}> <Typography><strong>Status:</strong> {selectedPo.status}</Typography> </Grid>
-            <Grid item xs={12}> <Typography><strong>Notes:</strong> {selectedPo.notes || '—'}</Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>PO Number:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{selectedPo.poNumber}</Box></Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Supplier:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{supplier?.name || 'N/A'}</Box></Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Order Date:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{new Date(selectedPo.orderDate).toLocaleDateString()}</Box></Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Expected Delivery:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{selectedPo.expectedDeliveryDate ? new Date(selectedPo.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</Box></Typography> </Grid>
+            <Grid item xs={12} sm={6}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Status:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{selectedPo.status}</Box></Typography> </Grid>
+            <Grid item xs={12}> <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Notes:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{selectedPo.notes || '—'}</Box></Typography> </Grid>
         </Grid>
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="h6" mt={2} mb={1}>Items</Typography>
-        <List sx={{ bgcolor: '#f5f5f5', borderRadius: 2, p: 1 }}>
+        <Divider sx={{ my: 2, borderColor: 'divider' }} />
+        <Typography variant="h6" mt={2} mb={1} color="text.primary" fontWeight={700}>Items</Typography>
+        <List sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 1, border: '1px solid', borderColor: 'divider' }}>
           {(selectedPo.items || []).map((item, index) => (
-            <ListItem key={index} divider>
+            <ListItem key={index} divider sx={{ borderColor: 'divider' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <Typography><strong>SKU:</strong> {item.sku || 'N/A'}</Typography>
-                <Typography><strong>Qty:</strong> {item.quantity}</Typography>
-                <Typography><strong>Cost:</strong> ₹{Number(item.unitCost).toFixed(2)}</Typography>
+                <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>SKU:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{item.sku || 'N/A'}</Box></Typography>
+                <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Qty:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{item.quantity}</Box></Typography>
+                <Typography color="text.secondary"><strong style={{ color: 'inherit' }}>Cost:</strong> <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>₹{Number(item.unitCost).toFixed(2)}</Box></Typography>
               </Box>
             </ListItem>
           ))}
@@ -286,7 +293,7 @@ useEffect(() => {
 
   const renderFormMode = () => (
      <Box component="form" noValidate onSubmit={handleSubmit}>
-        <Typography variant="h5" fontWeight="bold" mb={3}>
+        <Typography variant="h5" fontWeight="bold" mb={3} color="text.primary">
             {mode === 'edit' ? 'Edit Purchase Order' : 'Create New Purchase Order'}
         </Typography>
         <Grid container spacing={2}>
@@ -399,8 +406,8 @@ useEffect(() => {
         {formErrors.items && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{formErrors.items}</Typography>}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 4, gap: 2 }}>
-            <Typography variant="h6">Total: ₹{formPo.totalAmount}</Typography>
-            <Button onClick={onClose} variant="outlined" color="secondary">Cancel</Button>
+            <Typography variant="h6" color="text.primary" fontWeight={700}>Total: ₹{formPo.totalAmount}</Typography>
+            <Button onClick={onClose} variant="outlined" color="inherit">Cancel</Button>
             {!isReadOnly && (
               <Button type="submit" variant="contained" disabled={isSubmitting}>
                 {isSubmitting ? <CircularProgress size={24} color="inherit" /> : (mode === 'edit' ? 'Update PO' : 'Create PO')}
@@ -423,21 +430,28 @@ useEffect(() => {
         )}
 
         {/* Submit PO confirmation dialog */}
-        <Dialog open={submitDialog} onClose={() => setSubmitDialog(false)}>
-          <DialogTitle>Submit Purchase Order</DialogTitle>
-          <DialogContent>
-            <Typography>
+        <Dialog
+          open={submitDialog}
+          onClose={() => setSubmitDialog(false)}
+          PaperProps={{ sx: { borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>Submit Purchase Order</DialogTitle>
+          <DialogContent sx={{ color: 'text.primary' }}>
+            <Typography color="text.primary">
               Are you sure you want to submit this purchase order? <br />
-              <strong>Once submitted, it cannot be edited.</strong>
+              <Typography component="span" fontWeight="bold" color="warning.main">
+                Once submitted, it cannot be edited.
+              </Typography>
             </Typography>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSubmitDialog(false)} color="secondary">Cancel</Button>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setSubmitDialog(false)} color="inherit" sx={{ fontWeight: 700 }}>Cancel</Button>
             <Button
               onClick={handleSubmitPO}
               variant="contained"
               color="primary"
               disabled={isSubmittingPO}
+              sx={{ fontWeight: 800, borderRadius: 2 }}
             >
               {isSubmittingPO ? <CircularProgress size={24} color="inherit" /> : 'Submit'}
             </Button>
@@ -460,9 +474,9 @@ useEffect(() => {
         onClose={() => setCreateSupplierDialog(false)}
         fullWidth
         maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
           <PersonAddIcon color="primary" />
           Create New Supplier
         </DialogTitle>
@@ -512,7 +526,7 @@ useEffect(() => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setCreateSupplierDialog(false)} color="secondary">
+          <Button onClick={() => setCreateSupplierDialog(false)} color="inherit" sx={{ fontWeight: 700 }}>
             Cancel
           </Button>
           <Button
@@ -520,6 +534,7 @@ useEffect(() => {
             onClick={handleCreateSupplier}
             disabled={isCreatingSupplier || !supplierForm.name.trim()}
             startIcon={isCreatingSupplier ? <CircularProgress size={18} color="inherit" /> : <PersonAddIcon />}
+            sx={{ fontWeight: 800, borderRadius: 2 }}
           >
             {isCreatingSupplier ? 'Creating...' : 'Create Supplier'}
           </Button>

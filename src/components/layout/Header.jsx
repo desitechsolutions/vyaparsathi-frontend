@@ -28,12 +28,16 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import PersonIcon from '@mui/icons-material/Person';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import BrightnessAutoIcon from '@mui/icons-material/BrightnessAuto';
 
 import { useTranslation } from 'react-i18next';
 import UserProfile from '../../pages/UserProfile';
 import SettingsDialog from '../settings/SettingsDialog';
 import { useSubscription } from '../../context/SubscriptionContext';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import { useThemeContext } from '../../context/ThemeContext';
 
 const pulse = keyframes`
   0% { transform: scale(1); opacity: 1; }
@@ -67,7 +71,17 @@ const Header = ({ onDrawerToggle }) => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { isPremium, subscription } = useSubscription();
+  const { colorPreference, cycleColorPreference } = useThemeContext();
   const premium = isPremium();
+
+  // --- Theme toggle helpers ---
+  const themeIconMap = {
+    light: <LightModeIcon sx={{ fontSize: 20 }} />,
+    dark: <DarkModeIcon sx={{ fontSize: 20 }} />,
+    auto: <BrightnessAutoIcon sx={{ fontSize: 20 }} />,
+  };
+  const themeNextLabel = { light: 'Dark', dark: 'Auto', auto: 'Light' };
+  const themeCurrentLabel = { light: 'Light', dark: 'Dark', auto: 'Auto' };
 
   // --- SEARCH STATES ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +93,7 @@ const Header = ({ onDrawerToggle }) => {
   // --- UI STATES ---
   const [anchorEl, setAnchorEl] = useState(null);
   const [quickActionEl, setQuickActionEl] = useState(null);
-  const [notificationEl, setNotificationEl] = useState(null); 
+  const [notificationEl, setNotificationEl] = useState(null);
   const [openSupportDialog, setOpenSupportDialog] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openSettingsDialog, setOpenSettingsDialog] = useState(false);
@@ -130,7 +144,7 @@ const Header = ({ onDrawerToggle }) => {
   const handleMenu = (event) => setAnchorEl(event.currentTarget);
   const handleQuickActionOpen = (event) => setQuickActionEl(event.currentTarget);
   const handleNotificationOpen = (event) => setNotificationEl(event.currentTarget);
-  
+
   const handleClose = () => {
     setAnchorEl(null);
     setQuickActionEl(null);
@@ -199,11 +213,11 @@ const Header = ({ onDrawerToggle }) => {
                           <ListItemAvatar>
                             <Avatar sx={{
                               bgcolor: result.type === 'CUSTOMER' ? 'primary.main' :
-                                       result.type === 'SALE' ? 'success.main' : 'warning.main',
+                                result.type === 'SALE' ? 'success.main' : 'warning.main',
                               width: 36, height: 36
                             }}>
                               {result.type === 'CUSTOMER' ? <PersonIcon fontSize="small" /> :
-                               result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
+                                result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
@@ -227,350 +241,381 @@ const Header = ({ onDrawerToggle }) => {
           </Box>
         ) : (
           <>
-        {/* LEFT: Branding & Hamburger */}
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {/* HAMBURGER ICON: Visible only on mobile/tablet */}
-          {isLoggedIn && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={onDrawerToggle}
-              sx={{ mr: { xs: 0.5, sm: 2 }, display: { md: 'none' } }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Box onClick={() => navigate('/')}>
-            <AppBranding />
-          </Box>
-        </Box>
-
-        {/* MIDDLE: Global Search (Desktop & Tablet only) */}
-        {isLoggedIn && !isMobile && (
-          <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
-            <Box sx={{ 
-              display: 'flex', alignItems: 'center', bgcolor: 'rgba(255,255,255,0.15)', 
-              borderRadius: 2, px: 2, transition: '0.3s',
-              '&:focus-within': { bgcolor: 'rgba(255,255,255,0.25)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
-            }}>
-              <SearchIcon sx={{ color: 'rgba(255,255,255,0.8)', mr: 1 }} />
-              <InputBase
-                placeholder={t('header.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
-                sx={{ color: 'white', width: '100%', fontSize: '0.95rem', py: 0.8 }}
-              />
-              {isSearching && <CircularProgress size={20} sx={{ color: 'white', ml: 1 }} />}
+            {/* LEFT: Branding & Hamburger */}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* HAMBURGER ICON: Visible only on mobile/tablet */}
+              {isLoggedIn && (
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={onDrawerToggle}
+                  sx={{ mr: { xs: 0.5, sm: 2 }, display: { md: 'none' } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Box onClick={() => navigate('/')}>
+                <AppBranding />
+              </Box>
             </Box>
 
-            {showResults && (
-              <Paper 
-                elevation={10}
-                sx={{ 
-                  position: 'absolute', top: '115%', left: 0, right: 0, 
-                  maxHeight: 450, overflowY: 'auto', borderRadius: 2, zIndex: 100,
-                  border: '1px solid', borderColor: 'divider'
-                }}
-              >
-                {searchResults.length > 0 ? (
-                  <List sx={{ py: 0 }}>
-                    {searchResults.map((result, index) => (
-                      <MenuItem 
-                        key={`${result.type}-${result.id}-${index}`} 
-                        onClick={() => handleResultClick(result.route)}
-                        sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ 
-                            bgcolor: result.type === 'CUSTOMER' ? 'primary.main' : 
-                                     result.type === 'SALE' ? 'success.main' : 'warning.main', 
-                            width: 36, height: 36 
-                          }}>
-                            {result.type === 'CUSTOMER' ? <PersonIcon fontSize="small" /> : 
-                             result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText 
-                          primary={<Typography variant="body2" fontWeight={700}>{result.title}</Typography>}
-                          secondary={result.subtitle}
-                        />
-                        <Box sx={{ textAlign: 'right', ml: 2 }}>
-                          <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', fontWeight: 700 }}>
-                            {t(`header.${result.type.toLowerCase()}`)}
-                          </Typography>
-                          <ChevronRightIcon fontSize="small" color="disabled" />
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </List>
-                ) : (
-                  <Box sx={{ p: 4, textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('header.noResultsFound', { value: searchQuery })}
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-            )}
-            
-            {showResults && (
-              <Box 
-                onClick={() => setShowResults(false)} 
-                sx={{ position: 'fixed', inset: 0, zIndex: 90, bgcolor: 'transparent' }} 
-              />
-            )}
-          </Box>
-        )}
-
-        {/* RIGHT: Actions */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
-          {isLoggedIn && (
-            <>
-              {/* Mobile search icon */}
-              {isMobile && (
-                <IconButton color="inherit" onClick={() => setMobileSearchOpen(true)} size="small">
-                  <SearchIcon />
-                </IconButton>
-              )}
-
-              {/* Quick action button: hidden on mobile (available via sidebar) */}
-              <Tooltip title={t('header.quickAction')}>
-                <IconButton 
-                  onClick={handleQuickActionOpen} 
-                  sx={{ 
-                    display: { xs: 'none', sm: 'flex' },
-                    bgcolor: 'secondary.main', color: 'white', 
-                    '&:hover': { bgcolor: 'secondary.dark' }, 
-                    width: { xs: 36, sm: 42 }, height: { xs: 36, sm: 42 },
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  <AddCircleIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Menu
-                anchorEl={quickActionEl}
-                open={Boolean(quickActionEl)}
-                onClose={handleClose}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                PaperProps={{ sx: { width: 240, mt: 1.5, borderRadius: 2, p: 1 } }}
-              >
-                <Typography variant="overline" sx={{ px: 2, fontWeight: 800, color: 'primary.main' }}>
-                  {t('header.transactionShortcuts')}
-                </Typography>
-                <MenuItem onClick={() => { handleClose(); navigate('/sales'); }}>
-                  <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon> 
-                  {t('header.newSale')}
-                </MenuItem>
-                <MenuItem onClick={() => { handleClose(); navigate('/customer-payments'); }}>
-                  <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon> 
-                  {t('header.advancePayment')}
-                </MenuItem>
-                <Divider sx={{ my: 1 }} />
-                <MenuItem onClick={() => { handleClose(); navigate('/stock'); }}>
-                  <ListItemIcon><InventoryIcon fontSize="small" /></ListItemIcon> 
-                  {t('header.addProduct')}
-                </MenuItem>
-              </Menu>
-
-              {alertCount > 0 && (
-                <Tooltip title={tooltipMessage}>
-                  <IconButton color="inherit" onClick={handleNotificationOpen} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
-                    <Badge badgeContent={alertCount} color={criticalCount > 0 ? "error" : "warning"}>
-                      {criticalCount > 0 ? <ReportProblemOutlinedIcon /> : <NotificationsIcon />}
-                    </Badge>
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              <Menu
-                anchorEl={notificationEl}
-                open={Boolean(notificationEl)}
-                onClose={handleClose}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                PaperProps={{ 
-                  sx: { 
-                    width: { xs: '90vw', sm: 320 }, 
-                    mt: 1.5, 
-                    borderRadius: 3, 
-                    maxHeight: 500,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.15)' 
-                  } 
-                }}
-              >
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                    {t('header.notifications')}
-                  </Typography>
-                  <Badge badgeContent={alertCount} color="error" sx={{ mr: 1 }} />
-                </Box>
-                <Divider />
-                <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }}>
-                  {activeAlerts.length > 0 ? (
-                    activeAlerts.map((item) => (
-                      <MenuItem 
-                        key={item.itemVariantId} 
-                        onClick={() => { handleClose(); navigate(`/stock?search=${item.itemName}`); }}
-                        sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: item.alertLevel === 'CRITICAL' ? 'error.main' : 'warning.main' }}>
-                            <InventoryIcon sx={{ color: 'white', fontSize: 20 }} />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText 
-                          primary={<Typography variant="body2" fontWeight={700}>{item.itemName}</Typography>}
-                          secondary={`${t('header.stock')}: ${item.currentStock} / ${item.threshold} ${item.unit}`}
-                        />
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <Box sx={{ p: 3, textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {alertCount > 0 ? "Loading alerts..." : "No low stock alerts"}
-                      </Typography>
-                    </Box>
-                  )}
-                </List>
-                <Divider />
-                <Box sx={{ p: 1.5 }}>
-                  <Button 
-                    fullWidth 
-                    variant="contained" 
-                    size="small" 
-                    onClick={() => { handleClose(); navigate('/low-stock-alerts'); }}
-                    sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
-                  >
-                    {t('header.viewAllAlerts')}
-                  </Button>
-                </Box>
-              </Menu>
-
-              {/* Language switcher: hidden on mobile (available in user menu) */}
-              <IconButton
-                size="small"
-                color="inherit"
-                onClick={() => changeLanguage(i18n.language === 'en' ? 'hi' : 'en')}
-                sx={{ display: { xs: 'none', sm: 'flex' }, marginRight: 2, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
-              >
-                <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
-                <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
-                  {i18n.language === 'en' ? 'हिंदी' : 'Eng'}
-                </Typography>
-              </IconButton>
-
-              {/* Premium badge: hidden on mobile (shown in user menu) */}
-              <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 2 }}>
-                {premium || subscription?.status === 'TRIAL' ? (
-                  <Chip 
-                    label={subscription?.status === 'TRIAL' ? 'TRIAL' : (subscription?.tier || 'PRO')} 
-                    color="secondary" 
-                    size="small"
-                    icon={<WorkspacePremiumIcon />}
-                    onClick={() => navigate('/pricing')}
-                    sx={{ 
-                      fontWeight: 800, 
-                      cursor: 'pointer',
-                      background: subscription?.status === 'TRIAL' 
-                        ? 'linear-gradient(45deg, #3b82f6 30%, #2dd4bf 90%)'
-                        : 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)',
-                      color: subscription?.status === 'TRIAL' ? '#FFF' : '#000',
-                      '& .MuiChip-icon': { color: 'inherit' }
-                    }}
+            {/* MIDDLE: Global Search (Desktop & Tablet only) */}
+            {isLoggedIn && !isMobile && (
+              <Box sx={{ flexGrow: 1, mx: { sm: 2, md: 8 }, maxWidth: 600, position: 'relative' }}>
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', bgcolor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 2, px: 2, transition: '0.3s',
+                  '&:focus-within': { bgcolor: 'rgba(255,255,255,0.25)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
+                }}>
+                  <SearchIcon sx={{ color: 'rgba(255,255,255,0.8)', mr: 1 }} />
+                  <InputBase
+                    placeholder={t('header.searchPlaceholder')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+                    sx={{ color: 'white', width: '100%', fontSize: '0.95rem', py: 0.8 }}
                   />
-                ) : (
-                  <Button 
-                    variant="contained" 
-                    color="warning" 
-                    size="small"
-                    startIcon={<WorkspacePremiumIcon />}
-                    onClick={() => navigate('/pricing')}
-                    sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
-                  >
-                    Upgrade
-                  </Button>
-                )}
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', ml: { xs: 0.5, sm: 1 }, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
-                {!isTablet && (
-                  <Typography variant="body2" sx={{ mr: 1.5, fontWeight: 700, color: 'white' }}>
-                    {displayName.split(' ')[0]}
-                  </Typography>
-                )}
-                <IconButton onClick={handleMenu} sx={{ p: 0.5, border: '2px solid rgba(255,255,255,0.4)' }}>
-                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'white', color: theme.palette.primary.main, fontWeight: 900, fontSize: '0.85rem' }}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </Avatar>
-                </IconButton>
-              </Box>
-
-              <Menu
-                anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                PaperProps={{ sx: { minWidth: 220, mt: 1.5, borderRadius: 2 } }}
-              >
-                <Box sx={{ px: 2, py: 1.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{displayName}</Typography>
-                  <Typography variant="caption" color="text.secondary">{user?.username || user?.sub}</Typography>
+                  {isSearching && <CircularProgress size={20} sx={{ color: 'white', ml: 1 }} />}
                 </Box>
-                <Divider />
-                <MenuItem onClick={() => { setOpenProfileModal(true); handleClose(); }}>
-                  <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon> 
-                  {t('header.profile')}
-                </MenuItem>
-                <MenuItem onClick={() => { setOpenSettingsDialog(true); handleClose(); }}>
-                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon> 
-                  {t('header.settings')}
-                </MenuItem>
-                <MenuItem onClick={() => { setOpenSupportDialog(true); handleClose(); }}>
-                  <ListItemIcon><SupportIcon fontSize="small" /></ListItemIcon> 
-                  {t('header.helpSupport')}
-                </MenuItem>
-                {/* Mobile-only: Quick actions, language, and plan in user menu */}
-                {isMobile && [
-                  <Divider key="div-mobile" />,
-                  <MenuItem key="sale" onClick={() => { handleClose(); navigate('/sales'); }}>
-                    <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon>
-                    {t('header.newSale')}
-                  </MenuItem>,
-                  <MenuItem key="payment" onClick={() => { handleClose(); navigate('/customer-payments'); }}>
-                    <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon>
-                    {t('header.advancePayment')}
-                  </MenuItem>,
-                  <MenuItem key="lang" onClick={() => { changeLanguage(i18n.language === 'en' ? 'hi' : 'en'); handleClose(); }}>
-                    <ListItemIcon><LanguageIcon fontSize="small" /></ListItemIcon>
-                    {i18n.language === 'en' ? 'हिंदी में बदलें' : 'Switch to English'}
-                  </MenuItem>,
-                  <MenuItem key="plan" onClick={() => { handleClose(); navigate('/pricing'); }}>
-                    <ListItemIcon><WorkspacePremiumIcon fontSize="small" /></ListItemIcon>
-                    {premium || subscription?.status === 'TRIAL' 
-                      ? (subscription?.status === 'TRIAL' ? 'Trial Plan' : `Plan: ${subscription?.tier || 'PRO'}`)
-                      : 'Upgrade Plan'
-                    }
-                  </MenuItem>
-                ]}
-                <Divider />
-                <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
-                  <ListItemIcon><ExitToAppIcon fontSize="small" color="error" /></ListItemIcon> 
-                  {t('header.logout')}
-                </MenuItem>
-              </Menu>
-            </>
-          )}
 
-          {!isLoggedIn && (
-            <Button color="inherit" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
-              {t('header.login')}
-            </Button>
-          )}
-        </Box>
+                {showResults && (
+                  <Paper
+                    elevation={10}
+                    sx={{
+                      position: 'absolute', top: '115%', left: 0, right: 0,
+                      maxHeight: 450, overflowY: 'auto', borderRadius: 2, zIndex: 100,
+                      border: '1px solid', borderColor: 'divider'
+                    }}
+                  >
+                    {searchResults.length > 0 ? (
+                      <List sx={{ py: 0 }}>
+                        {searchResults.map((result, index) => (
+                          <MenuItem
+                            key={`${result.type}-${result.id}-${index}`}
+                            onClick={() => handleResultClick(result.route)}
+                            sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{
+                                bgcolor: result.type === 'CUSTOMER' ? 'primary.main' :
+                                  result.type === 'SALE' ? 'success.main' : 'warning.main',
+                                width: 36, height: 36
+                              }}>
+                                {result.type === 'CUSTOMER' ? <PersonIcon fontSize="small" /> :
+                                  result.type === 'SALE' ? <ReceiptLongIcon fontSize="small" /> : <InventoryIcon fontSize="small" />}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={<Typography variant="body2" fontWeight={700}>{result.title}</Typography>}
+                              secondary={result.subtitle}
+                            />
+                            <Box sx={{ textAlign: 'right', ml: 2 }}>
+                              <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', fontWeight: 700 }}>
+                                {t(`header.${result.type.toLowerCase()}`)}
+                              </Typography>
+                              <ChevronRightIcon fontSize="small" color="disabled" />
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('header.noResultsFound', { value: searchQuery })}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
+
+                {showResults && (
+                  <Box
+                    onClick={() => setShowResults(false)}
+                    sx={{ position: 'fixed', inset: 0, zIndex: 90, bgcolor: 'transparent' }}
+                  />
+                )}
+              </Box>
+            )}
+
+            {/* RIGHT: Actions */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
+              {isLoggedIn && (
+                <>
+                  {/* Mobile search icon */}
+                  {isMobile && (
+                    <IconButton color="inherit" onClick={() => setMobileSearchOpen(true)} size="small">
+                      <SearchIcon />
+                    </IconButton>
+                  )}
+
+                  {/* Quick action button: hidden on mobile (available via sidebar) */}
+                  <Tooltip title={t('header.quickAction')}>
+                    <IconButton
+                      onClick={handleQuickActionOpen}
+                      sx={{
+                        display: { xs: 'none', sm: 'flex' },
+                        bgcolor: 'secondary.main', color: 'white',
+                        '&:hover': { bgcolor: 'secondary.dark' },
+                        width: { xs: 36, sm: 42 }, height: { xs: 36, sm: 42 },
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <AddCircleIcon />
+                    </IconButton>
+                  </Tooltip>
+
+                  <Menu
+                    anchorEl={quickActionEl}
+                    open={Boolean(quickActionEl)}
+                    onClose={handleClose}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    PaperProps={{ sx: { width: 240, mt: 1.5, borderRadius: 2, p: 1 } }}
+                  >
+                    <Typography variant="overline" sx={{ px: 2, fontWeight: 800, color: 'primary.main' }}>
+                      {t('header.transactionShortcuts')}
+                    </Typography>
+                    <MenuItem onClick={() => { handleClose(); navigate('/sales'); }}>
+                      <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon>
+                      {t('header.newSale')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { handleClose(); navigate('/customer-payments'); }}>
+                      <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon>
+                      {t('header.advancePayment')}
+                    </MenuItem>
+                    <Divider sx={{ my: 1 }} />
+                    <MenuItem onClick={() => { handleClose(); navigate('/stock'); }}>
+                      <ListItemIcon><InventoryIcon fontSize="small" /></ListItemIcon>
+                      {t('header.addProduct')}
+                    </MenuItem>
+                  </Menu>
+
+                  {alertCount > 0 && (
+                    <Tooltip title={tooltipMessage}>
+                      <IconButton color="inherit" onClick={handleNotificationOpen} sx={{ animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none' }}>
+                        <Badge badgeContent={alertCount} color={criticalCount > 0 ? "error" : "warning"}>
+                          {criticalCount > 0 ? <ReportProblemOutlinedIcon /> : <NotificationsIcon />}
+                        </Badge>
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  <Menu
+                    anchorEl={notificationEl}
+                    open={Boolean(notificationEl)}
+                    onClose={handleClose}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    PaperProps={{
+                      sx: {
+                        width: { xs: '90vw', sm: 320 },
+                        mt: 1.5,
+                        borderRadius: 3,
+                        maxHeight: 500,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                        {t('header.notifications')}
+                      </Typography>
+                      <Badge badgeContent={alertCount} color="error" sx={{ mr: 1 }} />
+                    </Box>
+                    <Divider />
+                    <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }}>
+                      {activeAlerts.length > 0 ? (
+                        activeAlerts.map((item) => (
+                          <MenuItem
+                            key={item.itemVariantId}
+                            onClick={() => { handleClose(); navigate(`/stock?search=${item.itemName}`); }}
+                            sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: item.alertLevel === 'CRITICAL' ? 'error.main' : 'warning.main' }}>
+                                <InventoryIcon sx={{ color: 'white', fontSize: 20 }} />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={<Typography variant="body2" fontWeight={700}>{item.itemName}</Typography>}
+                              secondary={`${t('header.stock')}: ${item.currentStock} / ${item.threshold} ${item.unit}`}
+                            />
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <Box sx={{ p: 3, textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {alertCount > 0 ? "Loading alerts..." : "No low stock alerts"}
+                          </Typography>
+                        </Box>
+                      )}
+                    </List>
+                    <Divider />
+                    <Box sx={{ p: 1.5 }}>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        size="small"
+                        onClick={() => { handleClose(); navigate('/low-stock-alerts'); }}
+                        sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                      >
+                        {t('header.viewAllAlerts')}
+                      </Button>
+                    </Box>
+                  </Menu>
+
+                  {/* Language switcher: hidden on mobile (available in user menu) */}
+                  <IconButton
+                    size="small"
+                    color="inherit"
+                    onClick={() => changeLanguage(i18n.language === 'en' ? 'hi' : 'en')}
+                    sx={{ display: { xs: 'none', sm: 'flex' }, marginRight: 1, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' } }}
+                  >
+                    <LanguageIcon sx={{ fontSize: 20, color: 'white' }} />
+                    <Typography variant="caption" sx={{ ml: 0.5, color: 'white' }}>
+                      {i18n.language === 'en' ? 'हिंदी' : 'Eng'}
+                    </Typography>
+                  </IconButton>
+
+                  {/* Theme toggle: always visible — Light / Dark / Auto */}
+                  <Tooltip title={`Theme: ${themeCurrentLabel[colorPreference]}`}>
+                    <IconButton
+                      id="theme-toggle-btn"
+                      size="small"
+                      color="inherit"
+                      onClick={cycleColorPreference}
+                      sx={{
+                        color: 'white',
+                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.15)' },
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        borderRadius: '8px',
+                        px: 1,
+                        py: 0.5,
+                        mr: { xs: 0.5, sm: 1 },
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                      }}
+                    >
+                      {themeIconMap[colorPreference]}
+                      <Typography variant="caption" sx={{ color: 'white', display: { xs: 'none', sm: 'block' }, fontWeight: 700, fontSize: '0.7rem' }}>
+                        {themeCurrentLabel[colorPreference]}
+                      </Typography>
+                    </IconButton>
+                  </Tooltip>
+
+                  {/* Premium badge: hidden on mobile (shown in user menu) */}
+                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 2 }}>
+                    {premium || subscription?.status === 'TRIAL' ? (
+                      <Chip
+                        label={subscription?.status === 'TRIAL' ? 'TRIAL' : (subscription?.tier || 'PRO')}
+                        color="secondary"
+                        size="small"
+                        icon={<WorkspacePremiumIcon />}
+                        onClick={() => navigate('/pricing')}
+                        sx={{
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          background: subscription?.status === 'TRIAL'
+                            ? 'linear-gradient(45deg, #3b82f6 30%, #2dd4bf 90%)'
+                            : 'linear-gradient(45deg, #FFD700 30%, #FFA500 90%)',
+                          color: subscription?.status === 'TRIAL' ? '#FFF' : '#000',
+                          '& .MuiChip-icon': { color: 'inherit' }
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        size="small"
+                        startIcon={<WorkspacePremiumIcon />}
+                        onClick={() => navigate('/pricing')}
+                        sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+                      >
+                        Upgrade
+                      </Button>
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: { xs: 0.5, sm: 1 }, pl: { sm: 2 }, borderLeft: { sm: '1px solid rgba(255,255,255,0.2)' } }}>
+                    {!isTablet && (
+                      <Typography variant="body2" sx={{ mr: 1.5, fontWeight: 700, color: 'white' }}>
+                        {displayName.split(' ')[0]}
+                      </Typography>
+                    )}
+                    <IconButton onClick={handleMenu} sx={{ p: 0.5, border: '2px solid rgba(255,255,255,0.4)' }}>
+                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'background.paper', color: theme.palette.primary.main, fontWeight: 900, fontSize: '0.85rem' }}>
+                        {displayName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </IconButton>
+                  </Box>
+
+                  <Menu
+                    anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    PaperProps={{ sx: { minWidth: 220, mt: 1.5, borderRadius: 2 } }}
+                  >
+                    <Box sx={{ px: 2, py: 1.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{displayName}</Typography>
+                      <Typography variant="caption" color="text.secondary">{user?.username || user?.sub}</Typography>
+                    </Box>
+                    <Divider />
+                    <MenuItem onClick={() => { setOpenProfileModal(true); handleClose(); }}>
+                      <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+                      {t('header.profile')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { setOpenSettingsDialog(true); handleClose(); }}>
+                      <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+                      {t('header.settings')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { setOpenSupportDialog(true); handleClose(); }}>
+                      <ListItemIcon><SupportIcon fontSize="small" /></ListItemIcon>
+                      {t('header.helpSupport')}
+                    </MenuItem>
+                    {/* Mobile-only: Quick actions, language, and plan in user menu */}
+                    {isMobile && [
+                      <Divider key="div-mobile" />,
+                      <MenuItem key="sale" onClick={() => { handleClose(); navigate('/sales'); }}>
+                        <ListItemIcon><ReceiptLongIcon fontSize="small" /></ListItemIcon>
+                        {t('header.newSale')}
+                      </MenuItem>,
+                      <MenuItem key="payment" onClick={() => { handleClose(); navigate('/customer-payments'); }}>
+                        <ListItemIcon><PaymentsIcon fontSize="small" color="success" /></ListItemIcon>
+                        {t('header.advancePayment')}
+                      </MenuItem>,
+                      <MenuItem key="lang" onClick={() => { changeLanguage(i18n.language === 'en' ? 'hi' : 'en'); handleClose(); }}>
+                        <ListItemIcon><LanguageIcon fontSize="small" /></ListItemIcon>
+                        {i18n.language === 'en' ? 'हिंदी में बदलें' : 'Switch to English'}
+                      </MenuItem>,
+                      <MenuItem key="theme" onClick={() => { cycleColorPreference(); handleClose(); }}>
+                        <ListItemIcon>{themeIconMap[colorPreference]}</ListItemIcon>
+                        Theme: {themeCurrentLabel[colorPreference]}
+                      </MenuItem>,
+                      <MenuItem key="plan" onClick={() => { handleClose(); navigate('/pricing'); }}>
+                        <ListItemIcon><WorkspacePremiumIcon fontSize="small" /></ListItemIcon>
+                        {premium || subscription?.status === 'TRIAL'
+                          ? (subscription?.status === 'TRIAL' ? 'Trial Plan' : `Plan: ${subscription?.tier || 'PRO'}`)
+                          : 'Upgrade Plan'
+                        }
+                      </MenuItem>
+                    ]}
+                    <Divider />
+                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                      <ListItemIcon><ExitToAppIcon fontSize="small" color="error" /></ListItemIcon>
+                      {t('header.logout')}
+                    </MenuItem>
+                  </Menu>
+                </>
+              )}
+
+              {!isLoggedIn && (
+                <Button color="inherit" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
+                  {t('header.login')}
+                </Button>
+              )}
+            </Box>
           </>
         )}
       </Toolbar>
@@ -578,7 +623,7 @@ const Header = ({ onDrawerToggle }) => {
       {/* MODALS & DIALOGS */}
       <UserProfile open={openProfileModal} onClose={() => setOpenProfileModal(false)} />
       <SettingsDialog open={openSettingsDialog} onClose={() => setOpenSettingsDialog(false)} />
-      
+
       <Dialog open={openSupportDialog} onClose={() => setOpenSupportDialog(false)} PaperProps={{ sx: { borderRadius: 3, maxWidth: 400 } }}>
         <DialogTitle sx={{ fontWeight: 900, pb: 0 }}>{t('header.customerSupport')}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>

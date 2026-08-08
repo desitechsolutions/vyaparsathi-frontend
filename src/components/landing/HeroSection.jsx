@@ -297,7 +297,7 @@ const HeroSection = () => {
               {/* Caption */}
               <Typography
                 variant="caption"
-                sx={{ display: 'block', textAlign: 'center', mt: 2, color: '#475569', fontWeight: 600 }}
+                sx={{ display: 'block', textAlign: 'center', mt: 2, color: 'text.secondary', fontWeight: 600 }}
               >
                 📊 {t('landingPage.hero.dashboardCaption')}
               </Typography>

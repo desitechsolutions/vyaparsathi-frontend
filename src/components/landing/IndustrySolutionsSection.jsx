@@ -129,7 +129,7 @@ const IndustrySolutionsSection = () => {
     <Box
       id="solutions"
       sx={{
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         py: { xs: 10, md: 14, lg: 18 },
       }}
     >
@@ -342,7 +342,7 @@ const IndustrySolutionsSection = () => {
                         }}
                       >
                         <CheckCircleIcon sx={{ fontSize: 20, color: activeIndustry.color, flexShrink: 0, mt: 0.1 }} />
-                        <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600, lineHeight: 1.5 }}>
+                        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, lineHeight: 1.5 }}>
                           {point}
                         </Typography>
                       </Box>

@@ -71,7 +71,7 @@ export default function ItemsSold() {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -85,7 +85,7 @@ export default function ItemsSold() {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('itemsSoldReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('itemsSoldReport.title')}</Typography>
           <Typography color="text.secondary">{t('itemsSoldReport.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -93,7 +93,7 @@ export default function ItemsSold() {
             <Button 
               variant="outlined" startIcon={<FileDownload />} 
               onClick={() => downloadCSV(report, from, to)}
-              sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+              sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
             >
               Export CSV
             </Button>
@@ -102,7 +102,7 @@ export default function ItemsSold() {
       </Stack>
 
       {/* Filters & Search */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
@@ -147,27 +147,27 @@ export default function ItemsSold() {
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
       ) : filteredReport.length > 0 ? (
-        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Table sx={{ minWidth: 800 }}>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.item')}</TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>SKU</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.qtySold')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('itemsSoldReport.columns.revenue')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>Last Sold</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('itemsSoldReport.columns.item')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>SKU</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('itemsSoldReport.columns.qtySold')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('itemsSoldReport.columns.revenue')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>Last Sold</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredReport.map((row, idx) => (
-                <TableRow key={idx} hover>
+                <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                   <TableCell>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ bgcolor: 'primary.light', width: 32, height: 32 }}>
+                      <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 32, height: 32 }}>
                         <Inventory sx={{ fontSize: 18 }} />
                       </Avatar>
                       <Box>
-                        <Typography variant="body2" fontWeight={700}>{row.itemName}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="text.primary">{row.itemName}</Typography>
                         <Typography variant="caption" color="text.secondary">ID: {row.itemId}</Typography>
                       </Box>
                     </Stack>
@@ -176,7 +176,7 @@ export default function ItemsSold() {
                     <Chip label={row.sku || 'N/A'} size="small" variant="outlined" sx={{ borderRadius: 1 }} />
                   </TableCell>
                   <TableCell align="center">
-                    <Typography fontWeight={700}>{row.totalSold}</Typography>
+                    <Typography fontWeight={700} color="text.primary">{row.totalSold}</Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography fontWeight={800} color="primary.main">
@@ -198,7 +198,7 @@ export default function ItemsSold() {
         </TableContainer>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <LocalShipping sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
+          <LocalShipping sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary">No items found for the selected criteria.</Typography>
         </Box>
       )}

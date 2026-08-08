@@ -329,7 +329,7 @@ const SettingsPage = () => {
   if (loading) return <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "#f8fafc", minHeight: "100vh", maxWidth: 1200, mx: "auto" }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: "100vh", maxWidth: 1200, mx: "auto" }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight={800} color="#1e293b">{t("settings.title", "Business Settings")}</Typography>
@@ -412,14 +412,14 @@ const SettingsPage = () => {
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>Business Logo</Typography>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
-                    <Box sx={{ width: 220, height: 120, border: '1px solid #e2e8f0', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#fff', overflow: 'hidden', p: 1 }}>
+                    <Box sx={{ width: 220, height: 120, border: '1px solid', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.paper', overflow: 'hidden', p: 1 }}>
                         {getDisplayUrl('logo') ? (
                             <img src={getDisplayUrl('logo')} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                         ) : (
                             <Typography variant="caption" color="text.disabled">No Logo Uploaded</Typography>
                         )}
                     </Box>
-                    <Button variant="contained" component="label" startIcon={<CloudUpload />} sx={{ bgcolor: '#1e293b', "&:hover": { bgcolor: '#334155'} }}>
+                    <Button variant="contained" component="label" startIcon={<CloudUpload />} sx={{ bgcolor: 'background.paper', "&:hover": { bgcolor: 'background.paper'} }}>
                       Upload Logo
                       <input hidden accept="image/*" type="file" onChange={(e) => handleFileChange(e, "logo")} />
                     </Button>
@@ -431,7 +431,7 @@ const SettingsPage = () => {
             {activeTab === 2 && (
               <Stack spacing={3}>
                 <Typography variant="h6" fontWeight={700}>Tax & Banking</Typography>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #cbd5e1' }}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', border: '1px solid #cbd5e1' }}>
                     <FormControlLabel control={<Switch checked={shopData.isCompositionScheme} onChange={handleSwitchChange} color="primary" />}
                         label={<Typography variant="body2" fontWeight={700}>Are you a Composition Taxpayer?</Typography>} />
                     <Typography variant="caption" color="text.secondary" display="block">If enabled, GST will not be charged to customers and 'Bill of Supply' will be generated.</Typography>
@@ -448,7 +448,7 @@ const SettingsPage = () => {
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>Authorized Signatory</Typography>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
-                    <Box sx={{ width: 240, height: 90, border: '1px dashed #cbd5e1', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#fff', p: 1 }}>
+                    <Box sx={{ width: 240, height: 90, border: '1px dashed #cbd5e1', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.paper', p: 1 }}>
                         {getDisplayUrl('signature') ? (
                             <img src={getDisplayUrl('signature')} alt="Signature" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                         ) : (
@@ -491,12 +491,12 @@ const SettingsPage = () => {
             )}
 
 
-            <Box sx={{ mt: 5, pt: 3, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box sx={{ mt: 5, pt: 3, borderTop: '1px solid', borderColor: 'divider', display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <Button variant="text" color="inherit" onClick={handleCancel} disabled={!isDirty}>Discard</Button>
               <Stack direction="row" spacing={2} alignItems="center">
                 {lastSaved && <Chip icon={<CheckIcon />} size="small" color="success" label={`Saved ${lastSaved}`} variant="outlined" />}
                 <Button variant="contained" size="large" startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                  disabled={saving || !isDirty} onClick={handleSave} sx={{ bgcolor: "#1e293b", px: 4, "&:hover": { bgcolor: "#0f172a" } }}>
+                  disabled={saving || !isDirty} onClick={handleSave} sx={{ bgcolor: 'background.paper', px: 4, "&:hover": { bgcolor: 'background.paper' } }}>
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
               </Stack>

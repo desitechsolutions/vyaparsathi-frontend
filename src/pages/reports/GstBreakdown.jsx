@@ -72,7 +72,7 @@ export default function GstBreakdown() {
   }), { taxable: 0, cgst: 0, sgst: 0, igst: 0 });
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       <Button 
         startIcon={<ArrowBackIosNew sx={{ fontSize: '0.8rem !important' }} />} 
@@ -84,21 +84,21 @@ export default function GstBreakdown() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('gstBreakdownReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('gstBreakdownReport.title')}</Typography>
           <Typography color="text.secondary">{t('gstBreakdownReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
             variant="outlined" startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+            sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
           >
             {t('reportsCommon.export')}
           </Button>
         )}
       </Stack>
 
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -128,41 +128,41 @@ export default function GstBreakdown() {
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
       ) : report.length > 0 ? (
-        <Paper elevation={0} sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+        <Paper elevation={0} sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Table sx={{ minWidth: 650 }}>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.rate')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.taxableAmount')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.cgst')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.sgst')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.igst')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('gstBreakdownReport.columns.total')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.rate')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.taxableAmount')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.cgst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.sgst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.igst')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('gstBreakdownReport.columns.total')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {report.map((row, idx) => {
                 const totalTax = (row.cgst || 0) + (row.sgst || 0) + (row.igst || 0);
                 return (
-                  <TableRow key={idx} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                  <TableRow key={idx} hover sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'action.hover !important' } }}>
                     <TableCell>
                       <Chip label={`${row.gstRate}% GST`} variant="outlined" sx={{ fontWeight: 700, borderColor: 'primary.light', color: 'primary.main' }} />
                     </TableCell>
-                    <TableCell align="right">₹{Number(row.taxableValue).toLocaleString('en-IN')}</TableCell>
-                    <TableCell align="right">₹{Number(row.cgst).toLocaleString('en-IN')}</TableCell>
-                    <TableCell align="right">₹{Number(row.sgst).toLocaleString('en-IN')}</TableCell>
-                    <TableCell align="right">₹{Number(row.igst).toLocaleString('en-IN')}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>₹{totalTax.toLocaleString('en-IN')}</TableCell>
+                    <TableCell align="right" sx={{ color: 'text.primary' }}>₹{Number(row.taxableValue).toLocaleString('en-IN')}</TableCell>
+                    <TableCell align="right" sx={{ color: 'text.primary' }}>₹{Number(row.cgst).toLocaleString('en-IN')}</TableCell>
+                    <TableCell align="right" sx={{ color: 'text.primary' }}>₹{Number(row.sgst).toLocaleString('en-IN')}</TableCell>
+                    <TableCell align="right" sx={{ color: 'text.primary' }}>₹{Number(row.igst).toLocaleString('en-IN')}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, color: 'text.primary' }}>₹{totalTax.toLocaleString('en-IN')}</TableCell>
                   </TableRow>
                 );
               })}
               {/* Grand Total Row */}
-              <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                <TableCell sx={{ fontWeight: 900 }}>{t('reportsCommon.total')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.taxable.toLocaleString('en-IN')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.cgst.toLocaleString('en-IN')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.sgst.toLocaleString('en-IN')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 900 }}>₹{totals.igst.toLocaleString('en-IN')}</TableCell>
+              <TableRow sx={{ bgcolor: 'action.hover' }}>
+                <TableCell sx={{ fontWeight: 900, color: 'text.primary' }}>{t('reportsCommon.total')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 900, color: 'text.primary' }}>₹{totals.taxable.toLocaleString('en-IN')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 900, color: 'text.primary' }}>₹{totals.cgst.toLocaleString('en-IN')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 900, color: 'text.primary' }}>₹{totals.sgst.toLocaleString('en-IN')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 900, color: 'text.primary' }}>₹{totals.igst.toLocaleString('en-IN')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 900, color: 'primary.main' }}>
                   ₹{(totals.cgst + totals.sgst + totals.igst).toLocaleString('en-IN')}
                 </TableCell>
@@ -172,7 +172,7 @@ export default function GstBreakdown() {
         </Paper>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <Layers sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
+          <Layers sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary">No tax data found for this period.</Typography>
         </Box>
       )}

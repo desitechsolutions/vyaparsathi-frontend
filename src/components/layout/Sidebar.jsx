@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-  Divider, Box, Collapse, useMediaQuery, useTheme, ListSubheader, Typography
+  Divider, Box, Collapse, useMediaQuery, useTheme, ListSubheader, Typography, alpha
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -66,7 +66,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
   // 1. Core Operations (Daily workflow) — dynamic based on industry
   const mainItems = [
-    { text: 'dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'sales', icon: <PointOfSaleIcon />, path: '/sales' },
     // Show "Patients" for pharmacy, "Customers" for others
     isPharmacy
@@ -90,6 +90,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     { text: 'receiving', icon: <InventoryIcon />, path: '/receivings', requiredTier: 'PRO' },
     { text: 'suppliers', icon: <PeopleIcon />, path: '/suppliers', requiredTier: 'STARTER' },
     { text: 'purchaseOrders', icon: <ReceiptLongIcon />, path: '/purchase-orders', requiredTier: 'PRO' },
+    { text: 'Purchase Returns', icon: <ReceiptLongIcon />, path: '/purchase-returns', requiredTier: 'PRO' },
   ];
 
   // Build pharmacy-specific or general report children
@@ -148,11 +149,13 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     { text: 'backup', icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
   ];
 
+  const isDark = theme.palette.mode === 'dark';
   const activeStyle = {
-    backgroundColor: 'primary.main',
-    color: 'primary.contrastText',
-    '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
-    '&:hover': { backgroundColor: 'primary.dark' },
+    backgroundColor: isDark ? alpha(theme.palette.primary.main, 0.18) : 'primary.main',
+    color: isDark ? 'primary.main' : 'primary.contrastText',
+    fontWeight: 700,
+    '& .MuiListItemIcon-root': { color: isDark ? 'primary.main' : 'primary.contrastText' },
+    '&:hover': { backgroundColor: isDark ? alpha(theme.palette.primary.main, 0.28) : 'primary.dark' },
   };
 
   const renderItem = (item, isNested = false) => {

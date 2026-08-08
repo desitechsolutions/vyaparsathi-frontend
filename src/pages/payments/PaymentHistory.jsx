@@ -15,21 +15,9 @@ import DownloadIcon from '@mui/icons-material/Download';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  secondary: '#7c3aed',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  success: '#10b981',
-  background: '#f8fafc',
-  cardBg: '#ffffff',
-  borderColor: '#e2e8f0',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const formatCurrency = (amount) => {
   const num = Math.abs(Number(amount) || 0);
@@ -69,10 +57,10 @@ const PaymentHistory = ({
   selectedCustomer, 
   onCustomerChange, 
   onRefresh,
-  formatAmount = formatCurrency,
-  theme: themeProps
+  formatAmount = formatCurrency
 }) => {
-  const customTheme = themeProps || theme;
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const customTheme = useAppPalette();
   const [order, setOrder] = useState('desc');
   const [orderBy, setOrderBy] = useState('paymentDate');
   const [filterText, setFilterText] = useState('');
@@ -81,10 +69,10 @@ const PaymentHistory = ({
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
-      bgcolor: '#fff',
+      bgcolor: 'background.paper',
       transition: 'all 0.3s ease',
-      '& fieldset': { borderColor: '#cbd5e1', transition: 'border-color 0.3s ease' },
-      '&:hover fieldset': { borderColor: '#94a3b8' },
+      '& fieldset': { borderColor: 'divider', transition: 'border-color 0.3s ease' },
+      '&:hover fieldset': { borderColor: 'divider' },
       '&.Mui-focused fieldset': { borderColor: customTheme.primary },
     },
   };
@@ -114,7 +102,6 @@ const PaymentHistory = ({
   const printPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
 
     // Header
     doc.setFont("helvetica", "bold");
@@ -433,7 +420,7 @@ const PaymentHistory = ({
       </Box>
 
       {/* ── Table Container ──────────────────────────────────────── */}
-      <TableContainer sx={{ minHeight: 400, maxHeight: 650, bgcolor: '#ffffff' }}>
+      <TableContainer sx={{ minHeight: 400, maxHeight: 650, bgcolor: 'background.paper' }}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(customTheme.primary, 0.04) }}>

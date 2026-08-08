@@ -35,7 +35,7 @@ export default function AdvancePaymentModal({ open, onClose, staff, onConfirm })
       <DialogContent dividers>
         <Stack spacing={3} sx={{ mt: 1 }}>
           {/* Staff Context Header */}
-          <Box sx={{ p: 2, bgcolor: '#fff7ed', borderRadius: 2, border: '1px solid #ffedd5' }}>
+          <Box sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.08)', borderRadius: 2, border: '1px solid #ffedd5' }}>
             <Typography variant="subtitle2" color="#9a3412" fontWeight={700}>
               Staff: {staff?.name}
             </Typography>

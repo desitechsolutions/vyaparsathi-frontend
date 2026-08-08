@@ -17,16 +17,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import API from '../../services/api';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#dc2626',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
+
 
 const InvoiceModal = ({
   open,
@@ -39,6 +32,7 @@ const InvoiceModal = ({
   shopName,
   onClose,
 }) => {
+  const theme = useAppPalette(); // Live palette from ThemeContext
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 

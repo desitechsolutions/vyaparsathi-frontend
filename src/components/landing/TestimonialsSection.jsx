@@ -25,7 +25,7 @@ const TestimonialsSection = () => {
   return (
     <Box
       sx={{
-        bgcolor: '#F8FAFC',
+        bgcolor: 'background.default',
         py: { xs: 10, md: 14, lg: 18 },
       }}
     >
@@ -83,7 +83,7 @@ const TestimonialsSection = () => {
                   height: '100%',
                   borderRadius: 4,
                   border: '1px solid rgba(0,0,0,0.07)',
-                  bgcolor: '#ffffff',
+                  bgcolor: 'background.paper',
                   display: 'flex',
                   flexDirection: 'column',
                   transition: 'all 0.35s',
@@ -120,7 +120,7 @@ const TestimonialsSection = () => {
                 <Typography
                   variant="body1"
                   sx={{
-                    color: '#334155',
+                    color: 'text.primary',
                     lineHeight: 1.8,
                     fontWeight: 500,
                     fontStyle: 'italic',
@@ -201,7 +201,7 @@ const TestimonialsSection = () => {
             p: 4,
             borderRadius: 4,
             border: '1px solid rgba(0,0,0,0.06)',
-            bgcolor: '#ffffff',
+            bgcolor: 'background.paper',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',

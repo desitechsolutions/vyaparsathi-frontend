@@ -18,7 +18,7 @@ const FAQSection = () => {
   return (
     <Box
       id="faq"
-      sx={{ bgcolor: '#F8FAFC', py: { xs: 10, md: 14, lg: 18 } }}
+      sx={{ bgcolor: 'background.default', py: { xs: 10, md: 14, lg: 18 } }}
     >
       <Container maxWidth="md" sx={{ px: { xs: 3, md: 4 } }}>
         {/* Header */}

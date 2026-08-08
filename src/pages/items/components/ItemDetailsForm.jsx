@@ -90,9 +90,9 @@ export default function ItemDetailsForm({
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
-      bgcolor: '#f8fafc',
-      '& fieldset': { borderColor: '#e2e8f0' },
-      '&:hover fieldset': { borderColor: '#cbd5e1' },
+      bgcolor: 'background.paper',
+      '& fieldset': { borderColor: 'divider' },
+      '&:hover fieldset': { borderColor: 'divider' },
       '&.Mui-focused fieldset': { borderColor: 'primary.main' },
     },
     '& .MuiInputLabel-root': { fontWeight: 500 },
@@ -135,7 +135,7 @@ export default function ItemDetailsForm({
             }
             renderGroup={(params) => (
               <li key={params.key}>
-                <ListSubheader sx={{ bgcolor: '#f1f5f9', fontWeight: 800, color: 'primary.main', lineHeight: '32px' }}>
+                <ListSubheader sx={{ bgcolor: 'action.hover', fontWeight: 800, color: 'primary.main', lineHeight: '32px' }}>
                   {params.group}
                 </ListSubheader>
                 <Box sx={{ pl: 1 }}>{params.children}</Box>
@@ -387,7 +387,7 @@ export default function ItemDetailsForm({
             {/* Schedule Drug Warning Banner */}
             {(itemFormData.drugSchedule === 'SCHEDULE_H' || itemFormData.drugSchedule === 'SCHEDULE_H1' || itemFormData.drugSchedule === 'SCHEDULE_X') && (
               <Grid item xs={12}>
-                <Box sx={{ p: 2, bgcolor: '#fef3c7', borderRadius: 2, border: '1px solid #fcd34d', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.15)', borderRadius: 2, border: '1px solid', borderColor: 'warning.light', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <WarningAmberIcon sx={{ color: '#d97706' }} />
                   <Typography variant="body2" fontWeight={700} color="#92400e">
                     {itemFormData.drugSchedule === 'SCHEDULE_X'
@@ -502,7 +502,7 @@ export default function ItemDetailsForm({
 
             {/* Making Charges — Default rate (both ₹/gram and %) */}
             <Grid item xs={12}>
-              <Box sx={{ p: 2, bgcolor: '#fdf4ff', borderRadius: 2, border: '1px solid #e9d5ff' }}>
+              <Box sx={{ p: 2, bgcolor: 'rgba(217, 70, 239, 0.08)', borderRadius: 2, border: '1px solid', borderColor: 'secondary.light' }}>
                 <Typography variant="caption" fontWeight={800} color="secondary.dark" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   Default Making Charges (item-level default — can be overridden per variant)
                 </Typography>
@@ -547,7 +547,7 @@ export default function ItemDetailsForm({
 
             {/* High-Value Transaction Notice */}
             <Grid item xs={12}>
-              <Box sx={{ p: 2, bgcolor: '#f0f9ff', borderRadius: 2, border: '1px solid #bae6fd' }}>
+              <Box sx={{ p: 2, bgcolor: 'rgba(3, 105, 161, 0.08)', borderRadius: 2, border: '1px solid', borderColor: 'info.light' }}>
                 <Typography variant="caption" fontWeight={700} color="primary.dark">
                   ℹ️ Indian Tax Compliance: For cash transactions above ₹2,00,000, PAN of the buyer is mandatory (IT Act Sec. 269ST). VyaparSathi will prompt for PAN at the time of billing.
                 </Typography>

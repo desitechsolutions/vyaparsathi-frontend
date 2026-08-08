@@ -70,7 +70,7 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
   const noPendingPO = !loading && activePOs.length === 0;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: { xs: 2, sm: 4 } }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: { xs: 2, sm: 4 } }}>
       <Header title={title} onBack={onCancel} />
       
       <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
@@ -80,7 +80,7 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
           </Alert>
         )}
 
-        <Paper sx={{ p: { xs: 3, sm: 5 }, borderRadius: 4, boxShadow: '0 10px 40px rgba(0,0,0,0.04)', border: '1px solid #eef2f6' }}>
+        <Paper sx={{ p: { xs: 3, sm: 5 }, borderRadius: 4, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
           <Stack spacing={1} sx={{ mb: 4, textAlign: 'center' }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
               Initiate Receiving
@@ -96,11 +96,11 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
               <Typography color="text.secondary" sx={{ fontWeight: 500 }}>Syncing with inventory...</Typography>
             </Stack>
           ) : noPendingPO ? (
-            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: 'amber.50', borderColor: 'amber.200', borderRadius: 3 }}>
-              <AssignmentTurnedIn sx={{ fontSize: 48, color: 'amber.600', mb: 1 }} />
-              <Typography variant="h6" sx={{ color: 'amber.900', fontWeight: 700 }}>No Pending POs</Typography>
-              <Typography variant="body2" sx={{ color: 'amber.800', mb: 2 }}>All purchase orders have been fully processed.</Typography>
-              <Button component={Link} href="/purchase-orders/new" variant="contained" color="warning" sx={{ borderRadius: 2 }}>
+            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: 'action.hover', borderColor: 'warning.main', borderRadius: 3 }}>
+              <AssignmentTurnedIn sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
+              <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700 }}>No Pending POs</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>All purchase orders have been fully processed.</Typography>
+              <Button component={Link} href="/purchase-orders" variant="contained" color="warning" sx={{ borderRadius: 2 }}>
                 Create New Order
               </Button>
             </Paper>
@@ -131,7 +131,7 @@ const ReceivingForm = ({ onSubmit, onCancel, title, pendingPOs, loading }) => {
 
               {formData.purchaseOrderId && (
                 <Fade in={true}>
-                  <Box sx={{ bgcolor: '#f8fafc', p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                  <Box sx={{ bgcolor: 'action.hover', p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 1 }}>
                         Order Preview

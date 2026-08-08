@@ -15,7 +15,7 @@ const PurchaseOrderFilters = ({ search, setSearch, allSuppliers, onAddNew }) => 
       alignItems="center"
       justifyContent="space-between"
       width="100%"
-      sx={{ mt: 1, mb: 4, p: 2, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, flexWrap: 'wrap' }}
+      sx={{ mt: 1, mb: 4, p: 2, bgcolor: 'background.paper', borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', flexWrap: 'wrap' }}
     >
       <TextField
         label="Search PO Number"

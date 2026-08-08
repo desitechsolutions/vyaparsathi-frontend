@@ -8,7 +8,7 @@ const PrintableDelivery = React.forwardRef((props, ref) => {
   const { t } = useTranslation();
 
   return (
-    <Box component="div" ref={ref} sx={{ p: 4, color: 'black', minHeight: 200, bgcolor: 'white' }}>
+    <Box component="div" ref={ref} sx={{ p: 4, color: 'black', minHeight: 200, bgcolor: 'background.paper' }}>
       {delivery ? (
         <>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>

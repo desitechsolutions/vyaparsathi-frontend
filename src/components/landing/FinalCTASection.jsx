@@ -137,7 +137,7 @@ const FinalCTASection = () => {
         </Stack>
 
         {/* Fine print */}
-        <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
           {t('landingPage.finalCta.note')}
         </Typography>
 

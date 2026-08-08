@@ -43,8 +43,18 @@ const Login = () => {
   const pinRef = useRef(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     if (user) {
-      navigate('/', { replace: true });
+      const queryParams = new URLSearchParams(window.location.search);
+      const redirectParam = queryParams.get('redirect');
+      const savedRedirect = redirectParam || sessionStorage.getItem('redirectAfterLogin');
+      sessionStorage.removeItem('redirectAfterLogin');
+
+      if (savedRedirect && savedRedirect !== '/login' && savedRedirect !== '/') {
+        navigate(savedRedirect, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [user, navigate]);
 
@@ -171,7 +181,7 @@ const Login = () => {
                 <PersonOutlineIcon sx={{ fontSize: 36, color: 'primary.main' }} />
               </Avatar>
               <Box textAlign="center">
-                <Typography variant="h5" fontWeight={900} sx={{ color: '#0f172a' }}>
+                <Typography variant="h5" fontWeight={900} sx={{ color: 'text.primary' }}>
                   {t('login.welcome') || 'Welcome Back'}
                 </Typography>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>
@@ -322,7 +332,7 @@ const Login = () => {
                 <PersonAddAltOutlinedIcon sx={{ fontSize: 36, color: 'secondary.main' }} />
               </Avatar>
               <Box textAlign="center">
-                <Typography variant="h5" fontWeight={900} sx={{ color: '#0f172a' }}>
+                <Typography variant="h5" fontWeight={900} sx={{ color: 'text.primary' }}>
                   {t('login.createAccount') || 'Create Account'}
                 </Typography>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>
@@ -529,7 +539,7 @@ const Login = () => {
                 <VpnKeyOutlinedIcon sx={{ fontSize: 36, color: 'error.main' }} />
               </Avatar>
               <Box textAlign="center">
-                <Typography variant="h5" fontWeight={900} sx={{ color: '#0f172a' }}>
+                <Typography variant="h5" fontWeight={900} sx={{ color: 'text.primary' }}>
                   {t('login.forgotPinTitle') || 'Reset PIN'}
                 </Typography>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>

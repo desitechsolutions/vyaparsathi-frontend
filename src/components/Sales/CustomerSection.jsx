@@ -23,6 +23,9 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import DoneIcon from '@mui/icons-material/Done';
 import EditIcon from '@mui/icons-material/Edit';
 
+import { useTheme } from '@mui/material/styles';
+import getSalesSelectStyles from '../../styles/SalesStyles';
+
 const CustomerSection = ({
   customers,
   selectedCustomer,
@@ -38,6 +41,8 @@ const CustomerSection = ({
   isJewellery,
   compact,
 }) => {
+  const theme = useTheme();
+  const selectStyles = useMemo(() => getSalesSelectStyles(theme), [theme]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
@@ -135,8 +140,8 @@ const CustomerSection = ({
       {/* Address Section */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <LocationOnIcon sx={{ color: '#0f766e', fontSize: 22 }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e' }}>
+          <LocationOnIcon sx={{ color: 'var(--color-teal)', fontSize: 22 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
             Delivery Address
           </Typography>
         </Box>
@@ -151,13 +156,13 @@ const CustomerSection = ({
             sx={{
               textTransform: 'none',
               fontWeight: 700,
-              borderColor: '#0f766e',
-              color: '#0f766e',
+              borderColor: 'var(--color-teal)',
+              color: 'var(--color-teal)',
               mb: 1.5,
               py: 1,
               '&:hover': {
-                bgcolor: alpha('#0f766e', 0.05),
-                borderColor: '#0f766e',
+                bgcolor: alpha('#0f766e', 0.08),
+                borderColor: 'var(--color-teal)',
               }
             }}
           >
@@ -185,18 +190,18 @@ const CustomerSection = ({
             }
           }}
         />
-        <Typography variant="caption" sx={{ color: '#64748b', mt: 0.75, display: 'block' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.75, display: 'block' }}>
           Street, building, apartment, city, postal code
         </Typography>
       </Box>
 
-      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.1) }} />
+      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.08) }} />
 
       {/* Charge & Payment Section */}
       <Box sx={{ mb: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <LocalOfferIcon sx={{ color: '#0f766e', fontSize: 22 }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e' }}>
+          <LocalOfferIcon sx={{ color: 'var(--color-teal)', fontSize: 22 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
             Delivery Charge & Payment
           </Typography>
         </Box>
@@ -211,7 +216,7 @@ const CustomerSection = ({
               value={formData.deliveryCharge || ''}
               onChange={handleDeliveryChargeChange}
               InputProps={{
-                startAdornment: <Typography sx={{ mr: 0.75, color: '#0f766e', fontWeight: 800, fontSize: '1rem' }}>₹</Typography>,
+                startAdornment: <Typography sx={{ mr: 0.75, color: 'var(--color-teal)', fontWeight: 800, fontSize: '1rem' }}>₹</Typography>,
               }}
               variant="outlined"
               sx={{
@@ -239,13 +244,13 @@ const CustomerSection = ({
                 <MenuItem value="CUSTOMER">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <span>Customer</span>
-                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>(To Pay)</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>(To Pay)</Typography>
                   </Box>
                 </MenuItem>
                 <MenuItem value="SHOP">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <span>Shop</span>
-                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>(Inclusive)</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>(Inclusive)</Typography>
                   </Box>
                 </MenuItem>
               </MuiSelect>
@@ -258,29 +263,29 @@ const CustomerSection = ({
             p: 2,
             borderRadius: 2,
             bgcolor: alpha('#0f766e', 0.08),
-            border: `1.5px solid ${alpha('#0f766e', 0.2)}`,
+            border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f766e' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
                 Delivery Charge:
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 900, color: '#0f766e' }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: 'var(--color-teal)' }}>
                 ₹{Number(formData.deliveryCharge).toFixed(2)}
               </Typography>
             </Box>
-            <Box sx={{ height: 1, bgcolor: alpha('#0f766e', 0.1), mb: 1 }} />
-            <Typography variant="caption" sx={{ color: '#0f766e', fontWeight: 700 }}>
+            <Box sx={{ height: 1, bgcolor: alpha('#0f766e', 0.08), mb: 1 }} />
+            <Typography variant="caption" sx={{ color: 'var(--color-teal)', fontWeight: 700 }}>
               Paid by: <span style={{ fontWeight: 900 }}>{formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'}</span>
             </Typography>
           </Box>
         )}
       </Box>
 
-      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.1) }} />
+      <Divider sx={{ my: 2.5, borderColor: alpha('#0f766e', 0.08) }} />
 
       {/* Special Instructions Section */}
       <Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f766e', mb: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)', mb: 1.5 }}>
           Special Instructions
         </Typography>
         <TextField
@@ -303,7 +308,7 @@ const CustomerSection = ({
             }
           }}
         />
-        <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.75 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
           Optional: Add any special instructions for delivery personnel
         </Typography>
       </Box>
@@ -314,11 +319,6 @@ const CustomerSection = ({
   // COMPACT MODE
   // -----------------------------------------------------------------------
   if (compact) {
-    const selectStyles = {
-      control: (base) => ({ ...base, borderRadius: '8px', minHeight: '40px', borderColor: '#e0e0e0', fontSize: '0.875rem' }),
-      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    };
-
     return (
       <Box>
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -392,19 +392,19 @@ const CustomerSection = ({
           PaperProps={{
             sx: {
               borderRadius: 3,
-              border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+              border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
             }
           }}
         >
           <DialogTitle sx={{
             fontWeight: 900,
-            bgcolor: alpha('#0f766e', 0.05),
+            bgcolor: alpha('#0f766e', 0.08),
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
             fontSize: '1.1rem',
-            color: '#0f766e',
-            borderBottom: `2px solid ${alpha('#0f766e', 0.1)}`,
+            color: 'var(--color-teal)',
+            borderBottom: `2px solid ${alpha('#0f766e', 0.08)}`,
             pb: 2
           }}>
             <LocalShippingIcon sx={{ fontSize: 28 }} />
@@ -431,8 +431,8 @@ const CustomerSection = ({
           </DialogContent>
           <DialogActions sx={{
             p: 2.5,
-            bgcolor: alpha('#0f766e', 0.02),
-            borderTop: `1px solid ${alpha('#0f766e', 0.1)}`,
+            bgcolor: alpha('#0f766e', 0.08),
+            borderTop: `1px solid ${alpha('#0f766e', 0.08)}`,
             display: 'flex',
             gap: 1,
             justifyContent: 'flex-end'
@@ -443,9 +443,9 @@ const CustomerSection = ({
               sx={{
                 textTransform: 'none',
                 fontWeight: 700,
-                color: '#64748b',
+                color: 'text.secondary',
                 '&:hover': {
-                  bgcolor: alpha('#0f766e', 0.05),
+                  bgcolor: alpha('#0f766e', 0.08),
                 }
               }}
             >
@@ -459,9 +459,9 @@ const CustomerSection = ({
                 textTransform: 'none',
                 fontWeight: 800,
                 borderRadius: 2,
-                boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+                boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
                 '&:hover': {
-                  boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+                  boxShadow: `0 6px 16px ${alpha('#0f766e', 0.08)}`,
                 },
                 px: 3,
                 py: 1.2,
@@ -475,10 +475,10 @@ const CustomerSection = ({
 
         {/* Options Dialog */}
         <Dialog open={optionsOpen} onClose={() => setOptionsOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
+          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.default' }}>
             <TuneIcon color="primary" /> Sale Options
             {isPharmacy && <Chip label="Pharmacy" size="small" color="primary" sx={{ ml: 'auto' }} />}
-            {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 'auto', bgcolor: '#ede9fe', color: '#7c3aed' }} />}
+            {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 'auto', bgcolor: 'rgba(139, 92, 246, 0.12)', color: 'var(--color-secondary)' }} />}
           </DialogTitle>
           <DialogContent dividers>
             {isPharmacy && (
@@ -515,7 +515,7 @@ const CustomerSection = ({
                     {isPanMissing ? 'PAN required: Sale amount ≥ ₹2,00,000. Mandatory under IT Act Sec. 269ST.' : isPanError ? 'Invalid PAN format. Must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F).' : `PAN captured: ${formData.buyerPan} ✓`}
                   </Alert>
                 )}
-                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#7c3aed', mb: 2 }}>💎 Jewellery Buyer Details</Typography>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'var(--color-secondary)', mb: 2 }}>💎 Jewellery Buyer Details</Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}>
                     <TextField label="Buyer PAN" fullWidth value={formData.buyerPan || ''} onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }} error={isPanError} helperText={isPanError && formData.buyerPan?.trim() ? 'Invalid format — AAAAA9999A' : isHighValueJewellery ? 'Mandatory for transactions ≥ ₹2,00,000' : 'Optional for smaller transactions'} />
@@ -530,14 +530,14 @@ const CustomerSection = ({
               </Box>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
             <Button onClick={() => setOptionsOpen(false)} variant="contained">Done</Button>
           </DialogActions>
         </Dialog>
 
         {/* New Customer Modal */}
         <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
+          <DialogTitle sx={{ fontWeight: 800, bgcolor: 'background.default' }}>
             <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
             {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
           </DialogTitle>
@@ -558,7 +558,7 @@ const CustomerSection = ({
               <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
             <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
             <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
           </DialogActions>
@@ -566,7 +566,7 @@ const CustomerSection = ({
 
         {/* Prescription Capture Dialog */}
         <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 700, bgcolor: 'rgba(34, 197, 94, 0.12)' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
           <DialogContent dividers sx={{ textAlign: 'center' }}>
             <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -595,7 +595,7 @@ const CustomerSection = ({
             )}
             {isJewellery && (
               <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography variant="caption" sx={{ color: '#7c3aed', fontWeight: 700 }}>💎 Jewellery Sale</Typography>
+                <Typography variant="caption" sx={{ color: 'var(--color-secondary)', fontWeight: 700 }}>💎 Jewellery Sale</Typography>
               </Box>
             )}
           </Typography>
@@ -614,15 +614,7 @@ const CustomerSection = ({
                     placeholder={isPharmacy ? 'Search patient name or phone...' : 'Search name, phone, or GST...'}
                     isSearchable
                     isClearable
-                    styles={{
-                      control: (base) => ({ 
-                        ...base, 
-                        borderRadius: '8px', 
-                        minHeight: '45px',
-                        borderColor: isGstMissing ? '#ed6c02' : '#e0e0e0'
-                      }),
-                      menuPortal: base => ({ ...base, zIndex: 9999 })
-                    }}
+                    styles={selectStyles}
                     menuPortalTarget={document.body}
                   />
                 </Box>
@@ -675,7 +667,7 @@ const CustomerSection = ({
                 value={formData.totalAmount}
                 InputProps={{ 
                   readOnly: true,
-                  sx: { fontWeight: 800, fontSize: '1.2rem', color: '#1a56db', bgcolor: '#f0f7ff' } 
+                  sx: { fontWeight: 800, fontSize: '1.2rem', color: 'var(--color-primary)', bgcolor: 'rgba(59, 130, 246, 0.08)' } 
                 }}
               />
             </Grid>
@@ -760,7 +752,7 @@ const CustomerSection = ({
                 </Alert>
               )}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#7c3aed' }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'var(--color-secondary)' }}>
                   💎 Jewellery Buyer Details
                 </Typography>
               </Box>
@@ -848,40 +840,40 @@ const CustomerSection = ({
               <Box sx={{
                 p: 2.5,
                 borderRadius: 2,
-                bgcolor: alpha('#0f766e', 0.05),
-                border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+                bgcolor: alpha('#0f766e', 0.08),
+                border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
                 mb: 2,
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
-                  <LocationOnIcon sx={{ color: '#0f766e', mt: 0.5, flexShrink: 0, fontSize: 20 }} />
+                  <LocationOnIcon sx={{ color: 'var(--color-teal)', mt: 0.5, flexShrink: 0, fontSize: 20 }} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
                       Delivery Address
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#0f766e', wordBreak: 'break-word', fontWeight: 600 }}>
-                      {formData.deliveryAddress ? formData.deliveryAddress : <Typography variant="caption" sx={{ fontStyle: 'italic', color: '#94a3b8' }}>Not set yet</Typography>}
+                    <Typography variant="body2" sx={{ color: 'var(--color-teal)', wordBreak: 'break-word', fontWeight: 600 }}>
+                      {formData.deliveryAddress ? formData.deliveryAddress : <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>Not set yet</Typography>}
                     </Typography>
                   </Box>
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                  <LocalOfferIcon sx={{ color: '#0f766e', flexShrink: 0, fontSize: 20 }} />
+                  <LocalOfferIcon sx={{ color: 'var(--color-teal)', flexShrink: 0, fontSize: 20 }} />
                   <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
                       Charge Details
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#0f766e', fontWeight: 800 }}>
-                      ₹{Number(formData.deliveryCharge || 0).toFixed(2)} <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: '#0f766e', ml: 1 }}>({formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'})</Typography>
+                    <Typography variant="body2" sx={{ color: 'var(--color-teal)', fontWeight: 800 }}>
+                      ₹{Number(formData.deliveryCharge || 0).toFixed(2)} <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'var(--color-teal)', ml: 1 }}>({formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'})</Typography>
                     </Typography>
                   </Box>
                 </Box>
 
                 {formData.deliveryNotes && (
-                  <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha('#0f766e', 0.2)}` }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#0f766e', display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                  <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha('#0f766e', 0.08)}` }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.7rem' }}>
                       Special Instructions
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#0f766e', display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: 'var(--color-teal)', display: 'block' }}>
                       {formData.deliveryNotes}
                     </Typography>
                   </Box>
@@ -895,7 +887,7 @@ const CustomerSection = ({
                   sx={{
                     textTransform: 'none',
                     fontWeight: 800,
-                    color: '#0f766e',
+                    color: 'var(--color-teal)',
                     mt: 1.5,
                     p: 0,
                     fontSize: '0.85rem',
@@ -918,19 +910,19 @@ const CustomerSection = ({
         PaperProps={{
           sx: {
             borderRadius: 3,
-            border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+            border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
           }
         }}
       >
         <DialogTitle sx={{
           fontWeight: 900,
-          bgcolor: alpha('#0f766e', 0.05),
+          bgcolor: alpha('#0f766e', 0.08),
           display: 'flex',
           alignItems: 'center',
           gap: 1.5,
           fontSize: '1.1rem',
-          color: '#0f766e',
-          borderBottom: `2px solid ${alpha('#0f766e', 0.1)}`,
+          color: 'var(--color-teal)',
+          borderBottom: `2px solid ${alpha('#0f766e', 0.08)}`,
           pb: 2
         }}>
           <LocalShippingIcon sx={{ fontSize: 28 }} />
@@ -957,8 +949,8 @@ const CustomerSection = ({
         </DialogContent>
         <DialogActions sx={{
           p: 2.5,
-          bgcolor: alpha('#0f766e', 0.02),
-          borderTop: `1px solid ${alpha('#0f766e', 0.1)}`,
+          bgcolor: alpha('#0f766e', 0.08),
+          borderTop: `1px solid ${alpha('#0f766e', 0.08)}`,
           display: 'flex',
           gap: 1,
           justifyContent: 'flex-end'
@@ -969,9 +961,9 @@ const CustomerSection = ({
             sx={{
               textTransform: 'none',
               fontWeight: 700,
-              color: '#64748b',
+              color: 'text.secondary',
               '&:hover': {
-                bgcolor: alpha('#0f766e', 0.05),
+                bgcolor: alpha('#0f766e', 0.08),
               }
             }}
           >
@@ -985,9 +977,9 @@ const CustomerSection = ({
               textTransform: 'none',
               fontWeight: 800,
               borderRadius: 2,
-              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
               '&:hover': {
-                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.08)}`,
               },
               px: 3,
               py: 1.2,
@@ -1001,7 +993,7 @@ const CustomerSection = ({
 
       {/* NEW CUSTOMER / PATIENT MODAL */}
       <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>
+        <DialogTitle sx={{ fontWeight: 800, bgcolor: 'background.default' }}>
           <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
         </DialogTitle>
@@ -1022,7 +1014,7 @@ const CustomerSection = ({
             <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
           <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
           <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
         </DialogActions>
@@ -1030,7 +1022,7 @@ const CustomerSection = ({
 
       {/* PRESCRIPTION CAPTURE DIALOG */}
       <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: '#f0fdf4' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, bgcolor: 'rgba(34, 197, 94, 0.12)' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
         <DialogContent dividers sx={{ textAlign: 'center' }}>
           <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
           <canvas ref={canvasRef} style={{ display: 'none' }} />

@@ -188,7 +188,7 @@ const ReceivingList = ({
               <Tooltip title="Reset Filters">
                 <IconButton 
                   onClick={() => setFilters({ poNumber: '', supplier: '', status: '', dateFrom: '', dateTo: '' })} 
-                  sx={{ border: '1px solid #e0e0e0', borderRadius: 2 }}
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
                 >
                   <ResetIcon />
                 </IconButton>
@@ -207,52 +207,52 @@ const ReceivingList = ({
       ) : error ? (
         <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>{error}</Alert>
       ) : sortedReceivings.length === 0 ? (
-        <Paper variant="outlined" sx={{ py: 10, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}>
+        <Paper variant="outlined" sx={{ py: 10, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed', borderColor: 'divider' }}>
           <Typography color="text.secondary">No receiving records match your criteria.</Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', borderColor: 'divider' }}>
           <Table stickyHeader>
             <TableHead>
-              <TableRow sx={{ bgcolor: 'grey.50' }}>
-                <TableCell sx={{ fontWeight: 800 }}>
+              <TableRow sx={{ bgcolor: 'action.hover' }}>
+                <TableCell sx={{ fontWeight: 800, color: 'text.primary' }}>
                   <TableSortLabel
                     active={safeSort.field === 'id'}
                     direction={safeSort.field === 'id' ? safeSort.direction : 'asc'}
                     onClick={() => handleSort('id')}
                   >ID</TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>
+                <TableCell sx={{ fontWeight: 800, color: 'text.primary' }}>
                    <TableSortLabel
                     active={safeSort.field === 'poNumber'}
                     direction={safeSort.field === 'poNumber' ? safeSort.direction : 'asc'}
                     onClick={() => handleSort('poNumber')}
                   >PO NUMBER</TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>
+                <TableCell sx={{ fontWeight: 800, color: 'text.primary' }}>
                    <TableSortLabel
                     active={safeSort.field === 'supplier'}
                     direction={safeSort.field === 'supplier' ? safeSort.direction : 'asc'}
                     onClick={() => handleSort('supplier')}
                   >SUPPLIER</TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>STATUS</TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>
+                <TableCell sx={{ fontWeight: 800, color: 'text.primary' }}>STATUS</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.primary' }}>
                    <TableSortLabel
                     active={safeSort.field === 'receivedAt'}
                     direction={safeSort.field === 'receivedAt' ? safeSort.direction : 'asc'}
                     onClick={() => handleSort('receivedAt')}
                   >DATE</TableSortLabel>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>ACTIONS</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.primary' }}>ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedReceivings.map((rec) => (
-                <TableRow key={rec.id} hover sx={{ '&:nth-of-type(even)': { bgcolor: '#fafafa' } }}>
-                  <TableCell sx={{ fontWeight: 600 }}>#{rec.id}</TableCell>
+                <TableRow key={rec.id} hover sx={{ '&:nth-of-type(even)': { bgcolor: 'action.hover' } }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>#{rec.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{rec.poNumber}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{rec.poNumber}</Typography>
                   </TableCell>
                   <TableCell>{rec.supplier?.name || 'N/A'}</TableCell>
                   <TableCell>

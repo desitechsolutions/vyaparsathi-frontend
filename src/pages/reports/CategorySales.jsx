@@ -65,7 +65,7 @@ export default function CategorySales() {
   const totalRevenue = report.reduce((sum, item) => sum + (item.totalSales || 0), 0);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -79,14 +79,14 @@ export default function CategorySales() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('categorySalesReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('categorySalesReport.title')}</Typography>
           <Typography color="text.secondary">{t('categorySalesReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
             variant="outlined" startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+            sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
           >
             {t('reportsCommon.export')}
           </Button>
@@ -94,7 +94,7 @@ export default function CategorySales() {
       </Stack>
 
       {/* Filters */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -124,33 +124,33 @@ export default function CategorySales() {
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
       ) : report.length > 0 ? (
-        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Table sx={{ minWidth: 600 }}>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.category')}</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.itemsSold')}</TableCell>
-                <TableCell sx={{ fontWeight: 800 }}>{t('categorySalesReport.columns.revenue')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{t('reportsCommon.total')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('categorySalesReport.columns.category')}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('categorySalesReport.columns.itemsSold')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('categorySalesReport.columns.revenue')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('reportsCommon.total')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {report.map((row, idx) => {
                 const contribution = totalRevenue > 0 ? (row.totalSales / totalRevenue) * 100 : 0;
                 return (
-                  <TableRow key={idx} hover>
+                  <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                     <TableCell>
                       <Stack direction="row" spacing={2} alignItems="center">
-                        <Avatar sx={{ bgcolor: 'secondary.light', width: 36, height: 36 }}>
-                          <Category sx={{ fontSize: 20, color: 'secondary.main' }} />
+                        <Avatar sx={{ bgcolor: 'secondary.light', color: 'secondary.main', width: 36, height: 36 }}>
+                          <Category sx={{ fontSize: 20 }} />
                         </Avatar>
-                        <Typography variant="body2" fontWeight={700} color="#1e293b">
+                        <Typography variant="body2" fontWeight={700} color="text.primary">
                           {row.categoryName}
                         </Typography>
                       </Stack>
                     </TableCell>
                     <TableCell align="center">
-                      <Typography variant="body2" fontWeight={600}>{row.totalSold}</Typography>
+                      <Typography variant="body2" fontWeight={600} color="text.primary">{row.totalSold}</Typography>
                     </TableCell>
                     <TableCell sx={{ width: '30%' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -158,7 +158,7 @@ export default function CategorySales() {
                           <LinearProgress 
                             variant="determinate" 
                             value={contribution} 
-                            sx={{ height: 8, borderRadius: 5, bgcolor: '#f1f5f9' }}
+                            sx={{ height: 8, borderRadius: 5, bgcolor: 'action.hover' }}
                           />
                         </Box>
                         <Box sx={{ minWidth: 35 }}>
@@ -181,7 +181,7 @@ export default function CategorySales() {
         </TableContainer>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <PieChart sx={{ fontSize: 80, color: '#e2e8f0', mb: 2 }} />
+          <PieChart sx={{ fontSize: 80, color: 'action.disabled', mb: 2 }} />
           <Typography variant="h6" color="text.secondary">No category data found.</Typography>
           <Typography variant="body2" color="text.disabled">Try adjusting your date range.</Typography>
         </Box>

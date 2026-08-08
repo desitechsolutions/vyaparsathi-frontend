@@ -114,7 +114,7 @@ const BillingDashboard = () => {
       {/* HEADER SECTION */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 4, gap: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight={900} sx={{ color: '#1E293B', letterSpacing: '-0.02em' }}>
+          <Typography variant="h4" fontWeight={900} sx={{ color: 'text.primary', letterSpacing: '-0.02em' }}>
             Billing & Subscription
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -138,7 +138,7 @@ const BillingDashboard = () => {
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
             {/* 1. PLAN STATUS CARD */}
-            <Paper elevation={0} sx={{ p: 4, borderRadius: '20px', border: '1px solid #E2E8F0', bgcolor: '#FFF', position: 'relative', overflow: 'hidden' }}>
+            <Paper elevation={0} sx={{ p: 4, borderRadius: '20px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', position: 'relative', overflow: 'hidden' }}>
               <Box sx={{ position: 'absolute', top: 0, right: 0, p: 2 }}>
                  <Chip 
                     icon={<CheckCircleIcon />}
@@ -160,7 +160,7 @@ const BillingDashboard = () => {
                 <LinearProgress 
                   variant="determinate" 
                   value={calculateProgress()} 
-                  sx={{ height: 10, borderRadius: 5, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { borderRadius: 5 } }}
+                  sx={{ height: 10, borderRadius: 5, bgcolor: 'action.hover', '& .MuiLinearProgress-bar': { borderRadius: 5 } }}
                 />
               </Box>
 
@@ -212,13 +212,13 @@ const BillingDashboard = () => {
             </Paper>
 
             {/* 2. PAYMENT METHOD CARD */}
-            <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', border: '1px solid #E2E8F0', bgcolor: '#F8FAFC' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Security fontSize="small" color="primary" /> Default Payment Method
                 </Typography>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={2} alignItems="center">
-                        <Box sx={{ p: 1, bgcolor: '#FFF', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex' }}>
+                        <Box sx={{ p: 1, bgcolor: 'background.paper', borderRadius: '8px', border: '1px solid', borderColor: 'divider', display: 'flex' }}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" width="40" />
                         </Box>
                         <Box>
@@ -244,7 +244,7 @@ const BillingDashboard = () => {
             )}
 
             {status === 'TRIAL' && (
-              <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', bgcolor: '#1E293B', color: '#FFF' }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', bgcolor: 'background.paper', color: 'text.primary' }}>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#FCD34D', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <AutoAwesome fontSize="small" /> Trial Period
                 </Typography>
@@ -255,14 +255,14 @@ const BillingDashboard = () => {
                     fullWidth 
                     variant="contained" 
                     onClick={() => navigate('/pricing', { state: { from: 'billing' } })}
-                    sx={{ bgcolor: '#FFF', color: '#1E293B', fontWeight: 800, textTransform: 'none', '&:hover': { bgcolor: '#F1F5F9' } }}
+                    sx={{ bgcolor: 'background.paper', color: 'text.primary', fontWeight: 800, textTransform: 'none', '&:hover': { bgcolor: 'action.hover' } }}
                 >
                     Upgrade to Pro
                 </Button>
               </Paper>
             )}
 
-            <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', border: '1px solid #E2E8F0' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: '20px', border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <InfoOutlined fontSize="small" color="primary" /> Billing Information
               </Typography>
@@ -291,10 +291,10 @@ const BillingDashboard = () => {
 
         {/* BOTTOM: History Table */}
         <Grid item xs={12}>
-          <Typography variant="h6" fontWeight={900} sx={{ mb: 2, px: 1, color: '#1E293B' }}>Transaction History</Typography>
-          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: '20px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+          <Typography variant="h6" fontWeight={900} sx={{ mb: 2, px: 1, color: 'text.primary' }}>Transaction History</Typography>
+          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: '20px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <Table>
-              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+              <TableHead sx={{ bgcolor: 'background.default' }}>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800, color: '#64748B' }}>DATE</TableCell>
                   <TableCell sx={{ fontWeight: 800, color: '#64748B' }}>PLAN</TableCell>
@@ -324,8 +324,8 @@ const BillingDashboard = () => {
                     <TableCell>
                         <Chip label={row.planRequested} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: '0.65rem', borderRadius: '4px' }} />
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#475569' }}>{row.utrNumber}</TableCell>
-                    <TableCell sx={{ fontWeight: 900, color: '#1E293B' }}>₹{row.amount}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'text.secondary' }}>{row.utrNumber}</TableCell>
+                    <TableCell sx={{ fontWeight: 900, color: 'text.primary' }}>₹{row.amount}</TableCell>
                     <TableCell>
                       <Chip 
                         label={row.status} 
@@ -367,7 +367,7 @@ const BillingDashboard = () => {
         </Box>
         <DialogTitle sx={{ fontWeight: 900, fontSize: '1.4rem', textAlign: 'center' }}>Cancel Subscription?</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ color: '#475569', textAlign: 'center', fontWeight: 500 }}>
+          <DialogContentText sx={{ color: 'text.secondary', textAlign: 'center', fontWeight: 500 }}>
             You will lose access to premium features like advanced reports and bulk exports once your current period ends in <strong>{daysRemaining} days</strong>.
           </DialogContentText>
         </DialogContent>
@@ -376,7 +376,7 @@ const BillingDashboard = () => {
             fullWidth
             variant="contained"
             onClick={() => setCancelModalOpen(false)} 
-            sx={{ fontWeight: 800, borderRadius: '12px', py: 1.5, bgcolor: '#1E293B' }}
+            sx={{ fontWeight: 800, borderRadius: '12px', py: 1.5, bgcolor: 'background.paper' }}
           >
             Keep Premium
           </Button>

@@ -35,7 +35,7 @@ export default function Backup() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight={900}>Database & Backup</Typography>
         <Typography color="text.secondary">Secure your business data and manage exports</Typography>
@@ -44,9 +44,9 @@ export default function Backup() {
       <Grid container spacing={3}>
         {/* Main Backup Actions */}
         <Grid item xs={12} md={8}>
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid' }}>
             <Stack spacing={3}>
-              <Box sx={{ p: 3, bgcolor: '#f0f9ff', borderRadius: 3, border: '1px solid #bae6fd' }}>
+              <Box sx={{ p: 3, bgcolor: 'rgba(3, 105, 161, 0.08)', borderRadius: 3, border: '1px solid', borderColor: 'info.light' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" spacing={2} alignItems="center">
                     <History color="primary" />
@@ -63,7 +63,7 @@ export default function Backup() {
               
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <Card variant="outlined" sx={{ borderRadius: 3, cursor: 'pointer', '&:hover': { bgcolor: '#f8fafc' } }} onClick={() => handleBackup('cloud')}>
+                  <Card variant="outlined" sx={{ borderRadius: 3, cursor: 'pointer', '&:hover': { bgcolor: 'background.default' } }} onClick={() => handleBackup('cloud')}>
                     <CardContent>
                       <Stack spacing={1} alignItems="center" textAlign="center">
                         <CloudUpload color="primary" sx={{ fontSize: 40 }} />
@@ -74,7 +74,7 @@ export default function Backup() {
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Card variant="outlined" sx={{ borderRadius: 3, cursor: 'pointer', '&:hover': { bgcolor: '#f8fafc' } }} onClick={() => handleBackup('local')}>
+                  <Card variant="outlined" sx={{ borderRadius: 3, cursor: 'pointer', '&:hover': { bgcolor: 'background.default' } }} onClick={() => handleBackup('local')}>
                     <CardContent>
                       <Stack spacing={1} alignItems="center" textAlign="center">
                         <Computer color="secondary" sx={{ fontSize: 40 }} />
@@ -117,7 +117,7 @@ export default function Backup() {
         {/* Security Info */}
         <Grid item xs={12} md={4}>
           <Stack spacing={3}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: '#1e293b', color: 'white' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: 'background.paper', color: 'text.primary' }}>
               <Stack spacing={2}>
                 <Stack direction="row" spacing={2} alignItems="center">
                   <Security />

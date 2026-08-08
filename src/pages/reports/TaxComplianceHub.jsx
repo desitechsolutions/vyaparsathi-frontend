@@ -67,11 +67,11 @@ export default function TaxComplianceHub() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 5 }, bgcolor: '#F8FAFC', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 5 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#1E293B">{t('taxComplianceHub.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('taxComplianceHub.title')}</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             {t('taxComplianceHub.subtitle')}
           </Typography>
@@ -86,10 +86,10 @@ export default function TaxComplianceHub() {
       <Grid container spacing={4}>
         {/* Main Generator Card */}
         <Grid item xs={12} md={7} lg={8}>
-          <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 6, border: '1px solid #E2E8F0', position: 'relative', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 6, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', position: 'relative', overflow: 'hidden' }}>
             {loading && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0 }} />}
             
-            <Typography variant="h6" fontWeight={800} mb={3}>Generate New Audit Package</Typography>
+            <Typography variant="h6" fontWeight={800} color="text.primary" mb={3}>Generate New Audit Package</Typography>
             
             <Grid container spacing={3} mb={4}>
               <Grid item xs={12} sm={6}>
@@ -122,11 +122,11 @@ export default function TaxComplianceHub() {
               </Grid>
             </Grid>
 
-            <Box sx={{ bgcolor: '#F1F5F9', p: 3, borderRadius: 4, mb: 4 }}>
+            <Box sx={{ bgcolor: 'action.hover', p: 3, borderRadius: 4, mb: 4, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', mb: 1, display: 'block' }}>
                     Package Contents
                 </Typography>
-                <Typography variant="body2" color="#475569">
+                <Typography variant="body2" color="text.secondary">
                     This ZIP will include a Sales Register (GSTR-1), HSN Summary (Table 12), and an ITC Purchase ledger. All data is formatted for Tally/Busy import.
                 </Typography>
             </Box>
@@ -142,9 +142,7 @@ export default function TaxComplianceHub() {
               onClick={handleExport} 
               disabled={loading} 
               sx={{ 
-                py: 2, borderRadius: 4, fontWeight: 800, textTransform: 'none', fontSize: '1.1rem',
-                bgcolor: '#1E293B', boxShadow: '0 10px 15px -3px rgba(30, 41, 59, 0.2)',
-                '&:hover': { bgcolor: '#0F172A' }
+                py: 2, borderRadius: 4, fontWeight: 800, textTransform: 'none', fontSize: '1.1rem'
               }}
             >
               {loading ? "Compiling Audit Data..." : "Download Export Pack (ZIP)"}
@@ -154,16 +152,16 @@ export default function TaxComplianceHub() {
 
         {/* Info Sidebar */}
         <Grid item xs={12} md={5} lg={4}>
-          <Typography variant="subtitle2" fontWeight={800} color="#64748B" mb={2} sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+          <Typography variant="subtitle2" fontWeight={800} color="text.secondary" mb={2} sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
             Included Reports
           </Typography>
           <Stack spacing={2.5}>
             {auditFiles.map((file, i) => (
-              <Card key={i} elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 4, transition: '0.2s', '&:hover': { borderColor: theme.palette.primary.main } }}>
+              <Card key={i} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', borderRadius: 4, transition: '0.2s', '&:hover': { borderColor: theme.palette.primary.main } }}>
                 <CardContent sx={{ display: 'flex', gap: 2.5, alignItems: 'center', py: '20px !important' }}>
-                  <Avatar sx={{ bgcolor: '#F1F5F9', width: 48, height: 48 }}>{file.icon}</Avatar>
+                  <Avatar sx={{ bgcolor: 'action.hover', color: 'primary.main', width: 48, height: 48 }}>{file.icon}</Avatar>
                   <Box>
-                    <Typography variant="body1" fontWeight={800} color="#1E293B">{file.title}</Typography>
+                    <Typography variant="body1" fontWeight={800} color="text.primary">{file.title}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{file.desc}</Typography>
                   </Box>
                 </CardContent>
@@ -171,9 +169,9 @@ export default function TaxComplianceHub() {
             ))}
           </Stack>
 
-          <Paper elevation={0} sx={{ mt: 4, p: 3, borderRadius: 4, bgcolor: '#EFF6FF', border: '1px dashed #3B82F6' }}>
-            <Typography variant="subtitle2" fontWeight={800} color="#1D4ED8" gutterBottom>CA Collaboration</Typography>
-            <Typography variant="caption" color="#3B82F6" fontWeight={500}>
+          <Paper elevation={0} sx={{ mt: 4, p: 3, borderRadius: 4, bgcolor: 'rgba(59, 130, 246, 0.08)', border: '1px dashed', borderColor: 'primary.main' }}>
+            <Typography variant="subtitle2" fontWeight={800} color="primary.main" gutterBottom>CA Collaboration</Typography>
+            <Typography variant="caption" color="primary.main" fontWeight={500}>
               You can directly email this ZIP to your CA. It includes all necessary headers for direct import into GSTR-1 offline tools.
             </Typography>
           </Paper>

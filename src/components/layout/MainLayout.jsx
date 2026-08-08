@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Box, CssBaseline, Toolbar, Container } from '@mui/material';
+import { Box, Toolbar, Container } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import PremiumStatusBanner from '../../pages/PremiumStatusBanner';
@@ -20,7 +20,6 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <CssBaseline />
       
       {/* Pass the toggle function to the Header */}
       <Header onDrawerToggle={handleDrawerToggle} />
@@ -32,7 +31,7 @@ const MainLayout = () => {
         component="main" 
         sx={{ 
           flexGrow: 1, 
-          bgcolor: '#F8FAFC', 
+          bgcolor: 'background.default', 
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',

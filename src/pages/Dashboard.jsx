@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useTheme } from '@mui/material/styles';
 import {
   Grid,
   Paper,
@@ -25,6 +26,8 @@ import {
   Tooltip as MuiTooltip,
   Alert,
   LinearProgress,
+  Skeleton,
+  alpha,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -72,72 +75,96 @@ dayjs.extend(isBetween);
 
 const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
-const InsightRow = ({ label, value, color, icon: Icon }) => (
-  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.8 }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-      <Avatar sx={{ bgcolor: `${color}12`, color: color, width: 34, height: 34 }}>
-        <Icon sx={{ fontSize: 19 }} />
-      </Avatar>
-      <Typography variant="body2" fontWeight="600" color="text.primary">
-        {label}
-      </Typography>
-    </Box>
-    <Typography variant="body2" fontWeight="700" color={color}>
-      {value}
-    </Typography>
-  </Box>
-);
+const getContrastAccent = (colorHex, isDark) => {
+  if (!isDark) return colorHex;
+  const hex = (colorHex || '').toLowerCase();
+  if (hex === '#2563eb' || hex === '#1e40af') return '#60a5fa';
+  if (hex === '#7c3aed') return '#a78bfa';
+  if (hex === '#ea580c') return '#fb923c';
+  if (hex === '#dc2626') return '#f87171';
+  if (hex === '#16a34a') return '#4ade80';
+  return colorHex;
+};
 
-const StatCard = ({ title, value, icon, color = "#1e40af", onClick, trend }) => (
-  <Paper
-    elevation={0}
-    sx={{
-      p: 2.5,
-      borderRadius: 3,
-      bgcolor: "#ffffff",
-      height: "100%",
-      border: "1px solid #e2e8f0",
-      cursor: onClick ? "pointer" : "default",
-      transition: "all 0.22s ease",
-      "&:hover": {
-        boxShadow: "0 8px 22px rgba(0,0,0,0.06)",
-        borderColor: `${color}60`,
-        transform: onClick ? "translateY(-3px)" : "none",
-      },
-    }}
-    onClick={onClick}
-  >
-    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-      <Avatar sx={{ bgcolor: `${color}12`, color: color, width: 42, height: 42, borderRadius: "10px" }}>
-        {icon}
-      </Avatar>
-      {trend !== undefined && trend !== null && (
-        <MuiTooltip title="Growth vs previous equivalent period">
-          <Chip
-            icon={<NorthEastIcon sx={{ fontSize: 14 }} />}
-            label={`${trend > 0 ? "+" : ""}${trend}%`}
-            size="small"
-            color={trend >= 0 ? "success" : "error"}
-            sx={{ fontWeight: 700 }}
-          />
-        </MuiTooltip>
-      )}
-    </Box>
-    <Box>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        fontWeight={600}
-        sx={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
-      >
-        {title}
-      </Typography>
-      <Typography variant="h5" fontWeight={800} color="#111827" mt={0.4}>
+const InsightRow = ({ label, value, color, icon: Icon }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const activeColor = getContrastAccent(color, isDark);
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.8 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Avatar sx={{ bgcolor: alpha(activeColor, isDark ? 0.2 : 0.12), color: activeColor, width: 34, height: 34 }}>
+          <Icon sx={{ fontSize: 19 }} />
+        </Avatar>
+        <Typography variant="body2" fontWeight="600" color="text.primary">
+          {label}
+        </Typography>
+      </Box>
+      <Typography variant="body2" fontWeight="700" color={activeColor}>
         {value}
       </Typography>
     </Box>
-  </Paper>
-);
+  );
+};
+
+const StatCard = ({ title, value, icon, color = "#2563eb", onClick, trend }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const activeColor = getContrastAccent(color, isDark);
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2.5,
+        borderRadius: 3,
+        bgcolor: "background.paper",
+        height: "100%",
+        border: "1px solid",
+        borderColor: "divider",
+        cursor: onClick ? "pointer" : "default",
+        transition: "all 0.22s ease",
+        "&:hover": {
+          boxShadow: isDark ? "0 8px 22px rgba(0,0,0,0.4)" : "0 8px 22px rgba(0,0,0,0.08)",
+          borderColor: alpha(activeColor, 0.4),
+          transform: onClick ? "translateY(-3px)" : "none",
+        },
+      }}
+      onClick={onClick}
+    >
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+        <Avatar sx={{ bgcolor: alpha(activeColor, isDark ? 0.22 : 0.12), color: activeColor, width: 42, height: 42, borderRadius: "10px" }}>
+          {icon}
+        </Avatar>
+        {trend !== undefined && trend !== null && (
+          <MuiTooltip title="Growth vs previous equivalent period">
+            <Chip
+              icon={<NorthEastIcon sx={{ fontSize: 14 }} />}
+              label={`${trend > 0 ? "+" : ""}${trend}%`}
+              size="small"
+              color={trend >= 0 ? "success" : "error"}
+              sx={{ fontWeight: 700 }}
+            />
+          </MuiTooltip>
+        )}
+      </Box>
+      <Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          fontWeight={600}
+          sx={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+        >
+          {title}
+        </Typography>
+        <Typography variant="h5" fontWeight={800} color="text.primary" mt={0.4}>
+          {value}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -326,8 +353,12 @@ const setupChecklist = useMemo(() => {
     window.open(url, "_blank");
   };
 
+  const theme = useTheme();
+  const chartColor = theme.palette.text.secondary;
+  const chartGrid = theme.palette.divider;
+
   return (
-    <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3.5, lg: 4 }, bgcolor: "#f8fafc", minHeight: "100vh" }}>
+    <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3.5, lg: 4 }, bgcolor: "background.default", minHeight: "100vh" }}>
       
 {profileCompletion < 100 && !isLoading && (
   <Paper
@@ -337,14 +368,15 @@ const setupChecklist = useMemo(() => {
       py: 1.5,
       mb: 3,
       borderRadius: 3,
-      border: "1px solid #e5e7eb",
+      border: "1px solid",
+      borderColor: "divider",
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      background: "#ffffff",
+      bgcolor: "background.paper",
       transition: "all 0.2s ease",
       "&:hover": {
-        boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
       },
     }}
   >
@@ -420,19 +452,20 @@ const setupChecklist = useMemo(() => {
       {/* Professional Shop Header */}
       {shop && (
         <Paper
-          elevation={1}
+          elevation={0}
           sx={{
             p: { xs: 2.5, md: 3.5 },
             mb: 4,
             borderRadius: 3,
-            border: "1px solid #e2e8f0",
-            bgcolor: "#ffffff",
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
             boxShadow: "0 4px 14px rgba(0,0,0,0.04)",
           }}
         >
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "center" }} spacing={2.5}>
             <Box>
-              <Typography variant="h4" fontWeight={800} color="#1e293b" sx={{ letterSpacing: "-0.4px", mb: 0.5 }}>
+              <Typography variant="h4" fontWeight={800} color="text.primary" sx={{ letterSpacing: "-0.4px", mb: 0.5 }}>
                 {shop.name}
               </Typography>
               <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ opacity: 0.9 }}>
@@ -448,14 +481,14 @@ const setupChecklist = useMemo(() => {
             </Box>
 
             <Stack alignItems={{ md: "flex-end" }} spacing={0.5}>
-              <Typography variant="h6" fontWeight={700} color="#334155">
+              <Typography variant="h6" fontWeight={700} color="text.primary">
                 {dayjs().format("dddd, DD MMMM YYYY")}
               </Typography>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Typography variant="caption" color="text.secondary">
                   {t('dashboardPage.lastUpdated')}: {dayjs(lastUpdated).format("hh:mm A")}
                 </Typography>
-                <IconButton size="small" onClick={() => fetchDashboardData(range.from, range.to)} sx={{ color: "#64748b" }}>
+                <IconButton size="small" onClick={() => fetchDashboardData(range.from, range.to)} sx={{ color: "text.secondary" }}>
                   <RefreshIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -471,10 +504,11 @@ const setupChecklist = useMemo(() => {
           sx={{
             p: 1.5,
             borderRadius: 3,
-            border: "1px solid #e2e8f0",
+            border: "1px solid",
+            borderColor: "divider",
             display: "flex",
             gap: 1.5,
-            bgcolor: "#ffffff",
+            bgcolor: "background.paper",
             alignItems: "center",
             flexWrap: "wrap",
           }}
@@ -526,8 +560,32 @@ const setupChecklist = useMemo(() => {
       </Box>
 
       {isLoading ? (
-        <Box sx={{ textAlign: "center", mt: 12 }}>
-          <CircularProgress thickness={5} size={60} />
+        <Box>
+          <Grid container spacing={2.5} sx={{ mb: 4 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Grid item xs={6} sm={4} md={2.4} key={i}>
+                <Paper sx={{ p: 2.5, borderRadius: 3, bgcolor: "background.paper" }} elevation={0}>
+                  <Skeleton variant="circular" width={42} height={42} sx={{ mb: 1.5 }} />
+                  <Skeleton variant="text" width="60%" height={20} />
+                  <Skeleton variant="text" width="80%" height={32} />
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+          <Grid container spacing={3}>
+            <Grid item xs={12} lg={8}>
+              <Paper sx={{ p: 3, borderRadius: 3, bgcolor: "background.paper", height: 350 }} elevation={0}>
+                <Skeleton variant="text" width="40%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" width="100%" height={250} sx={{ borderRadius: 2 }} />
+              </Paper>
+            </Grid>
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ p: 3, borderRadius: 3, bgcolor: "background.paper", height: 350 }} elevation={0}>
+                <Skeleton variant="text" width="50%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" width="100%" height={250} sx={{ borderRadius: 2 }} />
+              </Paper>
+            </Grid>
+          </Grid>
         </Box>
       ) : error ? (
         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
@@ -580,9 +638,9 @@ const setupChecklist = useMemo(() => {
 
           <Grid container spacing={3}>
             <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0" }} elevation={0}>
+              <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }} elevation={0}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6" fontWeight={700} color="#1e293b">
+                  <Typography variant="h6" fontWeight={700} color="text.primary">
                     {t('dashboardPage.revenueTrend')}
                   </Typography>
                   {salesGrowth !== 0 && (
@@ -599,16 +657,16 @@ const setupChecklist = useMemo(() => {
                 <Box sx={{ height: 360 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={dashboardData.salesTimeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
                       <XAxis
                         dataKey="date"
                         tickFormatter={(d) => dayjs(d).format("DD MMM")}
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 12, fill: "#64748b" }}
+                        tick={{ fontSize: 12, fill: chartColor }}
                       />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748b" }} />
-                      <Tooltip />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartColor }} />
+                      <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8, color: theme.palette.text.primary }} />
                       <Line
                         type="monotone"
                         dataKey="totalSales"
@@ -625,8 +683,8 @@ const setupChecklist = useMemo(() => {
             </Grid>
 
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0", height: "100%" }} elevation={0}>
-                <Typography variant="h6" fontWeight={700} mb={2.5} color="#1e293b">
+              <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: "background.paper", height: "100%" }} elevation={0}>
+                <Typography variant="h6" fontWeight={700} mb={2.5} color="text.primary">
                   {t('dashboardPage.quickInsights')}
                 </Typography>
 
@@ -661,18 +719,22 @@ const setupChecklist = useMemo(() => {
                     sx={{
                       p: 2.5,
                       borderRadius: 2.5,
-                      borderColor: stockAlertCount > 0 ? (criticalCount > 0 ? "#f87171" : "#fb923c") : "#86efac",
-                      bgcolor: stockAlertCount > 0 ? (criticalCount > 0 ? "#fef2f2" : "#fff7ed") : "#f0fdf4",
+                      borderColor: stockAlertCount > 0 ? (criticalCount > 0 ? "error.main" : "warning.main") : "success.main",
+                      bgcolor: alpha(
+                        stockAlertCount > 0
+                          ? (criticalCount > 0 ? theme.palette.error.main : theme.palette.warning.main)
+                          : theme.palette.success.main,
+                        theme.palette.mode === 'dark' ? 0.18 : 0.08
+                      ),
                       cursor: stockAlertCount > 0 ? "pointer" : "default",
                       transition: "all 0.2s",
-                      "&:hover": stockAlertCount > 0 ? { bgcolor: criticalCount > 0 ? "#fee2e2" : "#ffedd5" } : {},
                     }}
                     onClick={() => stockAlertCount > 0 && navigate("/low-stock-alerts")}
                   >
                     <Stack direction="row" spacing={2} alignItems="center">
                       <WarningIcon
                         sx={{
-                          color: stockAlertCount > 0 ? (criticalCount > 0 ? "#ef4444" : "#f97316") : "#16a34a",
+                          color: stockAlertCount > 0 ? (criticalCount > 0 ? "error.main" : "warning.main") : "success.main",
                           fontSize: 36,
                         }}
                       />
@@ -680,7 +742,7 @@ const setupChecklist = useMemo(() => {
                         <Typography
                           variant="h6"
                           fontWeight={700}
-                          color={stockAlertCount > 0 ? (criticalCount > 0 ? "#b91c1c" : "#c2410c") : "#15803d"}
+                          color={stockAlertCount > 0 ? (criticalCount > 0 ? "error.main" : "warning.main") : "success.main"}
                         >
                           {criticalCount > 0
                             ? `${criticalCount} ${t('dashboardPage.critical')}`
@@ -710,7 +772,8 @@ const setupChecklist = useMemo(() => {
                           alignItems: "center",
                           mb: 1.8,
                           pb: 1.2,
-                          borderBottom: i < dashboardData.topCustomers.length - 1 ? "1px dashed #e2e8f0" : "none",
+                          borderBottom: i < dashboardData.topCustomers.length - 1 ? "1px dashed" : "none",
+                          borderColor: "divider",
                         }}
                       >
                         <Box>
@@ -725,7 +788,11 @@ const setupChecklist = useMemo(() => {
                           <IconButton
                             size="small"
                             onClick={() => sendWhatsAppReminder(cust)}
-                            sx={{ color: "#16a34a", bgcolor: "#f0fdf4", "&:hover": { bgcolor: "#dcfce7" } }}
+                            sx={{
+                              color: "success.main",
+                              bgcolor: alpha(theme.palette.success.main, 0.15),
+                              "&:hover": { bgcolor: alpha(theme.palette.success.main, 0.25) }
+                            }}
                           >
                             <WhatsAppIcon fontSize="small" />
                           </IconButton>
@@ -755,7 +822,7 @@ const setupChecklist = useMemo(() => {
         <DialogContent dividers>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: "#f8fafc" }}>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
                 <TableCell>{t('dashboardPage.invoice')}</TableCell>
                 <TableCell>{t('dashboardPage.customer')}</TableCell>
                 <TableCell align="right">{t('dashboardPage.amount')}</TableCell>
@@ -801,7 +868,7 @@ const setupChecklist = useMemo(() => {
         <DialogContent dividers>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: "#f8fafc" }}>
+              <TableRow sx={{ bgcolor: 'action.hover' }}>
                 <TableCell>{t('dashboardPage.item')}</TableCell>
                 <TableCell align="right">{t('dashboardPage.qtySold')}</TableCell>
                 <TableCell align="right">{t('dashboardPage.revenue')}</TableCell>

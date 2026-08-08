@@ -33,40 +33,40 @@ export default function ItemsAwaitingVariants({
       sx={{ 
         mb: 4, 
         borderRadius: '16px !important', 
-        border: '1px solid #fde68a',
-        bgcolor: '#fffbeb', // Soft amber warning background
+        border: '1px solid',
+        borderColor: 'warning.main',
+        bgcolor: (theme) => alpha(theme.palette.warning.main, 0.1),
         overflow: 'hidden',
-        '&:before': { display: 'none' }, // Removes default MUI accordion line
+        '&:before': { display: 'none' },
       }}
     >
       <AccordionSummary
-        expandIcon={<ExpandMoreIcon sx={{ color: '#b45309' }} />}
+        expandIcon={<ExpandMoreIcon sx={{ color: 'warning.main' }} />}
         sx={{ px: 3, py: 0.5 }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ 
-            bgcolor: '#fef3c7', 
+            bgcolor: (theme) => alpha(theme.palette.warning.main, 0.2), 
             p: 1, 
             borderRadius: 2, 
             display: 'flex',
-            color: '#b45309'
+            color: 'warning.main'
           }}>
             <WarningAmberIcon fontSize="small" />
           </Box>
           <Box>
-            <Typography variant="subtitle1" fontWeight={800} color="#92400e">
+            <Typography variant="subtitle1" fontWeight={800} color="text.primary">
               {t('itemsPage.awaitingVariants.title')}
             </Typography>
-            <Typography variant="caption" color="#b45309" sx={{ display: 'block', mt: -0.5 }}>
+            <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: -0.5, fontWeight: 600 }}>
               {t('itemsPage.awaitingVariants.description')}
             </Typography>
           </Box>
           <Chip
             label={`${itemsWithoutVariants.length} ${t('itemsPage.title', 'Items')}`}
+            color="warning"
             sx={{ 
               ml: 1, 
-              bgcolor: '#f59e0b', 
-              color: 'white', 
               fontWeight: 900,
               height: 24,
               fontSize: '0.75rem'
@@ -75,8 +75,8 @@ export default function ItemsAwaitingVariants({
         </Box>
       </AccordionSummary>
 
-      <AccordionDetails sx={{ p: 0, bgcolor: 'white' }}>
-        <Divider sx={{ borderColor: '#fde68a' }} />
+      <AccordionDetails sx={{ p: 0, bgcolor: 'background.paper' }}>
+        <Divider sx={{ borderColor: 'warning.light' }} />
         <List dense disablePadding>
           {itemsWithoutVariants.map((item, index) => (
             <React.Fragment key={item.id}>
@@ -85,7 +85,7 @@ export default function ItemsAwaitingVariants({
                   px: 3, 
                   py: 2,
                   transition: 'background 0.2s',
-                  '&:hover': { bgcolor: '#fffbf0' }
+                  '&:hover': { bgcolor: 'rgba(245, 158, 11, 0.04)' }
                 }}
                 secondaryAction={
                   <Button
@@ -96,7 +96,7 @@ export default function ItemsAwaitingVariants({
                       borderRadius: 2, 
                       fontWeight: 700, 
                       textTransform: 'none',
-                      bgcolor: '#92400e',
+                      bgcolor: 'warning.dark',
                       '&:hover': { bgcolor: '#78350f' }
                     }}
                   >
@@ -127,7 +127,7 @@ export default function ItemsAwaitingVariants({
               </ListItem>
 
               {index < itemsWithoutVariants.length - 1 && (
-                <Divider component="li" sx={{ borderColor: '#f1f5f9' }} />
+                <Divider component="li" sx={{ borderColor: 'divider' }} />
               )}
             </React.Fragment>
           ))}

@@ -53,7 +53,7 @@ const ComingSoonPage = ({ sectionName }) => {
             borderRadius: 4.5,
             border: '1px solid rgba(0,0,0,0.06)',
             boxShadow: '0 20px 40px rgba(0,0,0,0.02)',
-            bgcolor: '#FFFFFF',
+            bgcolor: 'background.default',
             textAlign: 'center',
           }}
         >
@@ -89,7 +89,7 @@ const ComingSoonPage = ({ sectionName }) => {
             variant="h3"
             fontWeight={900}
             sx={{
-              color: '#1E293B',
+              color: 'text.primary',
               fontSize: { xs: '1.8rem', sm: '2.4rem' },
               letterSpacing: '-0.02em',
               mb: 2,

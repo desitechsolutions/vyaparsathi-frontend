@@ -250,7 +250,7 @@ const EnterpriseFooter = () => {
           ))}
 
           {/* Newsletter Column */}
-          <Grid item xs={12} md={12} lg={3}>
+          <Grid item xs={12} md={12} lg={3} id="newsletter">
             <Box
               sx={{
                 p: 3,
@@ -379,10 +379,10 @@ const EnterpriseFooter = () => {
               <Typography variant="body2" fontWeight={700} sx={{ color: '#CBD5E1' }}>
                 Biruma Technology Solutions Pvt. Ltd.
               </Typography>
-              <Typography variant="caption" sx={{ color: '#475569' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {t('enterpriseFooter.cin')} &nbsp;•&nbsp; {t('enterpriseFooter.gstNo')}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#475569' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {t('enterpriseFooter.copyright', { year: new Date().getFullYear() })} &nbsp;•&nbsp; {t('enterpriseFooter.allRightsReserved')}
               </Typography>
             </Stack>
@@ -404,7 +404,7 @@ const EnterpriseFooter = () => {
                   key={idx}
                   href={link.href}
                   underline="none"
-                  sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600, '&:hover': { color: '#94A3B8' } }}
+                  sx={{ fontSize: '0.78rem', color: 'text.secondary', fontWeight: 600, '&:hover': { color: '#94A3B8' } }}
                 >
                   {link.label}
                 </MuiLink>
@@ -415,7 +415,7 @@ const EnterpriseFooter = () => {
 
         {/* Made in India Banner */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="caption" sx={{ color: '#334155', fontWeight: 600 }}>
+          <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
             🇮🇳 Made with ❤️ in India by Biruma Technology Solutions • {t('enterpriseFooter.madeInIndia')}
           </Typography>
         </Box>

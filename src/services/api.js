@@ -574,4 +574,30 @@ export const exportNewsletterCsv = (search = '', active = null, source = '') => 
   return API.get(endpoints.newsletter.adminExport, { params, responseType: 'blob' });
 };
 
+// --- PURCHASE RETURNS & SUPPLIER LEDGER ---
+export const fetchPurchaseReturns = (supplierId, page = 0, size = 10) => {
+  const params = { page, size };
+  if (supplierId) params.supplierId = supplierId;
+  return API.get('/api/purchase-returns', { params }).then(r => r.data);
+};
+
+export const fetchPurchaseReturnById = (id) =>
+  API.get(`/api/purchase-returns/${id}`).then(r => r.data);
+
+export const createPurchaseReturn = (data) =>
+  API.post('/api/purchase-returns', data).then(r => r.data);
+
+export const approvePurchaseReturn = (id) =>
+  API.post(`/api/purchase-returns/${id}/approve`).then(r => r.data);
+
+export const cancelPurchaseReturn = (id) =>
+  API.post(`/api/purchase-returns/${id}/cancel`).then(r => r.data);
+
+export const fetchSupplierStatement = (supplierId, startDate, endDate) => {
+  const params = { supplierId };
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  return API.get('/api/supplier-payments/statement', { params }).then(r => r.data);
+};
+
 export default API;

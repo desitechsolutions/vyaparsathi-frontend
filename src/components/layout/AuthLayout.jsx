@@ -166,7 +166,7 @@ const AuthLayout = () => {
   ];
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: '#F8FAFC' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: 'background.default' }}>
       <Grid container sx={{ flex: 1 }}>
         {/* ── LEFT PANEL (60% on Desktop, hidden on mobile) ── */}
         <Grid
@@ -362,7 +362,7 @@ const AuthLayout = () => {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#FFFFFF',
+            bgcolor: 'background.default',
             minHeight: '100vh',
           }}
         >

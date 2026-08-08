@@ -184,7 +184,7 @@ const DeliveryManagement = () => {
   ];
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: '#f5f7f9', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Box sx={{ display: 'none' }}><PrintableDelivery ref={printRef} delivery={selectedDelivery} /></Box>
 
       <Snackbar 
@@ -198,7 +198,7 @@ const DeliveryManagement = () => {
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#1a237e' }}>{t('deliveryPage.title')}</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary' }}>{t('deliveryPage.title')}</Typography>
           <Typography variant="body2" color="text.secondary">{t('deliveryPage.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -211,12 +211,12 @@ const DeliveryManagement = () => {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: t('deliveryPage.statsTotal'), val: stats.total, color: '#1a237e', icon: <LocalShipping /> },
+          { label: t('deliveryPage.statsTotal'), val: stats.total, color: 'primary.main', icon: <LocalShipping /> },
           { label: t('deliveryPage.statsPending'), val: stats.pending, color: '#ed6c02', icon: <AccessTime /> },
           { label: t('deliveryPage.statsDelivered'), val: stats.delivered, color: '#2e7d32', icon: <CheckCircle /> }
         ].map((stat, i) => (
           <Grid item xs={12} sm={4} key={i}>
-            <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e8' }}>
+            <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar sx={{ bgcolor: stat.color }}>{stat.icon}</Avatar>
                 <Box>
@@ -229,7 +229,7 @@ const DeliveryManagement = () => {
         ))}
       </Grid>
 
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e0e4e8' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField fullWidth size="small" placeholder={t('deliveryPage.searchPlaceholder')} 
@@ -251,10 +251,11 @@ const DeliveryManagement = () => {
         </Grid>
       </Paper>
 
-      <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e8' }}>
+      <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
         <Table stickyHeader size="medium">
           <TableHead>
-            <TableRow sx={{ bgcolor: '#f8f9fa' }}>
+            <TableRow sx={{ bgcolor: 'action.hover' }}>
+
               <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableOrder')}</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableStatus')}</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>{t('deliveryPage.tableCustomer')}</TableCell>
@@ -347,7 +348,7 @@ const DeliveryManagement = () => {
 
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>{t('deliveryPage.drawerAgentTitle')}</Typography>
               {!assignMode ? (
-                <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2">
                     {selectedDelivery.deliveryPerson ? selectedDelivery.deliveryPerson.name : t('deliveryPage.drawerNoAgent')}
                   </Typography>

@@ -1,13 +1,165 @@
+/*
+ * VyaparSathi — Global CSS
+ *
+ * CSS custom properties mirror the MUI palette tokens so that
+ * any raw HTML/CSS outside MUI components also adapts to the theme.
+ *
+ * The `[data-theme]` attribute is set by App.jsx → ThemedApp whenever
+ * `effectiveMode` changes, giving us instant cascade without a page reload.
+ */
+
+/* ── Light mode (default) ─────────────────────────────── */
+:root {
+  --color-bg:            #F8FAFC;
+  --color-surface:       #ffffff;
+  --color-surface-2:     #f1f5f9;
+  --color-text-primary:  #0f172a;
+  --color-text-secondary:#475569;
+  --color-text-disabled: #94a3b8;
+  --color-border:        rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
+  --color-primary:       #1976d2;
+  --color-primary-light: #42a5f5;
+  --color-teal:          #0f766e;
+  --color-teal-light:    #14b8a6;
+  --color-secondary:     #7c3aed;
+  --color-success:       #16a34a;
+  --color-warning:       #d97706;
+  --color-error:         #dc2626;
+  --color-divider:       rgba(0, 0, 0, 0.08);
+  --color-hover:         rgba(0, 0, 0, 0.04);
+  --scrollbar-track:     #f1f5f9;
+  --scrollbar-thumb:     #cbd5e1;
+}
+
+/* ── Dark mode — activated via data-theme attribute ──── */
+[data-theme="dark"] {
+  --color-bg:            #0f172a;
+  --color-surface:       #1e293b;
+  --color-surface-2:     #263349;
+  --color-text-primary:  #f1f5f9;
+  --color-text-secondary:#94a3b8;
+  --color-text-disabled: #4b6280;
+  --color-border:        rgba(148, 163, 184, 0.12);
+  --color-border-strong: rgba(148, 163, 184, 0.25);
+  --color-primary:       #1976d2;
+  --color-primary-light: #42a5f5;
+  --color-teal:          #14b8a6;
+  --color-teal-light:    #2dd4bf;
+  --color-secondary:     #a78bfa;
+  --color-success:       #22c55e;
+  --color-warning:       #f59e0b;
+  --color-error:         #ef4444;
+  --color-divider:       rgba(148, 163, 184, 0.12);
+  --color-hover:         rgba(255, 255, 255, 0.06);
+  --scrollbar-track:     #1e293b;
+  --scrollbar-thumb:     #334155;
+}
+
+/* ── Base styles ──────────────────────────────────────── */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* ── Scrollbar — Webkit (Chrome, Safari, Edge) ────────── */
+::-webkit-scrollbar        { width: 8px; height: 8px; }
+::-webkit-scrollbar-track  { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb  { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { filter: brightness(1.2); }
+
+/* ── Print: always render in light mode and isolate printable document ─ */
+@media print {
+  :root,
+  [data-theme="dark"] {
+    --color-bg:           #ffffff !important;
+    --color-surface:      #ffffff !important;
+    --color-text-primary: #000000 !important;
+    --color-border:       rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Hide app chrome controls, layout banners, and non-print items */
+  header,
+  nav,
+  aside,
+  .MuiAppBar-root,
+  .MuiDrawer-root,
+  .MuiToolbar-root,
+  .no-print,
+  [class*="SupportChat"],
+  [class*="PremiumStatusBanner"],
+  button,
+  .MuiButton-root {
+    display: none !important;
+  }
+
+  /* Hide all elements by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Make ONLY printable document container and its children visible */
+  .printable-document-container,
+  .printable-document-container * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Reset ONLY parent SPA containers outside the printable document */
+  body > #root,
+  body > #root > main,
+  main.MuiBox-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .printable-document-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    /* Force browser into light rendering mode — prevents Emotion/MUI dark
+       mode styles from bleeding through into the print output. */
+    color-scheme: light !important;
+    /* Preserve custom colors in Windows high-contrast accessibility mode. */
+    forced-color-adjust: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
 }

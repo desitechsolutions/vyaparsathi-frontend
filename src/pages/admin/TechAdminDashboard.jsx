@@ -25,8 +25,7 @@ import ChatIcon from '@mui/icons-material/Chat'; // Added for Support
 const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse, pulseColor }) => (
   <Card 
     sx={{ 
-      bgcolor: '#1e293b', 
-      color: 'white', 
+      bgcolor: 'background.paper', color: 'text.primary', 
       borderRadius: 4, 
       height: '100%',
       border: pulse ? `1px solid ${color}` : '1px solid rgba(255,255,255,0.05)',
@@ -44,7 +43,7 @@ const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse, pul
     <CardContent>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, letterSpacing: 1 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: 1 }}>
             {title}
           </Typography>
           <Typography variant="h3" sx={{ fontWeight: 900, my: 1, letterSpacing: -1 }}>
@@ -88,7 +87,7 @@ const TechAdminDashboard = () => {
 
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress sx={{ color: '#ef4444' }} thickness={5} />
+      <CircularProgress sx={{ color: 'error.main' }} thickness={5} />
     </Box>
   );
 
@@ -118,17 +117,17 @@ const TechAdminDashboard = () => {
       {/* Header Section */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h3" sx={{ fontWeight: 900, color: 'white' }}>
+          <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>
             Platform Monitor
           </Typography>
-          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
             Real-time status of VyaparSathi ecosystem
           </Typography>
         </Box>
         
         <Stack direction="row" spacing={2}>
           <Tooltip title="Refresh Data">
-            <IconButton onClick={loadDashboardData} sx={{ color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <IconButton onClick={loadDashboardData} sx={{ color: 'text.primary', border: '1px solid', borderColor: 'divider' }}>
               <RefreshIcon />
             </IconButton>
           </Tooltip>
@@ -137,7 +136,7 @@ const TechAdminDashboard = () => {
             color="secondary" 
             startIcon={<ChatIcon />} 
             onClick={() => navigate('/admin/support')}
-            sx={{ borderRadius: 2, fontWeight: 800, px: 3, bgcolor: '#ec4899', '&:hover': { bgcolor: '#db2777' } }}
+            sx={{ borderRadius: 2, fontWeight: 800, px: 3, bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' } }}
           >
             Live Support
           </Button>
@@ -202,24 +201,24 @@ const TechAdminDashboard = () => {
 
         {/* System Health Area */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 4, bgcolor: '#1e293b', color: 'white', borderRadius: 5, border: '1px solid rgba(255,255,255,0.05)', minHeight: 400 }}>
+          <Paper sx={{ p: 4, bgcolor: 'background.paper', color: 'text.primary', borderRadius: 5, border: '1px solid', borderColor: 'divider', minHeight: 400 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
               <Typography variant="h6" fontWeight={800}>System Health & Growth</Typography>
               <Chip label="All Systems Nominal" size="small" color="success" variant="outlined" sx={{ fontWeight: 900 }} />
             </Stack>
-            <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 4 }} />
+            <Divider sx={{ bgcolor: 'text.disabled', mb: 4 }} />
             
             <Box sx={{ mb: 4 }}>
-               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.8 }}>
+               <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.8 }}>
                   VyaparSathi is currently monitoring <strong>{stats?.totalShops} shops</strong> and <strong>{stats?.totalUsers} total users</strong>. 
                   {stats?.pendingCount > 0 ? (
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(251, 191, 36, 0.1)', borderRadius: 2, border: '1px solid rgba(251, 191, 36, 0.2)' }}>
-                      <Typography variant="body2" sx={{ color: '#fbbf24', fontWeight: 600 }}>
+                      <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
                          Action Required: {stats.pendingCount} payment verifications are pending.
                       </Typography>
                     </Box>
                   ) : (
-                    <Typography component="p" sx={{ color: '#4ade80', mt: 2 }}>
+                    <Typography component="p" sx={{ color: 'success.main', mt: 2 }}>
                       ✓ All subscription payments are up to date.
                     </Typography>
                   )}
@@ -237,9 +236,9 @@ const TechAdminDashboard = () => {
 
         {/* Sidebar Controls */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 4, bgcolor: '#1e293b', color: 'white', borderRadius: 5, border: '1px solid rgba(255,255,255,0.05)', height: '100%' }}>
+          <Paper sx={{ p: 4, bgcolor: 'background.paper', color: 'text.primary', borderRadius: 5, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h6" fontWeight={800} gutterBottom>Administrative Tools</Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 3 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 3 }}>
               Global Master Controls
             </Typography>
             
@@ -264,7 +263,7 @@ const TechAdminDashboard = () => {
                     color: item.highlight ? '#ec4899' : 'rgba(255,255,255,0.8)',
                     '&:hover': { 
                       borderColor: item.highlight ? '#ec4899' : '#ef4444', 
-                      color: 'white', 
+                      color: 'text.primary', 
                       bgcolor: item.highlight ? 'rgba(236, 72, 153, 0.05)' : 'rgba(239, 68, 68, 0.05)' 
                     }
                   }}

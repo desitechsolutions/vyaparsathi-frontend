@@ -103,15 +103,15 @@ export const GlobalShopManagement = () => {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#0f172a', minHeight: '100vh', color: 'white' }}>
+    <Box sx={{ p: 3, bgcolor: 'background.default', minHeight: '100vh', color: 'text.primary' }}>
       {/* Header Section */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Storefront sx={{ fontSize: 40, color: '#38bdf8' }} />
+            <Storefront sx={{ fontSize: 40, color: 'primary.main' }} />
             Shop Ecosystem
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Manage {totalElements} onboarded businesses and their subscriptions
           </Typography>
         </Box>
@@ -121,7 +121,7 @@ export const GlobalShopManagement = () => {
             variant="contained" 
             color="error" 
             startIcon={<PowerSettingsNew />}
-            sx={{ borderRadius: 2, fontWeight: 700, bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }}
+            sx={{ borderRadius: 2, fontWeight: 700, bgcolor: 'error.main', '&:hover': { bgcolor: '#dc2626' } }}
           >
             Bulk Deactivate ({selectedShops.length})
           </Button>
@@ -131,7 +131,7 @@ export const GlobalShopManagement = () => {
       {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
 
       {/* Filters Area */}
-      <Paper sx={{ p: 2, mb: 3, bgcolor: '#1e293b', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)', backgroundImage: 'none' }}>
+      <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 3, border: '1px solid', borderColor: 'divider', backgroundImage: 'none' }}>
         <Stack direction="row" spacing={2}>
           <TextField
             fullWidth
@@ -142,17 +142,17 @@ export const GlobalShopManagement = () => {
             onChange={(e) => setSearch(e.target.value)}
             InputProps={{
               startAdornment: (<InputAdornment position="start"><Search sx={{ color: 'gray' }} /></InputAdornment>),
-              sx: { color: 'white', bgcolor: '#0f172a', borderRadius: 2, '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' } }
+              sx: { color: 'text.primary', bgcolor: 'background.paper', borderRadius: 2, '& fieldset': { borderColor: 'divider' } }
             }}
           />
           <Tooltip title="Advanced Filters">
-            <Button startIcon={<FilterList />} sx={{ color: 'white', minWidth: 120 }}>Filters</Button>
+            <Button startIcon={<FilterList />} sx={{ color: 'text.primary', minWidth: 120 }}>Filters</Button>
           </Tooltip>
         </Stack>
       </Paper>
 
       {/* Main Table */}
-      <TableContainer component={Paper} sx={{ bgcolor: '#1e293b', borderRadius: 4, border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden', backgroundImage: 'none' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: 'background.paper', borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden', backgroundImage: 'none' }}>
         <Table>
           <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
             <TableRow>
@@ -161,21 +161,21 @@ export const GlobalShopManagement = () => {
                   indeterminate={selectedShops.length > 0 && selectedShops.length < shops.length}
                   checked={shops.length > 0 && selectedShops.length === shops.length}
                   onChange={handleSelectAll}
-                  sx={{ color: 'rgba(255,255,255,0.3)', '&.Mui-checked': { color: '#38bdf8' } }}
+                  sx={{ color: 'text.disabled', '&.Mui-checked': { color: 'primary.main' } }}
                 />
               </TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SHOP DETAILS</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>OWNER</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SUBSCRIPTION</TableCell>
-              <TableCell sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>STATUS</TableCell>
-              <TableCell align="right" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ACTIONS</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SHOP DETAILS</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>OWNER</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SUBSCRIPTION</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>STATUS</TableCell>
+              <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ACTIONS</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10, border: 0 }}><CircularProgress sx={{ color: '#38bdf8' }} /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10, border: 0 }}><CircularProgress sx={{ color: 'primary.main' }} /></TableCell></TableRow>
             ) : shops.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10, border: 0, color: 'rgba(255,255,255,0.4)' }}>No shops found in the ecosystem.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10, border: 0, color: 'text.secondary' }}>No shops found in the ecosystem.</TableCell></TableRow>
             ) : (
               shops.map((shop) => (
                 <TableRow key={shop.shopId} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
@@ -183,15 +183,15 @@ export const GlobalShopManagement = () => {
                     <Checkbox 
                       checked={selectedShops.includes(shop.shopId)}
                       onChange={() => handleSelectOne(shop.shopId)}
-                      sx={{ color: 'rgba(255,255,255,0.3)', '&.Mui-checked': { color: '#38bdf8' } }}
+                      sx={{ color: 'text.disabled', '&.Mui-checked': { color: 'primary.main' } }}
                     />
                   </TableCell>
                   <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ bgcolor: '#38bdf8', borderRadius: 2, fontWeight: 800 }}>{shop.shopName ? shop.shopName.charAt(0) : 'S'}</Avatar>
+                      <Avatar sx={{ bgcolor: 'primary.main', borderRadius: 2, fontWeight: 800 }}>{shop.shopName ? shop.shopName.charAt(0) : 'S'}</Avatar>
                       <Box>
                         <Typography variant="body2" fontWeight={700} color="white">{shop.shopName}</Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <LocationOn sx={{ fontSize: 12 }} /> {shop.state} • ID: {shop.shopCode}
                         </Typography>
                       </Box>
@@ -199,7 +199,7 @@ export const GlobalShopManagement = () => {
                   </TableCell>
                   <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <Typography variant="body2" fontWeight={600} color="white">{shop.ownerName || 'Unknown'}</Typography>
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Email sx={{ fontSize: 12 }} /> {shop.ownerEmail || 'N/A'}
                     </Typography>
                   </TableCell>
@@ -215,7 +215,7 @@ export const GlobalShopManagement = () => {
                         fontSize: '0.65rem'
                       }} 
                     />
-                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.4)' }}>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
                       Expires: {shop.expiryDate ? new Date(shop.expiryDate).toLocaleDateString() : 'N/A'}
                     </Typography>
                   </TableCell>
@@ -226,8 +226,8 @@ export const GlobalShopManagement = () => {
                         onChange={() => handleToggleStatus(shop.shopId, shop.active)}
                         size="small"
                         sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': { color: '#4ade80' },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#4ade80' }
+                          '& .MuiSwitch-switchBase.Mui-checked': { color: 'success.main' },
+                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'success.main' }
                         }}
                       />
                       <Typography variant="caption" sx={{ color: shop.active !== false ? '#4ade80' : '#ef4444', fontWeight: 700 }}>
@@ -236,7 +236,7 @@ export const GlobalShopManagement = () => {
                     </Stack>
                   </TableCell>
                   <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <IconButton sx={{ color: 'rgba(255,255,255,0.3)' }} size="small">
+                    <IconButton sx={{ color: 'text.disabled' }} size="small">
                       <MoreVert />
                     </IconButton>
                   </TableCell>
@@ -256,9 +256,9 @@ export const GlobalShopManagement = () => {
             setPage(0);
           }}
           sx={{ 
-            color: 'rgba(255,255,255,0.7)', 
+            color: 'text.primary', 
             borderTop: '1px solid rgba(255,255,255,0.05)',
-            '.MuiTablePagination-selectIcon': { color: 'white' }
+            '.MuiTablePagination-selectIcon': { color: 'text.primary' }
           }}
         />
       </TableContainer>

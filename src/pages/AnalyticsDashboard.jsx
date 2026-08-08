@@ -32,10 +32,13 @@ import {
   fetchSeasonalTrends, exportProcurementPlan, fetchItems
 } from '../services/api';
 
+import { useTheme } from '@mui/material/styles';
+
 const CHART_COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [data, setData] = useState({
     demand: [], trends: [], topItems: [], churn: [], purchase: [], seasonal: [], totalItems: 0
   });
@@ -156,14 +159,14 @@ const AnalyticsDashboard = () => {
   };
 
   const StatCard = ({ title, value, icon, color, subtitle }) => (
-    <Card sx={{ borderRadius: 4, height: '100%', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+    <Card sx={{ borderRadius: 4, height: '100%', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', boxShadow: 'none' }}>
       <CardContent>
         <Stack direction="row" spacing={2} alignItems="center">
           <Avatar sx={{ bgcolor: `${color}.light`, color: `${color}.main`, width: 48, height: 48, opacity: 0.9 }}>
             {icon}
           </Avatar>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>{value}</Typography>
+            <Typography variant="h5" color="text.primary" sx={{ fontWeight: 800 }}>{value}</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
               {title}
             </Typography>
@@ -175,7 +178,7 @@ const AnalyticsDashboard = () => {
   );
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 2, md: 4 } }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: { xs: 2, md: 4 } }}>
       <Box sx={{ maxWidth: 1600, mx: 'auto' }}>
         
         {/* HEADER */}
@@ -183,24 +186,24 @@ const AnalyticsDashboard = () => {
           <Box>
             <Stack direction="row" spacing={1} alignItems="center">
                 <AnalyticsIcon color="primary" sx={{ fontSize: 32 }} />
-                <Typography variant="h4" fontWeight={800} sx={{ color: '#0f172a', letterSpacing: '-1px' }}>Vyapar Intelligence</Typography>
+                <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary', letterSpacing: '-1px' }}>Vyapar Intelligence</Typography>
             </Stack>
-            <Typography variant="body1" color="text.secondary">Financial roadmap & behavioral analytics.</Typography>
+            <Typography variant="body1" color="text.secondary" fontWeight={500}>Financial roadmap & behavioral analytics.</Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
             <MuiTooltip title="Refresh Data">
-              <IconButton onClick={loadAllData} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+              <IconButton onClick={loadAllData} sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
                 <RefreshIcon />
               </IconButton>
             </MuiTooltip>
-            <Paper elevation={0} sx={{ p: 1, display: 'flex', gap: 1, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
+            <Paper elevation={0} sx={{ p: 1, display: 'flex', gap: 1, borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
               <FormControl size="small" variant="standard" sx={{ minWidth: 120, px: 2 }}>
-                <Select value={exportFormat} onChange={e => setExportFormat(e.target.value)} disableUnderline sx={{ fontWeight: 600 }}>
+                <Select value={exportFormat} onChange={e => setExportFormat(e.target.value)} disableUnderline sx={{ fontWeight: 600, color: 'text.primary' }}>
                   <MenuItem value="xlsx">Excel (.xlsx)</MenuItem>
                   <MenuItem value="pdf">PDF Report</MenuItem>
                 </Select>
               </FormControl>
-              <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2 }} onClick={handleExport}>Export Plan</Button>
+              <Button variant="contained" startIcon={<DownloadIcon />} sx={{ borderRadius: 2, fontWeight: 700 }} onClick={handleExport}>Export Plan</Button>
             </Paper>
           </Stack>
         </Stack>
@@ -224,16 +227,16 @@ const AnalyticsDashboard = () => {
 
             {/* MAIN CHARTS */}
             <Grid item xs={12} lg={8}>
-              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', mb: 3, boxShadow: 'none' }}>
+              <Card sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', mb: 3, boxShadow: 'none' }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Demand Prediction (Next 30 Days)</Typography>
+                  <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 3 }}>Demand Prediction (Next 30 Days)</Typography>
                   <Box sx={{ height: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={data.demand}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
                         <XAxis dataKey="itemName" hide />
-                        <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: theme.palette.text.secondary}} />
+                        <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8, color: theme.palette.text.primary }} />
                         <Area type="monotone" dataKey="predictedDemandNextMonth" name="Predicted Units" stroke="#3B82F6" strokeWidth={3} fill="#3B82F6" fillOpacity={0.1} />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -242,27 +245,27 @@ const AnalyticsDashboard = () => {
               </Card>
 
               {/* TRANSFORMED SEASONAL CHART */}
-              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+              <Card sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', boxShadow: 'none' }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CalendarMonthIcon color="primary" />
-                      <Typography variant="h6" fontWeight={700}>Monthly Sales & Growth</Typography>
+                      <Typography variant="h6" fontWeight={700} color="text.primary">Monthly Sales & Growth</Typography>
                     </Stack>
                     <Chip label="Real-time Trends" size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
                   </Stack>
                   <Box sx={{ height: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.seasonal}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600}} />
-                        <YAxis axisLine={false} tickLine={false} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600, fill: theme.palette.text.secondary}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: theme.palette.text.secondary}} />
                         <Tooltip 
-                           cursor={{fill: '#f8fafc'}}
+                           cursor={{fill: theme.palette.action.hover}}
                            content={({ active, payload }) => {
                              if (active && payload && payload.length) {
                                return (
-                                 <Paper sx={{ p: 2, border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                                 <Paper sx={{ p: 2, border: '1px solid', borderColor: 'divider', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', bgcolor: 'background.paper' }}>
                                    <Typography variant="caption" display="block" color="text.secondary" fontWeight={700}>{payload[0].payload.rawSeason}</Typography>
                                    <Typography variant="h6" color="primary.main">Units: {payload[0].value}</Typography>
                                    <Typography variant="caption" color={payload[0].payload.growth >= 0 ? "success.main" : "error.main"} fontWeight={800}>
@@ -276,7 +279,7 @@ const AnalyticsDashboard = () => {
                         />
                         <Bar dataKey="totalSales" radius={[4, 4, 0, 0]} barSize={40}>
                           {data.seasonal.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.totalSales > 0 ? '#6366F1' : '#e2e8f0'} />
+                            <Cell key={`cell-${index}`} fill={entry.totalSales > 0 ? '#6366F1' : theme.palette.divider} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -288,9 +291,9 @@ const AnalyticsDashboard = () => {
 
             {/* SIDEBAR */}
             <Grid item xs={12} lg={4}>
-              <Card sx={{ borderRadius: 4, border: '1px solid #e2e8f0', mb: 3, boxShadow: 'none' }}>
+              <Card sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', mb: 3, boxShadow: 'none' }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Financial Leakage</Typography>
+                  <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>Financial Leakage</Typography>
                   <Box sx={{ mb: 3 }}>
                       <Typography variant="body2" color="text.secondary">Lost Opportunity (Churn Risk)</Typography>
                       <Typography variant="h5" fontWeight={800} color="error.main">₹{totalRevenueAtRisk.toLocaleString()}</Typography>
@@ -304,21 +307,21 @@ const AnalyticsDashboard = () => {
                 </CardContent>
               </Card>
 
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 2, px: 1 }}>Top Buying Behaviors</Typography>
+              <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 2, px: 1 }}>Top Buying Behaviors</Typography>
               <Stack spacing={2}>
                 {data.trends.slice(0, 3).map((trend, i) => (
-                  <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0', transition: '0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
+                  <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: '0.3s', '&:hover': { boxShadow: (t) => t.palette.mode === 'dark' ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.05)' } }}>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ bgcolor: CHART_COLORS[i % 6], width: 36, height: 36, fontWeight: 800 }}>{trend.customerName[0]}</Avatar>
+                      <Avatar sx={{ bgcolor: CHART_COLORS[i % 6], width: 36, height: 36, fontWeight: 800, color: '#fff' }}>{trend.customerName[0]}</Avatar>
                       <Box>
-                        <Typography variant="subtitle2" fontWeight={800}>{trend.customerName}</Typography>
+                        <Typography variant="subtitle2" fontWeight={800} color="text.primary">{trend.customerName}</Typography>
                         <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>{trend.buyingPattern}</Typography>
                       </Box>
                     </Stack>
-                    <Divider sx={{ my: 1.5 }} />
+                    <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
                       {trend.frequentlyBoughtItems.map((item, idx) => (
-                        <Chip key={idx} label={item} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, bgcolor: '#f1f5f9' }} />
+                        <Chip key={idx} label={item} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, bgcolor: 'action.hover', color: 'text.primary' }} />
                       ))}
                     </Stack>
                   </Paper>
@@ -328,9 +331,9 @@ const AnalyticsDashboard = () => {
 
             {/* PROCUREMENT TABLE */}
             <Grid item xs={12}>
-                <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                    <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fcfcfc' }}>
-                        <Typography variant="h6" fontWeight={700}>Procurement Roadmap</Typography>
+                <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', boxShadow: 'none' }}>
+                    <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="h6" fontWeight={700} color="text.primary">Procurement Roadmap</Typography>
                         {selectedItems.length > 0 && (
                           <Button
                             variant="contained" color="primary"
@@ -344,24 +347,24 @@ const AnalyticsDashboard = () => {
                     </Box>
                     <TableContainer>
                         <Table size="small">
-                            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                            <TableHead sx={{ bgcolor: 'action.hover' }}>
                                 <TableRow>
                                     <TableCell padding="checkbox"><Checkbox onChange={handleSelectAll} checked={selectedItems.length === data.purchase.length && data.purchase.length > 0} /></TableCell>
-                                    <TableCell sx={{ fontWeight: 800 }}>ITEM</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 800 }}>SUGGESTED QTY</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 800 }}>EST. COST</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 800 }}>ACTION</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>ITEM</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>SUGGESTED QTY</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>EST. COST</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>ACTION</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {data.purchase.map((order) => (
-                                    <TableRow key={order.itemId} hover selected={selectedItems.includes(order.itemId)}>
+                                    <TableRow key={order.itemId} hover selected={selectedItems.includes(order.itemId)} sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                                         <TableCell padding="checkbox">
                                             <Checkbox checked={selectedItems.includes(order.itemId)} onChange={() => handleSelectItem(order.itemId)} />
                                         </TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>{order.itemName}</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>{order.itemName}</TableCell>
                                         <TableCell align="right"><Chip label={order.suggestedQuantity} size="small" variant="outlined" sx={{ fontWeight: 700 }} /></TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: 'primary.main' }}>₹{order.estimatedCost?.toLocaleString()}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.main' }}>₹{order.estimatedCost?.toLocaleString()}</TableCell>
                                         <TableCell align="right">
                                             <Button
                                               size="small" variant="contained"
@@ -369,7 +372,7 @@ const AnalyticsDashboard = () => {
                                                 setOrderQty(String(order.suggestedQuantity || 1));
                                                 setOrderModal({ open: true, item: order });
                                               }}
-                                              sx={{ borderRadius: 1.5, textTransform: 'none' }}
+                                              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700 }}
                                             >
                                               Order
                                             </Button>
@@ -386,11 +389,11 @@ const AnalyticsDashboard = () => {
       </Box>
 
       {/* PO MODAL */}
-      <Dialog open={orderModal.open} onClose={() => setOrderModal({ open: false, item: null })} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>Create Purchase Order</DialogTitle>
+      <Dialog open={orderModal.open} onClose={() => setOrderModal({ open: false, item: null })} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}>
+        <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>Create Purchase Order</DialogTitle>
         <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-                <Typography variant="body2">Confirming order for: <b>{orderModal.item?.itemName}</b></Typography>
+                <Typography variant="body2" color="text.primary">Confirming order for: <b style={{ color: 'inherit' }}>{orderModal.item?.itemName}</b></Typography>
                 <TextField
                   fullWidth label="Order Quantity" type="number"
                   value={orderQty}
@@ -404,11 +407,11 @@ const AnalyticsDashboard = () => {
             </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-            <Button onClick={() => setOrderModal({ open: false, item: null })} sx={{ color: 'text.secondary' }}>Cancel</Button>
+            <Button onClick={() => setOrderModal({ open: false, item: null })} color="inherit" sx={{ fontWeight: 700 }}>Cancel</Button>
             <Button
               variant="contained"
               startIcon={<OpenInNewIcon />}
-              sx={{ borderRadius: 2 }}
+              sx={{ borderRadius: 2, fontWeight: 700 }}
               onClick={() => {
                 setOrderModal({ open: false, item: null });
                 navigate('/purchase-orders');

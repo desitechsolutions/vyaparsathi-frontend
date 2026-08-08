@@ -20,8 +20,8 @@ export default function CustomToolbar({ onAddItemClick }) {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        bgcolor: 'white',
-        borderBottom: '1px solid #e2e8f0'
+        bgcolor: 'background.paper',
+        borderBottom: '1px solid'
       }}
     >
       {/* Left side: View Controls */}
@@ -29,17 +29,17 @@ export default function CustomToolbar({ onAddItemClick }) {
         <GridToolbarFilterButton 
           // Passing custom label from i18n
           label={t('itemsPage.toolbar.filter')}
-          sx={{ fontWeight: 700, color: '#64748b', '& .MuiButton-startIcon': { mr: 0.5 } }} 
+          sx={{ fontWeight: 700, color: 'text.secondary', '& .MuiButton-startIcon': { mr: 0.5 } }} 
         />
         <GridToolbarColumnsButton 
           // Passing custom label from i18n
           label={t('itemsPage.toolbar.columns')}
-          sx={{ fontWeight: 700, color: '#64748b' }} 
+          sx={{ fontWeight: 700, color: 'text.secondary' }} 
         />
         <GridToolbarDensitySelector 
           // Passing custom label from i18n
           label={t('itemsPage.toolbar.density')}
-          sx={{ fontWeight: 700, color: '#64748b' }} 
+          sx={{ fontWeight: 700, color: 'text.secondary' }} 
         />
       </Box>
 
@@ -53,11 +53,11 @@ export default function CustomToolbar({ onAddItemClick }) {
           sx={{
             '& .MuiInputBase-root': {
               borderRadius: 2,
-              bgcolor: '#f8fafc',
+              bgcolor: 'background.default',
               fontSize: '0.875rem',
               width: { xs: '150px', sm: '250px' },
-              '& fieldset': { borderColor: '#e2e8f0' },
-              '&:hover fieldset': { borderColor: '#cbd5e1' },
+              '& fieldset': { borderColor: 'divider' },
+              '&:hover fieldset': { borderColor: 'divider' },
             }
           }}
         />

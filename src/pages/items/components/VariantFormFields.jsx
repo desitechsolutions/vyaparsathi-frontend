@@ -106,9 +106,9 @@ export default function VariantFormFields({
   const inputSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
-      bgcolor: '#f8fafc',
-      '& fieldset': { borderColor: '#e2e8f0' },
-      '&:hover fieldset': { borderColor: '#cbd5e1' },
+      bgcolor: 'background.paper',
+      '& fieldset': { borderColor: 'divider' },
+      '&:hover fieldset': { borderColor: 'divider' },
       '&.Mui-focused fieldset': { borderColor: isEditing ? 'success.main' : 'primary.main' },
     },
   };
@@ -406,7 +406,7 @@ export default function VariantFormFields({
 
           {/* Making Charges Section — both ₹/gram and % of metal value */}
           <Grid item xs={12}>
-            <Box sx={{ p: 2, bgcolor: '#fdf4ff', borderRadius: 2, border: '1px solid #e9d5ff' }}>
+            <Box sx={{ p: 2, bgcolor: 'rgba(217, 70, 239, 0.08)', borderRadius: 2, border: '1px solid', borderColor: 'secondary.light' }}>
               <Typography variant="caption" fontWeight={800} color="secondary.dark" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Making Charges
               </Typography>
@@ -456,7 +456,7 @@ export default function VariantFormFields({
                 {/* Live preview: calculated making charges when both weight and rate are filled */}
                 {(currentVariant.makingChargesPerGram || currentVariant.makingChargesPct) && currentVariant.netWeightGrams && (
                   <Grid item xs={12}>
-                    <Box sx={{ p: 1.5, bgcolor: 'white', borderRadius: 2, border: '1px dashed #c084fc' }}>
+                    <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 2, border: '1px dashed #c084fc' }}>
                       <Typography variant="caption" fontWeight={700} color="secondary.dark">
                         💡 Making Charges Preview (based on net weight {currentVariant.netWeightGrams}g)
                       </Typography>
@@ -642,7 +642,7 @@ export default function VariantFormFields({
         </Button>
 
         {(currentVariant.photoPreviewUrl || currentVariant.photoUrl) && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: '#f1f5f9', borderRadius: 3, textAlign: 'center', border: '1px solid #e2e8f0' }}>
+          <Box sx={{ mt: 2, p: 1, bgcolor: 'action.hover', borderRadius: 3, textAlign: 'center', border: '1px solid', borderColor: 'divider' }}>
             <img
               src={currentVariant.photoPreviewUrl || `${API_BASE_URL}${currentVariant.photoUrl}`}
               alt="Preview"
@@ -658,11 +658,11 @@ export default function VariantFormFields({
     <Grid container spacing={4}>
       <Grid item xs={12} md={6}>
         <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '2px solid', 
-          borderColor: isEditing ? 'success.light' : '#e2e8f0',
-          bgcolor: isEditing ? alpha('#f0fdf4', 0.5) : 'white' }}>
+          borderColor: isEditing ? 'success.main' : 'divider',
+          bgcolor: isEditing ? 'action.selected' : 'background.paper' }}>
           <Stack direction="row" alignItems="center" spacing={1} mb={2}>
             {isEditing ? <EditIcon color="success" /> : <AddIcon color="primary" />}
-            <Typography variant="h6" fontWeight={900}>
+            <Typography variant="h6" fontWeight={900} color="text.primary">
               {isEditing ? t('itemsPage.variant.editTitle') : t('itemsPage.variant.addTitle')}
             </Typography>
           </Stack>
@@ -689,14 +689,14 @@ export default function VariantFormFields({
             <Stack spacing={2}>
               {variantList.map((variant, index) => (
                 <Card key={index} elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid',
-                  borderColor: editingVariantIndex === index ? 'primary.main' : '#e2e8f0',
-                  bgcolor: editingVariantIndex === index ? '#f0f9ff' : 'white' }}>
+                  borderColor: editingVariantIndex === index ? 'primary.main' : 'divider',
+                  bgcolor: editingVariantIndex === index ? 'action.selected' : 'background.paper' }}>
                   <Grid container alignItems="center">
                     <Grid item xs>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                         <Box>
-                          <Typography variant="subtitle2" fontWeight={900}>
-                            ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: '#64748b' }}>/ {variant.unit}</small>
+                          <Typography variant="subtitle2" fontWeight={900} color="text.primary">
+                            ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: 'text.secondary' }}>/ {variant.unit}</small>
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {[variant.size, variant.color, variant.design, variant.fit].filter(Boolean).join(' • ') || 'Standard'}
@@ -726,8 +726,8 @@ export default function VariantFormFields({
               ))}
             </Stack>
           ) : (
-            <Box sx={{ py: 6, textAlign: 'center', border: '2px dashed #e2e8f0', borderRadius: 4 }}>
-              <InventoryIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+            <Box sx={{ py: 6, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 4, bgcolor: 'action.hover' }}>
+              <InventoryIcon sx={{ fontSize: 40, color: 'action.disabled', mb: 1 }} />
               <Typography variant="body2" color="text.secondary" fontWeight={600}>
                 {t('itemsPage.variant.noVariantsYet')}
               </Typography>

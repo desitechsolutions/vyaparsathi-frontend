@@ -1,15 +1,15 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material'; // Use MUI components
-import useShopConfig from '../../hooks/useShopConfig';
-import useAuth from '../../hooks/useAuth';
+import { Box, CircularProgress } from '@mui/material';
+import { useShop } from '../../context/ShopContext';
+import { useAuthContext } from '../../context/AuthContext';
 
 export default function ShopGuard({ children }) {
-  const { shop, loading } = useShopConfig();
+  const { shop, shopLoading: loading } = useShop();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuthContext();
 
-  // Handle Loading state with a standard MUI Spinner
+  // Handle Loading state with a standard MUI Spinner (Only on initial cold boot)
   if (loading) {
     return (
       <Box sx={{ 
@@ -18,7 +18,7 @@ export default function ShopGuard({ children }) {
         width: '100vw', 
         alignItems: 'center', 
         justifyContent: 'center',
-        bgcolor: '#f8fafc' 
+        bgcolor: 'background.default' 
       }}>
         <CircularProgress />
       </Box>

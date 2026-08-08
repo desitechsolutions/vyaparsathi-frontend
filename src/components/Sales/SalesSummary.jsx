@@ -57,10 +57,10 @@ const getExpiryStatus = (expiryDate) => {
     label: daysLeft <= 0
       ? 'Expired'
       : daysLeft <= 30
-      ? `${daysLeft}d`
-      : daysLeft <= 90
-      ? `${daysLeft}d`
-      : parseBatchDate(expiryDate).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        ? `${daysLeft}d`
+        : daysLeft <= 90
+          ? `${daysLeft}d`
+          : parseBatchDate(expiryDate).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
     color: daysLeft <= 0 ? 'error' : daysLeft <= 30 ? 'error' : daysLeft <= 90 ? 'warning' : 'success',
   };
 };
@@ -117,17 +117,17 @@ const ItemDetailsCell = ({ item, isPharmacy, isJewellery }) => (
     arrow
   >
     <Box>
-      <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f766e' }}>
+      <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
         {item.itemName}
       </Typography>
-      <Typography variant="caption" sx={{ color: '#64748b' }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
         {item.color} / {item.size}
       </Typography>
 
       {isJewellery && item.weightGrams && (
         <Typography variant="caption" sx={{
           display: 'block',
-          color: '#7c3aed',
+          color: 'var(--color-secondary)',
           fontWeight: 700,
           mt: 0.25,
         }}>
@@ -138,7 +138,7 @@ const ItemDetailsCell = ({ item, isPharmacy, isJewellery }) => (
       {!isJewellery && item.mrp && (
         <Typography variant="caption" sx={{
           display: 'block',
-          color: '#10b981',
+          color: 'var(--color-success)',
           fontWeight: 700,
           mt: 0.25,
         }}>
@@ -182,19 +182,19 @@ const MakingChargesCell = ({ item, makingCharges }) => {
         sx={{
           display: 'block',
           fontWeight: 700,
-          color: '#7c3aed',
+          color: 'var(--color-secondary)',
           mb: 0.25,
         }}
       >
         ₹{makingCharges.toFixed(2)}
       </Typography>
       {item.makingChargesPerGram > 0 && item.netWeightGrams > 0 && (
-        <Typography variant="caption" sx={{ color: '#64748b' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           ₹{item.makingChargesPerGram}/g × {item.netWeightGrams}g
         </Typography>
       )}
       {item.makingChargesPct > 0 && !item.makingChargesPerGram && (
-        <Typography variant="caption" sx={{ color: '#64748b' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {item.makingChargesPct}% of value
         </Typography>
       )}
@@ -235,7 +235,7 @@ const CartItemRow = ({
       </TableCell>
 
       {isJewellery && (
-        <TableCell align="right" sx={{ color: '#7c3aed', fontSize: '0.75rem' }}>
+        <TableCell align="right" sx={{ color: 'var(--color-secondary)', fontSize: '0.75rem' }}>
           <MakingChargesCell item={item} makingCharges={lineMakingCharges} />
         </TableCell>
       )}
@@ -247,12 +247,12 @@ const CartItemRow = ({
       )}
 
       {showGst && !isPharmacy && (
-        <TableCell align="right" sx={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
+        <TableCell align="right" sx={{ color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600 }}>
           {item.gstRate > 0 ? `₹${lineGst.toFixed(2)} (${item.gstRate}%)` : '—'}
         </TableCell>
       )}
 
-      <TableCell align="right" sx={{ fontWeight: 700, color: '#0f766e' }}>
+      <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
         ₹{lineTotal.toFixed(2)}
       </TableCell>
 
@@ -309,7 +309,8 @@ const SummaryBox = ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
-    bgcolor: alpha('#0f766e', 0.02),
+    bgcolor: 'action.hover',
+    borderRadius: 2,
     flexShrink: 0,
   }}>
     <Box sx={{ width: embedded ? '100%' : { xs: '100%', md: '360px' } }}>
@@ -318,7 +319,7 @@ const SummaryBox = ({
         <Typography variant="body2" color="text.secondary">
           {isJewellery ? 'Subtotal (Metal + Stone):' : 'Subtotal:'}
         </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
           ₹{subtotal.toFixed(2)}
         </Typography>
       </Box>
@@ -326,10 +327,10 @@ const SummaryBox = ({
       {/* Making Charges */}
       {isJewellery && makingCharges > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" sx={{ color: '#7c3aed', fontWeight: 700 }}>
+          <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 700 }}>
             Making Charges:
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#7c3aed' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'secondary.main' }}>
             +₹{makingCharges.toFixed(2)}
           </Typography>
         </Box>
@@ -359,7 +360,7 @@ const SummaryBox = ({
           <Typography variant="body2" color="text.secondary">
             Total GST:
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#10b981' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main' }}>
             +₹{gst.toFixed(2)}
           </Typography>
         </Box>
@@ -369,10 +370,10 @@ const SummaryBox = ({
 
       {/* Grand Total */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#0f766e' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'var(--color-teal)' }}>
           Grand Total:
         </Typography>
-        <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#0f766e' }}>
+        <Typography variant="h7" sx={{ fontWeight: 900, color: 'primary.main' }}>
           ₹{netPayable.toFixed(2)}
         </Typography>
       </Box>
@@ -398,7 +399,7 @@ const ClearConfirmDialog = ({ open, itemCount, onConfirm, onCancel }) => (
       display: 'flex',
       alignItems: 'center',
       gap: 1,
-      color: '#f59e0b',
+      color: 'var(--color-warning)',
       fontWeight: 800,
     }}>
       <WarningAmberIcon color="warning" />
@@ -585,8 +586,8 @@ const SalesSummary = ({
             flexShrink: 0,
             bgcolor: alpha('#0f766e', 0.02),
           }}>
-            <ReceiptLongIcon sx={{ color: '#0f766e' }} fontSize="small" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0f766e' }}>
+            <ReceiptLongIcon sx={{ color: 'var(--color-teal)' }} fontSize="small" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
               Order Items ({formData.items.length})
             </Typography>
           </Box>
@@ -604,28 +605,28 @@ const SalesSummary = ({
               <Table size="small">
                 <TableHead sx={{ bgcolor: alpha('#0f766e', 0.05) }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 800, color: '#0f766e' }}>Item Details</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, color: '#0f766e' }}>Qty</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, color: '#0f766e' }}>Rate</TableCell>
+                    <TableCell sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Item Details</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Rate</TableCell>
                     {isJewellery && (
-                      <TableCell align="right" sx={{ fontWeight: 800, color: '#7c3aed' }}>
+                      <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-secondary)' }}>
                         Making
                       </TableCell>
                     )}
                     {isPharmacy && (
-                      <TableCell align="center" sx={{ fontWeight: 800, color: '#0f766e' }}>
+                      <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
                         Expiry
                       </TableCell>
                     )}
                     {showGst && !isPharmacy && (
-                      <TableCell align="right" sx={{ fontWeight: 800, color: '#10b981' }}>
+                      <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-success)' }}>
                         GST
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ fontWeight: 800, color: '#0f766e' }}>
+                    <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
                       Total
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, color: '#0f766e' }}>
+                    <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
                       Action
                     </TableCell>
                   </TableRow>
@@ -667,7 +668,7 @@ const SalesSummary = ({
           <CardActions sx={{
             justifyContent: 'space-between',
             p: 2,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             flexShrink: 0,
             borderTop: `1px solid ${alpha('#0f766e', 0.1)}`,
           }}>
@@ -691,8 +692,8 @@ const SalesSummary = ({
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 700,
-                  borderColor: '#0f766e',
-                  color: '#0f766e',
+                  borderColor: 'var(--color-teal)',
+                  color: 'var(--color-teal)',
                 }}
               >
                 Save Draft

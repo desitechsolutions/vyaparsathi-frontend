@@ -86,7 +86,7 @@ export default function VariantDetailDisplay({
   }, [stockData]);
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#f8fafc', borderRadius: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: 'background.paper', borderRadius: 3 }}>
       <Grid container spacing={3}>
         {(item.variants || []).length > 0 ? (
           item.variants.map((variant) => {
@@ -104,7 +104,9 @@ export default function VariantDetailDisplay({
                     height: '100%',
                     borderRadius: 4,
                     overflow: 'hidden',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
                     transition: 'transform 0.2s, box-shadow 0.2s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -118,7 +120,7 @@ export default function VariantDetailDisplay({
                     sx={{
                       height: 180,
                       position: 'relative',
-                      bgcolor: '#f1f5f9',
+                      bgcolor: 'action.hover',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -142,12 +144,11 @@ export default function VariantDetailDisplay({
                       <Chip
                         label={hasStock ? t('itemsPage.variant.stockLevel', { count: currentStock }) : t('itemsPage.variant.outOfStock')}
                         size="small"
+                        color={hasStock ? (isLowStock ? 'warning' : 'success') : 'error'}
+                        variant="outlined"
                         sx={{
                           fontWeight: 900,
-                          bgcolor: hasStock ? (isLowStock ? '#fff7ed' : '#f0fdf4') : '#fef2f2',
-                          color: hasStock ? (isLowStock ? '#c2410c' : '#166534') : '#991b1b',
-                          border: '1px solid',
-                          borderColor: hasStock ? (isLowStock ? '#fdba74' : '#bbf7d0') : '#fecaca',
+                          bgcolor: 'background.paper',
                           backdropFilter: 'blur(4px)'
                         }}
                       />
@@ -176,7 +177,7 @@ export default function VariantDetailDisplay({
 
                     {/* Pharmacy-specific variant info */}
                     {shopCategory === 'PHARMACY' && (variant.batchNumber || variant.expiryDate || variant.mrp) && (
-                      <Box sx={{ mb: 1, p: 1, bgcolor: '#f0fdf4', borderRadius: 1.5, border: '1px solid #bbf7d0' }}>
+                      <Box sx={{ mb: 1, p: 1, bgcolor: 'rgba(34, 197, 94, 0.12)', borderRadius: 1.5, border: '1px solid', borderColor: 'success.light' }}>
                         {variant.mrp && (
                           <Typography variant="caption" sx={{ display: 'block', color: '#166534', fontWeight: 700 }}>
                             MRP: ₹{variant.mrp}

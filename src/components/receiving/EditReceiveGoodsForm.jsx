@@ -153,25 +153,25 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
           { label: 'REJECTING NOW', val: stats.rej, color: 'error.main' },
           { label: 'DAMAGED NOW', val: stats.dam, color: 'warning.main' }
         ].map((s, i) => (
-          <Paper key={i} sx={{ p: 2, flex: 1, textAlign: 'center', borderRadius: 3, border: '1px solid #e0e0e0' }}>
+          <Paper key={i} sx={{ p: 2, flex: 1, textAlign: 'center', borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>{s.label}</Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, color: s.color }}>{s.val}</Typography>
           </Paper>
         ))}
       </Stack>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Table size="small">
-          <TableHead sx={{ bgcolor: 'grey.50' }}>
+          <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Product Item</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>PO Qty</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Historical</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', color: 'text.primary' }}>Product Item</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>PO Qty</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Historical</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>Received</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'purple.main' }}>Putaway</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Putaway</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>Rejected</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', color: 'warning.main' }}>Damaged</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -188,13 +188,13 @@ const EditReceiveGoodsForm = ({ receiving, onSubmit, onCancel, getPoItems }) => 
               const isMatch = currentTotal === item.orderedQty;
 
               return (
-                <TableRow key={index} hover>
+                <TableRow key={index} hover sx={{ '&:nth-of-type(even)': { bgcolor: 'action.hover' } }}>
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{item.itemName}</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.primary' }}>{item.itemName}</Typography>
                     <Typography variant="caption" color="text.secondary">SKU: {item.sku}</Typography>
                   </TableCell>
 
-                  <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: 'rgba(0,0,0,0.01)' }}>
+                  <TableCell align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
                     {item.orderedQty}
                   </TableCell>
 

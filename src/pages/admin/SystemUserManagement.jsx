@@ -91,23 +91,23 @@ export const SystemUserManagement = () => {
 
   const getRoleConfig = (role) => {
     switch (role) {
-      case 'SUPER_ADMIN': return { color: '#f43f5e', icon: <AdminPanelSettings fontSize="inherit" />, label: 'Super Admin' };
-      case 'SUPPORT_AGENT': return { color: '#38bdf8', icon: <Security fontSize="inherit" />, label: 'Support' };
-      case 'FINANCE_MANAGER': return { color: '#fbbf24', icon: <Shield fontSize="inherit" />, label: 'Finance' };
-      default: return { color: '#94a3b8', icon: <Shield fontSize="inherit" />, label: 'User' };
+      case 'SUPER_ADMIN': return { color: 'error.main', icon: <AdminPanelSettings fontSize="inherit" />, label: 'Super Admin' };
+      case 'SUPPORT_AGENT': return { color: 'primary.main', icon: <Security fontSize="inherit" />, label: 'Support' };
+      case 'FINANCE_MANAGER': return { color: 'warning.main', icon: <Shield fontSize="inherit" />, label: 'Finance' };
+      default: return { color: 'text.secondary', icon: <Shield fontSize="inherit" />, label: 'User' };
     }
   };
 
   return (
-    <Box sx={{ p: 4, bgcolor: '#0f172a', minHeight: '100vh', color: 'white' }}>
+    <Box sx={{ p: 4, bgcolor: 'background.default', minHeight: '100vh', color: 'text.primary' }}>
       
       {/* Header Section */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: '-0.5px', color: '#f8fafc' }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: '-0.5px', color: 'text.primary' }}>
             System Users
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
             Manage internal platform access, roles, and security protocols
           </Typography>
         </Box>
@@ -116,13 +116,13 @@ export const SystemUserManagement = () => {
           startIcon={<PersonAdd />}
           onClick={() => setOpenModal(true)}
           sx={{ 
-            bgcolor: '#ec4899', 
+            bgcolor: 'secondary.main', 
             borderRadius: '12px', 
             px: 3, 
             py: 1.2, 
             fontWeight: 700,
             boxShadow: '0 4px 14px 0 rgba(236, 72, 153, 0.39)',
-            '&:hover': { bgcolor: '#db2777' } 
+            '&:hover': { bgcolor: 'secondary.dark' } 
           }}
         >
           Add Internal User
@@ -130,7 +130,7 @@ export const SystemUserManagement = () => {
       </Stack>
 
       {/* Control Bar */}
-      <Paper sx={{ p: 2, mb: 3, bgcolor: '#1e293b', borderRadius: '16px', backgroundImage: 'none', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: '16px', backgroundImage: 'none', border: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" spacing={2}>
           <TextField
             fullWidth
@@ -141,33 +141,33 @@ export const SystemUserManagement = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: 'rgba(255,255,255,0.3)' }} />
+                  <Search sx={{ color: 'text.disabled' }} />
                 </InputAdornment>
               ),
               sx: { 
-                color: 'white', 
-                bgcolor: '#0f172a', 
+                color: 'text.primary', 
+                bgcolor: 'background.paper', 
                 borderRadius: '10px',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+                '& fieldset': { borderColor: 'divider' },
                 '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2) !important' }
               }
             }}
           />
-          <Button startIcon={<FilterList />} sx={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>Filters</Button>
+          <Button startIcon={<FilterList />} sx={{ color: 'text.secondary', textTransform: 'none' }}>Filters</Button>
         </Stack>
       </Paper>
 
       {/* Table Section */}
-      <TableContainer component={Paper} sx={{ bgcolor: '#1e293b', borderRadius: '20px', backgroundImage: 'none', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+      <TableContainer component={Paper} sx={{ bgcolor: 'background.paper', borderRadius: '20px', backgroundImage: 'none', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
         <Table>
-          <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.03)' }}>
+          <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
-              <TableCell sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>USER INFO</TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ROLE / ACCESS</TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SECURITY</TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>LAST LOGIN</TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>STATUS</TableCell>
-              <TableCell align="right" sx={{ color: '#94a3b8', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ACTIONS</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>USER INFO</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ROLE / ACCESS</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>SECURITY</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>LAST LOGIN</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>STATUS</TableCell>
+              <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>ACTIONS</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -186,8 +186,8 @@ export const SystemUserManagement = () => {
                         <Avatar sx={{ bgcolor: roleConfig.color, fontWeight: 700, borderRadius: '12px', fontSize: '0.9rem' }}>{user.avatar}</Avatar>
                       </Badge>
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'white' }}>{user.name}</Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{user.name}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Mail sx={{ fontSize: 12 }} /> {user.email}
                         </Typography>
                       </Box>
@@ -218,10 +218,10 @@ export const SystemUserManagement = () => {
                   </TableCell>
 
                   <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography variant="caption" sx={{ color: 'white', opacity: 0.8, fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: 'text.primary', opacity: 0.8, fontWeight: 600 }}>
                       {new Date(user.lastLogin).toLocaleDateString()}
                     </Typography>
-                    <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem' }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem' }}>
                       at {new Date(user.lastLogin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Typography>
                   </TableCell>
@@ -233,8 +233,8 @@ export const SystemUserManagement = () => {
                         onChange={() => handleToggleStatus(user.id)}
                         size="small"
                         sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': { color: '#4ade80' },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#4ade80' }
+                          '& .MuiSwitch-switchBase.Mui-checked': { color: 'success.main' },
+                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'success.main' }
                         }}
                       />
                       <Typography variant="caption" sx={{ fontWeight: 800, color: user.status === 'ACTIVE' ? '#4ade80' : '#ef4444', minWidth: '55px' }}>
@@ -244,7 +244,7 @@ export const SystemUserManagement = () => {
                   </TableCell>
 
                   <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <IconButton sx={{ color: 'rgba(255,255,255,0.3)' }} size="small" onClick={(e) => handleMenuOpen(e, user)}>
+                    <IconButton sx={{ color: 'text.disabled' }} size="small" onClick={(e) => handleMenuOpen(e, user)}>
                       <MoreVert />
                     </IconButton>
                   </TableCell>
@@ -252,7 +252,7 @@ export const SystemUserManagement = () => {
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'rgba(255,255,255,0.3)' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.disabled' }}>
                   No users match your search criteria.
                 </TableCell>
               </TableRow>
@@ -268,10 +268,9 @@ export const SystemUserManagement = () => {
         onClose={handleMenuClose}
         PaperProps={{
           sx: { 
-            bgcolor: '#1e293b', 
-            color: 'white', 
+            bgcolor: 'background.paper', color: 'text.primary', 
             minWidth: 150,
-            border: '1px solid rgba(255,255,255,0.05)',
+            border: '1px solid', borderColor: 'divider',
             backgroundImage: 'none',
             '& .MuiMenuItem-root': { fontSize: '0.85rem', gap: 1.5 }
           }
@@ -279,37 +278,37 @@ export const SystemUserManagement = () => {
       >
         <MenuItem onClick={handleMenuClose}><Edit fontSize="small" /> Edit Profile</MenuItem>
         <MenuItem onClick={handleMenuClose}><History fontSize="small" /> Activity Logs</MenuItem>
-        <MenuItem onClick={handleDeleteUser} sx={{ color: '#ef4444' }}><DeleteForever fontSize="small" /> Terminate Access</MenuItem>
+        <MenuItem onClick={handleDeleteUser} sx={{ color: 'error.main' }}><DeleteForever fontSize="small" /> Terminate Access</MenuItem>
       </Menu>
 
       {/* Add User Dialog */}
       <Dialog 
         open={openModal} 
         onClose={() => setOpenModal(false)}
-        PaperProps={{ sx: { bgcolor: '#1e293b', color: 'white', borderRadius: '16px', minWidth: '400px', backgroundImage: 'none' } }}
+        PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary', borderRadius: '16px', minWidth: '400px', backgroundImage: 'none' } }}
       >
         <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Add Internal User
           <IconButton onClick={() => setOpenModal(false)} sx={{ color: 'gray' }}><Close /></IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+        <DialogContent dividers sx={{ borderColor: 'divider' }}>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <TextField 
               fullWidth label="Full Name" variant="outlined" 
               value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-              sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' } }, '& label': { color: 'rgba(255,255,255,0.5)' } }} 
+              sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'divider' } }, '& label': { color: 'text.secondary' } }} 
             />
             <TextField 
               fullWidth label="Email Address" variant="outlined"
               value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-              sx={{ '& .MuiOutlinedInput-root': { color: 'white', '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' } }, '& label': { color: 'rgba(255,255,255,0.5)' } }} 
+              sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', '& fieldset': { borderColor: 'divider' } }, '& label': { color: 'text.secondary' } }} 
             />
-            <FormControl fullWidth sx={{ '& label': { color: 'rgba(255,255,255,0.5)' } }}>
+            <FormControl fullWidth sx={{ '& label': { color: 'text.secondary' } }}>
               <InputLabel>Role</InputLabel>
               <Select 
                 label="Role"
                 value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                sx={{ color: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' } }}
+                sx={{ color: 'text.primary', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
               >
                 <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                 <SelectItem value="SUPPORT_AGENT">Support Agent</SelectItem>
@@ -319,8 +318,8 @@ export const SystemUserManagement = () => {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenModal(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancel</Button>
-          <Button onClick={handleAddUser} variant="contained" disabled={!newUser.name || !newUser.email} sx={{ bgcolor: '#ec4899', fontWeight: 700, '&:hover': { bgcolor: '#db2777' } }}>
+          <Button onClick={() => setOpenModal(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
+          <Button onClick={handleAddUser} variant="contained" disabled={!newUser.name || !newUser.email} sx={{ bgcolor: 'secondary.main', fontWeight: 700, '&:hover': { bgcolor: 'secondary.dark' } }}>
             Confirm Access
           </Button>
         </DialogActions>

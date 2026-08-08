@@ -65,7 +65,7 @@ export default function PurchaseRegister() {
   const uniqueBatches = new Set((data || []).map(r => r.batchNumber).filter(Boolean)).size;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Button
         startIcon={<ArrowBackIosNew sx={{ fontSize: '0.8rem !important' }} />}
         onClick={() => navigate('/reports')}
@@ -78,7 +78,7 @@ export default function PurchaseRegister() {
         <Box>
           <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
             <LocalShipping color="primary" />
-            <Typography variant="h4" fontWeight={900} color="#0f172a">{t('purchaseRegisterReport.title')}</Typography>
+            <Typography variant="h4" fontWeight={900} color="text.primary">{t('purchaseRegisterReport.title')}</Typography>
           </Stack>
           <Typography color="text.secondary">
             Batch-wise supplier tracking — required for drug recall traceability and regulatory audits
@@ -89,7 +89,7 @@ export default function PurchaseRegister() {
             variant="outlined"
             startIcon={<FileDownload />}
             onClick={() => downloadCSV(data, from, to)}
-            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'white' }}
+            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'background.paper' }}
           >
             Export CSV
           </Button>
@@ -101,7 +101,7 @@ export default function PurchaseRegister() {
       </Alert>
 
       {/* Date Filter */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
             <TextField label={t('reportsCommon.from')} type="date" value={from} fullWidth
@@ -129,15 +129,15 @@ export default function PurchaseRegister() {
           {/* Stats */}
           <Grid container spacing={3} mb={4}>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<Inventory2 />} bg="#dbeafe" color="#2563eb"
+              <StatCard icon={<Inventory2 />} bg="rgba(37, 99, 235, 0.15)" color="#2563eb"
                 label="Total Batches" value={uniqueBatches} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<LocalShipping />} bg="#dcfce7" color="#16a34a"
+              <StatCard icon={<LocalShipping />} bg="rgba(22, 163, 74, 0.15)" color="#16a34a"
                 label="Unique Suppliers" value={uniqueSuppliers} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <StatCard icon={<Inventory2 />} bg="#fef3c7" color="#d97706"
+              <StatCard icon={<Inventory2 />} bg="rgba(217, 119, 6, 0.15)" color="#d97706"
                 label="Total Purchase Value"
                 value={`₹${totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
               />
@@ -145,19 +145,19 @@ export default function PurchaseRegister() {
           </Grid>
 
           {data.length === 0 ? (
-            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid #e2e8f0' }}>
-              <Inventory2 sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+              <Inventory2 sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
               <Typography variant="h6" fontWeight={700} color="text.secondary">
                 No purchase records found for this period
               </Typography>
             </Paper>
           ) : (
-            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
               <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
                     {[t('purchaseRegisterReport.columns.date'), 'PO No', t('purchaseRegisterReport.columns.supplier'), t('purchaseRegisterReport.columns.items'), 'Batch No', 'Mfg Date', t('expiryReport.columns.expiryDate'), t('reportsCommon.total'), 'Unit Cost', t('purchaseRegisterReport.columns.total')].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
+                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: 'text.secondary' }}>
                         {h}
                       </TableCell>
                     ))}
@@ -168,30 +168,30 @@ export default function PurchaseRegister() {
                     const isExpired = row.expiryDate && dayjs(row.expiryDate).isBefore(dayjs());
                     const isExpiringSoon = row.expiryDate && dayjs(row.expiryDate).diff(dayjs(), 'day') <= 90;
                     return (
-                      <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
+                      <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                         <TableCell>
-                          <Typography variant="body2">{formatDate(row.receivedDate)}</Typography>
+                          <Typography variant="body2" color="text.secondary">{formatDate(row.receivedDate)}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace" fontWeight={600}>{row.poNumber}</Typography>
+                          <Typography variant="body2" fontFamily="monospace" fontWeight={600} color="text.primary">{row.poNumber}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="subtitle2" fontWeight={700}>{row.supplierName}</Typography>
+                          <Typography variant="subtitle2" fontWeight={700} color="text.primary">{row.supplierName}</Typography>
                           {row.supplierDlNumber && (
                             <Typography variant="caption" color="text.secondary">DL: {row.supplierDlNumber}</Typography>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography variant="subtitle2" fontWeight={700}>{row.itemName}</Typography>
+                          <Typography variant="subtitle2" fontWeight={700} color="text.primary">{row.itemName}</Typography>
                           {row.composition && (
                             <Typography variant="caption" color="text.secondary">{row.composition}</Typography>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">{row.batchNumber || '—'}</Typography>
+                          <Typography variant="body2" fontFamily="monospace" color="text.primary">{row.batchNumber || '—'}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{formatDate(row.manufacturingDate)}</Typography>
+                          <Typography variant="body2" color="text.secondary">{formatDate(row.manufacturingDate)}</Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -201,15 +201,15 @@ export default function PurchaseRegister() {
                             sx={{ fontWeight: 700 }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={700}>{row.receivedQty} {row.unit}</Typography>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={700} color="text.primary">{row.receivedQty}</Typography>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">₹{Number(row.unitCost || 0).toFixed(2)}</Typography>
+                        <TableCell align="right">
+                          <Typography variant="body2" color="text.secondary">₹{Number(row.unitCost || 0).toLocaleString('en-IN')}</Typography>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={700} color="primary.main">
-                            ₹{Number(row.totalCost || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={800} color="primary.main">
+                            ₹{Number(row.totalCost || 0).toLocaleString('en-IN')}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -226,7 +226,7 @@ export default function PurchaseRegister() {
 }
 
 const StatCard = ({ icon, color, bg, label, value }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: bg, color }}>{icon}</Avatar>
       <Box>

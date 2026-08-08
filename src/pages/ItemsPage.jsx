@@ -138,7 +138,7 @@ export default function ItemsPage() {
             <Tooltip title={t('itemsPage.actions.manageItem')}>
               <IconButton
                 size="small"
-                sx={{ color: '#0f172a', bgcolor: '#f1f5f9', '&:hover': { bgcolor: '#e2e8f0' } }}
+                sx={{ color: 'text.primary', bgcolor: 'background.default', '&:hover': { bgcolor: 'action.selected' } }}
                 onClick={() => handleManageItem(params.row.id)}
               >
                 <SettingsIcon fontSize="small" />
@@ -194,13 +194,13 @@ export default function ItemsPage() {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', pb: 5 }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 5 }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
         
         {/* Page Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
           <Box>
-            <Typography variant="h4" fontWeight={900} color="#0f172a">
+            <Typography variant="h4" fontWeight={900} color="text.primary">
               {t('itemsPage.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -272,7 +272,7 @@ export default function ItemsPage() {
               </Box>
             )}
 
-            <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
               <DataGrid
                 rows={itemsWithVariants}
                 columns={finalColumns}
@@ -285,8 +285,8 @@ export default function ItemsPage() {
                 slotProps={{ toolbar: { onAddItemClick: handleAddItemClick } }}
                 sx={{
                   border: 0,
-                  '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold' },
-                  '& .MuiDataGrid-cell': { borderBottom: '1px solid #f1f5f9' },
+                  '& .MuiDataGrid-columnHeaders': { bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' },
+                  '& .MuiDataGrid-cell': { borderBottom: '1px solid', borderColor: 'divider' },
                   '& .MuiDataGrid-cell:focus': { outline: 'none' },
                 }}
               />
@@ -301,12 +301,12 @@ export default function ItemsPage() {
         onClose={handleDialogClose} 
         fullWidth 
         maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', backgroundImage: 'none' } }}
       >
-        <DialogTitle sx={{ p: 3, fontWeight: 800, fontSize: '1.5rem' }}>
+        <DialogTitle sx={{ p: 3, fontWeight: 800, fontSize: '1.5rem', color: 'text.primary' }}>
           {openAddDialog ? t('itemsPage.addDialogTitle') : t('itemsPage.editDialogTitle')}
         </DialogTitle>
-        <Divider />
+        <Divider sx={{ borderColor: 'divider' }} />
         
         <DialogContent sx={{ px: 4, py: 3 }}>
           <Stepper activeStep={step} sx={{ mb: 4 }}>
@@ -328,7 +328,7 @@ export default function ItemsPage() {
           </Box>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', gap: 1 }}>
+        <DialogActions sx={{ p: 3, bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider', gap: 1 }}>
           <Button onClick={handleDialogClose} disabled={isSubmitting} sx={{ fontWeight: 700, color: 'text.secondary' }}>
             {t('itemsPage.actions.cancel')}
           </Button>
@@ -358,12 +358,12 @@ export default function ItemsPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
+      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 3, bgcolor: 'background.paper', backgroundImage: 'none' } }}>
+        <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('itemsPage.deleteDialogText')}</DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Button onClick={() => setOpenDeleteConfirm(false)}>{t('itemsPage.actions.cancel')}</Button>
           <Button onClick={confirmDeleteVariant} color="error" variant="contained" sx={{ borderRadius: 2, fontWeight: 700 }}>
             {t('itemsPage.actions.delete')}
@@ -377,9 +377,9 @@ export default function ItemsPage() {
         onClose={() => setOpenViewVariantsDialog(false)}
         fullWidth
         maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', backgroundImage: 'none' } }}
       >
-        <DialogTitle sx={{ p: 3, borderBottom: '1px solid #e2e8f0', fontWeight: 800 }}>
+        <DialogTitle sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider', fontWeight: 800, color: 'text.primary' }}>
           {t('itemsPage.variant.reviewTitle')} — {variantsToView?.name || ''}
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
@@ -390,7 +390,7 @@ export default function ItemsPage() {
             shopCategory={activeIndustry}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 2, bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider' }}>
           <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 700, borderRadius: 2 }}>
             {t('common.close')}
           </Button>
@@ -414,7 +414,7 @@ export default function ItemsPage() {
             {duplicateWarning.message}
           </Alert>
           {duplicateWarning.existingItem && (
-            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 3, border: '1px solid' }}>
               <Stack spacing={0.5}>
                 <Typography variant="subtitle2" fontWeight={800}>
                   {duplicateWarning.existingItem.name}
@@ -439,7 +439,7 @@ export default function ItemsPage() {
             Would you like to view the existing item or update it with new variants?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1, bgcolor: '#f8fafc' }}>
+        <DialogActions sx={{ p: 3, gap: 1, bgcolor: 'background.default' }}>
           <Button
             onClick={closeDuplicateWarning}
             color="inherit"
@@ -471,7 +471,7 @@ export default function ItemsPage() {
 }
 
 const StatCard = ({ icon, label, value, color }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, py: '20px !important' }}>
       <Box sx={{ bgcolor: alpha(color, 0.1), p: 2, borderRadius: 3, display: 'flex' }}>
         {icon}

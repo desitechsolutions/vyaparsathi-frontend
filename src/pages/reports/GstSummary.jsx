@@ -62,7 +62,7 @@ export default function GstSummary() {
   }, []);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -76,7 +76,7 @@ export default function GstSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('gstSummaryReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('gstSummaryReport.title')}</Typography>
           <Typography color="text.secondary">{t('gstSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
@@ -84,7 +84,7 @@ export default function GstSummary() {
             variant="outlined" 
             startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: 'white' }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: 'background.paper' }}
           >
             {t('reportsCommon.export')}
           </Button>
@@ -92,7 +92,7 @@ export default function GstSummary() {
       </Stack>
 
       {/* Filter Bar */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -145,8 +145,8 @@ export default function GstSummary() {
           </Grid>
 
           {/* Tax Component Breakdown */}
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
-            <Typography variant="h6" fontWeight={800} mb={4}>Tax Component Breakdown</Typography>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+            <Typography variant="h6" fontWeight={800} color="text.primary" mb={4}>Tax Component Breakdown</Typography>
             <Grid container spacing={3}>
               <Grid item xs={12} md={4}>
                 <TaxBox label="CGST" value={report.cgstTotal} description="Central Goods & Service Tax" />
@@ -159,13 +159,13 @@ export default function GstSummary() {
               </Grid>
             </Grid>
             
-            <Divider sx={{ my: 4 }} />
+            <Divider sx={{ my: 4, borderColor: 'divider' }} />
             
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                <Box sx={{ textAlign: 'right' }}>
-                 <Typography variant="body2" color="text.secondary" fontWeight={600}>Total GST Payable</Typography>
+                 <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>TOTAL TAX PAYABLE</Typography>
                  <Typography variant="h3" fontWeight={900} color="primary.main">
-                   ₹{Number(report.totalGst).toLocaleString('en-IN')}
+                   ₹{Number(report.totalGst || 0).toLocaleString('en-IN')}
                  </Typography>
                </Box>
             </Box>
@@ -173,7 +173,7 @@ export default function GstSummary() {
         </Box>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <AccountBalanceWallet sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+          <AccountBalanceWallet sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography variant="h6" color="text.secondary">Ready to calculate tax totals.</Typography>
         </Box>
       )}
@@ -183,9 +183,9 @@ export default function GstSummary() {
 
 // Internal Components for GstSummary
 const KpiCard = ({ title, value, icon, subtitle, highlight = "text.primary" }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-      <Avatar variant="rounded" sx={{ width: 56, height: 56, bgcolor: '#f1f5f9', color: 'inherit' }}>{icon}</Avatar>
+      <Avatar variant="rounded" sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'inherit' }}>{icon}</Avatar>
       <Box>
         <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ textTransform: 'uppercase' }}>{title}</Typography>
         <Typography variant="h4" fontWeight={900} sx={{ color: highlight }}>₹{Number(value || 0).toLocaleString('en-IN')}</Typography>
@@ -196,9 +196,9 @@ const KpiCard = ({ title, value, icon, subtitle, highlight = "text.primary" }) =
 );
 
 const TaxBox = ({ label, value, description }) => (
-  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #f1f5f9', bgcolor: '#fcfdfe' }}>
+  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
     <Typography variant="subtitle2" fontWeight={800} color="primary.main">{label}</Typography>
-    <Typography variant="h5" fontWeight={900} sx={{ my: 0.5 }}>₹{Number(value || 0).toLocaleString('en-IN')}</Typography>
-    <Typography variant="caption" color="text.disabled">{description}</Typography>
+    <Typography variant="h5" fontWeight={900} color="text.primary" sx={{ my: 0.5 }}>₹{Number(value || 0).toLocaleString('en-IN')}</Typography>
+    <Typography variant="caption" color="text.secondary">{description}</Typography>
   </Box>
 );

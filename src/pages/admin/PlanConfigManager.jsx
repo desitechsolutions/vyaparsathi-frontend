@@ -123,7 +123,7 @@ const PlanConfigManager = () => {
 
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-      <CircularProgress sx={{ color: '#ef4444' }} thickness={5} />
+      <CircularProgress sx={{ color: 'error.main' }} thickness={5} />
     </Box>
   );
 
@@ -131,10 +131,10 @@ const PlanConfigManager = () => {
     <Box sx={{ p: 4 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h3" sx={{ fontWeight: 900, color: 'white' }}>
+          <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>
             Plan Master Control
           </Typography>
-          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
             Configure live pricing and system limits for the VyaparSathi ecosystem
           </Typography>
         </Box>
@@ -142,7 +142,7 @@ const PlanConfigManager = () => {
             <Button 
             startIcon={<AddIcon />} 
             onClick={() => setIsAdding(true)}
-            sx={{ bgcolor: '#38bdf8', color: '#0f172a', fontWeight: 800, '&:hover': { bgcolor: '#0ea5e9'} }}
+            sx={{ bgcolor: 'primary.main', color: 'text.primary', fontWeight: 800, '&:hover': { bgcolor: '#0ea5e9'} }}
             variant="contained"
             >
             Add Plan
@@ -150,7 +150,7 @@ const PlanConfigManager = () => {
             <Button 
             startIcon={<RefreshIcon />} 
             onClick={loadPlans}
-            sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.1)' }}
+            sx={{ color: 'text.primary', borderColor: 'divider' }}
             variant="outlined"
             >
             Reload All
@@ -163,18 +163,18 @@ const PlanConfigManager = () => {
         {isAdding && (
             <Grid item xs={12} lg={4}>
                 <Zoom in={true}>
-                    <Card sx={{ bgcolor: '#0f172a', color: 'white', borderRadius: 5, border: '2px dashed #38bdf8' }}>
+                    <Card sx={{ bgcolor: 'background.paper', color: 'text.primary', borderRadius: 5, border: '2px dashed', borderColor: 'primary.main' }}>
                         <CardContent sx={{ p: 4 }}>
                             <Stack spacing={3}>
                                 <Stack direction="row" justifyContent="space-between">
-                                    <Typography variant="h6" sx={{ color: '#38bdf8', fontWeight: 900 }}>NEW PLAN</Typography>
-                                    <IconButton onClick={() => setIsAdding(false)} sx={{ color: 'white' }}><CloseIcon /></IconButton>
+                                    <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 900 }}>NEW PLAN</Typography>
+                                    <IconButton onClick={() => setIsAdding(false)} sx={{ color: 'text.primary' }}><CloseIcon /></IconButton>
                                 </Stack>
                                 <TextField
                                     select label="Tier Type" fullWidth
                                     value={newPlan.tier}
                                     onChange={(e) => setNewPlan({...newPlan, tier: e.target.value})}
-                                    sx={{ '& label': { color: '#38bdf8' }, '& .MuiInputBase-root': { color: 'white' } }}
+                                    sx={{ '& label': { color: 'primary.main' }, '& .MuiInputBase-root': { color: 'text.primary' } }}
                                 >
                                     {TIER_OPTIONS.filter(t => !plans.some(p => p.tier === t)).map(opt => (
                                         <MenuItem key={opt} value={opt}>{opt}</MenuItem>
@@ -184,13 +184,13 @@ const PlanConfigManager = () => {
                                     label="Display Name" fullWidth
                                     value={newPlan.displayName}
                                     onChange={(e) => setNewPlan({...newPlan, displayName: e.target.value})}
-                                    sx={{ '& label': { color: 'white' }, '& input': { color: 'white' } }}
+                                    sx={{ '& label': { color: 'text.primary' }, '& input': { color: 'text.primary' } }}
                                 />
                                 <Button 
                                     variant="contained" fullWidth 
                                     onClick={() => onSave(newPlan, true)}
                                     disabled={!newPlan.tier || !newPlan.displayName}
-                                    sx={{ bgcolor: '#38bdf8', color: '#0f172a', fontWeight: 900 }}
+                                    sx={{ bgcolor: 'primary.main', color: 'text.primary', fontWeight: 900 }}
                                 >
                                     INITIALIZE PLAN
                                 </Button>
@@ -205,15 +205,15 @@ const PlanConfigManager = () => {
           <Grid item xs={12} lg={4} key={plan.tier}>
             <Zoom in={true}>
               <Card sx={{ 
-                bgcolor: '#1e293b', color: 'white', borderRadius: 5, 
+                bgcolor: 'background.paper', color: 'text.primary', borderRadius: 5, 
                 border: plan.isPopular ? '2px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)',
                 position: 'relative', overflow: 'visible'
               }}>
                 {plan.isPopular && (
                   <Chip 
-                    icon={<MagicIcon style={{ color: '#1e293b', fontSize: '1rem' }} />}
+                    icon={<MagicIcon style={{ color: 'text.primary', fontSize: '1rem' }} />}
                     label="MOST POPULAR" 
-                    sx={{ position: 'absolute', top: -14, left: 24, bgcolor: '#fbbf24', fontWeight: 900, color: '#1e293b' }} 
+                    sx={{ position: 'absolute', top: -14, left: 24, bgcolor: 'warning.main', fontWeight: 900, color: 'text.primary' }} 
                   />
                 )}
                 
@@ -221,7 +221,7 @@ const PlanConfigManager = () => {
                   <Stack spacing={3}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="overline" sx={{ color: '#38bdf8', fontWeight: 900 }}>
+                        <Typography variant="overline" sx={{ color: 'primary.main', fontWeight: 900 }}>
                           {plan.tier}
                         </Typography>
                         <TextField
@@ -229,13 +229,13 @@ const PlanConfigManager = () => {
                           variant="standard"
                           value={plan.displayName || ''}
                           onChange={(e) => handleUpdateField(plan.tier, 'displayName', e.target.value)}
-                          sx={{ input: { color: 'white', fontSize: '1.75rem', fontWeight: 900 } }}
+                          sx={{ input: { color: 'text.primary', fontSize: '1.75rem', fontWeight: 900 } }}
                         />
                       </Box>
                       <IconButton 
                         onClick={() => refreshSingleTier(plan.tier)} 
                         disabled={refreshing === plan.tier}
-                        sx={{ color: 'rgba(255,255,255,0.3)' }}
+                        sx={{ color: 'text.disabled' }}
                       >
                         {refreshing === plan.tier ? <CircularProgress size={20} /> : <RefreshIcon fontSize="small" />}
                       </IconButton>
@@ -249,8 +249,8 @@ const PlanConfigManager = () => {
                           fullWidth
                           value={plan.monthlyPrice || 0}
                           onChange={(e) => handleUpdateField(plan.tier, 'monthlyPrice', parseFloat(e.target.value))}
-                          InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: '#4ade80' }}>₹</InputAdornment> }}
-                          sx={{ '& label': { color: 'rgba(255,255,255,0.5)' }, '& input': { color: 'white' } }}
+                          InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: 'success.main' }}>₹</InputAdornment> }}
+                          sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                         />
                       </Grid>
                       <Grid item xs={6}>
@@ -260,14 +260,14 @@ const PlanConfigManager = () => {
                           fullWidth
                           value={plan.yearlyPrice || 0}
                           onChange={(e) => handleUpdateField(plan.tier, 'yearlyPrice', parseFloat(e.target.value))}
-                          InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: '#fbbf24' }}>₹</InputAdornment> }}
-                          sx={{ '& label': { color: 'rgba(255,255,255,0.5)' }, '& input': { color: 'white' } }}
+                          InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: 'warning.main' }}>₹</InputAdornment> }}
+                          sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                         />
                       </Grid>
                     </Grid>
 
-                    <Box sx={{ bgcolor: 'rgba(255,255,255,0.03)', p: 2, borderRadius: 3, border: '1px dashed rgba(255,255,255,0.1)' }}>
-                      <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 900, mb: 1, display: 'block', letterSpacing: 1 }}>
+                    <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 3, border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 900, mb: 1, display: 'block', letterSpacing: 1 }}>
                         SYSTEM CONSTRAINTS
                       </Typography>
                       <Stack spacing={2}>
@@ -278,7 +278,7 @@ const PlanConfigManager = () => {
                           value={plan.maxSalesPerMonth || 0}
                           onChange={(e) => handleUpdateField(plan.tier, 'maxSalesPerMonth', parseInt(e.target.value))}
                           InputProps={{ startAdornment: <InputAdornment position="start"><SalesIcon sx={{ color: '#818cf8', fontSize: 18 }} /></InputAdornment> }}
-                          sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                          sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                         />
                         <Stack direction="row" spacing={2}>
                           <TextField
@@ -288,7 +288,7 @@ const PlanConfigManager = () => {
                             value={plan.maxItems || 0}
                             onChange={(e) => handleUpdateField(plan.tier, 'maxItems', parseInt(e.target.value))}
                             InputProps={{ startAdornment: <InputAdornment position="start"><ItemsIcon sx={{ color: '#f472b6', fontSize: 18 }} /></InputAdornment> }}
-                            sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                           />
                           <TextField
                             label="Max Staff"
@@ -297,7 +297,7 @@ const PlanConfigManager = () => {
                             value={plan.maxStaffUsers || 0}
                             onChange={(e) => handleUpdateField(plan.tier, 'maxStaffUsers', parseInt(e.target.value))}
                             InputProps={{ startAdornment: <InputAdornment position="start"><PeopleIcon sx={{ color: '#2dd4bf', fontSize: 18 }} /></InputAdornment> }}
-                            sx={{ '& label': { color: 'rgba(255,255,255,0.4)' }, '& input': { color: 'white' } }}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                           />
                         </Stack>
                       </Stack>
@@ -317,7 +317,7 @@ const PlanConfigManager = () => {
                     </Paper>
 
                     <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800, color: '#38bdf8' }}>Features List</Typography>
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800, color: 'primary.main' }}>Features List</Typography>
                       <TextField
                         placeholder="Add feature..."
                         fullWidth size="small"
@@ -327,13 +327,13 @@ const PlanConfigManager = () => {
                             e.target.value = '';
                           }
                         }}
-                        sx={{ mb: 2, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 2, '& input': { color: 'white' } }}
+                        sx={{ mb: 2, bgcolor: 'action.hover', borderRadius: 2, '& input': { color: 'text.primary' } }}
                       />
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 60 }}>
                         {plan.features?.map((f, i) => (
                           <Chip 
                             key={i} label={f} onDelete={() => handleFeatureRemove(plan.tier, i)}
-                            sx={{ bgcolor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', fontWeight: 600 }}
+                            sx={{ bgcolor: 'rgba(25, 118, 210, 0.12)', color: 'primary.main', fontWeight: 600 }}
                           />
                         ))}
                       </Box>
@@ -346,7 +346,7 @@ const PlanConfigManager = () => {
                       startIcon={saving === plan.tier ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                       sx={{ 
                         py: 1.5, borderRadius: 3, fontWeight: 900,
-                        bgcolor: '#4ade80', color: '#064e3b',
+                        bgcolor: 'success.main', color: '#064e3b',
                         '&:hover': { bgcolor: '#22c55e' }
                       }}
                     >

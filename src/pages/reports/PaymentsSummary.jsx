@@ -63,7 +63,7 @@ export default function PaymentsSummary() {
     : 0;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -77,14 +77,14 @@ export default function PaymentsSummary() {
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('paymentsSummaryReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('paymentsSummaryReport.title')}</Typography>
           <Typography color="text.secondary">{t('paymentsSummaryReport.subtitle')}</Typography>
         </Box>
         {report && (
           <Button 
             variant="outlined" startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+            sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
           >
             Export CSV
           </Button>
@@ -92,7 +92,7 @@ export default function PaymentsSummary() {
       </Stack>
 
       {/* Filters */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -131,7 +131,7 @@ export default function PaymentsSummary() {
                 value={`₹${Number(report.totalPayments).toLocaleString('en-IN')}`}
                 icon={<DoneAll sx={{ color: '#10b981' }} />}
                 subtitle="Net amount received"
-                bgColor="#ecfdf5"
+                bgColor="rgba(16, 185, 129, 0.12)"
               />
             </Grid>
 
@@ -142,7 +142,7 @@ export default function PaymentsSummary() {
                 value={report.paymentCount}
                 icon={<Receipt sx={{ color: '#3b82f6' }} />}
                 subtitle="Number of transactions"
-                bgColor="#eff6ff"
+                bgColor="rgba(59, 130, 246, 0.12)"
               />
             </Grid>
 
@@ -153,12 +153,12 @@ export default function PaymentsSummary() {
                 value={`₹${Number(averageCollection.toFixed(2)).toLocaleString('en-IN')}`}
                 icon={<Speed sx={{ color: '#8b5cf6' }} />}
                 subtitle="Collection efficiency"
-                bgColor="#f5f3ff"
+                bgColor="rgba(139, 92, 246, 0.12)"
               />
             </Grid>
           </Grid>
 
-          <Paper sx={{ mt: 4, p: 4, borderRadius: 4, border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <Paper sx={{ mt: 4, p: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               Showing payment records for the period of 
               <strong> {dayjs(from).format('LL')}</strong> to <strong>{dayjs(to).format('LL')}</strong>.
@@ -167,7 +167,7 @@ export default function PaymentsSummary() {
         </Box>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <PointOfSale sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+          <PointOfSale sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary">Fetch data to see your collection summary.</Typography>
         </Box>
       )}
@@ -177,7 +177,7 @@ export default function PaymentsSummary() {
 
 // Reusable Metric Card for this report
 const MetricCard = ({ title, value, icon, subtitle, bgColor }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent>
       <Stack spacing={2}>
         <Avatar sx={{ bgcolor: bgColor, borderRadius: 2 }}>{icon}</Avatar>
@@ -185,10 +185,10 @@ const MetricCard = ({ title, value, icon, subtitle, bgColor }) => (
           <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ textTransform: 'uppercase' }}>
             {title}
           </Typography>
-          <Typography variant="h4" fontWeight={900} color="#1e293b">
+          <Typography variant="h4" fontWeight={900} color="text.primary">
             {value}
           </Typography>
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" color="text.secondary">
             {subtitle}
           </Typography>
         </Box>

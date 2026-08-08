@@ -137,7 +137,7 @@ const AdminPaymentQueue = () => {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Box>
           <Typography variant="h4" fontWeight={900} color="white">Payment Verification Queue</Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Reconcile {queue.length} pending Indian UPI/Bank transfers
           </Typography>
         </Box>
@@ -155,7 +155,7 @@ const AdminPaymentQueue = () => {
         )}
       </Stack>
 
-      <Paper sx={{ bgcolor: '#1e293b', borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <Paper sx={{ bgcolor: 'background.paper', borderRadius: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <TextField
             fullWidth
@@ -164,8 +164,8 @@ const AdminPaymentQueue = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'rgba(255,255,255,0.3)' }} /></InputAdornment>,
-              sx: { color: 'white', bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 2 }
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.disabled' }} /></InputAdornment>,
+              sx: { color: 'text.primary', bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 2 }
             }}
           />
         </Box>
@@ -179,20 +179,20 @@ const AdminPaymentQueue = () => {
                     indeterminate={selectedIds.length > 0 && selectedIds.length < queue.length}
                     checked={queue.length > 0 && selectedIds.length === queue.length}
                     onChange={handleSelectAll}
-                    sx={{ color: 'rgba(255,255,255,0.3)' }}
+                    sx={{ color: 'text.disabled' }}
                   />
                 </TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>SHOP & OWNER</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>CONTACT</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>PLAN / AMT</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>UTR DETAILS</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700 }} align="right">ACTIONS</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>SHOP & OWNER</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>CONTACT</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>PLAN / AMT</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>UTR DETAILS</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }} align="right">ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredQueue.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 10, color: 'rgba(255,255,255,0.2)' }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 10, color: 'text.disabled' }}>
                     <HistoryIcon sx={{ fontSize: 48, mb: 1, opacity: 0.1 }} />
                     <Typography>No pending payments to verify.</Typography>
                   </TableCell>
@@ -204,41 +204,41 @@ const AdminPaymentQueue = () => {
                       <Checkbox 
                         checked={selectedIds.includes(item.id)}
                         onChange={() => handleSelectOne(item.id)}
-                        sx={{ color: 'rgba(255,255,255,0.3)' }}
+                        sx={{ color: 'text.disabled' }}
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography sx={{ color: 'white', fontWeight: 700 }}>{item.shopName}</Typography>
-                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Owner: {item.ownerName}</Typography>
+                      <Typography sx={{ color: 'text.primary', fontWeight: 700 }}>{item.shopName}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Owner: {item.ownerName}</Typography>
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <IconButton size="small" onClick={() => openWhatsApp(item.ownerPhone, item.shopName, item.utrNumber)} sx={{ color: '#25D366', bgcolor: 'rgba(37, 211, 102, 0.1)' }}>
                           <WhatsAppIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" href={`tel:${item.ownerPhone}`} sx={{ color: '#38bdf8', bgcolor: 'rgba(56, 189, 248, 0.1)' }}>
+                        <IconButton size="small" href={`tel:${item.ownerPhone}`} sx={{ color: 'primary.main', bgcolor: 'rgba(25, 118, 210, 0.12)' }}>
                           <CallIcon fontSize="small" />
                         </IconButton>
-                        <Typography variant="body2" sx={{ color: 'white' }}>{item.ownerPhone}</Typography>
+                        <Typography variant="body2" sx={{ color: 'text.primary' }}>{item.ownerPhone}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Chip label={item.planRequested} size="small" sx={{ bgcolor: '#3b82f6', color: 'white', fontWeight: 800, mb: 0.5 }} />
-                      <Typography variant="body2" sx={{ color: '#4ade80', fontWeight: 800 }}>₹{item.amount?.toLocaleString('en-IN')}</Typography>
+                      <Chip label={item.planRequested} size="small" sx={{ bgcolor: '#3b82f6', color: 'text.primary', fontWeight: 800, mb: 0.5 }} />
+                      <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 800 }}>₹{item.amount?.toLocaleString('en-IN')}</Typography>
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         <Box sx={{ bgcolor: 'rgba(0,0,0,0.3)', px: 1, py: 0.5, borderRadius: 1 }}>
-                           <Typography sx={{ color: '#fbbf24', fontFamily: 'monospace', fontWeight: 'bold' }}>{item.utrNumber}</Typography>
+                           <Typography sx={{ color: 'warning.main', fontFamily: 'monospace', fontWeight: 'bold' }}>{item.utrNumber}</Typography>
                         </Box>
                         <IconButton size="small" onClick={() => copyToClipboard(item.utrNumber)}>
-                          <ContentCopyIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.3)' }} />
+                          <ContentCopyIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
                         </IconButton>
                       </Stack>
                     </TableCell>
                     <TableCell align="right">
                       <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                        <IconButton onClick={() => openConfirm('approve', item.id)} sx={{ color: '#4ade80' }}>
+                        <IconButton onClick={() => openConfirm('approve', item.id)} sx={{ color: 'success.main' }}>
                           <CheckCircleIcon />
                         </IconButton>
                         <IconButton onClick={() => openConfirm('reject', item.id)} sx={{ color: '#f87171' }}>
@@ -258,14 +258,14 @@ const AdminPaymentQueue = () => {
       <Dialog 
         open={confirmDialog.open} 
         onClose={closeConfirm}
-        PaperProps={{ sx: { bgcolor: '#1e293b', color: 'white', borderRadius: 3, p: 1 } }}
+        PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary', borderRadius: 3, p: 1 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <WarningAmberIcon color="warning" />
           {confirmDialog.type.includes('approve') ? "Confirm Approval" : "Confirm Rejection"}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          <DialogContentText sx={{ color: 'text.primary' }}>
             {confirmDialog.type === 'bulk_approve' 
               ? `Are you sure you want to approve all ${selectedIds.length} selected payments? This action will immediately activate these shops.`
               : confirmDialog.type === 'approve' 
@@ -274,7 +274,7 @@ const AdminPaymentQueue = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={closeConfirm} sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancel</Button>
+          <Button onClick={closeConfirm} sx={{ color: 'text.secondary' }}>Cancel</Button>
           <Button 
             onClick={processAction} 
             variant="contained" 

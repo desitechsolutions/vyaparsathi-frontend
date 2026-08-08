@@ -10,6 +10,7 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonIcon from '@mui/icons-material/Person';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useAppPalette } from '../../hooks/useAppPalette';
 
 import {
   fetchSalesWithDue,
@@ -35,26 +36,13 @@ const paymentMethodOptions = [
 const needsTransactionId = (method) => ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
 const emptyMethod = { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' };
 
-// Modern color palette
-const theme = {
-  primary: '#0f766e',
-  primaryLight: '#14b8a6',
-  secondary: '#7c3aed',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  success: '#10b981',
-  background: '#f8fafc',
-  cardBg: '#ffffff',
-  headerGradient: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-  borderColor: '#e2e8f0',
-  textPrimary: '#1e293b',
-  textSecondary: '#64748b',
-};
 
 const CustomerPaymentPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSaleId = searchParams.get('saleId');
+  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
+  const theme = useAppPalette();
 
   const handleBack = () => {
     navigate(-1);
@@ -422,7 +410,7 @@ const CustomerPaymentPage = () => {
                 },
               },
               '& .MuiTabs-indicator': { 
-                bgcolor: '#ffffff', 
+                bgcolor: 'background.paper', 
                 height: 3.5, 
                 borderRadius: '3px 3px 0 0',
               },
@@ -445,7 +433,6 @@ const CustomerPaymentPage = () => {
               formatAmount={formatAmount}
               advanceBalance={advanceBalance}
               isBulk={selectedSale === 'BULK'}
-              theme={theme}
             />
 
             <Box sx={{ mt: 4 }}>
@@ -471,7 +458,6 @@ const CustomerPaymentPage = () => {
                   formatAmount={formatAmount}
                   globalNotes={globalNotes}
                   setGlobalNotes={setGlobalNotes}
-                  theme={theme}
                 />
               ) : (
                 <PaymentHistory
@@ -487,7 +473,6 @@ const CustomerPaymentPage = () => {
                   onCustomerChange={handleCustomerChange}
                   onRefresh={fetchHistoryAndBalance}
                   formatAmount={formatAmount}
-                  theme={theme}
                 />
               )}
             </Box>

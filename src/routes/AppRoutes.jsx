@@ -64,6 +64,9 @@ import PlanConfigManager from '../pages/admin/PlanConfigManager';
 import ExpiryReport from '../pages/reports/ExpiryReport';
 import NarcoticsRegister from '../pages/reports/NarcoticsRegister';
 import PurchaseRegister from '../pages/reports/PurchaseRegister';
+import PurchaseReturns from '../pages/purchases/PurchaseReturns';
+import PrintGRNPage from '../pages/purchases/PrintGRNPage';
+import PrintPurchaseReturnPage from '../pages/purchases/PrintPurchaseReturnPage';
 import { ShopProvider } from '../context/ShopContext';
 
 function AppRoutes() {
@@ -190,8 +193,11 @@ function AppRoutes() {
             <Route path="analytics" element={<TierGuard requiredTier="PRO"><AnalyticsDashboard /></TierGuard>} />
             <Route path="purchase-orders" element={<TierGuard requiredTier="PRO"><PurchaseOrders /></TierGuard>} />
             <Route path="receivings" element={<TierGuard requiredTier="PRO"><Receiving /></TierGuard>} />
+            <Route path="receivings/:id/print" element={<TierGuard requiredTier="PRO"><PrintGRNPage /></TierGuard>} />
             <Route path="receiving/:poId" element={<TierGuard requiredTier="PRO"><ReceivingPage /></TierGuard>} />
             <Route path="supplier-payments" element={<TierGuard requiredTier="PRO"><SupplierPaymentPage /></TierGuard>} />
+            <Route path="purchase-returns" element={<TierGuard requiredTier="PRO"><PurchaseReturns /></TierGuard>} />
+            <Route path="purchase-returns/:id/print" element={<TierGuard requiredTier="PRO"><PrintPurchaseReturnPage /></TierGuard>} />
             <Route path="backup" element={<TierGuard requiredTier="PRO"><Backup /></TierGuard>} />
 
             {/* Reports Group (PRO Tier) */}

@@ -26,7 +26,7 @@ const SalesTabs = ({ value, onChange }) => {
             textTransform: 'none',
             fontSize: '0.95rem',
             fontWeight: 700,
-            color: '#64748b',
+            color: 'text.secondary',
             transition: 'all 0.2s ease',
             minHeight: 48,
             py: 1,

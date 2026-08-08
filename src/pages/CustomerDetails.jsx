@@ -186,10 +186,10 @@ const CustomerDetails = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}><CircularProgress thickness={2} /></Box>;
 
   return (
-    <Box sx={{ bgcolor: '#f4f6f8', minHeight: '100vh', p: { xs: 2, md: 4 } }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', p: { xs: 2, md: 4 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <IconButton onClick={() => navigate('/customers')} sx={{ bgcolor: 'white', boxShadow: 1 }}><ArrowBack /></IconButton>
+          <IconButton onClick={() => navigate('/customers')} sx={{ bgcolor: 'background.paper', boxShadow: 1 }}><ArrowBack /></IconButton>
           <Box>
             <Stack direction="row" alignItems="center" spacing={1}>
               {isPharmacy && <LocalHospital color="primary" fontSize="small" />}
@@ -201,7 +201,7 @@ const CustomerDetails = () => {
           </Box>
         </Stack>
         <Stack direction="row" spacing={1.5}>
-          <Button variant="outlined" sx={{ bgcolor: 'white' }} startIcon={<PictureAsPdf />} onClick={generatePDF}>PDF Statement</Button>
+          <Button variant="outlined" sx={{ bgcolor: 'background.paper' }} startIcon={<PictureAsPdf />} onClick={generatePDF}>PDF Statement</Button>
           <Button variant="contained" color="success" startIcon={<WhatsApp />} 
             onClick={() => window.open(`https://wa.me/91${customer.phone}?text=Your net balance is ${formatBalance(netBalance)}`, '_blank')}>WhatsApp</Button>
         </Stack>
@@ -211,8 +211,8 @@ const CustomerDetails = () => {
         <Grid item xs={12}>
           <Grid container spacing={3}>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid #e0e4e7' }}>
-                <Avatar sx={{ bgcolor: netBalance > 0 ? '#d32f2f15' : '#2e7d3215', color: netBalance > 0 ? '#d32f2f' : '#2e7d32' }}><AccountBalanceWallet /></Avatar>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid', borderColor: 'divider' }}>
+                <Avatar sx={{ bgcolor: netBalance > 0 ? 'error.light' : 'success.light', color: netBalance > 0 ? 'error.main' : 'success.main' }}><AccountBalanceWallet /></Avatar>
                 <Box>
                   <Typography variant="caption" fontWeight={700} color="text.secondary">NET BALANCE</Typography>
                   <Typography variant="h5" fontWeight={800} color={netBalance > 0 ? 'error.main' : 'success.main'}>{formatBalance(netBalance)}</Typography>
@@ -221,8 +221,8 @@ const CustomerDetails = () => {
               </Paper>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid #e0e4e7' }}>
-                <Avatar sx={{ bgcolor: '#1976d215', color: '#1976d2' }}><ReceiptLong /></Avatar>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid', borderColor: 'divider' }}>
+                <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main' }}><ReceiptLong /></Avatar>
                 <Box>
                   <Typography variant="caption" fontWeight={700} color="text.secondary">TOTAL SALES</Typography>
                   <Typography variant="h5" fontWeight={800}>{formatCurrency(totalSales)}</Typography>
@@ -230,8 +230,8 @@ const CustomerDetails = () => {
               </Paper>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid #e0e4e7' }}>
-                <Avatar sx={{ bgcolor: '#2e7d3215', color: '#2e7d32' }}><Payments /></Avatar>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, border: '1px solid', borderColor: 'divider' }}>
+                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}><Payments /></Avatar>
                 <Box>
                   <Typography variant="caption" fontWeight={700} color="text.secondary">TOTAL RECEIVED</Typography>
                   <Typography variant="h5" fontWeight={800}>{formatCurrency(totalPaid)}</Typography>
@@ -242,7 +242,7 @@ const CustomerDetails = () => {
         </Grid>
 
         <Grid item xs={12} md={3}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e4e7' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {isPharmacy ? 'Patient Details' : 'Customer Details'}
             </Typography>
@@ -256,7 +256,7 @@ const CustomerDetails = () => {
                     <Medication fontSize="small" color="primary" />
                     <Typography variant="caption" color="text.secondary" fontWeight={700}>Medical Notes</Typography>
                   </Stack>
-                  <Typography variant="body2" sx={{ color: '#374151', fontStyle: customer.notes ? 'normal' : 'italic' }}>
+                  <Typography variant="body2" sx={{ color: 'text.primary', fontStyle: customer.notes ? 'normal' : 'italic' }}>
                     {customer.notes || 'No medical notes on file'}
                   </Typography>
                 </>
@@ -272,15 +272,15 @@ const CustomerDetails = () => {
         </Grid>
 
         <Grid item xs={12} md={9}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e4e7', overflow: 'hidden' }}>
-            <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'white' }}>
+          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+            <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
               <Tab label={isPharmacy ? 'Unpaid Bills' : 'Pending Invoices'} />
               <Tab label={isPharmacy ? 'Purchase History' : 'Sales History'} icon={isPharmacy ? <MedicalServices fontSize="small" /> : undefined} iconPosition="start" />
               <Tab label="Statement (Ledger)" />
             </Tabs>
 
             {tabValue === 2 && (
-              <Stack direction="row" spacing={2} sx={{ p: 2, bgcolor: '#fafafa', borderBottom: '1px solid #e0e4e7', flexWrap: 'wrap' }}>
+              <Stack direction="row" spacing={2} sx={{ p: 2, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}>
                 <TextField type="date" size="small" label="From" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 160 }} />
                 <TextField type="date" size="small" label="To" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 160 }} />
                 <Button size="small" startIcon={<Refresh />} variant="contained" onClick={loadData}>Refresh Statement</Button>
@@ -289,7 +289,7 @@ const CustomerDetails = () => {
 
             <Box sx={{ minHeight: 400, p: 2 }}>
               <Table size="small">
-                <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
                   <TableRow>
                     {tabValue === 2 ? (
                       <>

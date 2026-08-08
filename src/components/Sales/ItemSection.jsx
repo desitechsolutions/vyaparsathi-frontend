@@ -17,29 +17,63 @@ import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
 import { fetchBatchWiseStock } from '../../services/api';
 
+import { useTheme } from '@mui/material/styles';
+
 // ============ CONSTANTS ============
 const DEFAULT_PACK_SIZE = 10;
 
-const CUSTOM_SELECT_STYLES = {
-  control: (base, state) => ({
-    ...base,
-    borderRadius: '8px',
-    borderColor: state.isFocused ? '#0f766e' : '#e0e0e0',
-    boxShadow: state.isFocused ? '0 0 0 1px #0f766e' : 'none',
-    '&:hover': { borderColor: '#0f766e' },
-    minHeight: '45px',
-  }),
-  menuPortal: base => ({ ...base, zIndex: 9999 }),
-  multiValue: (base) => ({
-    ...base,
-    backgroundColor: alpha('#0f766e', 0.1),
-    borderRadius: '4px',
-  }),
-  multiValueLabel: (base) => ({
-    ...base,
-    color: '#0f766e',
-    fontWeight: 500,
-  }),
+const getCustomSelectStyles = (theme) => {
+  const isDark = theme?.palette?.mode === 'dark';
+  const bg = theme?.palette?.background?.paper || '#ffffff';
+  const text = theme?.palette?.text?.primary || '#111827';
+  const textSecondary = theme?.palette?.text?.secondary || '#6b7280';
+  const divider = theme?.palette?.divider || (isDark ? 'rgba(148,163,184,0.16)' : '#e0e0e0');
+  const primary = theme?.palette?.primary?.main || '#0f766e';
+  const hover = theme?.palette?.action?.hover || (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)');
+
+  return {
+    control: (base, state) => ({
+      ...base,
+      borderRadius: '8px',
+      backgroundColor: bg,
+      borderColor: state.isFocused ? primary : divider,
+      boxShadow: state.isFocused ? `0 0 0 1px ${primary}` : 'none',
+      color: text,
+      '&:hover': { borderColor: primary },
+      minHeight: '45px',
+    }),
+    menu: (base) => ({
+      ...base,
+      zIndex: 9999,
+      backgroundColor: bg,
+      border: `1px solid ${divider}`,
+    }),
+    menuList: (base) => ({
+      ...base,
+      backgroundColor: bg,
+      maxHeight: 200,
+      overflowY: 'auto',
+    }),
+    option: (base, state) => ({
+      ...base,
+      fontSize: '0.875rem',
+      color: state.isSelected ? '#ffffff' : text,
+      backgroundColor: state.isSelected ? primary : state.isFocused ? hover : bg,
+    }),
+    singleValue: (base) => ({ ...base, color: text }),
+    placeholder: (base) => ({ ...base, color: textSecondary }),
+    input: (base) => ({ ...base, color: text }),
+    multiValue: (base) => ({
+      ...base,
+      backgroundColor: hover,
+      borderRadius: '4px',
+    }),
+    multiValueLabel: (base) => ({
+      ...base,
+      color: text,
+    }),
+    menuPortal: base => ({ ...base, zIndex: 9999 }),
+  };
 };
 
 const INDUSTRY_FILTER_CONFIG = {
@@ -199,17 +233,22 @@ const FilterBar = ({
   onReset,
   isPharmacy,
   optionsMap,
-}) => (
-  <Box sx={{ mt: 4 }}>
-    <Paper variant="outlined" sx={{
-      p: 2.5,
-      borderRadius: 3,
-      bgcolor: alpha('#0f766e', 0.02),
-      border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
-    }}>
+}) => {
+  const theme = useTheme();
+  const selectStyles = getCustomSelectStyles(theme);
+
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Paper variant="outlined" sx={{
+        p: 2.5,
+        borderRadius: 3,
+        bgcolor: 'action.hover',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <FilterListIcon fontSize="small" sx={{ color: '#0f766e' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f766e' }}>
+        <FilterListIcon fontSize="small" sx={{ color: 'var(--color-teal)' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
           Refine Results
         </Typography>
       </Box>
@@ -229,7 +268,7 @@ const FilterBar = ({
               }
               onChange={(opt) => handleChange(f.key, opt, f.multi)}
               placeholder={f.label}
-              styles={CUSTOM_SELECT_STYLES}
+              styles={selectStyles}
               menuPortalTarget={document.body}
               isClearable
             />
@@ -238,7 +277,7 @@ const FilterBar = ({
       </Grid>
 
       <Collapse in={showAdvanced}>
-        <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${alpha('#0f766e', 0.2)}` }}>
+        <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${alpha('#0f766e', 0.08)}` }}>
           <Grid container spacing={2}>
             {filterConfig.advanced.map((f) => (
               <Grid item xs={12} sm={3} key={f.key}>
@@ -247,7 +286,7 @@ const FilterBar = ({
                   value={optionsMap[f.options].find(opt => opt.value === searchParams[f.key]) || null}
                   onChange={(opt) => handleChange(f.key, opt, false)}
                   placeholder={f.label}
-                  styles={CUSTOM_SELECT_STYLES}
+                  styles={selectStyles}
                   menuPortalTarget={document.body}
                   isClearable
                 />
@@ -259,6 +298,7 @@ const FilterBar = ({
     </Paper>
   </Box>
 );
+};
 
 /**
  * Batch Selection Component (Pharmacy Only)
@@ -305,14 +345,14 @@ const BatchSelector = ({
           control: (base, state) => ({
             ...base,
             borderRadius: '8px',
-            borderColor: state.isFocused ? '#f59e0b' : alpha('#f59e0b', 0.5),
+            borderColor: state.isFocused ? 'var(--color-warning)' : alpha('#f59e0b', 0.5),
             boxShadow: state.isFocused ? `0 0 0 1px #f59e0b` : 'none',
             minHeight: '44px',
           }),
           option: (base, { data }) => ({
             ...base,
             color: data._daysLeft !== null && data._daysLeft <= 0
-              ? '#dc2626'
+              ? 'var(--color-error)'
               : data._daysLeft !== null && data._daysLeft <= 30
               ? '#d97706'
               : base.color,
@@ -341,10 +381,10 @@ const DispensingMode = ({
     p: 2,
     borderRadius: 3,
     bgcolor: alpha('#10b981', 0.08),
-    border: `1.5px solid ${alpha('#10b981', 0.3)}`,
+    border: `1.5px solid ${alpha('#10b981', 0.08)}`,
   }}>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-      <MedicationIcon sx={{ color: '#10b981' }} fontSize="small" />
+      <MedicationIcon sx={{ color: 'var(--color-success)' }} fontSize="small" />
       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#065f46' }}>
         Dispensing Mode
       </Typography>
@@ -355,7 +395,7 @@ const DispensingMode = ({
         exclusive
         onChange={onModeChange}
         size="small"
-        sx={{ bgcolor: 'white', borderRadius: 2 }}
+        sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
       >
         <ToggleButton value="PACK" sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}>
           Strip / Box
@@ -373,7 +413,7 @@ const DispensingMode = ({
           value={packSize}
           onChange={onPackSizeChange}
           inputProps={{ min: 1, max: 1000 }}
-          sx={{ width: 160, bgcolor: 'white', borderRadius: 1 }}
+          sx={{ width: 160, bgcolor: 'background.paper', borderRadius: 1 }}
           InputProps={{
             endAdornment: <InputAdornment position="end">tabs</InputAdornment>,
           }}
@@ -439,8 +479,9 @@ const ItemDetails = ({
         mt: 3,
         p: 3,
         borderRadius: 4,
-        bgcolor: alpha('#0f766e', 0.04),
-        border: `1.5px solid ${alpha('#0f766e', 0.2)}`,
+        bgcolor: 'action.hover',
+        border: '1px solid',
+        borderColor: 'divider',
         display: selectedVariant ? 'block' : 'none',
       }}
     >
@@ -450,7 +491,7 @@ const ItemDetails = ({
             label={`MRP ₹${Number(selectedVariant.mrp).toFixed(2)}`}
             size="small"
             variant="outlined"
-            sx={{ color: '#64748b', borderColor: '#cbd5e1', fontWeight: 600 }}
+            sx={{ color: 'text.secondary', borderColor: 'divider', fontWeight: 600 }}
           />
           <Chip
             label={`${mrpDiscount}% below MRP`}
@@ -468,7 +509,7 @@ const ItemDetails = ({
               <Grid item xs={isPharmacy && d.label === 'Composition' ? 12 : 4} key={i}>
                 <Typography
                   variant="caption"
-                  sx={{ fontWeight: 700, color: '#64748b' }}
+                  sx={{ fontWeight: 700, color: 'text.secondary' }}
                 >
                   {d.label}
                 </Typography>
@@ -476,7 +517,7 @@ const ItemDetails = ({
                   variant="body1"
                   sx={{
                     fontWeight: 700,
-                    color: '#0f766e',
+                    color: 'var(--color-teal)',
                     wordBreak: 'break-word',
                   }}
                 >
@@ -496,7 +537,7 @@ const ItemDetails = ({
             onChange={onQtyChange}
             onFocus={(e) => e.target.select()}
             InputProps={{
-              sx: { borderRadius: 2, bgcolor: 'white', fontWeight: 800 },
+              sx: { borderRadius: 2, bgcolor: 'background.paper', fontWeight: 800 },
               ...(isPharmacy && sellingMode === 'LOOSE'
                 ? { endAdornment: <InputAdornment position="end">tabs</InputAdornment> }
                 : {}),
@@ -518,9 +559,9 @@ const ItemDetails = ({
               textTransform: 'none',
               fontWeight: 800,
               background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.3)}`,
+              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
               '&:hover': {
-                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.4)}`,
+                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.08)}`,
               },
             }}
           >
@@ -530,7 +571,7 @@ const ItemDetails = ({
       </Grid>
 
       {error && (
-        <Box sx={{ mt: 2, p: 1.5, bgcolor: alpha('#dc2626', 0.1), borderRadius: 2, border: `1px solid ${alpha('#dc2626', 0.3)}` }}>
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: alpha('#dc2626', 0.1), borderRadius: 2, border: `1px solid ${alpha('#dc2626', 0.1)}` }}>
           <Typography color="#dc2626" variant="body2" sx={{ textAlign: 'center', fontWeight: 600 }}>
             {error}
           </Typography>
@@ -661,6 +702,9 @@ const ItemSection = ({
   isPharmacy,
   industryType,
 }) => {
+  const theme = useTheme();
+  const selectStyles = useMemo(() => getCustomSelectStyles(theme), [theme]);
+
   // ── STATE ──
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSubstitutes, setShowSubstitutes] = useState(false);
@@ -806,9 +850,9 @@ const ItemSection = ({
     <Grid item xs={12}>
       <Card raised sx={{
         borderRadius: 4,
-        boxShadow: `0 10px 30px ${alpha('#0f766e', 0.1)}`,
+        boxShadow: `0 10px 30px ${alpha('#0f766e', 0.08)}`,
         overflow: 'visible',
-        border: `1.5px solid ${alpha('#0f766e', 0.15)}`,
+        border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
       }}>
         <CardContent sx={{ p: { xs: 2, md: 4 } }}>
           {/* HEADER */}
@@ -820,14 +864,14 @@ const ItemSection = ({
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               {isPharmacy ? (
-                <LocalPharmacyIcon sx={{ color: '#0f766e', fontSize: 32 }} />
+                <LocalPharmacyIcon sx={{ color: 'var(--color-teal)', fontSize: 32 }} />
               ) : (
-                <SearchIcon sx={{ color: '#0f766e', fontSize: 32 }} />
+                <SearchIcon sx={{ color: 'var(--color-teal)', fontSize: 32 }} />
               )}
               <Typography variant="h5" sx={{
                 fontWeight: 800,
                 letterSpacing: '-0.5px',
-                color: '#0f766e',
+                color: 'var(--color-teal)',
               }}>
                 {headerTitle}
               </Typography>
@@ -842,7 +886,7 @@ const ItemSection = ({
                   sx={{
                     textTransform: 'none',
                     fontWeight: 700,
-                    color: '#64748b',
+                    color: 'text.secondary',
                   }}
                 >
                   Reset
@@ -872,7 +916,7 @@ const ItemSection = ({
               <Typography variant="caption" sx={{
                 fontWeight: 700,
                 ml: 1,
-                color: '#64748b',
+                color: 'text.secondary',
                 textTransform: 'uppercase',
                 fontSize: '0.75rem',
               }}>
@@ -884,7 +928,7 @@ const ItemSection = ({
                 onChange={(opt) => handleChange('name', opt, false)}
                 placeholder={isPharmacy ? 'Search by name...' : 'Search...'}
                 isClearable
-                styles={CUSTOM_SELECT_STYLES}
+                styles={selectStyles}
                 menuPortalTarget={document.body}
               />
             </Grid>
@@ -892,7 +936,7 @@ const ItemSection = ({
               <Typography variant="caption" sx={{
                 fontWeight: 700,
                 ml: 1,
-                color: '#64748b',
+                color: 'text.secondary',
                 textTransform: 'uppercase',
                 fontSize: '0.75rem',
               }}>
@@ -904,7 +948,7 @@ const ItemSection = ({
                 onChange={(opt) => handleChange('sku', opt, false)}
                 placeholder={isPharmacy ? 'Batch or SKU...' : 'SKU...'}
                 isClearable
-                styles={CUSTOM_SELECT_STYLES}
+                styles={selectStyles}
                 menuPortalTarget={document.body}
               />
             </Grid>
@@ -913,7 +957,7 @@ const ItemSection = ({
                 <Typography variant="caption" sx={{
                   fontWeight: 700,
                   ml: 1,
-                  color: '#64748b',
+                  color: 'text.secondary',
                   textTransform: 'uppercase',
                   fontSize: '0.75rem',
                 }}>
@@ -925,7 +969,7 @@ const ItemSection = ({
                   onChange={(opt) => handleChange('composition', opt, false)}
                   placeholder="Search..."
                   isClearable
-                  styles={CUSTOM_SELECT_STYLES}
+                  styles={selectStyles}
                   menuPortalTarget={document.body}
                 />
               </Grid>
@@ -952,9 +996,9 @@ const ItemSection = ({
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              color: '#0f766e',
+              color: 'var(--color-teal)',
             }}>
-              <Chip label="Step 2" size="small" sx={{ bgcolor: '#0f766e', color: 'white' }} />
+              <Chip label="Step 2" size="small" sx={{ bgcolor: 'var(--color-teal)', color: 'white' }} />
               {isPharmacy ? 'Select Medicine' : 'Select Variant'}
             </Typography>
             <Select
@@ -964,13 +1008,39 @@ const ItemSection = ({
               value={selectedVariant}
               isClearable
               styles={{
-                control: (base) => ({
+                control: (base, state) => ({
                   ...base,
                   borderRadius: '10px',
-                  border: `2px solid #0f766e`,
+                  backgroundColor: theme.palette.background.paper,
+                  color: theme.palette.text.primary,
+                  borderColor: state.isFocused ? theme.palette.primary.main : theme.palette.divider,
+                  boxShadow: state.isFocused ? `0 0 0 1px ${theme.palette.primary.main}` : 'none',
                   minHeight: '50px',
                   fontSize: '1.1rem',
+                  '&:hover': { borderColor: theme.palette.primary.main },
                 }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 9999,
+                  backgroundColor: theme.palette.background.paper,
+                  border: `1px solid ${theme.palette.divider}`,
+                }),
+                menuList: (base) => ({
+                  ...base,
+                  backgroundColor: theme.palette.background.paper,
+                }),
+                option: (base, state) => ({
+                  ...base,
+                  color: state.isSelected ? '#ffffff' : theme.palette.text.primary,
+                  backgroundColor: state.isSelected
+                    ? theme.palette.primary.main
+                    : state.isFocused
+                    ? theme.palette.action.hover
+                    : theme.palette.background.paper,
+                }),
+                singleValue: (base) => ({ ...base, color: theme.palette.text.primary }),
+                placeholder: (base) => ({ ...base, color: theme.palette.text.secondary }),
+                input: (base) => ({ ...base, color: theme.palette.text.primary }),
                 menuPortal: base => ({ ...base, zIndex: 9999 }),
               }}
               menuPortalTarget={document.body}

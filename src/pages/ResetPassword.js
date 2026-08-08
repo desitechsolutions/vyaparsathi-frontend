@@ -73,7 +73,7 @@ const ResetPassword = () => {
         <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56, mb: 1 }}>
           <LockResetIcon sx={{ fontSize: 36 }} />
         </Avatar>
-        <Typography variant="h5" fontWeight="900" sx={{ color: '#0f172a' }}>Reset Your PIN</Typography>
+        <Typography variant="h5" fontWeight="900" sx={{ color: 'text.primary' }}>Reset Your PIN</Typography>
         
         {error && <Alert severity="error" sx={{ width: '100%', borderRadius: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ width: '100%', borderRadius: 2 }}>PIN reset successfully! Redirecting to login...</Alert>}

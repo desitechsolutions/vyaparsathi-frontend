@@ -111,7 +111,7 @@ export default function ExpiryReport() {
   });
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Button
         startIcon={<ArrowBackIosNew sx={{ fontSize: '0.8rem !important' }} />}
         onClick={() => navigate('/reports')}
@@ -122,7 +122,7 @@ export default function ExpiryReport() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('expiryReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('expiryReport.title')}</Typography>
           <Typography color="text.secondary">{t('expiryReport.subtitle')}</Typography>
         </Box>
         {data && data.length > 0 && (
@@ -130,7 +130,7 @@ export default function ExpiryReport() {
             variant="outlined"
             startIcon={<FileDownload />}
             onClick={() => downloadCSV(data, days)}
-            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'white' }}
+            sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', bgcolor: 'background.paper' }}
           >
             Export CSV
           </Button>
@@ -138,7 +138,7 @@ export default function ExpiryReport() {
       </Stack>
 
       {/* Days Filter */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Stack direction="row" alignItems="center" spacing={3} flexWrap="wrap" gap={2}>
           <Typography variant="subtitle2" fontWeight={700} color="text.secondary">Show items expiring in:</Typography>
           <ToggleButtonGroup
@@ -195,19 +195,19 @@ export default function ExpiryReport() {
 
           {/* Data Table */}
           {data.length === 0 ? (
-            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid #e2e8f0' }}>
-              <CheckCircle sx={{ fontSize: 60, color: '#86efac', mb: 2 }} />
+            <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+              <CheckCircle sx={{ fontSize: 60, color: 'success.main', mb: 2 }} />
               <Typography variant="h6" fontWeight={700} color="text.secondary">
                 No items expiring in the next {days} days
               </Typography>
             </Paper>
           ) : (
-            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
               <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
                     {['Item Name', 'SKU', 'Batch No', 'Mfg Date', 'Expiry Date', 'Status', 'Qty'].map(h => (
-                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
+                      <TableCell key={h} sx={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', color: 'text.secondary' }}>
                         {h}
                       </TableCell>
                     ))}
@@ -217,24 +217,24 @@ export default function ExpiryReport() {
                   {data.map((row, idx) => {
                     const status = getExpiryStatus(row.expiryDate, row.daysToExpiry);
                     return (
-                      <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
+                      <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                         <TableCell>
-                          <Typography variant="subtitle2" fontWeight={700}>{row.itemName}</Typography>
+                          <Typography variant="subtitle2" fontWeight={700} color="text.primary">{row.itemName}</Typography>
                           {row.composition && (
                             <Typography variant="caption" color="text.secondary">{row.composition}</Typography>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">{row.sku}</Typography>
+                          <Typography variant="body2" fontFamily="monospace" color="text.primary">{row.sku}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">{row.batchNumber || '—'}</Typography>
+                          <Typography variant="body2" fontFamily="monospace" color="text.primary">{row.batchNumber || '—'}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{formatDate(row.manufacturingDate)}</Typography>
+                          <Typography variant="body2" color="text.secondary">{formatDate(row.manufacturingDate)}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={600}>{formatDate(row.expiryDate)}</Typography>
+                          <Typography variant="body2" fontWeight={600} color="text.primary">{formatDate(row.expiryDate)}</Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -245,7 +245,7 @@ export default function ExpiryReport() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={700}>{row.quantity} {row.unit}</Typography>
+                          <Typography variant="body2" fontWeight={700} color="text.primary">{row.quantity} {row.unit}</Typography>
                         </TableCell>
                       </TableRow>
                     );
@@ -260,12 +260,10 @@ export default function ExpiryReport() {
   );
 }
 
-const STAT_CARD_BG = { error: '#fee2e2', warning: '#fef3c7', success: '#dcfce7' };
-
 const StatCard = ({ icon, color, label, value, desc }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-      <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: STAT_CARD_BG[color] || '#f1f5f9', color: `${color}.main` }}>
+      <Avatar variant="rounded" sx={{ width: 52, height: 52, bgcolor: `${color}.light`, color: `${color}.main` }}>
         {icon}
       </Avatar>
       <Box>

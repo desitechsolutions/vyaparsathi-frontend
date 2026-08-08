@@ -40,7 +40,7 @@ export default function SalesSummary() {
   }, []);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -53,12 +53,12 @@ export default function SalesSummary() {
 
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight={900} color="#0f172a">{t('salesSummaryReport.title')}</Typography>
+        <Typography variant="h4" fontWeight={900} color="text.primary">{t('salesSummaryReport.title')}</Typography>
         <Typography color="text.secondary">{t('salesSummaryReport.subtitle')}</Typography>
       </Box>
 
       {/* Filters */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
@@ -75,7 +75,7 @@ export default function SalesSummary() {
           <Grid item xs={12} md={2}>
             <Button 
               variant="contained" fullWidth size="large" onClick={handleFetch} 
-              disabled={loading} sx={{ height: 56, borderRadius: 2 }}
+              disabled={loading} sx={{ height: 56, borderRadius: 2, fontWeight: 700 }}
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : 'Generate'}
             </Button>
@@ -106,13 +106,13 @@ export default function SalesSummary() {
           <Grid container spacing={4}>
             {/* Financial Detail */}
             <Grid item xs={12} md={7}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0' }}>
-                <Typography variant="h6" fontWeight={800} mb={3}>Revenue & Collection Detail</Typography>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+                <Typography variant="h6" fontWeight={800} color="text.primary" mb={3}>Revenue & Collection Detail</Typography>
                 <Stack spacing={2.5}>
                   <DataRow label="Gross Invoiced Sales" value={report.totalSales} bold />
                   <DataRow label="Total Paid Amount" value={report.totalPaid} />
                   <DataRow label="Net Revenue (Excl. Returns)" value={report.netRevenue} />
-                  <Divider />
+                  <Divider sx={{ borderColor: 'divider' }} />
                   <DataRow label="Taxable Value" value={report.totalTaxableValue} />
                   <DataRow label="Total GST" value={report.totalGstAmount} color="secondary.main" />
                   <DataRow label="Round Off Differences" value={report.totalRoundOff} />
@@ -122,15 +122,15 @@ export default function SalesSummary() {
 
             {/* Profitability Detail */}
             <Grid item xs={12} md={5}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
-                <Typography variant="h6" fontWeight={800} mb={3}>Profitability Summary</Typography>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+                <Typography variant="h6" fontWeight={800} color="text.primary" mb={3}>Profitability Summary</Typography>
                 <Stack spacing={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ textTransform: 'uppercase' }}>Cost of Goods Sold (COGS)</Typography>
-                    <Typography variant="h5" fontWeight={900} color="#1e293b">₹{Number(report.totalCOGS).toLocaleString()}</Typography>
+                    <Typography variant="h5" fontWeight={900} color="text.primary">₹{Number(report.totalCOGS).toLocaleString()}</Typography>
                   </Box>
-                  <Divider />
-                  <Box sx={{ p: 2, bgcolor: report.netProfit >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: 3, border: '1px solid', borderColor: report.netProfit >= 0 ? '#dcfce7' : '#fee2e2' }}>
+                  <Divider sx={{ borderColor: 'divider' }} />
+                  <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 3, border: '1px solid', borderColor: report.netProfit >= 0 ? 'success.main' : 'error.main' }}>
                     <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ textTransform: 'uppercase' }}>Net Margin Result</Typography>
                     <Typography variant="h4" fontWeight={900} color={report.netProfit >= 0 ? 'success.main' : 'error.main'}>
                       ₹{Number(report.netProfit).toLocaleString()}
@@ -145,10 +145,12 @@ export default function SalesSummary() {
           </Grid>
         </Box>
       ) : (
-        !loading && (
+        loading ? (
+          <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
+        ) : (
           <Box sx={{ textAlign: 'center', py: 10 }}>
-            <Avatar sx={{ width: 80, height: 80, bgcolor: '#f1f5f9', mx: 'auto', mb: 2 }}>
-              <LocalAtm sx={{ fontSize: 40, color: '#cbd5e1' }} />
+            <Avatar sx={{ width: 80, height: 80, bgcolor: 'action.hover', mx: 'auto', mb: 2 }}>
+              <LocalAtm sx={{ fontSize: 40, color: 'action.disabled' }} />
             </Avatar>
             <Typography variant="h6" color="text.secondary">No reports for this period.</Typography>
           </Box>
@@ -160,7 +162,7 @@ export default function SalesSummary() {
 
 // Reusable KPI Card
 const KpiCard = ({ title, value, icon, highlight = "text.primary", isCurrency = true }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
     <CardContent>
       <Stack direction="row" justifyContent="space-between">
         <Box>
@@ -169,7 +171,7 @@ const KpiCard = ({ title, value, icon, highlight = "text.primary", isCurrency = 
             {isCurrency ? `₹${Number(value || 0).toLocaleString()}` : value}
           </Typography>
         </Box>
-        <Avatar variant="rounded" sx={{ bgcolor: '#f8fafc', border: '1px solid #f1f5f9' }}>{icon}</Avatar>
+        <Avatar variant="rounded" sx={{ bgcolor: 'background.default', border: '1px solid', borderColor: 'divider' }}>{icon}</Avatar>
       </Stack>
     </CardContent>
   </Card>

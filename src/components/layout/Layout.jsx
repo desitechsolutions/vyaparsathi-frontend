@@ -26,7 +26,7 @@ const Layout = () => {
         sx={{ 
           flexGrow: 1, 
           p: 3, 
-          bgcolor: '#F8FAFC', 
+          bgcolor: 'background.default', 
           minHeight: '100vh',
           position: 'relative' // Keeps the floating widget anchored correctly
         }}

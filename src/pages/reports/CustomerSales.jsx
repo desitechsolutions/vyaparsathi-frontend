@@ -72,7 +72,7 @@ export default function CustomerSales() {
   const maxSales = Math.max(...report.map(o => o.totalSales), 0);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       
       {/* Navigation */}
       <Button 
@@ -86,14 +86,14 @@ export default function CustomerSales() {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" mb={4} spacing={2}>
         <Box>
-          <Typography variant="h4" fontWeight={900} color="#0f172a">{t('customerSalesReport.title')}</Typography>
+          <Typography variant="h4" fontWeight={900} color="text.primary">{t('customerSalesReport.title')}</Typography>
           <Typography color="text.secondary">{t('customerSalesReport.subtitle')}</Typography>
         </Box>
         {report.length > 0 && (
           <Button 
             variant="outlined" startIcon={<FileDownload />} 
             onClick={() => downloadCSV(report, from, to)}
-            sx={{ borderRadius: 2, bgcolor: 'white', fontWeight: 700 }}
+            sx={{ borderRadius: 2, bgcolor: 'background.paper', fontWeight: 700 }}
           >
             Export CSV
           </Button>
@@ -101,7 +101,7 @@ export default function CustomerSales() {
       </Stack>
 
       {/* Filter Bar */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
@@ -146,29 +146,29 @@ export default function CustomerSales() {
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress /></Box>
       ) : filteredReport.length > 0 ? (
-        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid #e2e8f0' }}>
+        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Table sx={{ minWidth: 700 }}>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800 }}>{	('customerSalesReport.columns.customer')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('customerSalesReport.columns.totalAmount')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800 }}>{	('reportsCommon.amount')}</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 800 }}>{	('reportsCommon.actions')}</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('customerSalesReport.columns.customer')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('customerSalesReport.columns.totalAmount')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('reportsCommon.amount')}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: 'text.secondary' }}>{t('reportsCommon.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredReport.map((row, idx) => (
-                <TableRow key={idx} hover>
+                <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                   <TableCell>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ bgcolor: row.totalSales === maxSales ? '#fff7ed' : '#f1f5f9', color: row.totalSales === maxSales ? '#f59e0b' : '#64748b' }}>
+                      <Avatar sx={{ bgcolor: row.totalSales === maxSales ? 'warning.light' : 'action.hover', color: row.totalSales === maxSales ? 'warning.main' : 'text.secondary' }}>
                         {row.totalSales === maxSales ? <Stars /> : <Person />}
                       </Avatar>
                       <Box>
-                        <Typography variant="body2" fontWeight={700}>
+                        <Typography variant="body2" fontWeight={700} color="text.primary">
                           {row.customerName}
                           {row.totalSales === maxSales && (
-                            <Typography component="span" variant="caption" sx={{ ml: 1, color: '#f59e0b', fontWeight: 900 }}>TOP BUYER</Typography>
+                            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontWeight: 900 }}>TOP BUYER</Typography>
                           )}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">ID: {row.customerId}</Typography>
@@ -202,7 +202,7 @@ export default function CustomerSales() {
         </TableContainer>
       ) : (
         <Box sx={{ textAlign: 'center', py: 10 }}>
-          <AccountBalanceWallet sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+          <AccountBalanceWallet sx={{ fontSize: 60, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary">No customer data found for this period.</Typography>
         </Box>
       )}

@@ -17,28 +17,28 @@ const CustomToolbar = ({ rowCount, onRefresh }) => {
   const { t } = useTranslation(); // ← added
 
   return (
-    <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc' }}>
+    <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'action.hover' }}>
       <Stack direction="row" spacing={2} alignItems="center">
-        <Typography variant="h6" fontWeight={800} color="#1e293b">
+        <Typography variant="h6" fontWeight={800} color="text.primary">
           {t('productsOverview.title')} {/* ← translated */}
         </Typography>
         <Chip 
           label={t('productsOverview.totalVariants', { count: rowCount })} 
           size="small" 
           variant="outlined" 
-          sx={{ fontWeight: 600, color: '#64748b', borderColor: '#e2e8f0' }} 
+          sx={{ fontWeight: 600, color: 'text.secondary', borderColor: 'divider' }} 
         />
       </Stack>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         <GridToolbarQuickFilter 
           placeholder={t('productsOverview.searchPlaceholder')} 
           sx={{ 
-            '& .MuiInputBase-root': { borderRadius: 2, px: 1, bgcolor: 'white' },
+            '& .MuiInputBase-root': { borderRadius: 2, px: 1, bgcolor: 'background.paper' },
             pb: 0 
           }} 
         />
         <Tooltip title={t('productsOverview.refreshTooltip')}>
-          <IconButton onClick={onRefresh} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
+          <IconButton onClick={onRefresh} sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -87,11 +87,11 @@ const ProductOverview = () => {
       minWidth: 250,
       renderCell: (params) => (
         <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1 }}>
-          <Avatar sx={{ bgcolor: '#eff6ff', color: '#3b82f6', fontWeight: 700, fontSize: '0.8rem' }}>
+          <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.12)', color: 'primary.main', fontWeight: 700, fontSize: '0.8rem' }}>
             {params.value.substring(0, 2).toUpperCase()}
           </Avatar>
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} color="#0f172a">
+            <Typography variant="subtitle2" fontWeight={700} color="text.primary">
               {params.value}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -108,9 +108,9 @@ const ProductOverview = () => {
       minWidth: 200,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
-          {params.row.color && <Chip label={params.row.color} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
-          {params.row.size && <Chip label={params.row.size} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
-          {params.row.design && <Chip label={params.row.design} size="small" sx={{ bgcolor: '#f1f5f9', fontWeight: 600 }} />}
+          {params.row.color && <Chip label={params.row.color} size="small" variant="outlined" sx={{ fontWeight: 600, borderColor: 'divider' }} />}
+          {params.row.size && <Chip label={params.row.size} size="small" variant="outlined" sx={{ fontWeight: 600, borderColor: 'divider' }} />}
+          {params.row.design && <Chip label={params.row.design} size="small" variant="outlined" sx={{ fontWeight: 600, borderColor: 'divider' }} />}
         </Stack>
       )
     },
@@ -119,7 +119,7 @@ const ProductOverview = () => {
       headerName: t('productsOverview.columns.retailPrice'), 
       width: 140,
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight={800} color="#0f172a">
+        <Typography variant="body2" fontWeight={800} color="text.primary">
           ₹{params.value.toLocaleString('en-IN')}
         </Typography>
       )
@@ -136,7 +136,7 @@ const ProductOverview = () => {
 
         return (
           <Stack direction="column" spacing={0.5}>
-            <Typography variant="body2" fontWeight={700}>{qty} {t('productsOverview.units')}</Typography>
+            <Typography variant="body2" fontWeight={700} color="text.primary">{qty} {t('productsOverview.units')}</Typography>
             <Chip 
               label={status.label} 
               color={status.color} 
@@ -151,14 +151,14 @@ const ProductOverview = () => {
   ];
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', py: 4 }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="xl">
         <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-          <Box sx={{ bgcolor: '#0f172a', p: 1, borderRadius: 2 }}>
-            <Layers sx={{ color: 'white' }} />
+          <Box sx={{ bgcolor: 'primary.main', p: 1, borderRadius: 2, display: 'flex' }}>
+            <Layers sx={{ color: 'primary.contrastText' }} />
           </Box>
           <Box>
-            <Typography variant="h4" fontWeight={900} color="#0f172a">
+            <Typography variant="h4" fontWeight={900} color="text.primary">
               {t('productsOverview.title')}
             </Typography>
             <Typography color="text.secondary">
@@ -173,12 +173,13 @@ const ProductOverview = () => {
           elevation={0} 
           sx={{ 
             borderRadius: 4, 
-            border: '1px solid #e2e8f0', 
+            border: '1px solid', 
+            borderColor: 'divider',
             overflow: 'hidden',
             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
           }}
         >
-          <Box sx={{ height: '70vh', width: '100%', bgcolor: 'white' }}>
+          <Box sx={{ height: '70vh', width: '100%', bgcolor: 'background.paper' }}>
             <DataGrid
               rows={products}
               columns={columns}
@@ -194,14 +195,13 @@ const ProductOverview = () => {
               }}
               sx={{
                 border: 0,
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#f8fafc', borderBottom: '2px solid #e2e8f0' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f1f5f9' },
-                '& .MuiDataGrid-footerContainer': { borderTop: '2px solid #e2e8f0' }
+                '& .MuiDataGrid-columnHeaders': { bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' },
+                '& .MuiDataGrid-cell': { borderBottom: '1px solid', borderColor: 'divider' },
+                '& .MuiDataGrid-footerContainer': { borderTop: '1px solid', borderColor: 'divider' }
               }}
               localeText={{
                 noRowsLabel: t('productsOverview.noData'),
                 columnHeaderSortIconLabel: t('productsOverview.sort'),
-                // Add more translations if needed
               }}
             />
           </Box>

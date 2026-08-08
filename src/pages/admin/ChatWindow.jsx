@@ -64,12 +64,12 @@ const ChatWindow = ({ shopId, shopName }) => {
       height: '100%', 
       maxHeight: '100%', 
       overflow: 'hidden',
-      bgcolor: 'white',
+      bgcolor: 'background.paper',
     }}>
       
       {/* Chat Header */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', bgcolor: 'white', zIndex: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e293b' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', bgcolor: 'background.paper', zIndex: 1 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
           {shopName || 'Select a Shop'}
         </Typography>
         <Typography variant="caption" sx={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600 }}>
@@ -83,7 +83,7 @@ const ChatWindow = ({ shopId, shopName }) => {
         flexGrow: 1, 
         p: 2, 
         overflowY: 'auto', 
-        bgcolor: '#f8fafc',
+        bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -127,7 +127,7 @@ const ChatWindow = ({ shopId, shopName }) => {
                     bgcolor: isFromAdmin ? '#ec4899' : 'white', 
                     color: isFromAdmin ? 'white' : '#1e293b',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    border: isFromAdmin ? 'none' : '1px solid #e2e8f0'
+                    border: isFromAdmin ? 'none' : '1px solid'
                   }}>
                     <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                       {m.message}
@@ -154,7 +154,7 @@ const ChatWindow = ({ shopId, shopName }) => {
         {/* Typing Indicator */}
         {typingStatus?.isTyping && (
           <Box sx={{ alignSelf: 'flex-start', mb: 2, ml: 1 }}>
-            <Typography variant="caption" sx={{ color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 1 }}>
                {shopName} is typing...
             </Typography>
           </Box>
@@ -164,7 +164,7 @@ const ChatWindow = ({ shopId, shopName }) => {
       </Box>
 
       {/* Input Area */}
-      <Box sx={{ p: 2, bgcolor: 'white', borderTop: '1px solid #f1f5f9' }}>
+      <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: '1px solid #f1f5f9' }}>
         <Stack direction="row" spacing={1}>
           <TextField 
             fullWidth 
@@ -182,7 +182,7 @@ const ChatWindow = ({ shopId, shopName }) => {
                 handleSend();
               }
             }}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3, bgcolor: '#f8fafc' } }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3, bgcolor: 'background.default' } }}
           />
 
           <IconButton 
@@ -193,7 +193,7 @@ const ChatWindow = ({ shopId, shopName }) => {
               color: 'white', 
               alignSelf: 'flex-end',
               '&:hover': { bgcolor: '#db2777' },
-              '&.Mui-disabled': { bgcolor: '#f1f5f9', color: '#cbd5e1' }
+              '&.Mui-disabled': { bgcolor: 'background.default', color: 'action.disabled' }
             }}
           >
             <SendIcon fontSize="small" />

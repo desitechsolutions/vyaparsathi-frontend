@@ -81,7 +81,7 @@ const ContactSection = () => {
     <Box
       id="contact"
       sx={{
-        bgcolor: '#F8FAFC',
+        bgcolor: 'background.default',
         py: { xs: 10, md: 14, lg: 16 },
         borderTop: '1px solid rgba(0,0,0,0.04)',
       }}
