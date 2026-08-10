@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   IconButton, Button, Drawer, TextField, MenuItem, Select, InputLabel, FormControl,
-  Chip, CircularProgress, Snackbar, Alert, Autocomplete, Divider, 
+  Chip, CircularProgress, Snackbar, Alert, Autocomplete, Divider, Avatar,
   Grid, Card, CardContent, Stack
 } from '@mui/material';
 import {
@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import {
   fetchDeliveries, assignDeliveryPerson,
-  updateDeliveryStatus, fetchDeliveryPersons, createDeliveryPerson
+  updateDeliveryStatus, fetchDeliveryPersons, createDeliveryPerson, getSaleById
 } from '../services/api';
 import PrintableDelivery from '../components/PrintableDelivery';
 
@@ -124,12 +124,23 @@ const DeliveryManagement = () => {
     setDateRange({ start: '', end: '' });
   };
 
-  const handleOpenDrawer = (d) => {
+  const handleOpenDrawer = async (d) => {
     setSelectedDelivery(d);
     setDrawerOpen(true);
     setAssignMode(false);
     setUpdateStatus("");
     setAssignPerson({ name: "", phone: "", notes: "" });
+
+    if (d?.saleId && (!d.saleItems || d.saleItems.length === 0)) {
+      try {
+        const saleRes = await getSaleById(d.saleId);
+        const saleData = saleRes?.data || saleRes;
+        const items = saleData?.items || saleData?.saleItems || [];
+        setSelectedDelivery(prev => prev && prev.deliveryId === d.deliveryId ? { ...prev, saleItems: items } : prev);
+      } catch (e) {
+        console.warn('Could not fetch sale items for delivery slip:', e);
+      }
+    }
   };
 
   const handleAssignPerson = async () => {
@@ -185,7 +196,10 @@ const DeliveryManagement = () => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
-      <Box sx={{ display: 'none' }}><PrintableDelivery ref={printRef} delivery={selectedDelivery} /></Box>
+      {/* Off-screen container keeps printable component in DOM without inline visibility style conflict */}
+      <div className="no-print" style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0, pointerEvents: 'none' }}>
+        <PrintableDelivery ref={printRef} delivery={selectedDelivery} />
+      </div>
 
       <Snackbar 
         open={snackbar.open} 
@@ -402,14 +416,5 @@ const DeliveryManagement = () => {
     </Box>
   );
 };
-
-const Avatar = ({ children, sx }) => (
-  <Box sx={{ 
-    width: 36, height: 36, borderRadius: '50%', display: 'flex', 
-    alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', ...sx 
-  }}>
-    {children}
-  </Box>
-);
 
 export default DeliveryManagement;

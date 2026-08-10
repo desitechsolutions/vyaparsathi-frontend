@@ -51,3 +51,7 @@ export function startSmartIdleTimer({ onTimeout, onWarning, onExtend }) {
 
   return cleanup;
 }
+
+export function signalApiActivity() {
+  // Activity signal helper for idle timer
+}

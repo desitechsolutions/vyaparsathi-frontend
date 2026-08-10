@@ -313,6 +313,10 @@ const PlanConfigManager = () => {
                           control={<Switch size="small" checked={plan.isActive || false} onChange={(e) => handleUpdateField(plan.tier, 'isActive', e.target.checked)} color="success" />}
                           label={<Typography variant="caption" fontWeight={700}>ACTIVE</Typography>}
                         />
+                        <FormControlLabel
+                          control={<Switch size="small" checked={plan.canProcessSale ?? true} onChange={(e) => handleUpdateField(plan.tier, 'canProcessSale', e.target.checked)} color="primary" />}
+                          label={<Typography variant="caption" fontWeight={700}>ALLOW SALES</Typography>}
+                        />
                       </Stack>
                     </Paper>
 

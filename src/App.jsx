@@ -10,6 +10,10 @@ import i18n from './config/i18n';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import { ThemeContextProvider, useThemeContext } from './context/ThemeContext';
 
+import ErrorBoundary from './components/common/ErrorBoundary';
+
+import { clearAuthStorage } from './utils/authStorage';
+
 /**
  * Inner component — consumes ThemeContext (provided above it).
  * Rebuilds the MUI theme only when effectiveMode changes.
@@ -24,13 +28,29 @@ function ThemedApp() {
     document.documentElement.setAttribute('data-theme', effectiveMode);
   }, [effectiveMode]);
 
+  // Multi-tab logout / cross-tab storage sync listener
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'token' && !e.newValue) {
+        clearAuthStorage();
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?expired=true';
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <AuthProvider>
           <SubscriptionProvider>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </SubscriptionProvider>
         </AuthProvider>
       </Router>

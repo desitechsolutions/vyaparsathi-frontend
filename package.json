@@ -48,9 +48,9 @@
     "xlsx-style": "^0.8.13"
   },
   "scripts": {
-   "start": "craco start",                          
-  "build": "craco build",
-  "preview": "npm run build && npx serve -s build -l ${PORT:-3000}"
+    "start": "craco start",
+    "build": "craco build",
+    "preview": "npm run build && npx serve -s build -l ${PORT:-3000}"
   },
   "eslintConfig": {
     "extends": [
@@ -72,6 +72,8 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
+    "eslint": "^10.8.1",
+    "eslint-webpack-plugin": "^6.0.0",
     "yaml": "^2.8.2"
   }
 }

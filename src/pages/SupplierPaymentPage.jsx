@@ -10,7 +10,7 @@ import {
 import {
   ReceiptLong, Payment, SentimentSatisfiedAlt,
   AccountBalance,
-  CheckCircleOutline, Close, PictureAsPdf, Wallet,
+  CheckCircleOutline, Close,
   Refresh as RefreshIcon, ErrorOutline,
   Visibility as VisibilityIcon, Search as SearchIcon,
   Print as PrintIcon, TrendingDown, History as HistoryIcon
@@ -22,6 +22,7 @@ import {
   getSupplierPayments,
   getPurchaseOrderById,
   getSupplierPaymentSummary,
+  getSupplierPayableBills,
 } from '../services/api';
 import { useAppPalette } from '../hooks/useAppPalette';
 
@@ -122,8 +123,9 @@ export default function SupplierPaymentPage() {
                 paymentStatus: s.paymentStatus || 'PENDING',
                 paidAmount: Number(s.totalPaid || 0),
                 amountDue: Number(s.amountDue ?? (po.totalAmount - (s.totalPaid || 0))),
+                returnDeductions: Number(s.returnDeductions || 0),
               }
-            : { ...po, paymentStatus: po.paymentStatus || 'PENDING', paidAmount: 0 };
+            : { ...po, paymentStatus: po.paymentStatus || 'PENDING', paidAmount: 0, returnDeductions: 0 };
         });
         setAllPOs(enriched);
       } else {
@@ -141,11 +143,41 @@ export default function SupplierPaymentPage() {
     if (!supplierId) { setHistory([]); return; }
     setIsLoadingHistory(true);
     try {
-      const res = await getSupplierPayments({ supplierId, page: 0, size: 50 });
-      const content = res?.content || res || [];
-      setHistory(Array.isArray(content) ? content : []);
+      const [historyRes, payableBillsRes] = await Promise.allSettled([
+        getSupplierPayments({ supplierId, page: 0, size: 50 }),
+        getSupplierPayableBills(supplierId)
+      ]);
+      
+      if (historyRes.status === 'fulfilled') {
+        const res = historyRes.value;
+        const content = res?.content || res || [];
+        setHistory(Array.isArray(content) ? content : []);
+      } else {
+        setHistory([]);
+      }
+
+      if (payableBillsRes.status === 'fulfilled' && Array.isArray(payableBillsRes.value)) {
+        const billsMap = {};
+        payableBillsRes.value.forEach(b => {
+          billsMap[b.poId] = b;
+        });
+        setAllPOs(prev => prev.map(po => {
+          const b = billsMap[po.id];
+          if (b) {
+            return {
+              ...po,
+              totalAmount: Number(b.originalAmount ?? po.totalAmount),
+              returnDeductions: Number(b.returnDeductions || 0),
+              paidAmount: Number(b.cashPaid || 0),
+              amountDue: Number(b.netPayable ?? 0),
+              paymentStatus: b.paymentStatus || po.paymentStatus,
+            };
+          }
+          return po;
+        }));
+      }
     } catch (err) {
-      console.error('Failed to load payment history:', err);
+      console.error('Failed to load supplier details:', err);
       setHistory([]);
     } finally {
       setIsLoadingHistory(false);
@@ -167,7 +199,10 @@ export default function SupplierPaymentPage() {
   const getPODue = useCallback(
     (po) => {
       if (po.amountDue !== undefined) return Math.max(0, Number(po.amountDue));
-      return Math.max(0, Number(po.totalAmount || 0) - Number(po.paidAmount || 0));
+      const orig = Number(po.totalAmount || 0);
+      const ret = Number(po.returnDeductions || 0);
+      const paid = Number(po.paidAmount || 0);
+      return Math.max(0, orig - ret - paid);
     },
     []
   );
@@ -812,15 +847,17 @@ export default function SupplierPaymentPage() {
                       <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Supplier</TableCell>
                       <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Date</TableCell>
                       <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Status</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Total</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Due</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Original</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Return Adj.</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Paid</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Net Payable</TableCell>
                       <TableCell align="center" sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>Items</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                        <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
                           <SentimentSatisfiedAlt sx={{ fontSize: 48, color: alpha(theme.success, 0.3), mb: 1, display: 'block', mx: 'auto' }} />
                           <Typography color={theme.textSecondary} fontWeight={700}>
                             No pending purchase orders. All caught up! ✓
@@ -830,6 +867,8 @@ export default function SupplierPaymentPage() {
                     ) : (
                       allPOs.filter(po => po.paymentStatus !== 'PAID' && po.status !== 'CANCELLED').map(po => {
                         const supplier = suppliers.find(s => s.id === po.supplierId);
+                        const returnDeductions = Number(po.returnDeductions || 0);
+                        const cashPaid = Number(po.paidAmount || 0);
                         const due = getPODue(po);
                         return (
                           <TableRow 
@@ -858,6 +897,16 @@ export default function SupplierPaymentPage() {
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" fontWeight={700}>₹{formatCurrency(po.totalAmount)}</Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight={700} sx={{ color: returnDeductions > 0 ? theme.warning : theme.textSecondary }}>
+                                {returnDeductions > 0 ? `-₹${formatCurrency(returnDeductions)}` : '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight={700} sx={{ color: theme.success }}>
+                                {cashPaid > 0 ? `₹${formatCurrency(cashPaid)}` : '—'}
+                              </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" fontWeight={900} sx={{ color: theme.danger }}>

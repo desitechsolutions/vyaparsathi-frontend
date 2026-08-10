@@ -8,6 +8,8 @@ import {
 import { useAuthContext } from './AuthContext';
 import { toast } from 'react-toastify';
 
+import { getValidToken, clearAuthStorage } from '../utils/authStorage';
+
 const SubscriptionContext = createContext();
 
 export const SubscriptionProvider = ({ children }) => {
@@ -25,24 +27,32 @@ export const SubscriptionProvider = ({ children }) => {
      * This ensures prices and features match what the Admin set.
      */
     const loadPlansFromDB = useCallback(async () => {
+        const validToken = getValidToken();
+        if (!validToken) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const plansData = await fetchActivePricingPlans();
             setDynamicPlans(plansData);
         } catch (err) {
             console.error("Failed to fetch dynamic pricing plans:", err);
-            // Non-blocking error: the app will still function with current sub status
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+                clearAuthStorage();
+            }
         } finally {
             setLoading(false);
         }
     }, []);
 
     const refreshStatus = useCallback(async (showLoading = true) => {
-        if (!user) {
+        const validToken = getValidToken();
+        if (!validToken || !user) {
             setSubscription(null);
             isInitialLoad.current = true;
             prevStatusRef.current = null;
-            loadPlansFromDB();
+            setLoading(false);
             return;
         }
 
@@ -99,7 +109,12 @@ export const SubscriptionProvider = ({ children }) => {
             setSubscription(subData);
         } catch (err) {
             console.error("Subscription sync failed:", err);
-            setError("Could not update subscription status.");
+            if (err?.response?.status === 401 || err?.response?.status === 403) {
+                clearAuthStorage();
+                setSubscription(null);
+            } else {
+                setError("Could not update subscription status.");
+            }
         } finally {
             setLoading(false);
         }
@@ -111,8 +126,18 @@ export const SubscriptionProvider = ({ children }) => {
     }, [subscription]);
 
     const canStartTrial = useCallback(() => {
+        if (subscription?.canStartTrial !== undefined) {
+            return subscription.canStartTrial;
+        }
         return !subscription?.usedTrial && !isPremium();
     }, [subscription, isPremium]);
+
+    const canProcessSale = useCallback(() => {
+        if (subscription?.canProcessSale !== undefined) {
+            return subscription.canProcessSale;
+        }
+        return true;
+    }, [subscription]);
 
     const getCurrentCycle = useCallback(() => {
         return subscription?.billingCycle || 'MONTHLY';
@@ -214,6 +239,7 @@ export const SubscriptionProvider = ({ children }) => {
         getDaysRemaining,
         getStatus,
         canStartTrial,
+        canProcessSale,
         getCurrentCycle,
         verifyPayment,
         initiateTrial,

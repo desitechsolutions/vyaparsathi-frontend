@@ -46,16 +46,24 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
+import QrCodeIcon from '@mui/icons-material/QrCode';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+
 import API, {
   fetchSalesHistory,
   getSaleById,
   processSaleReturn,
   cancelSale,
+  generateEInvoice,
+  cancelEInvoice,
+  fetchEWayBillThreshold,
   API_BASE_URL,
 } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAppPalette } from '../../hooks/useAppPalette';
+import EInvoiceStatusBadge from '../EInvoice/EInvoiceStatusBadge';
+import EWayBillDialog from '../EInvoice/EWayBillDialog';
 
 
 
@@ -141,6 +149,77 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
 
+  // E-Invoice & E-Way Bill States (Issue 5)
+  const [ewayBillDialogOpen, setEwayBillDialogOpen] = useState(false);
+  const [ewayBillSale, setEwayBillSale] = useState(null);
+  const [ewayBillThreshold, setEwayBillThreshold] = useState(50000);
+  const [einvoiceLoading, setEinvoiceLoading] = useState(null);
+
+  useEffect(() => {
+    fetchEWayBillThreshold()
+      .then((threshold) => {
+        if (typeof threshold === 'number') setEwayBillThreshold(threshold);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleGenerateEInvoiceAction = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    setEinvoiceLoading(saleId);
+    try {
+      const resData = await generateEInvoice(saleId);
+      showSnackbar('E-Invoice IRN generated successfully!', 'success');
+      setSalesHistory(prev => {
+        const updateItem = (s) => ((s.id || s.saleId) === saleId) ? {
+          ...s,
+          einvoiceStatus: resData?.einvoiceStatus || 'GENERATED',
+          irn: resData?.irn || s.irn,
+          ackNo: resData?.ackNo || s.ackNo,
+          ackDate: resData?.ackDate || s.ackDate,
+          qrCodePath: resData?.qrCodePath || s.qrCodePath
+        } : s;
+        if (Array.isArray(prev)) return prev.map(updateItem);
+        if (prev && Array.isArray(prev.content)) return { ...prev, content: prev.content.map(updateItem) };
+        return prev;
+      });
+      loadData();
+    } catch (err) {
+      console.error('E-Invoice Error:', err);
+      showSnackbar(err?.response?.data?.message || 'Failed to generate E-Invoice', 'error');
+    } finally {
+      setEinvoiceLoading(null);
+    }
+  };
+
+  const handleCancelEInvoiceAction = async (sale) => {
+    const saleId = sale.id || sale.saleId;
+    setEinvoiceLoading(saleId);
+    try {
+      const resData = await cancelEInvoice(saleId, 'Cancelled via portal');
+      showSnackbar('E-Invoice IRN cancelled successfully!', 'success');
+      setSalesHistory(prev => {
+        const updateItem = (s) => ((s.id || s.saleId) === saleId) ? {
+          ...s,
+          einvoiceStatus: resData?.einvoiceStatus || 'CANCELLED'
+        } : s;
+        if (Array.isArray(prev)) return prev.map(updateItem);
+        if (prev && Array.isArray(prev.content)) return { ...prev, content: prev.content.map(updateItem) };
+        return prev;
+      });
+      loadData();
+    } catch (err) {
+      console.error('Cancel E-Invoice Error:', err);
+      showSnackbar(err?.response?.data?.message || 'Failed to cancel E-Invoice', 'error');
+    } finally {
+      setEinvoiceLoading(null);
+    }
+  };
+
+  const handleOpenEWayBillModal = (sale) => {
+    setEwayBillSale(sale);
+    setEwayBillDialogOpen(true);
+  };
+
   const showSnackbar = useCallback((message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   }, []);
@@ -148,7 +227,16 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const loadData = useCallback(() => {
     setLoading(true);
     fetchSalesHistory()
-      .then((res) => setSalesHistory(res.data || []))
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data)) {
+          setSalesHistory(data);
+        } else if (data && Array.isArray(data.content)) {
+          setSalesHistory(data.content);
+        } else {
+          setSalesHistory([]);
+        }
+      })
       .catch(() => showSnackbar('Failed to load sales history', 'error'))
       .finally(() => setLoading(false));
   }, [showSnackbar]);
@@ -434,8 +522,11 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
   const filteredSales = useMemo(() => {
     const searchLower = search.toLowerCase();
+    const list = Array.isArray(salesHistory)
+      ? salesHistory
+      : (salesHistory && Array.isArray(salesHistory.content) ? salesHistory.content : []);
 
-    return salesHistory
+    return list
       .filter((sale) => {
         const matchesSearch =
           (sale.customerName || '').toLowerCase().includes(searchLower) ||
@@ -659,12 +750,15 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                           {formatAmount(sale.totalAmount)}
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={sale.status}
-                            color={statusConfig[sale.status]?.color || 'default'}
-                            size="small"
-                            sx={{ fontWeight: 700 }}
-                          />
+                          <Stack spacing={0.5}>
+                            <Chip
+                              label={sale.status}
+                              color={statusConfig[sale.status]?.color || 'default'}
+                              size="small"
+                              sx={{ fontWeight: 700, alignSelf: 'flex-start' }}
+                            />
+                            {sale.status === 'COMPLETED' && <EInvoiceStatusBadge sale={sale} />}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           {sale.status !== 'DRAFT' && (
@@ -787,6 +881,68 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                     )}
                                   </Stack>
                                 </Box>
+
+                                {/* E-Invoice & E-Way Bill Section */}
+                                {sale.status === 'COMPLETED' && (
+                                  <Box sx={{ minWidth: 220 }}>
+                                    <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                                      E-Invoice & Compliance
+                                    </Typography>
+                                    <Stack spacing={1.5} sx={{ mt: 1 }}>
+                                      {sale.einvoiceStatus === 'GENERATED' ? (
+                                        <Box sx={{ p: 1.5, bgcolor: alpha(theme.success, 0.08), borderRadius: 2, border: `1px solid ${alpha(theme.success, 0.2)}` }}>
+                                          <Stack spacing={0.5}>
+                                            <Chip label="E-Invoice Active" color="success" size="small" sx={{ fontWeight: 700, alignSelf: 'flex-start' }} />
+                                            {sale.irn && (
+                                              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.primary', wordBreak: 'break-all', display: 'block', mt: 0.5 }}>
+                                                <b>IRN:</b> {sale.irn}
+                                              </Typography>
+                                            )}
+                                            {sale.ackNo && (
+                                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                <b>Ack #:</b> {sale.ackNo}
+                                              </Typography>
+                                            )}
+                                            <Button
+                                              variant="outlined"
+                                              color="error"
+                                              size="small"
+                                              startIcon={<CancelIcon />}
+                                              onClick={() => handleCancelEInvoiceAction(sale)}
+                                              disabled={einvoiceLoading === (sale.id || sale.saleId)}
+                                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, mt: 1 }}
+                                            >
+                                              Cancel E-Invoice
+                                            </Button>
+                                          </Stack>
+                                        </Box>
+                                      ) : (
+                                        <Button
+                                          variant="outlined"
+                                          color="primary"
+                                          size="small"
+                                          startIcon={einvoiceLoading === (sale.id || sale.saleId) ? <CircularProgress size={16} /> : <QrCodeIcon />}
+                                          onClick={() => handleGenerateEInvoiceAction(sale)}
+                                          disabled={einvoiceLoading === (sale.id || sale.saleId)}
+                                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                                        >
+                                          Generate E-Invoice
+                                        </Button>
+                                      )}
+
+                                      <Button
+                                        variant="contained"
+                                        color="primary"
+                                        size="small"
+                                        startIcon={<LocalShippingIcon />}
+                                        onClick={() => handleOpenEWayBillModal(sale)}
+                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                                      >
+                                        {sale.ewayBillNo ? `E-Way Bill: ${sale.ewayBillNo}` : 'Generate E-Way Bill'}
+                                      </Button>
+                                    </Stack>
+                                  </Box>
+                                )}
                               </Stack>
                             </Box>
                           </Collapse>
@@ -958,6 +1114,17 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* E-WAY BILL DIALOG */}
+      <EWayBillDialog
+        open={ewayBillDialogOpen}
+        sale={ewayBillSale}
+        onClose={() => setEwayBillDialogOpen(false)}
+        onSuccess={() => {
+          showSnackbar('E-Way Bill generated successfully!', 'success');
+          loadData();
+        }}
+      />
 
       {/* SNACKBAR */}
       <Snackbar

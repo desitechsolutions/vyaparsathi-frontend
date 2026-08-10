@@ -98,12 +98,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     { text: 'overview', icon: <AssessmentIcon />, path: '/reports', requiredTier: 'PRO' },
     { text: 'dailyReport.title', icon: <AssessmentIcon />, path: '/reports/daily', requiredTier: 'PRO' },
     { text: 'salesSummaryReport.title', icon: <AssessmentIcon />, path: '/reports/sales-summary', requiredTier: 'PRO' },
-    // Pharmacy-only reports
-    ...(isPharmacy ? [
-      { text: 'expiryReport.title', icon: <AssessmentIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
-      { text: 'narcoticsReport.title', icon: <AssessmentIcon />, path: '/reports/narcotics-register', requiredTier: 'PRO' },
-      { text: 'purchaseRegisterReport.title', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
-    ] : []),
+    { text: 'expiryReport.title', icon: <AssessmentIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
+    { text: 'purchaseRegisterReport.title', icon: <AssessmentIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
     { text: 'taxComplianceHub.title', icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
   ];
 

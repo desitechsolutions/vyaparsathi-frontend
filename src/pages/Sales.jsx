@@ -17,13 +17,15 @@ import {
   fetchCustomers, createSale, fetchItemVariants, createCustomer,
   draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes
 } from '../services/api';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
+import EnterpriseUpgradeModal from '../components/subscriptions/EnterpriseUpgradeModal';
 import PersonIcon from '@mui/icons-material/Person';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import LockIcon from '@mui/icons-material/Lock';
 
 // ============ CONSTANTS ============
 const initialItem = {
@@ -43,7 +45,6 @@ const initialFormData = {
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: 'PACKED',
-  doctorName: '', doctorRegistrationNumber: '', patientName: '',
 };
 
 const initialSearchParams = {
@@ -56,24 +57,8 @@ const initialSearchParams = {
 /**
  * Generate unique filter options from variants
  */
-const generateFilterOptions = (variants, field, isPharmacy = false) => {
+const generateFilterOptions = (variants, field) => {
   const baseOption = { value: '', label: `All ${field.charAt(0).toUpperCase() + field.slice(1)}s` };
-
-  if (field === 'name' && isPharmacy) {
-    const nameMap = new Map();
-    variants.forEach(v => {
-      if (v.itemName && !nameMap.has(v.itemName)) {
-        nameMap.set(v.itemName, v.composition || '');
-      }
-    });
-    return [
-      baseOption,
-      ...[...nameMap.entries()].map(([name, comp]) => ({
-        value: name,
-        label: comp ? `${name} (${comp})` : name,
-      })),
-    ];
-  }
 
   const uniqueValues = [...new Set(
     variants
@@ -92,24 +77,6 @@ const isDeliveryValid = (formData) => {
   const hasAddress = formData.deliveryAddress?.trim().length > 0;
   const hasPaidBy = formData.deliveryPaidBy !== '' && formData.deliveryPaidBy !== null;
   return hasAddress && hasPaidBy;
-};
-
-/**
- * Check if controlled drugs require prescription details
- */
-const checkPrescriptionRequired = (items) => {
-  return items.some(it => ['SCHEDULE_H1', 'SCHEDULE_X'].includes(it.drugSchedule));
-};
-
-/**
- * Validate prescription details
- */
-const validatePrescriptionDetails = (formData) => {
-  const missing = [];
-  if (!formData.doctorName?.trim()) missing.push('Doctor Name');
-  if (!formData.doctorRegistrationNumber?.trim()) missing.push('Doctor Reg. No.');
-  if (!formData.patientName?.trim()) missing.push('Patient Name');
-  return missing;
 };
 
 // ============ CUSTOM HOOKS ============
@@ -197,8 +164,9 @@ const useLoadData = () => {
 
 const Sales = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { isPharmacy, isJewellery, industryType, shop } = useShop();
-  const { getStatus } = useSubscription();
+  const { getStatus, canProcessSale, canStartTrial } = useSubscription();
   const { tabValue, setTabValue, resumeId, clearParams } = useURLParams();
 
   const hasBanner = getStatus() === 'PENDING';
@@ -232,6 +200,7 @@ const Sales = () => {
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [upgradeModalData, setUpgradeModalData] = useState({ open: false, upgradeOptions: null });
 
   // ── MODALS ──
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
@@ -525,13 +494,32 @@ const Sales = () => {
 
         showSnackbar(`Sale #${res.data.invoiceNo} completed!`, 'success');
       } catch (err) {
-        showSnackbar(err.response?.data?.message || 'Error processing sale.', 'error');
+        if (err.response?.status === 402 || err.response?.data?.code === 'FEATURE_RESTRICTED') {
+          setUpgradeModalData({
+            open: true,
+            upgradeOptions: err.response?.data?.upgradeOptions || { canStartTrial: canStartTrial(), trialDays: 14 }
+          });
+        } else {
+          showSnackbar(err.response?.data?.message || 'Error processing sale.', 'error');
+        }
       } finally {
         setLoading(false);
       }
     },
-    [formData, selectedCustomer, resetForm, clearParams, showSnackbar]
+    [formData, selectedCustomer, resetForm, clearParams, showSnackbar, canStartTrial]
   );
+
+  const handleCloseUpgradeModal = useCallback((wasTrialActivated) => {
+    setUpgradeModalData({ open: false, upgradeOptions: null });
+    if (wasTrialActivated) {
+      showSnackbar('14-Day Free Trial Activated! You can now complete your sale.', 'success');
+    }
+  }, [showSnackbar]);
+
+  const handleSaveDraftFromModal = useCallback(async () => {
+    await handleSaveDraft();
+    setTabValue(1);
+  }, [handleSaveDraft, setTabValue]);
 
   const handleCloseInvoiceModal = useCallback(() => {
     setOpenInvoiceModal(false);
@@ -577,7 +565,7 @@ const Sales = () => {
   }, [variants, searchParams]);
 
   const isDeliveryOk = useMemo(() => isDeliveryValid(formData), [formData]);
-  const isPrescriptionOk = useMemo(() => checkPrescriptionRequired(formData.items), [formData.items]);
+  const isPrescriptionOk = false;
 
   // ============ RENDER ============
 
@@ -591,6 +579,28 @@ const Sales = () => {
       height: outerHeight,
       overflow: 'hidden'
     }}>
+      {!canProcessSale() && (
+        <Alert
+          severity="warning"
+          icon={<LockIcon sx={{ color: '#f59e0b' }} />}
+          action={
+            <Stack direction="row" spacing={1} alignItems="center">
+              {canStartTrial() && (
+                <Button color="inherit" size="small" variant="contained" onClick={() => setUpgradeModalData({ open: true, upgradeOptions: { canStartTrial: true, trialDays: 14 } })} sx={{ bgcolor: '#f59e0b', color: '#000', fontWeight: 800, textTransform: 'none' }}>
+                  Activate 14-Day Trial
+                </Button>
+              )}
+              <Button color="inherit" size="small" variant="outlined" onClick={() => navigate('/pricing')} sx={{ textTransform: 'none' }}>
+                View Plans
+              </Button>
+            </Stack>
+          }
+          sx={{ borderRadius: 0, borderBottom: '1px solid rgba(245, 158, 11, 0.3)', bgcolor: 'rgba(245, 158, 11, 0.08)', color: '#fbbf24', py: 0.5, px: 2 }}
+        >
+          🔒 <strong>Sales Restriction Notice:</strong> Direct sale completion is restricted under your current plan configuration. You can save sales as draft or activate a 14-day full access trial to process sales immediately.
+        </Alert>
+      )}
+
       <SalesTabs
         value={tabValue}
         onChange={(newValue) => {
@@ -780,13 +790,6 @@ const Sales = () => {
                 onClear={resetForm}
                 onDraft={handleSaveDraft}
                 onProceed={() => {
-                  if (isPrescriptionOk) {
-                    const missing = validatePrescriptionDetails(formData);
-                    if (missing.length > 0) {
-                      showSnackbar(`Prescription required: ${missing.join(', ')}`, 'error');
-                      return;
-                    }
-                  }
                   setShowReviewPage(true);
                 }}
               />
@@ -852,6 +855,13 @@ const Sales = () => {
           if (pendingItem) doAddItem(pendingItem);
           setPendingItem(null);
         }}
+      />
+
+      <EnterpriseUpgradeModal
+        open={upgradeModalData.open}
+        onClose={handleCloseUpgradeModal}
+        upgradeOptions={upgradeModalData.upgradeOptions}
+        onSaveDraft={handleSaveDraftFromModal}
       />
     </Box>
   );

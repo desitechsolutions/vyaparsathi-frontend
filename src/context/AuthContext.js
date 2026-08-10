@@ -8,6 +8,8 @@ import { startSmartIdleTimer } from '../utils/auth';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import { getValidToken, clearAuthStorage } from '../utils/authStorage';
+
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -30,7 +32,7 @@ export const AuthProvider = ({ children }) => {
       await apiLogout().catch(() => {});
     } catch {}
 
-    localStorage.removeItem('token');
+    clearAuthStorage();
     delete API.defaults.headers.common['Authorization'];
     setUser(null);
 
@@ -68,12 +70,17 @@ export const AuthProvider = ({ children }) => {
 
   // ---------------- SILENT REFRESH ----------------
   const silentRefresh = useCallback(async () => {
-    if (isRefreshing.current || isLoggingOut.current) return;
+    if (isRefreshing.current || isLoggingOut.current) return null;
     isRefreshing.current = true;
 
     try {
       const res = await API.post('/api/auth/refresh', {});
       const { accessToken } = res.data;
+
+      if (!accessToken) {
+        clearAuthStorage();
+        return null;
+      }
 
       localStorage.setItem('token', accessToken);
       API.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
@@ -83,6 +90,7 @@ export const AuthProvider = ({ children }) => {
 
       return accessToken;
     } catch (err) {
+      clearAuthStorage();
       return null;
     } finally {
       isRefreshing.current = false;
@@ -92,19 +100,19 @@ export const AuthProvider = ({ children }) => {
   // ---------------- INITIAL BOOT ----------------
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem('token');
+      const token = getValidToken();
 
       if (token) {
         try {
           const decoded = jwtDecode(token);
-          if (decoded.exp * 1000 > Date.now()) {
+          if (decoded && decoded.exp * 1000 > Date.now()) {
             API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             setUser(decoded);
             setLoading(false);
             return;
           }
         } catch {
-          localStorage.removeItem('token');
+          clearAuthStorage();
         }
       }
 
@@ -124,7 +132,7 @@ export const AuthProvider = ({ children }) => {
     if (!user || isLoggingOut.current) return;
 
     const interval = setInterval(async () => {
-      const token = localStorage.getItem('token');
+      const token = getValidToken();
       if (!token || isLoggingOut.current) return;
 
       try {

@@ -490,10 +490,12 @@ const SalesSummary = ({
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
+      subtotal: (subtotal + totalMakingCharges).toFixed(2),
       discount: discount,
+      invoiceDiscount: discount,
       totalAmount: netPayable.toFixed(2),
     }));
-  }, [discount, netPayable, setFormData]);
+  }, [subtotal, totalMakingCharges, discount, netPayable, setFormData]);
 
   // ── CALLBACKS ──
 

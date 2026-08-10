@@ -5,7 +5,7 @@ import {
   StepLabel, IconButton, Tooltip, Stack, Avatar, Paper
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { setupShop, checkShopCode } from '../services/api';
+import API, { setupShop, checkShopCode } from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
 import useShopConfig from '../hooks/useShopConfig';
 
@@ -176,12 +176,40 @@ const SetupShop = () => {
 
     try {
       const res = await setupShop(formData);
-      const newShopId = res?.data?.id;
-      if (silentRefresh) {
-        await silentRefresh(); 
+      const data = res?.data;
+
+      // Extract new accessToken and refreshToken from res.data (handling flat or nested res.data.shop)
+      const accessToken = data?.accessToken || data?.token || data?.shop?.accessToken || data?.shop?.token;
+      const refreshToken = data?.refreshToken || data?.shop?.refreshToken;
+      const newShopId = data?.id || data?.shop?.id;
+
+      // Store tokens in localStorage IMMEDIATELY so Axios interceptors and context use the new token
+      if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('token', accessToken);
+        API.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       }
-      await refetchShop();
-      
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+
+      // Refresh auth session & shop configuration with new token context
+      if (silentRefresh) {
+        try {
+          await silentRefresh();
+        } catch (refreshErr) {
+          console.warn('silentRefresh warning after onboarding:', refreshErr);
+        }
+      }
+
+      if (refetchShop) {
+        try {
+          await refetchShop();
+        } catch (shopErr) {
+          console.warn('refetchShop warning after onboarding:', shopErr);
+        }
+      }
+
       // Initialize the onboarding checklist in localStorage
       if (newShopId) {
         const initialChecklist = {
@@ -195,6 +223,7 @@ const SetupShop = () => {
       
       setSetupComplete(true);
     } catch (err) {
+      console.error('Setup shop error:', err);
       setErrors({ submit: err?.response?.data?.message || 'Setup failed. Please try again.' });
     } finally {
       setIsLoading(false);

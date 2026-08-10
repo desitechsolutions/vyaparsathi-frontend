@@ -15,7 +15,7 @@ import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MedicationIcon from '@mui/icons-material/Medication';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
-import { fetchBatchWiseStock } from '../../services/api';
+import { fetchBatchWiseStock, lookupByBarcode } from '../../services/api';
 
 import { useTheme } from '@mui/material/styles';
 
@@ -581,38 +581,7 @@ const ItemDetails = ({
   );
 };
 
-/**
- * Drug Schedule Alert
- */
-const DrugScheduleAlert = ({ drugSchedule, isNarcotic }) => {
-  if (!drugSchedule) return null;
 
-  const isControlledDrug = ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(drugSchedule);
-  if (!isControlledDrug) return null;
-
-  return (
-    <Alert
-      severity={isNarcotic ? 'error' : 'warning'}
-      icon={<WarningAmberIcon />}
-      sx={{
-        mt: 2,
-        borderRadius: 2,
-        fontWeight: 600,
-      }}
-      action={
-        isNarcotic && (
-          <Chip label="Narcotics Log" size="small" color="error" variant="outlined" />
-        )
-      }
-    >
-      {drugSchedule === 'SCHEDULE_X'
-        ? 'Schedule X (Narcotic): Mandatory prescription. This sale will be logged in the Narcotics Register.'
-        : drugSchedule === 'SCHEDULE_H1'
-        ? 'Schedule H1: Stricter prescription control. Verify patient details before adding.'
-        : 'Schedule H: Prescription required. Confirm customer has valid prescription.'}
-    </Alert>
-  );
-};
 
 /**
  * Substitute Suggestions
@@ -910,9 +879,9 @@ const ItemSection = ({
             </Box>
           </Box>
 
-          {/* PRIMARY SEARCH */}
+          {/* PRIMARY SEARCH & BARCODE SCANNER */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={isPharmacy ? 4 : 6}>
+            <Grid item xs={12} md={4}>
               <Typography variant="caption" sx={{
                 fontWeight: 700,
                 ml: 1,
@@ -920,19 +889,56 @@ const ItemSection = ({
                 textTransform: 'uppercase',
                 fontSize: '0.75rem',
               }}>
-                {isPharmacy ? 'Medicine' : 'Product'} Name
+                📷 Scan Barcode / EAN
+              </Typography>
+              <TextField
+                placeholder="Scan barcode or press Enter..."
+                size="small"
+                fullWidth
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    try {
+                      const found = await lookupByBarcode(e.target.value.trim());
+                      if (found) {
+                        handleVariantSelect(found);
+                        e.target.value = '';
+                      }
+                    } catch (err) {
+                      console.warn('Barcode not found:', err);
+                    }
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                  sx: { borderRadius: 2, bgcolor: 'background.paper', height: 45 }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="caption" sx={{
+                fontWeight: 700,
+                ml: 1,
+                color: 'text.secondary',
+                textTransform: 'uppercase',
+                fontSize: '0.75rem',
+              }}>
+                Product Name
               </Typography>
               <Select
                 options={uniqueNames}
                 value={uniqueNames.find(opt => opt.value === searchParams.name) || null}
                 onChange={(opt) => handleChange('name', opt, false)}
-                placeholder={isPharmacy ? 'Search by name...' : 'Search...'}
+                placeholder="Search by name..."
                 isClearable
                 styles={selectStyles}
                 menuPortalTarget={document.body}
               />
             </Grid>
-            <Grid item xs={12} md={isPharmacy ? 4 : 6}>
+            <Grid item xs={12} md={4}>
               <Typography variant="caption" sx={{
                 fontWeight: 700,
                 ml: 1,
@@ -940,13 +946,13 @@ const ItemSection = ({
                 textTransform: 'uppercase',
                 fontSize: '0.75rem',
               }}>
-                {isPharmacy ? 'Batch / ' : ''}SKU
+                SKU
               </Typography>
               <Select
                 options={uniqueSkus}
                 value={uniqueSkus.find(opt => opt.value === searchParams.sku) || null}
                 onChange={(opt) => handleChange('sku', opt, false)}
-                placeholder={isPharmacy ? 'Batch or SKU...' : 'SKU...'}
+                placeholder="SKU..."
                 isClearable
                 styles={selectStyles}
                 menuPortalTarget={document.body}
@@ -1082,13 +1088,7 @@ const ItemSection = ({
             error={error}
           />
 
-          {/* DRUG SCHEDULE ALERT */}
-          {selectedVariant && (
-            <DrugScheduleAlert
-              drugSchedule={drugSchedule}
-              isNarcotic={isNarcotic}
-            />
-          )}
+
 
           {/* SUBSTITUTES */}
           <SubstituteSuggestions

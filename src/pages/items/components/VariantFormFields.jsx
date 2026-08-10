@@ -161,6 +161,17 @@ export default function VariantFormFields({
 
       <Grid item xs={12} sm={6}>
         <TextField
+          label="Barcode / EAN (Optional)"
+          name="barcode"
+          value={currentVariant.barcode || ''}
+          onChange={handleCurrentVariantChange}
+          placeholder="e.g. 8901234567890"
+          fullWidth sx={inputSx}
+        />
+      </Grid>
+
+      <Grid item xs={12} sm={6}>
+        <TextField
           label={t('itemsPage.form.pricePerUnit')}
           name="pricePerUnit"
           type="number"
@@ -203,121 +214,71 @@ export default function VariantFormFields({
         />
       </Grid>
 
-      {/* Pharmacy-specific variant fields */}
-      {shopCategory === 'PHARMACY' && (
-        <>
-          <Grid item xs={12}>
-            <Divider sx={{ my: 0.5 }}>
-              <Chip
-                label={t('itemsPage.sections.pharmacyDetails')}
-                size="small"
-                color="primary"
-                variant="outlined"
-                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
-              />
-            </Divider>
-          </Grid>
+      {/* Batch / Expiry / MRP fields (generic retail traceability) */}
+      <Grid item xs={12}>
+        <Divider sx={{ my: 0.5 }}>
+          <Chip
+            label="Traceability & MRP (Optional)"
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+          />
+        </Divider>
+      </Grid>
 
-          {/* MRP */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('itemsPage.form.mrp')}
-              name="mrp"
-              type="number"
-              value={currentVariant.mrp || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                inputProps: { min: 0 }
-              }}
-            />
-          </Grid>
+      {/* MRP */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label={t('itemsPage.form.mrp')}
+          name="mrp"
+          type="number"
+          value={currentVariant.mrp || ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{
+            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+            inputProps: { min: 0 }
+          }}
+        />
+      </Grid>
 
-          {/* Batch Number */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('itemsPage.form.batchNumber')}
-              name="batchNumber"
-              value={currentVariant.batchNumber || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-            />
-          </Grid>
+      {/* Batch Number */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label={t('itemsPage.form.batchNumber')}
+          name="batchNumber"
+          value={currentVariant.batchNumber || ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+        />
+      </Grid>
 
-          {/* Manufacturing Date */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('itemsPage.form.manufacturingDate')}
-              name="manufacturingDate"
-              type="date"
-              value={currentVariant.manufacturingDate || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
+      {/* Manufacturing Date */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label={t('itemsPage.form.manufacturingDate')}
+          name="manufacturingDate"
+          type="date"
+          value={currentVariant.manufacturingDate || ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputLabelProps={{ shrink: true }}
+        />
+      </Grid>
 
-          {/* Expiry Date */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('itemsPage.form.expiryDate')}
-              name="expiryDate"
-              type="date"
-              value={currentVariant.expiryDate || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-
-          {/* Pack Size — shown when unit suggests strips/boxes or isLooseMedicine is true */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Pack Size (tablets/units per strip)"
-              name="packSize"
-              type="number"
-              value={currentVariant.packSize || ''}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (value < 1) return;
-                handleCurrentVariantChange(e);
-              }}
-              fullWidth sx={inputSx}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">units</InputAdornment>,
-                inputProps: { min: 1 }
-              }}
-              helperText="e.g. 10 for a strip of 10 tablets"
-            />
-          </Grid>
-
-          {/* Is Loose Medicine toggle */}
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', pt: 1 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={!!currentVariant.isLooseMedicine}
-                    onChange={(e) =>
-                      setCurrentVariant((prev) => ({ ...prev, isLooseMedicine: e.target.checked }))
-                    }
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" fontWeight={700}>Loose Medicine</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Can be dispensed as individual units (tablets, capsules)
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Box>
-          </Grid>
-        </>
-      )}
+      {/* Expiry Date */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label={t('itemsPage.form.expiryDate')}
+          name="expiryDate"
+          type="date"
+          value={currentVariant.expiryDate || ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputLabelProps={{ shrink: true }}
+        />
+      </Grid>
 
       {/* ---- JEWELLERY-SPECIFIC VARIANT FIELDS ---- */}
       {shopCategory === 'JEWELLERY' && (

@@ -206,86 +206,14 @@ export default function ItemDetailsForm({
           />
         </Grid>
 
-        {/* Pharmacy-specific item fields */}
-        {isPharmacy && (
-          <>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 0.5 }}>
-                <Chip
-                  label={t('itemsPage.sections.pharmacyDetails')}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ fontWeight: 700, fontSize: '0.7rem' }}
-                />
-              </Divider>
-            </Grid>
-
-            {/* Drug Schedule */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label={t('itemsPage.form.drugSchedule')}
-                name="drugSchedule"
-                value={itemFormData.drugSchedule || ''}
-                onChange={handleChange}
-                fullWidth
-                variant="outlined"
-                sx={inputSx}
-              >
-                <MenuItem value="">
-                  <em>{t('itemsPage.form.drugScheduleNone')}</em>
-                </MenuItem>
-                {DRUG_SCHEDULES.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            {/* Requires Prescription */}
-            <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center' }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={!!itemFormData.requiresPrescription}
-                    onChange={(e) =>
-                      setItemFormData((prev) => ({ ...prev, requiresPrescription: e.target.checked }))
-                    }
-                    color="primary"
-                  />
-                }
-                label={t('itemsPage.form.requiresPrescription')}
-              />
-            </Grid>
-          </>
-        )}
-
-        {/* Description */}
-        <Grid item xs={12}>
-          <TextField
-            label={t('itemsPage.form.description')}
-            name="description"
-            value={itemFormData.description || ''}
-            onChange={handleChange}
-            fullWidth
-            multiline
-            rows={3}
-            variant="outlined"
-            placeholder="Enter product details, specifications, etc..."
-            sx={inputSx}
-          />
-        </Grid>
-
-        {/* ---- PHARMACY-SPECIFIC FIELDS ---- */}
+        {/* ---- PHARMACY / HEALTHCARE PRODUCT FIELDS ---- */}
         {shopCategory === 'PHARMACY' && (
           <>
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }}>
                 <Chip
                   icon={<MedicalServicesIcon fontSize="small" />}
-                  label="Pharmacy Details"
+                  label="Product Details"
                   color="primary"
                   variant="outlined"
                   size="small"
@@ -293,18 +221,20 @@ export default function ItemDetailsForm({
               </Divider>
             </Grid>
 
-            {/* Composition / Salt */}
+            {/* Specifications / Ingredients */}
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Composition / Salt (e.g., Paracetamol 500mg)"
-                name="composition"
-                value={itemFormData.composition || ''}
-                onChange={handleChange}
+                label="Specifications / Key Attributes (e.g., Paracetamol 500mg)"
+                name="specifications"
+                value={itemFormData.specifications || itemFormData.composition || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setItemFormData((prev) => ({ ...prev, specifications: val, composition: val }));
+                }}
                 fullWidth
                 variant="outlined"
-                placeholder="Generic name & strength for substitute search"
+                placeholder="Product attributes or key ingredients"
                 sx={inputSx}
-                helperText="Used for substitute drug suggestions"
               />
             </Grid>
 
@@ -322,81 +252,6 @@ export default function ItemDetailsForm({
                 helperText="Required for GST filing"
               />
             </Grid>
-
-            {/* Drug Schedule */}
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth variant="outlined" sx={inputSx}>
-                <InputLabel>Drug Schedule</InputLabel>
-                <Select
-                  name="drugSchedule"
-                  value={itemFormData.drugSchedule || 'OTC'}
-                  label="Drug Schedule"
-                  onChange={handleChange}
-                >
-                  {DRUG_SCHEDULES.map((ds) => (
-                    <MenuItem key={ds.value} value={ds.value}>
-                      {ds.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Storage Requirement */}
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                freeSolo
-                options={STORAGE_REQUIREMENTS}
-                value={itemFormData.storageRequirement || ''}
-                onInputChange={(_, newValue) =>
-                  setItemFormData((prev) => ({ ...prev, storageRequirement: newValue }))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Storage Requirement"
-                    variant="outlined"
-                    sx={inputSx}
-                    helperText="e.g., Refrigerated, Schedule H label"
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Requires Prescription Toggle */}
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', p: 1.5, borderRadius: 2, border: '1px solid', borderColor: itemFormData.requiresPrescription ? 'warning.main' : '#e2e8f0', bgcolor: itemFormData.requiresPrescription ? '#fff7ed' : '#f8fafc' }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={!!itemFormData.requiresPrescription}
-                      onChange={(e) => setItemFormData((prev) => ({ ...prev, requiresPrescription: e.target.checked }))}
-                      color="warning"
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <WarningAmberIcon fontSize="small" sx={{ color: itemFormData.requiresPrescription ? 'warning.main' : 'text.disabled' }} />
-                      <Typography variant="body2" fontWeight={600}>Requires Prescription</Typography>
-                    </Box>
-                  }
-                />
-              </Box>
-            </Grid>
-
-            {/* Schedule Drug Warning Banner */}
-            {(itemFormData.drugSchedule === 'SCHEDULE_H' || itemFormData.drugSchedule === 'SCHEDULE_H1' || itemFormData.drugSchedule === 'SCHEDULE_X') && (
-              <Grid item xs={12}>
-                <Box sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.15)', borderRadius: 2, border: '1px solid', borderColor: 'warning.light', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <WarningAmberIcon sx={{ color: '#d97706' }} />
-                  <Typography variant="body2" fontWeight={700} color="#92400e">
-                    {itemFormData.drugSchedule === 'SCHEDULE_X'
-                      ? 'Schedule X Drug: Strict narcotics control. All sales will be logged in the Narcotics Register.'
-                      : 'Schedule H Drug: Prescription mandatory. Customer will be warned at point of sale.'}
-                  </Typography>
-                </Box>
-              </Grid>
-            )}
           </>
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Select, MenuItem, TextField, Divider, Grid, IconButton, 
@@ -38,9 +38,6 @@ const ReviewPaymentPage = ({
   const [paymentMethods, setPaymentMethods] = useState([
     { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
   ]);
-
-  const [discount, setDiscount] = useState(formData.discount || 0);
-
   // ==========================================
   // LOGIC FOR creditBalance (Negative = Advance)
   // ==========================================
@@ -49,9 +46,17 @@ const ReviewPaymentPage = ({
   const availableAdvance = rawBalance < 0 ? Math.abs(rawBalance) : 0;
 
   // =======================
-  // CALCULATIONS
-  // =======================
-  const subtotal = parseFloat(formData.totalAmount) || 0;
+  // CALCULATIONS (Issue 2 Fix)
+  const grossSubtotal = useMemo(() => {
+    if (formData.subtotal && !isNaN(Number(formData.subtotal))) {
+      return Number(formData.subtotal);
+    }
+    return (formData.items || []).reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.unitPrice || 0)), 0);
+  }, [formData.items, formData.subtotal]);
+
+  const subtotal = grossSubtotal;
+
+  const [billLevelDiscount, setBillLevelDiscount] = useState(parseFloat(formData.discount) || 0);
 
   // Calculate GST from item-level gstRate.
   // For pharmacy, GST is already inclusive in MRP (informational only — do NOT add to total).
@@ -60,16 +65,14 @@ const ReviewPaymentPage = ({
     if (formData.isGstRequired !== 'yes') return sum;
     const rate = Number(item.gstRate) || 0;
     const lineTotal = Number(item.qty) * Number(item.unitPrice);
-    // Pharmacy: extract inclusive GST (price already contains GST)
-    // Others: calculate exclusive GST added on top
     return sum + (isPharmacy
       ? lineTotal * rate / (100 + rate)
       : lineTotal * rate / 100);
   }, 0);
 
-  // For non-pharmacy with exclusive GST, add GST to the subtotal before applying discount
   const exclusiveGst = !isPharmacy ? totalGst : 0;
-  const discountedTotal = subtotal + exclusiveGst - discount;
+  // Grand total = grossSubtotal + exclusiveGst - billLevelDiscount
+  const discountedTotal = Math.max(0, grossSubtotal + exclusiveGst - billLevelDiscount);
 
   // Automatic allocation of advance
   const advanceApplied = Math.min(availableAdvance, discountedTotal);
@@ -114,8 +117,10 @@ const ReviewPaymentPage = ({
       }
     }
 
+    // Issue 2 Fix: Send billLevelDiscount as invoiceDiscount (distinct from item discounts).
+    // totalAmount is the correct grand total (already net of double-discount fix above).
     const payload = buildSalePayload(
-      { ...formData, totalAmount: parseFloat(discountedTotal), discount: parseFloat(discount) },
+      { ...formData, totalAmount: parseFloat(discountedTotal), invoiceDiscount: parseFloat(billLevelDiscount), discount: parseFloat(billLevelDiscount) },
       selectedCustomer,
       paymentMethods,
       'COMPLETED'
@@ -183,18 +188,30 @@ const ReviewPaymentPage = ({
                     <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {formData.items.map((item, idx) => {
+                   {formData.items.map((item, idx) => {
                     const lineTotal = Number(item.qty) * Number(item.unitPrice);
                     const gstAmt = formData.isGstRequired === 'yes'
                       ? lineTotal * (Number(item.gstRate) || 0) / 100
                       : 0;
                     const mrpDiscount = calcMrpDiscountPct(item.mrp, item.unitPrice);
+
+                    // Issue 1 Fix: Build variant description for Review page to match PDF invoice
+                    const variantParts = [
+                      item.variantBrand || item.brand,
+                      item.variantColor || item.color,
+                      item.variantSize || item.size,
+                      item.variantDesign || item.design,
+                    ].filter(Boolean);
+
                     return (
                       <TableRow key={idx}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.itemName}</Typography>
-                          <Typography variant="caption" color="textSecondary">{item.sku} | {item.size}</Typography>
-                          {/* Issue 1: Show MRP discount % */}
+                          <Typography variant="caption" color="textSecondary">
+                            {item.variantSku || item.sku}
+                            {variantParts.length > 0 && ` | ${variantParts.join(' · ')}`}
+                          </Typography>
+                          {/* Show MRP discount % */}
                           {mrpDiscount && (
                             <Typography variant="caption" sx={{ display: 'block', color: 'success.dark', fontWeight: 700 }}>
                               {mrpDiscount}% off MRP ₹{Number(item.mrp).toFixed(2)}
@@ -254,18 +271,17 @@ const ReviewPaymentPage = ({
                     <Typography sx={{ fontWeight: 600, textAlign: 'right' }}>₹{subtotal.toFixed(2)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                    <Typography sx={{ opacity: 0.7, flexShrink: 0 }}>Extra Discount</Typography>
+                    <Typography sx={{ opacity: 0.7, flexShrink: 0 }}>Extra Discount (Bill-Level)</Typography>
                     <TextField
-                      size="small" type="number" value={discount}
+                      size="small" type="number" value={billLevelDiscount}
                       sx={{ width: 100, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, input: { color: 'grey.50', textAlign: 'right', fontWeight: 800 }}}
                       onChange={(e) => {
                           const val = parseFloat(e.target.value);
-                          // Ensure discount is at least 0 and doesn't exceed the subtotal
-                          const cleanDiscount = isNaN(val) ? 0 : Math.max(0, Math.min(val, subtotal));
-                          setDiscount(cleanDiscount);
+                          // Clamp: must be >= 0 and not exceed the subtotal
+                          const clean = isNaN(val) ? 0 : Math.max(0, Math.min(val, subtotal));
+                          setBillLevelDiscount(clean);
                         }}
-                        inputProps={{ min: 0, max: subtotal, step: 'any' }
-                      }
+                      inputProps={{ min: 0, max: subtotal, step: 'any' }}
                     />
                   </Box>
 

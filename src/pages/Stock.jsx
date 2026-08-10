@@ -21,6 +21,8 @@ import {
   fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
   updateItemVariant,
 } from '../services/api';
+import StockTransferModal from '../components/stock/StockTransferModal';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
@@ -441,6 +443,8 @@ const Stock = () => {
     },
   ];
 
+  const [transferOpen, setTransferOpen] = useState(false);
+
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 5 }}>
       <Container maxWidth="xl" sx={{ pt: 4 }}>
@@ -454,6 +458,9 @@ const Stock = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2} flexWrap="wrap">
+            <Button variant="outlined" startIcon={<SwapHorizIcon />} onClick={() => setTransferOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}>
+              Stock Transfers
+            </Button>
             <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}>
               {t('stock.actions.export')}
             </Button>
@@ -971,6 +978,8 @@ const Stock = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <StockTransferModal open={transferOpen} onClose={() => setTransferOpen(false)} />
 
       <Snackbar open={!!successMsg} autoHideDuration={3000} onClose={() => setSuccessMsg('')}>
         <Alert severity="success" variant="filled">{successMsg}</Alert>

@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { fetchPlatformStats } from '../../services/api';
+import superAdminApi from '../../services/superAdminApi';
 
 // Icons
 import PaymentsIcon from '@mui/icons-material/Payments';
@@ -17,19 +18,16 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import ChatIcon from '@mui/icons-material/Chat'; // Added for Support
+import ChatIcon from '@mui/icons-material/Chat';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
-/**
- * Reusable Metric Card for Admin Stats
- */
-const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse, pulseColor }) => (
+const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse }) => (
   <Card 
     sx={{ 
       bgcolor: 'background.paper', color: 'text.primary', 
       borderRadius: 4, 
       height: '100%',
       border: pulse ? `1px solid ${color}` : '1px solid rgba(255,255,255,0.05)',
-      // Dynamic pulse animation based on the card's theme color
       animation: pulse ? `pulse-${color.replace('#', '')} 2s infinite` : 'none',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       '&:hover': { 
@@ -64,6 +62,7 @@ const AdminStatCard = ({ title, value, icon, color, subtext, onClick, pulse, pul
 const TechAdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [execMetrics, setExecMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -71,8 +70,12 @@ const TechAdminDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchPlatformStats();
+      const [data, execData] = await Promise.all([
+        fetchPlatformStats(),
+        superAdminApi.getExecutiveMetrics().catch(() => null)
+      ]);
       setStats(data);
+      setExecMetrics(execData);
     } catch (err) {
       console.error("Platform Stats Fetch Error:", err);
       setError("Unable to connect to platform services. Please check backend connectivity.");
@@ -93,21 +96,19 @@ const TechAdminDashboard = () => {
 
   return (
     <Box sx={{ flexGrow: 1, p: 2 }}>
-      {/* Global Styles for multiple pulse colors */}
       <GlobalStyles styles={{
-        '@keyframes pulse-fbbf24': { // Yellow (Pending)
+        '@keyframes pulse-fbbf24': {
           '0%': { boxShadow: '0 0 0 0px rgba(251, 191, 36, 0.4)' },
           '70%': { boxShadow: '0 0 0 10px rgba(251, 191, 36, 0)' },
           '100%': { boxShadow: '0 0 0 0px rgba(251, 191, 36, 0)' },
         },
-        '@keyframes pulse-ec4899': { // Pink (Support)
+        '@keyframes pulse-ec4899': {
           '0%': { boxShadow: '0 0 0 0px rgba(236, 72, 153, 0.4)' },
           '70%': { boxShadow: '0 0 0 10px rgba(236, 72, 153, 0)' },
           '100%': { boxShadow: '0 0 0 0px rgba(236, 72, 153, 0)' },
         }
       }} />
 
-      {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3, borderRadius: 3, bgcolor: '#450a0a', color: '#fca5a5' }} icon={<WarningAmberIcon />}>
           {error}
@@ -118,10 +119,10 @@ const TechAdminDashboard = () => {
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 4 }}>
         <Box>
           <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>
-            Platform Monitor
+            Executive Control Center
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            Real-time status of VyaparSathi ecosystem
+            Real-time SaaS operations, MRR, & tenant governance
           </Typography>
         </Box>
         
@@ -156,23 +157,31 @@ const TechAdminDashboard = () => {
         {/* Metric Cards */}
         <Grid item xs={12} sm={6} md={3}>
           <AdminStatCard 
-            title="Live Support"
-            value="Active"
-            icon={<ChatIcon />}
-            color="#ec4899"
-            subtext="Reply to Shop Owners"
-            onClick={() => navigate('/admin/support')}
-            pulse={true}
+            title="Monthly Recurring (MRR)"
+            value={`₹${(execMetrics?.mrr || 0).toLocaleString('en-IN')}`}
+            icon={<AccountBalanceWalletIcon />}
+            color="#3B82F6"
+            subtext={`ARR: ₹${(execMetrics?.arr || 0).toLocaleString('en-IN')}`}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
           <AdminStatCard 
-            title="Pending UTRs"
+            title="Paying Subscriptions"
+            value={execMetrics?.payingShops || 0}
+            icon={<TrendingUpIcon />}
+            color="#4ade80"
+            subtext={`${execMetrics?.trialConversionRate || 0}% Trial Conv. Rate`}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <AdminStatCard 
+            title="Pending UTR Verification"
             value={stats?.pendingCount || 0}
             icon={<PendingActionsIcon />}
             color="#fbbf24"
-            subtext="Needs Verification"
+            subtext="Bank Transfers Queue"
             onClick={() => navigate('/admin/payments')}
             pulse={stats?.pendingCount > 0}
           />
@@ -180,21 +189,11 @@ const TechAdminDashboard = () => {
 
         <Grid item xs={12} sm={6} md={3}>
           <AdminStatCard 
-            title="Verified Revenue"
-            value={`₹${(stats?.totalRevenue || 0).toLocaleString('en-IN')}`}
-            icon={<TrendingUpIcon />}
-            color="#4ade80"
-            subtext="Platform Earnings"
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <AdminStatCard 
-            title="Total Shops"
-            value={stats?.totalShops || 0}
+            title="Total Tenant Ecosystem"
+            value={execMetrics?.totalShops || stats?.totalShops || 0}
             icon={<StorefrontIcon />}
             color="#38bdf8"
-            subtext="Registered Partners"
+            subtext={`${execMetrics?.activeShops || 0} Active • ${execMetrics?.suspendedShops || 0} Suspended`}
             onClick={() => navigate('/admin/shops')}
           />
         </Grid>
@@ -203,14 +202,14 @@ const TechAdminDashboard = () => {
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 4, bgcolor: 'background.paper', color: 'text.primary', borderRadius: 5, border: '1px solid', borderColor: 'divider', minHeight: 400 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-              <Typography variant="h6" fontWeight={800}>System Health & Growth</Typography>
-              <Chip label="All Systems Nominal" size="small" color="success" variant="outlined" sx={{ fontWeight: 900 }} />
+              <Typography variant="h6" fontWeight={800}>SaaS Platform Health & Growth</Typography>
+              <Chip label={execMetrics?.systemStatus || "All Systems Nominal"} size="small" color="success" variant="outlined" sx={{ fontWeight: 900 }} />
             </Stack>
             <Divider sx={{ bgcolor: 'text.disabled', mb: 4 }} />
             
             <Box sx={{ mb: 4 }}>
                <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.8 }}>
-                  VyaparSathi is currently monitoring <strong>{stats?.totalShops} shops</strong> and <strong>{stats?.totalUsers} total users</strong>. 
+                  VyaparSathi is actively orchestrating <strong>{execMetrics?.totalShops || stats?.totalShops} multi-tenant shops</strong>. 
                   {stats?.pendingCount > 0 ? (
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(251, 191, 36, 0.1)', borderRadius: 2, border: '1px solid rgba(251, 191, 36, 0.2)' }}>
                       <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
@@ -219,16 +218,16 @@ const TechAdminDashboard = () => {
                     </Box>
                   ) : (
                     <Typography component="p" sx={{ color: 'success.main', mt: 2 }}>
-                      ✓ All subscription payments are up to date.
+                      ✓ All AutoPay & subscription mandates are fully processed.
                     </Typography>
                   )}
                </Typography>
             </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mt: 6, opacity: 0.2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mt: 6, opacity: 0.3 }}>
               <TrendingUpIcon sx={{ fontSize: 80, mb: 2 }} />
               <Typography variant="body2">
-                Growth analytics will appear as transaction volume increases.
+                Real-time SaaS billing & entitlement telemetry active.
               </Typography>
             </Box>
           </Paper>
@@ -244,10 +243,10 @@ const TechAdminDashboard = () => {
             
             <Stack spacing={2}>
               {[
-                { label: 'Manage All Shops', icon: <StorefrontIcon />, path: '/admin/shops' },
-                { label: 'Platform Users List', icon: <GroupIcon />, path: '/admin/users' },
+                { label: 'Shop Ecosystem & 360°', icon: <StorefrontIcon />, path: '/admin/shops' },
+                { label: 'Platform Users Directory', icon: <GroupIcon />, path: '/admin/users' },
+                { label: 'Platform Settings', icon: <ArrowForwardIcon />, path: '/admin/platform-settings' },
                 { label: 'Live Support Center', icon: <ChatIcon />, path: '/admin/support', highlight: true },
-                { label: 'System Settings', icon: <ArrowForwardIcon />, path: '/admin/settings' },
               ].map((item, index) => (
                 <Button 
                   key={index}

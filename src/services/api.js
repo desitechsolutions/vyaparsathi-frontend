@@ -1,19 +1,20 @@
 import axios from 'axios';
 import endpoints from './endpoints';
-import { signalApiActivity } from '../utils/auth';
 import 'react-toastify/dist/ReactToastify.css';
-
+import { getValidToken, clearAuthStorage } from '../utils/authStorage';
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, 
+  withCredentials: true,
 });
 
-let isRefreshing = false;
-let failedQueue = [];
+export const getRequest = (url, config) => API.get(url, config);
 
-const processQueue = (error, token = null) => {
+export let isRefreshing = false;
+export let failedQueue = [];
+
+export const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);
@@ -27,9 +28,11 @@ const processQueue = (error, token = null) => {
 // --- REQUEST INTERCEPTOR ---
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getValidToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -40,8 +43,12 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.warn('API 401 received');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      clearAuthStorage();
+      if (!isLoginRequest && window.location.pathname !== '/login') {
+        window.location.href = '/login?expired=true';
+      }
     }
     return Promise.reject(error);
   }
@@ -57,26 +64,26 @@ export const register = async (data) => {
 };
 
 // Newly added to clear server-side cookie and DB token
-export const logout = () => 
+export const logout = () =>
   API.post('/api/auth/logout', {}, { withCredentials: true });
 
-export const forgotPassword = (data) => 
+export const forgotPassword = (data) =>
   API.post('/api/auth/forget-password', data, { skipAuthRefresh: true });
 
-export const validateResetToken = (token) => 
+export const validateResetToken = (token) =>
   API.post('/api/auth/validate-reset-token', { token });
 
-export const resetPassword = (data) => 
+export const resetPassword = (data) =>
   API.post('/api/auth/reset-password', data, { skipAuthRefresh: true });
 
-export const forgotPin = (data) => 
-    API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
+export const forgotPin = (data) =>
+  API.post(endpoints.auth.forgotPin, data, { skipAuthRefresh: true });
 
-export const resetPin = (data) => 
-    API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
+export const resetPin = (data) =>
+  API.post(endpoints.auth.resetPin, data, { skipAuthRefresh: true });
 
-export const changePin = (data) => 
-    API.post(endpoints.auth.changePin, data);
+export const changePin = (data) =>
+  API.post(endpoints.auth.changePin, data);
 
 // This is simplified as the browser handles the token cookie
 export const refreshToken = () =>
@@ -92,9 +99,9 @@ export const checkShopCode = async (code) => {
 };
 
 export const searchGlobalData = (query) => {
-    return API.get(`/api/v1/search`, {
-        params: { q: query }
-    });
+  return API.get(`/api/v1/search`, {
+    params: { q: query }
+  });
 };
 
 export const fetchShop = async () => {
@@ -105,10 +112,10 @@ export const fetchShop = async () => {
     }
     return res;
   } catch (err) {
-    if (err.response?.status === 204 || 
-        err.response?.status === 404 ||
-        err?.response?.data?.message?.includes('No active shop') ||
-        err?.response?.data?.message?.includes('No shop context')) {
+    if (err.response?.status === 204 ||
+      err.response?.status === 404 ||
+      err?.response?.data?.message?.includes('No active shop') ||
+      err?.response?.data?.message?.includes('No shop context')) {
       return { data: null, status: err.response?.status || 404 };
     }
     console.error("fetchShop failed:", err);
@@ -124,7 +131,7 @@ export const getPurchaseOrders = () =>
 export const getPurchaseOrderById = (id) =>
   API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
 
-export const pendingPurchaseOrders  = () =>
+export const pendingPurchaseOrders = () =>
   API.get(endpoints.pendingPurchaseOrder).then((r) => r.data);
 
 export const createPurchaseOrder = (data) =>
@@ -180,6 +187,7 @@ export const fetchItems = () => API.get(endpoints.items);
 export const getItemById = (id) => API.get(endpoints.getItemById(id));
 export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
 export const fetchCategories = () => API.get(endpoints.fetchCategories);
+export const fetchItemSubstitutes = (itemId) => API.get(`${endpoints.items}/${itemId}/substitutes`);
 
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
@@ -198,11 +206,33 @@ export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchStock = () => API.get(endpoints.fetchStock);
 export const fetchLowStockAlerts = () =>
   API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+export const lookupByBarcode = (code) =>
+  API.get(`/api/item-variants/barcode/${encodeURIComponent(code)}`).then((r) => r.data);
+
+// --- STOCK TRANSFERS ---
+
+export const fetchStockTransfers = () =>
+  API.get(endpoints.stockTransfers).then((r) => r.data);
+
+export const getStockTransferById = (id) =>
+  API.get(endpoints.stockTransferById(id)).then((r) => r.data);
+
+export const createStockTransfer = (data) =>
+  API.post(endpoints.stockTransfers, data).then((r) => r.data);
+
+export const executeStockTransfer = (id) =>
+  API.post(endpoints.executeStockTransfer(id)).then((r) => r.data);
+
+export const cancelStockTransfer = (id) =>
+  API.post(endpoints.cancelStockTransfer(id)).then((r) => r.data);
+
+export const fetchPendingStockTransferCount = () =>
+  API.get(endpoints.pendingStockTransferCount, { meta: { background: true } }).then((r) => r.data);
 export const fetchExpiryAlerts = (daysBeforeExpiry = 90) =>
   API.get('/api/stock/expiry-alerts', { params: { daysBeforeExpiry }, meta: { background: true } });
 export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
-export const exportStockReport = (startDate, endDate, format) => 
+export const exportStockReport = (startDate, endDate, format) =>
   API.get(`/api/stock/export`, { params: { startDate, endDate, format }, responseType: 'blob' });
 export const fetchBatchWiseStock = (variantId = null) =>
   API.get('/api/stock/batch-wise', variantId ? { params: { variantId } } : {});
@@ -231,17 +261,17 @@ export const fetchCustomerLedger = (id, params = {}) => {
 export const createSale = (data) => {
   return API.post(endpoints.sales, data);
 };
-export const draftSale = (data) =>{
+export const draftSale = (data) => {
   return API.post(endpoints.draftSale, data)
 }
 export const completeDraftSale = async (id, data) => {
   return await API.put(`api/sales/${id}/complete`, data);
 };
-export const processSaleReturn = (saleId, returnData) => 
-    API.post(`/api/sales/${saleId}/return`, returnData);
+export const processSaleReturn = (saleId, returnData) =>
+  API.post(`/api/sales/${saleId}/return`, returnData);
 
-export const cancelSale = (saleId, reason) => 
-    API.post(`/api/sales/${saleId}/cancel?reason=${encodeURIComponent(reason)}`, {});
+export const cancelSale = (saleId, reason) =>
+  API.post(`/api/sales/${saleId}/cancel?reason=${encodeURIComponent(reason)}`, {});
 
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
 export const fetchSalesHistory = () => API.get(endpoints.salesHistory);
@@ -259,27 +289,27 @@ export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 
 export const createDelivery = (data) => API.post(endpoints.createDelivery, data);
 export const getDelivery = (id) => API.get(endpoints.deliveryById(id));
-export const fetchDeliveries = (saleId) => 
-  saleId 
-    ? API.get(`/api/deliveries?saleId=${saleId}`) 
+export const fetchDeliveries = (saleId) =>
+  saleId
+    ? API.get(`/api/deliveries?saleId=${saleId}`)
     : API.get("/api/deliveries");
-export const updateDeliveryDetails = (id, data) => 
+export const updateDeliveryDetails = (id, data) =>
   API.patch(`/api/deliveries/${id}/details`, data);
-export const assignDeliveryPerson = (id, person) => 
+export const assignDeliveryPerson = (id, person) =>
   API.patch(`/api/deliveries/${id}/person`, { deliveryPerson: person });
-export const updateDeliveryStatus = (id, status, changedBy) => 
+export const updateDeliveryStatus = (id, status, changedBy) =>
   API.patch(`/api/deliveries/${id}/status?status=${status}&changedBy=${changedBy}`);
-export const fetchDeliveryHistory = (id) => 
+export const fetchDeliveryHistory = (id) =>
   API.get(`/api/deliveries/${id}/history`);
 export const deleteDelivery = (id) => API.delete(`/api/deliveries/${id}`);
 
-export const createDeliveryPerson = (data) => 
+export const createDeliveryPerson = (data) =>
   API.post("/api/delivery-persons", data);
-export const fetchDeliveryPersons = () => 
+export const fetchDeliveryPersons = () =>
   API.get("/api/delivery-persons");
-export const getDeliveryPerson = (id) => 
+export const getDeliveryPerson = (id) =>
   API.get(`/api/delivery-persons/${id}`);
-export const deleteDeliveryPerson = (id) => 
+export const deleteDeliveryPerson = (id) =>
   API.delete(`/api/delivery-persons/${id}`);
 
 // --- NOTIFICATIONS ---
@@ -336,8 +366,8 @@ export const fetchPaymentsSummary = (from, to) => {
 };
 export const downloadAuditPack = (from, to) =>
   API.get(endpoints.reports.exportAuditPack(from, to), {
-    responseType: 'blob', 
-    timeout: 60000        
+    responseType: 'blob',
+    timeout: 60000
   });
 export const generateInvoice = ({ saleId, invoiceNo }) =>
   API.get(endpoints.generateInvoice({ saleId, invoiceNo }), { responseType: 'arraybuffer' });
@@ -378,14 +408,14 @@ export const fetchProducts = () => API.get(endpoints.products);
 
 // --- AUDIT LOGS ---
 
-export const fetchAuditLogs = (params) => 
+export const fetchAuditLogs = (params) =>
   API.get('/api/audit', { params }).then(res => res.data);
-export const fetchAuditLogsByUser = (username) => 
+export const fetchAuditLogsByUser = (username) =>
   API.get(`/api/audit/user/${username}`).then(res => res.data);
-export const exportAuditLogs = (params) => 
-  API.get('/api/audit/export', { 
-    params, 
-    responseType: 'blob' 
+export const exportAuditLogs = (params) =>
+  API.get('/api/audit/export', {
+    params,
+    responseType: 'blob'
   });
 
 // --- ANALYTICS ---
@@ -397,7 +427,7 @@ export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futur
 export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
 export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
 export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
-export const exportProcurementPlan = (format = 'xlsx') => 
+export const exportProcurementPlan = (format = 'xlsx') =>
   API.get(`${endpoints.analytics.exportProcurementPlan}?format=${format}`, { responseType: 'blob' });
 
 // --- RECEIVING ---
@@ -444,8 +474,8 @@ export const updateStaff = (id, data) =>
 export const deleteStaff = (id) =>
   API.delete(`${endpoints.staff}/${id}`).then(r => r.data);
 export const issueStaffAdvance = (id, amount, remarks) =>
-  API.post(`${endpoints.staff}/${id}/advance`, null, { 
-    params: { amount, remarks } 
+  API.post(`${endpoints.staff}/${id}/advance`, null, {
+    params: { amount, remarks }
   }).then(r => r.data);
 export const processSalary = (payload) =>
   API.post(endpoints.payrollProcess, payload).then(r => r.data);
@@ -456,86 +486,80 @@ export const fetchStaffPaymentHistory = (staffId, page = 0, size = 10) =>
 
 // --- SUBSCRIPTIONS ---
 
-export const startTrial = () => 
+export const startTrial = () =>
   API.post('/api/subscriptions/trial/start').then(res => res.data);
-export const submitPaymentUtr = (paymentData) => 
+export const submitPaymentUtr = (paymentData) =>
   API.post('/api/subscriptions/verify-payment', paymentData).then(res => res.data);
-export const fetchSubscriptionStatus = () => 
+export const fetchSubscriptionStatus = () =>
   API.get('/api/subscriptions/status').then(res => res.data);
-export const fetchMyPaymentHistory = () => 
+export const fetchMyPaymentHistory = () =>
   API.get('/api/subscriptions/my-payments').then(res => res.data);
-export const cancelSubscription = () => 
+export const cancelSubscription = () =>
   API.post('/api/subscriptions/cancel').then(res => res.data);
 export const downloadInvoice = (paymentId) => {
-    return API.get(`/api/invoices/subscription/${paymentId}`, {
-        responseType: 'blob',
-    });
+  return API.get(`/api/invoices/subscription/${paymentId}`, {
+    responseType: 'blob',
+  });
 };
 
 // --- PLATFORM ADMIN ACTIONS ---
 
-export const fetchPendingVerifications = () => 
+export const fetchPendingVerifications = () =>
   API.get('/api/subscriptions/platform/pending').then(res => res.data);
-export const approvePayment = (verificationId) => 
+export const approvePayment = (verificationId) =>
   API.post(`/api/subscriptions/platform/approve/${verificationId}`).then(res => res.data);
-export const rejectPayment = (verificationId, reason) => 
-  API.post(`/api/subscriptions/platform/reject/${verificationId}`, null, { 
-    params: { reason } 
+export const rejectPayment = (verificationId, reason) =>
+  API.post(`/api/subscriptions/platform/reject/${verificationId}`, null, {
+    params: { reason }
   }).then(res => res.data);
-  export const fetchPlatformStats = () => 
+export const fetchPlatformStats = () =>
   API.get('/api/subscriptions/platform/stats').then(res => res.data);
-export const fetchPlatformRevenueHistory = (days = 30) => 
+export const fetchPlatformRevenueHistory = (days = 30) =>
   API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
 
-export const fetchActivePricingPlans = () => 
+export const fetchActivePricingPlans = () =>
   API.get('/api/pricing/active').then(res => res.data);
 
-export const updatePlanConfig = (planDto) => 
+export const updatePlanConfig = (planDto) =>
   API.put('/api/pricing/admin/update', planDto).then(res => res.data);
 
-export const fetchPlanDetailsByTier = (tier) => 
+export const fetchPlanDetailsByTier = (tier) =>
   API.get(`/api/pricing/admin/${tier}`).then(res => res.data);
 
 // --- SUPPORT & CHAT ---
 
-export const fetchMyChatHistory = () => 
+export const fetchMyChatHistory = () =>
   API.get('/api/support/history').then(res => res.data);
-export const fetchShopHistoryForAdmin = (shopId) => 
+export const fetchShopHistoryForAdmin = (shopId) =>
   API.get(`/api/support/history/${shopId}`).then(res => res.data);
-export const markChatAsRead = (shopId) => 
+export const markChatAsRead = (shopId) =>
   API.post(`/api/support/mark-read/${shopId}`).then(res => res.data);
-export const fetchAllConversations = () => 
+export const fetchAllConversations = () =>
   API.get('/api/support/admin/conversations').then(res => res.data);
 
 // --- ADMIN SHOP MANAGEMENT ---
 
-export const fetchGlobalShopSummary = (page = 0, size = 20, sort = 'createdAt,desc') => 
+export const fetchGlobalShopSummary = (page = 0, size = 20, sort = 'createdAt,desc') =>
   API.get(`/api/admin/shops/summary?page=${page}&size=${size}&sort=${sort}`)
     .then(res => res.data);
-export const toggleShopStatus = (shopId, active) => 
+export const toggleShopStatus = (shopId, active) =>
   API.patch(`/api/admin/shops/${shopId}/status?active=${active}`)
     .then(res => res.data);
 
-  export const fetchFileBlob = (path) => {
+export const fetchFileBlob = (path) => {
   return API.get(`/api/files/display`, {
     params: { path },
     responseType: 'blob',
   });
 };
 
-// --- PHARMA REPORTS ---
+// --- RETAIL REPORTS ---
 
 export const fetchExpiryReport = (days) =>
   API.get(endpoints.reports.expiryReport(days)).then(r => r.data);
 
-export const fetchNarcoticsRegister = (from, to) =>
-  API.get(endpoints.reports.narcoticsRegister(from, to)).then(r => r.data);
-
 export const fetchPurchaseRegister = (from, to) =>
   API.get(endpoints.reports.purchaseRegister(from, to)).then(r => r.data);
-
-export const fetchItemSubstitutes = (itemId) =>
-  API.get(endpoints.itemSubstitutes(itemId)).then(r => r.data);
 
 // --- USER MANAGEMENT ---
 
@@ -600,4 +624,33 @@ export const fetchSupplierStatement = (supplierId, startDate, endDate) => {
   return API.get('/api/supplier-payments/statement', { params }).then(r => r.data);
 };
 
+// --- SUPPLIER PAYABLE BILLS (Issue 4) ---
+export const getSupplierPayableBills = (supplierId) =>
+  API.get('/api/supplier-payments/payable-bills', { params: { supplierId } }).then(r => r.data);
+
+// --- E-INVOICE & E-WAY BILL (Issue 5) ---
+export const generateEInvoice = (saleId) =>
+  API.post(`/api/v1/einvoice/generate/${saleId}`).then(r => r.data?.data || r.data);
+
+export const cancelEInvoice = (saleId, reason = 'Cancelled via portal') =>
+  API.post(`/api/v1/einvoice/cancel/${saleId}`, null, { params: { reason } }).then(r => r.data?.data || r.data);
+
+export const generateEWayBill = (payload) =>
+  API.post('/api/v1/ewaybill/generate', payload).then(r => r.data?.data || r.data);
+
+export const fetchEWayBillThreshold = () =>
+  API.get('/api/v1/ewaybill/threshold').then(r => r.data?.data || r.data);
+
+
+// --- ACCOUNTING CONTROLLER ---
+export const fetchProfitAndLoss = (startDate, endDate) =>
+  API.get('/api/v1/accounting/pnl', { params: { startDate, endDate } }).then(r => r.data?.data || r.data);
+
+export const fetchReceivablesAging = () =>
+  API.get('/api/v1/accounting/receivables-aging').then(r => r.data?.data || r.data);
+
+export const fetchPayablesAging = () =>
+  API.get('/api/v1/accounting/payables-aging').then(r => r.data?.data || r.data);
+
 export default API;
+

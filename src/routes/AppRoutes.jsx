@@ -61,8 +61,17 @@ import SettingsPage from '../pages/SettingsPage';
 import NotFound from '../pages/NotFound';
 import BillingDashboard from '../components/subscriptions/BillingDashboard';
 import PlanConfigManager from '../pages/admin/PlanConfigManager';
+import PlatformSettingsPage from '../pages/admin/PlatformSettingsPage';
+import AdminTeamManagementPage from '../pages/admin/AdminTeamManagementPage';
+import FeatureFlagManagerPage from '../pages/admin/FeatureFlagManagerPage';
+import SuperAdminAuditPage from '../pages/admin/SuperAdminAuditPage';
+import AcceptAdminInvitePage from '../pages/public/AcceptAdminInvitePage';
 import ExpiryReport from '../pages/reports/ExpiryReport';
-import NarcoticsRegister from '../pages/reports/NarcoticsRegister';
+import BillingPage from '../pages/billing/BillingPage';
+import PaymentSuccessPage from '../pages/billing/PaymentSuccessPage';
+import PaymentFailurePage from '../pages/billing/PaymentFailurePage';
+import AccountingDashboard from '../pages/reports/AccountingDashboard';
+
 import PurchaseRegister from '../pages/reports/PurchaseRegister';
 import PurchaseReturns from '../pages/purchases/PurchaseReturns';
 import PrintGRNPage from '../pages/purchases/PrintGRNPage';
@@ -129,6 +138,7 @@ function AppRoutes() {
             path="/auth/reset-password"
             element={user ? <Navigate to="/" replace /> : <ResetPassword />}
           />
+          <Route path="/accept-invite" element={<AcceptAdminInvitePage />} />
         </Route>
 
         {/* 2. Admin Routes - Active ONLY for Super Admin */}
@@ -148,6 +158,10 @@ function AppRoutes() {
             <Route path="support" element={<AdminSupport />} />
             <Route path="users" element={<SystemUserManagement />} />
             <Route path="plans" element={<PlanConfigManager />} />
+            <Route path="platform-settings" element={<PlatformSettingsPage />} />
+            <Route path="team" element={<AdminTeamManagementPage />} />
+            <Route path="feature-flags" element={<FeatureFlagManagerPage />} />
+            <Route path="audit" element={<SuperAdminAuditPage />} />
             <Route path="newsletter" element={<NewsletterManager />} />
           </Route>
         )}
@@ -168,6 +182,10 @@ function AppRoutes() {
           >
             {/* PUBLIC WITHIN APP (No Tier Required) */}
             <Route path="/pricing" element={<PricingPage />} />
+            {/* Razorpay AutoPay Billing Routes */}
+            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/billing/success" element={<PaymentSuccessPage />} />
+            <Route path="/billing/failure" element={<PaymentFailurePage />} />
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="items" element={<ItemsPage />} />
@@ -175,6 +193,7 @@ function AppRoutes() {
             <Route path="customers" element={<Customers />} />
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
             <Route path="sales" element={<Sales />} />
+            <Route path="sales/drafts" element={<Sales />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="products" element={<ProductOverview />} />
             <Route path="customer-payments" element={<CustomerPaymentPage />} />
@@ -211,9 +230,9 @@ function AppRoutes() {
             <Route path="reports/customer-sales" element={<TierGuard requiredTier="PRO"><CustomerSales /></TierGuard>} />
             <Route path="reports/expenses-summary" element={<TierGuard requiredTier="PRO"><ExpensesSummary /></TierGuard>} />
             <Route path="reports/payments-summary" element={<TierGuard requiredTier="PRO"><PaymentsSummary /></TierGuard>} />
-            {/* Pharma Reports (PRO Tier) */}
+            <Route path="reports/accounting" element={<TierGuard requiredTier="PRO"><AccountingDashboard /></TierGuard>} />
+            {/* Retail Reports (PRO Tier) */}
             <Route path="reports/expiry-report" element={<TierGuard requiredTier="PRO"><ExpiryReport /></TierGuard>} />
-            <Route path="reports/narcotics-register" element={<TierGuard requiredTier="PRO"><NarcoticsRegister /></TierGuard>} />
             <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><PurchaseRegister /></TierGuard>} />
 
             {/* ENTERPRISE TIER ONLY */}

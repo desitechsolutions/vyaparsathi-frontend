@@ -23,11 +23,6 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     status: status,   // "DRAFT" or "COMPLETED"
 
-    // Pharma fields
-    doctorName: formData.doctorName || null,
-    doctorRegistrationNumber: formData.doctorRegistrationNumber || null,
-    patientName: formData.patientName || null,
-
     items: (formData.items || []).map(si => {
       let vId = si.id || si.variantId;
       const cleanId = (vId !== "" && vId !== null && vId !== undefined) ? Number(vId) : null;
@@ -37,10 +32,7 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
         qty: Number(si.qty),
         unitPrice: Number(si.unitPrice),
         discount: Number(si.discount || 0),
-        // Loose-medicine dispensing — required for correct stock deduction on the backend
-        isLooseSale: si.sellingMode === 'LOOSE',
-        loosePackSize: si.sellingMode === 'LOOSE' ? Number(si.packSizeUsed || 0) : null,
-        // Batch tracking for pharmacy compliance
+        // Batch tracking (optional)
         batchNumber: si.batchNumber || null,
         expiryDate: si.expiryDate || null,
       };
@@ -48,6 +40,9 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     totalAmount: parseFloat(formData.totalAmount),
     discount: parseFloat(formData.discount || 0),
+    invoiceDiscount: parseFloat(formData.invoiceDiscount || formData.discount || 0),
+    shippingCharges: parseFloat(formData.deliveryCharge || formData.shippingCharges || 0),
+    otherCharges: parseFloat(formData.otherCharges || 0),
     isGstRequired: formData.isGstRequired === 'yes',
 
     delivery: formData.deliveryRequired

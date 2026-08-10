@@ -9,12 +9,13 @@ import {
   Today, BarChart, RequestPage, ListAlt, 
   Category, Group, ReceiptLong, Payments, 
   Assessment, ChevronRight, EventBusy, GppMaybe, LocalShipping,
-  Diamond as DiamondIcon,
+  Diamond as DiamondIcon, AccountBalance,
   ElectricalServices, DirectionsCar, Checkroom,
 } from '@mui/icons-material';
 import { useShop } from '../../context/ShopContext';
 
 const reportLinks = [
+  { title: 'Accounting & P&L Statement', desc: 'Net Profit & Loss, Receivables & Payables Aging', icon: <AccountBalance />, path: 'accounting', color: '#059669' },
   { title: 'Daily Report', desc: 'Real-time daily sales & transactions', icon: <Today />, path: 'daily', color: '#3b82f6' },
   { title: 'Sales Summary', desc: 'Revenue trends over custom periods', icon: <BarChart />, path: 'sales-summary', color: '#10b981' },
   { title: 'GST Summary', desc: 'Consolidated tax liability view', icon: <Assessment />, path: 'gst-summary', color: '#8b5cf6' },
@@ -28,7 +29,6 @@ const reportLinks = [
 
 const pharmaReportLinks = [
   { title: 'Expiry Report', desc: 'Stock expiring in 30, 60, or 90 days', icon: <EventBusy />, path: 'expiry-report', color: '#dc2626' },
-  { title: 'Narcotics Register', desc: 'Mandatory Schedule H/X drug log', icon: <GppMaybe />, path: 'narcotics-register', color: '#7c3aed' },
   { title: 'Purchase Register', desc: 'Batch-supplier traceability for recalls', icon: <LocalShipping />, path: 'purchase-register', color: '#0891b2' },
 ];
 

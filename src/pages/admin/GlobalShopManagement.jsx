@@ -12,9 +12,11 @@ import {
   MoreVert, 
   Email, 
   LocationOn,
-  PowerSettingsNew
+  PowerSettingsNew,
+  Visibility
 } from '@mui/icons-material';
 import { fetchGlobalShopSummary, toggleShopStatus } from '../../services/api';
+import Shop360Drawer from '../../components/admin/Shop360Drawer';
 
 export const GlobalShopManagement = () => {
   // State for Data
@@ -32,6 +34,9 @@ export const GlobalShopManagement = () => {
   // Bulk Selection State
   const [selectedShops, setSelectedShops] = useState([]);
 
+  // 360 Drawer State
+  const [selected360ShopId, setSelected360ShopId] = useState(null);
+
   // Debounce search effect
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -46,7 +51,6 @@ export const GlobalShopManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      // Updated API call to include the search term
       const data = await fetchGlobalShopSummary(page, rowsPerPage, 'createdAt,desc', debouncedSearch);
       
       if (data && data.content) {
@@ -178,7 +182,7 @@ export const GlobalShopManagement = () => {
               <TableRow><TableCell colSpan={6} align="center" sx={{ py: 10, border: 0, color: 'text.secondary' }}>No shops found in the ecosystem.</TableCell></TableRow>
             ) : (
               shops.map((shop) => (
-                <TableRow key={shop.shopId} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                <TableRow key={shop.shopId} hover sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' } }}>
                   <TableCell padding="checkbox" sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <Checkbox 
                       checked={selectedShops.includes(shop.shopId)}
@@ -186,7 +190,7 @@ export const GlobalShopManagement = () => {
                       sx={{ color: 'text.disabled', '&.Mui-checked': { color: 'primary.main' } }}
                     />
                   </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setSelected360ShopId(shop.shopId)}>
                     <Stack direction="row" spacing={2} alignItems="center">
                       <Avatar sx={{ bgcolor: 'primary.main', borderRadius: 2, fontWeight: 800 }}>{shop.shopName ? shop.shopName.charAt(0) : 'S'}</Avatar>
                       <Box>
@@ -197,13 +201,13 @@ export const GlobalShopManagement = () => {
                       </Box>
                     </Stack>
                   </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setSelected360ShopId(shop.shopId)}>
                     <Typography variant="body2" fontWeight={600} color="white">{shop.ownerName || 'Unknown'}</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Email sx={{ fontSize: 12 }} /> {shop.ownerEmail || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <TableCell sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setSelected360ShopId(shop.shopId)}>
                     <Chip 
                       label={shop.currentTier || 'FREE'} 
                       size="small" 
@@ -236,9 +240,17 @@ export const GlobalShopManagement = () => {
                     </Stack>
                   </TableCell>
                   <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <IconButton sx={{ color: 'text.disabled' }} size="small">
-                      <MoreVert />
-                    </IconButton>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Visibility fontSize="small" />}
+                        onClick={() => setSelected360ShopId(shop.shopId)}
+                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, fontSize: '0.7rem' }}
+                      >
+                        View 360
+                      </Button>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))
@@ -262,6 +274,14 @@ export const GlobalShopManagement = () => {
           }}
         />
       </TableContainer>
+
+      {/* Shop 360° Drawer */}
+      <Shop360Drawer
+        open={Boolean(selected360ShopId)}
+        shopId={selected360ShopId}
+        onClose={() => setSelected360ShopId(null)}
+        onStatusUpdated={loadShops}
+      />
     </Box>
   );
 };
