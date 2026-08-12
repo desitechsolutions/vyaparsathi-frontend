@@ -33,7 +33,6 @@ const ReviewPaymentPage = ({
   onCancel,
   setError,
   loading,
-  isPharmacy,
 }) => {
   const [paymentMethods, setPaymentMethods] = useState([
     { paymentMethod: 'CASH', amount: 0, transactionId: '', reference: '', notes: '' }
@@ -46,33 +45,37 @@ const ReviewPaymentPage = ({
   const availableAdvance = rawBalance < 0 ? Math.abs(rawBalance) : 0;
 
   // =======================
-  // CALCULATIONS (Issue 2 Fix)
+  // CALCULATIONS
+  // Both subtotal and GST are computed **net of line-level discount** — the same
+  // formula the backend uses to persist taxableValue. Bill-level discount then
+  // reduces the grand total on top.
   const grossSubtotal = useMemo(() => {
     if (formData.subtotal && !isNaN(Number(formData.subtotal))) {
       return Number(formData.subtotal);
     }
-    return (formData.items || []).reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.unitPrice || 0)), 0);
+    return (formData.items || []).reduce((sum, item) => {
+      const gross = Number(item.qty || 0) * Number(item.unitPrice || 0);
+      const disc  = Number(item.discount || 0);
+      return sum + Math.max(0, gross - disc);
+    }, 0);
   }, [formData.items, formData.subtotal]);
 
   const subtotal = grossSubtotal;
 
   const [billLevelDiscount, setBillLevelDiscount] = useState(parseFloat(formData.discount) || 0);
 
-  // Calculate GST from item-level gstRate.
-  // For pharmacy, GST is already inclusive in MRP (informational only — do NOT add to total).
-  // For all other shops, GST is exclusive and must be added on top.
+  // GST is always exclusive — added on top of the net-of-line-discount base.
   const totalGst = (formData.items || []).reduce((sum, item) => {
     if (formData.isGstRequired !== 'yes') return sum;
     const rate = Number(item.gstRate) || 0;
-    const lineTotal = Number(item.qty) * Number(item.unitPrice);
-    return sum + (isPharmacy
-      ? lineTotal * rate / (100 + rate)
-      : lineTotal * rate / 100);
+    const gross = Number(item.qty || 0) * Number(item.unitPrice || 0);
+    const disc  = Number(item.discount || 0);
+    const lineNet = Math.max(0, gross - disc);
+    return sum + lineNet * rate / 100;
   }, 0);
 
-  const exclusiveGst = !isPharmacy ? totalGst : 0;
-  // Grand total = grossSubtotal + exclusiveGst - billLevelDiscount
-  const discountedTotal = Math.max(0, grossSubtotal + exclusiveGst - billLevelDiscount);
+  // Grand total = grossSubtotal + GST - billLevelDiscount
+  const discountedTotal = Math.max(0, grossSubtotal + totalGst - billLevelDiscount);
 
   // Automatic allocation of advance
   const advanceApplied = Math.min(availableAdvance, discountedTotal);
@@ -293,15 +296,10 @@ const ReviewPaymentPage = ({
                     </Box>
                   )}
 
-                  {/* Show GST: for non-pharmacy it is added to total; for pharmacy it is informational only */}
                   {formData.isGstRequired === 'yes' && totalGst > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                      <Typography sx={{ color: '#93c5fd', opacity: 0.9, flexShrink: 0 }}>
-                        {isPharmacy ? 'Inclusive GST (info)' : 'GST (+)'}
-                      </Typography>
-                      <Typography sx={{ fontWeight: 600, color: '#93c5fd', textAlign: 'right' }}>
-                        {isPharmacy ? '' : '+ '}₹{totalGst.toFixed(2)}
-                      </Typography>
+                      <Typography sx={{ color: '#93c5fd', opacity: 0.9, flexShrink: 0 }}>GST (+)</Typography>
+                      <Typography sx={{ fontWeight: 600, color: '#93c5fd', textAlign: 'right' }}>+ ₹{totalGst.toFixed(2)}</Typography>
                     </Box>
                   )}
 

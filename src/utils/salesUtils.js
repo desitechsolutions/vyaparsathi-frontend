@@ -23,18 +23,29 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
 
     status: status,   // "DRAFT" or "COMPLETED"
 
+    // Optional sale-type classifier. "PROFORMA" produces a non-binding proforma
+    // (own number series PI/…, no stock deduction, no ledger post). Any other
+    // value / omission defaults to a real INVOICE on the backend.
+    saleType: formData.saleType || null,
+
     items: (formData.items || []).map(si => {
       let vId = si.id || si.variantId;
       const cleanId = (vId !== "" && vId !== null && vId !== undefined) ? Number(vId) : null;
       return {
-        id: cleanId, 
+        id: cleanId,
         itemName: si.itemName,
         qty: Number(si.qty),
         unitPrice: Number(si.unitPrice),
         discount: Number(si.discount || 0),
+        gstRate: Number(si.gstRate || 0),
         // Batch tracking (optional)
         batchNumber: si.batchNumber || null,
         expiryDate: si.expiryDate || null,
+        // Free-text / service line fields — populated only when id is null
+        customItemName: si.customItemName || null,
+        customDescription: si.customDescription || null,
+        customHsnSac: si.customHsnSac || null,
+        customUnit: si.customUnit || null,
       };
     }),
 
@@ -44,6 +55,9 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
     shippingCharges: parseFloat(formData.deliveryCharge || formData.shippingCharges || 0),
     otherCharges: parseFloat(formData.otherCharges || 0),
     isGstRequired: formData.isGstRequired === 'yes',
+
+    // Sale-level notes (metadata only, no ledger/stock impact). Backend field: notes.
+    notes: (formData.saleNotes && formData.saleNotes.trim()) || null,
 
     delivery: formData.deliveryRequired
       ? {

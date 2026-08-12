@@ -117,51 +117,74 @@ const StatCard = ({ title, value, icon, color = "#2563eb", onClick, trend }) => 
     <Paper
       elevation={0}
       sx={{
-        p: 2.5,
-        borderRadius: 3,
+        p: 2,
+        borderRadius: 2,
         bgcolor: "background.paper",
         height: "100%",
         border: "1px solid",
         borderColor: "divider",
         cursor: onClick ? "pointer" : "default",
-        transition: "all 0.22s ease",
-        "&:hover": {
-          boxShadow: isDark ? "0 8px 22px rgba(0,0,0,0.4)" : "0 8px 22px rgba(0,0,0,0.08)",
-          borderColor: alpha(activeColor, 0.4),
-          transform: onClick ? "translateY(-3px)" : "none",
-        },
+        transition: "border-color 150ms ease, box-shadow 150ms ease",
+        "&:hover": onClick ? {
+          borderColor: alpha(activeColor, 0.35),
+          boxShadow: isDark ? "0 4px 14px rgba(0,0,0,0.35)" : "0 2px 8px rgba(15, 23, 42, 0.06)",
+        } : {},
       }}
       onClick={onClick}
     >
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-        <Avatar sx={{ bgcolor: alpha(activeColor, isDark ? 0.22 : 0.12), color: activeColor, width: 42, height: 42, borderRadius: "10px" }}>
-          {icon}
-        </Avatar>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.25 }}>
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: alpha(activeColor, isDark ? 0.18 : 0.1),
+            color: activeColor,
+          }}
+        >
+          {React.cloneElement(icon, { sx: { fontSize: 20 } })}
+        </Box>
         {trend !== undefined && trend !== null && (
           <MuiTooltip title="Growth vs previous equivalent period">
             <Chip
-              icon={<NorthEastIcon sx={{ fontSize: 14 }} />}
+              icon={<NorthEastIcon sx={{ fontSize: 12 }} />}
               label={`${trend > 0 ? "+" : ""}${trend}%`}
               size="small"
               color={trend >= 0 ? "success" : "error"}
-              sx={{ fontWeight: 700 }}
+              sx={{ fontWeight: 600, height: 22, fontSize: "0.72rem" }}
             />
           </MuiTooltip>
         )}
       </Box>
-      <Box>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          fontWeight={600}
-          sx={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
-        >
-          {title}
-        </Typography>
-        <Typography variant="h5" fontWeight={800} color="text.primary" mt={0.4}>
-          {value}
-        </Typography>
-      </Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          display: "block",
+          fontWeight: 600,
+          fontSize: "0.72rem",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          lineHeight: 1.4,
+        }}
+      >
+        {title}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: "1.5rem",
+          fontWeight: 700,
+          color: "text.primary",
+          mt: 0.25,
+          lineHeight: 1.2,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </Typography>
     </Paper>
   );
 };
@@ -354,11 +377,12 @@ const setupChecklist = useMemo(() => {
   };
 
   const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const chartColor = theme.palette.text.secondary;
   const chartGrid = theme.palette.divider;
 
   return (
-    <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3.5, lg: 4 }, bgcolor: "background.default", minHeight: "100vh" }}>
+    <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3 }, bgcolor: "background.default", minHeight: "100vh" }}>
       
 {profileCompletion < 100 && !isLoading && (
   <Paper
@@ -454,13 +478,12 @@ const setupChecklist = useMemo(() => {
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2.5, md: 3.5 },
-            mb: 4,
-            borderRadius: 3,
+            p: { xs: 2, md: 2.5 },
+            mb: 3,
+            borderRadius: 2,
             border: "1px solid",
             borderColor: "divider",
             bgcolor: "background.paper",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.04)",
           }}
         >
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ md: "center" }} spacing={2.5}>
@@ -497,38 +520,50 @@ const setupChecklist = useMemo(() => {
         </Paper>
       )}
 
-      {/* Filter & Quick Actions */}
-      <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, justifyContent: "space-between", mb: 4, gap: 2.5 }}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1.5,
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-            display: "flex",
-            gap: 1.5,
-            bgcolor: "background.paper",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <ButtonGroup variant="outlined" size="small" color="primary">
+      {/* Unified control bar — date range on the left, primary actions on the right.
+          One Paper, one hairline border. Segmented button group + inline date pickers. */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, md: 1.75 },
+          mb: 3,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: { md: "center" },
+          justifyContent: "space-between",
+          gap: 1.5,
+          flexWrap: "wrap",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" sx={{ rowGap: 1 }}>
+          <ButtonGroup
+            variant="outlined"
+            size="small"
+            color="primary"
+            sx={{
+              "& .MuiButton-root": {
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                px: 1.5,
+              },
+            }}
+          >
             <Button onClick={() => setRange({ from: dayjs().format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
               {t('dashboardPage.today')}
             </Button>
-            <Button
-              onClick={() => setRange({ from: dayjs().subtract(6, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}
-            >
+            <Button onClick={() => setRange({ from: dayjs().subtract(6, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
               {t('dashboardPage.7Days')}
             </Button>
-            <Button
-              onClick={() => setRange({ from: dayjs().subtract(29, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}
-            >
+            <Button onClick={() => setRange({ from: dayjs().subtract(29, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
               {t('dashboardPage.30Days')}
             </Button>
           </ButtonGroup>
-          <Divider orientation="vertical" flexItem />
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block" } }} />
           <TextField
             type="date"
             size="small"
@@ -536,7 +571,7 @@ const setupChecklist = useMemo(() => {
             value={range.from}
             onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ width: 135 }}
+            sx={{ width: 145 }}
           />
           <TextField
             type="date"
@@ -545,19 +580,30 @@ const setupChecklist = useMemo(() => {
             value={range.to}
             onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ width: 135 }}
+            sx={{ width: 145 }}
           />
-        </Paper>
+        </Stack>
 
-        <Stack direction="row" spacing={1.5} flexWrap="wrap">
-          <Button variant="contained" startIcon={<ShoppingCartIcon />} onClick={() => navigate("/sales")} sx={{ borderRadius: 2.5, px: 3, fontWeight: 600 }}>
-            {t('dashboardPage.newSale')}
-          </Button>
-          <Button variant="outlined" onClick={() => navigate("/sales?tab=history")} sx={{ borderRadius: 2.5 }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => navigate("/sales?tab=history")}
+            sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+          >
             {t('dashboardPage.viewSalesHistory')}
           </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<ShoppingCartIcon />}
+            onClick={() => navigate("/sales")}
+            sx={{ borderRadius: 2, px: 2.25, textTransform: "none", fontWeight: 600 }}
+          >
+            {t('dashboardPage.newSale')}
+          </Button>
         </Stack>
-      </Box>
+      </Paper>
 
       {isLoading ? (
         <Box>
@@ -594,7 +640,7 @@ const setupChecklist = useMemo(() => {
       ) : (
         <>
           {/* Stat Cards */}
-          <Grid container spacing={2.5} sx={{ mb: 4 }}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={6} sm={4} md={2.4}>
               <StatCard
                 title={t('dashboardPage.todaysSales')}
@@ -636,7 +682,274 @@ const setupChecklist = useMemo(() => {
             </Grid>
           </Grid>
 
-          <Grid container spacing={3}>
+          {/* Recent Invoices + Stock Alerts — enterprise-grade activity strip.
+              Left col (7/12): today's transactions with status pills. Uses the
+              same todaySales data source the Today's Sales modal reads — no
+              additional API round-trips. Right col (5/12): stock alert widget
+              summarizing critical vs warning items from the shared AlertContext. */}
+          <Grid container spacing={2.5} sx={{ mb: 3 }}>
+            <Grid item xs={12} lg={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                }}
+              >
+                <Box sx={{
+                  px: 2.5, py: 1.75,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottom: "1px solid",
+                  borderBottomColor: "divider",
+                }}>
+                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "text.primary" }}>
+                    Recent Invoices
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={() => navigate("/sales?tab=history")}
+                    sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.78rem" }}
+                  >
+                    View all
+                  </Button>
+                </Box>
+                <Box sx={{ overflowX: "auto", flex: 1 }}>
+                  <Table size="small" sx={{
+                    "& .MuiTableCell-root": { borderBottomColor: "divider", py: 1.25, fontSize: "0.82rem" },
+                  }}>
+                    <TableHead>
+                      <TableRow sx={{
+                        "& .MuiTableCell-root": {
+                          fontWeight: 600,
+                          fontSize: "0.7rem",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.4,
+                          color: "text.secondary",
+                          bgcolor: "transparent",
+                          py: 1,
+                        },
+                      }}>
+                        <TableCell>Invoice</TableCell>
+                        <TableCell>Customer</TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell align="right" />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {dashboardData.todaySales.length > 0 ? (
+                        dashboardData.todaySales.slice(0, 6).map((s, i) => {
+                          const isPaid = !s.dueAmount || Number(s.dueAmount) <= 0;
+                          const isPartial = Number(s.dueAmount) > 0 && Number(s.dueAmount) < Number(s.totalAmount);
+                          const statusMeta = isPaid
+                            ? { label: "PAID", color: theme.palette.success.main }
+                            : isPartial
+                              ? { label: "PARTIAL", color: theme.palette.warning.main }
+                              : { label: "UNPAID", color: theme.palette.error.main };
+                          return (
+                            <TableRow
+                              key={i}
+                              hover
+                              sx={{ cursor: "pointer" }}
+                              onClick={() => navigate("/sales?tab=history")}
+                            >
+                              <TableCell sx={{
+                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                                fontWeight: 600,
+                              }}>
+                                {s.invoiceNo || "—"}
+                              </TableCell>
+                              <TableCell>{s.customer?.name || s.customerName || t('dashboardPage.walkIn')}</TableCell>
+                              <TableCell sx={{ color: "text.secondary" }}>
+                                {s.date ? dayjs(s.date).format("DD MMM, hh:mm A") : "—"}
+                              </TableCell>
+                              <TableCell align="right" sx={{
+                                fontWeight: 600,
+                                fontVariantNumeric: "tabular-nums",
+                                whiteSpace: "nowrap",
+                              }}>
+                                {formatCurrency(s.totalAmount)}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+                                  <Box
+                                    component="span"
+                                    sx={{
+                                      width: 7,
+                                      height: 7,
+                                      borderRadius: "50%",
+                                      bgcolor: statusMeta.color,
+                                      boxShadow: `0 0 0 2px ${alpha(statusMeta.color, 0.15)}`,
+                                    }}
+                                  />
+                                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 600 }}>
+                                    {statusMeta.label}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                              <TableCell align="right">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => { e.stopPropagation(); navigate("/sales?tab=history"); }}
+                                  aria-label="Open"
+                                >
+                                  <NorthEastIcon sx={{ fontSize: 15 }} />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} align="center" sx={{ py: 5, color: "text.secondary" }}>
+                            <Typography variant="body2">No invoices for the selected period.</Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} lg={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <Box sx={{
+                  px: 2.5, py: 1.75,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottom: "1px solid",
+                  borderBottomColor: "divider",
+                }}>
+                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "text.primary" }}>
+                    Stock Alerts
+                  </Typography>
+                  <Chip
+                    label={stockAlertCount > 0 ? `${stockAlertCount} item${stockAlertCount === 1 ? "" : "s"}` : "All healthy"}
+                    size="small"
+                    color={criticalCount > 0 ? "error" : stockAlertCount > 0 ? "warning" : "success"}
+                    variant="outlined"
+                    sx={{ fontWeight: 600, fontSize: "0.7rem" }}
+                  />
+                </Box>
+                <Box sx={{ p: 2.5, flex: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                  <Stack direction="row" spacing={1.5}>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        border: "1px solid",
+                        borderColor: alpha(theme.palette.error.main, 0.2),
+                        bgcolor: alpha(theme.palette.error.main, isDark ? 0.14 : 0.05),
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        Critical
+                      </Typography>
+                      <Typography sx={{ fontSize: "1.5rem", fontWeight: 700, color: "error.main", lineHeight: 1.2, mt: 0.25, fontVariantNumeric: "tabular-nums" }}>
+                        {criticalCount}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        border: "1px solid",
+                        borderColor: alpha(theme.palette.warning.main, 0.2),
+                        bgcolor: alpha(theme.palette.warning.main, isDark ? 0.14 : 0.05),
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "0.68rem", fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        Warning
+                      </Typography>
+                      <Typography sx={{ fontSize: "1.5rem", fontWeight: 700, color: "warning.main", lineHeight: 1.2, mt: 0.25, fontVariantNumeric: "tabular-nums" }}>
+                        {Math.max(0, stockAlertCount - criticalCount)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", mt: 0.5 }}>
+                    {lowStockAlerts && lowStockAlerts.length > 0 ? (
+                      lowStockAlerts.slice(0, 4).map((alert, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            py: 1,
+                            borderBottom: i < Math.min(3, lowStockAlerts.length - 1) ? "1px solid" : "none",
+                            borderBottomColor: "divider",
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
+                            <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {alert.itemName || alert.name || "Item"}
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.72rem", color: "text.secondary" }}>
+                              Stock: {alert.currentStock ?? alert.stock ?? 0}
+                            </Typography>
+                          </Box>
+                          <Box
+                            component="span"
+                            sx={{
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              bgcolor: (alert.currentStock ?? 0) === 0 ? "error.main" : "warning.main",
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Box>
+                      ))
+                    ) : (
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 3, gap: 1 }}>
+                        <CheckCircleIcon sx={{ fontSize: 16, color: "success.main" }} />
+                        <Typography sx={{ fontSize: "0.82rem", color: "text.secondary" }}>
+                          All stock levels are healthy.
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                  {stockAlertCount > 0 && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      fullWidth
+                      onClick={() => navigate("/low-stock-alerts")}
+                      sx={{ textTransform: "none", fontWeight: 600, borderRadius: 1.5 }}
+                    >
+                      View all alerts
+                    </Button>
+                  )}
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2.5}>
             <Grid item xs={12} lg={8}>
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }} elevation={0}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>

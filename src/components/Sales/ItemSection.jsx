@@ -14,6 +14,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MedicationIcon from '@mui/icons-material/Medication';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
+import AddIcon from '@mui/icons-material/Add';
+import CustomItemDialog from './CustomItemDialog';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
 import { fetchBatchWiseStock, lookupByBarcode } from '../../services/api';
 
@@ -449,6 +451,7 @@ const ItemDetails = ({
   sellingMode,
   handleAddItem,
   onQtyChange,
+  onDiscountChange,
   error,
 }) => {
   const mrpDiscount = isPharmacy && selectedVariant?.mrp 
@@ -502,8 +505,8 @@ const ItemDetails = ({
         </Box>
       )}
 
-      <Grid container spacing={3} alignItems="center">
-        <Grid item xs={12} md={7}>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} md={5}>
           <Grid container spacing={1}>
             {detailsConfig.map((d, i) => (
               <Grid item xs={isPharmacy && d.label === 'Composition' ? 12 : 4} key={i}>
@@ -545,7 +548,22 @@ const ItemDetails = ({
           />
         </Grid>
 
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6} md={2}>
+          <TextField
+            label="Discount ₹"
+            type="number"
+            fullWidth
+            value={item.discount ?? 0}
+            onChange={onDiscountChange}
+            onFocus={(e) => e.target.select()}
+            inputProps={{ min: 0, step: '0.01' }}
+            InputProps={{
+              sx: { borderRadius: 2, bgcolor: 'background.paper', fontWeight: 800 },
+            }}
+          />
+        </Grid>
+
+        <Grid item xs={12} md={3}>
           <Button
             fullWidth
             variant="contained"
@@ -664,6 +682,7 @@ const ItemSection = ({
   handleVariantSelect,
   handleSearchParamChange,
   handleAddItem,
+  handleAddCustomItem,
   handleResetFilters,
   error,
   substitutes,
@@ -682,8 +701,26 @@ const ItemSection = ({
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [loadingBatches, setLoadingBatches] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
 
   const itemDetailsRef = useRef(null);
+  // Ref to the barcode/EAN input — the natural POS re-entry point after an
+  // item is added. Restoring focus here keeps a scan-add-scan workflow entirely
+  // hands-free on the keyboard.
+  const barcodeInputRef = useRef(null);
+
+  /**
+   * Wraps the parent's Add-Item handler with a focus-return: after the item
+   * is added and React clears the ItemDetails state, we hop back to the
+   * barcode field so the next scan/type continues without clicking.
+   */
+  const handleAddAndRefocus = useCallback((...args) => {
+    const result = handleAddItem?.(...args);
+    setTimeout(() => {
+      try { barcodeInputRef.current?.focus?.(); } catch (_) { /* ignore */ }
+    }, 0);
+    return result;
+  }, [handleAddItem]);
 
   // ── MEMOIZED VALUES ──
   const industry = useMemo(() => industryType || (isPharmacy ? 'PHARMACY' : 'GENERAL'), [industryType, isPharmacy]);
@@ -809,6 +846,15 @@ const ItemSection = ({
     }
   }, []);
 
+  const handleDiscountChange = useCallback((e) => {
+    // Coerce to a non-negative number; blank input treated as 0 so the cart total
+    // stays deterministic. Larger-than-line-total discounts are floored to line
+    // total at line-total computation time in SalesSummary — no error toast here.
+    const raw = e.target.value;
+    const num = raw === '' ? 0 : Math.max(0, Number(raw) || 0);
+    setItem(prev => ({ ...prev, discount: num }));
+  }, [setItem]);
+
   const handleQtyChange = useCallback((e) => {
     setItem(prev => ({ ...prev, qty: e.target.value }));
   }, []);
@@ -816,85 +862,83 @@ const ItemSection = ({
   // ============ RENDER ============
 
   return (
-    <Grid item xs={12}>
-      <Card raised sx={{
-        borderRadius: 4,
-        boxShadow: `0 10px 30px ${alpha('#0f766e', 0.08)}`,
-        overflow: 'visible',
-        border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
+    <Box sx={{ p: { xs: 1.5, md: 2 } }}>
+      {/* HEADER */}
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 2,
+        flexWrap: 'wrap',
+        gap: 1,
       }}>
-        <CardContent sx={{ p: { xs: 2, md: 4 } }}>
-          {/* HEADER */}
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 3,
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {isPharmacy ? (
-                <LocalPharmacyIcon sx={{ color: 'var(--color-teal)', fontSize: 32 }} />
-              ) : (
-                <SearchIcon sx={{ color: 'var(--color-teal)', fontSize: 32 }} />
-              )}
-              <Typography variant="h5" sx={{
-                fontWeight: 800,
-                letterSpacing: '-0.5px',
-                color: 'var(--color-teal)',
-              }}>
-                {headerTitle}
-              </Typography>
-            </Box>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 700,
+          color: 'text.primary',
+        }}>
+          {headerTitle}
+        </Typography>
 
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="Reset all criteria">
-                <Button
-                  onClick={handleResetFilters}
-                  color="inherit"
-                  startIcon={<RestartAltIcon />}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    color: 'text.secondary',
-                  }}
-                >
-                  Reset
-                </Button>
-              </Tooltip>
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          {handleAddCustomItem && (
+            <Tooltip title="Add a one-off charge or service not in the catalog">
               <Button
-                variant={showAdvanced ? 'contained' : 'outlined'}
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                startIcon={<TuneIcon />}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  ...(showAdvanced && {
-                    background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-                  }),
-                }}
+                onClick={() => setCustomDialogOpen(true)}
+                variant="text"
+                size="small"
+                startIcon={<AddIcon fontSize="small" />}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
               >
-                {showAdvanced ? 'Basic' : 'Advanced'}
+                Custom Item
               </Button>
-            </Box>
-          </Box>
+            </Tooltip>
+          )}
+          <Tooltip title="Reset all filters">
+            <Button
+              onClick={handleResetFilters}
+              variant="text"
+              size="small"
+              startIcon={<RestartAltIcon fontSize="small" />}
+              sx={{ textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
+            >
+              Reset
+            </Button>
+          </Tooltip>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            startIcon={<TuneIcon fontSize="small" />}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            {showAdvanced ? 'Basic filters' : 'Advanced filters'}
+          </Button>
+        </Box>
+      </Box>
 
-          {/* PRIMARY SEARCH & BARCODE SCANNER */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={4}>
-              <Typography variant="caption" sx={{
-                fontWeight: 700,
-                ml: 1,
-                color: 'text.secondary',
-                textTransform: 'uppercase',
-                fontSize: '0.75rem',
-              }}>
-                📷 Scan Barcode / EAN
-              </Typography>
+          {handleAddCustomItem && (
+            <CustomItemDialog
+              open={customDialogOpen}
+              onClose={() => setCustomDialogOpen(false)}
+              onSubmit={handleAddCustomItem}
+            />
+          )}
+
+      {/* PRIMARY SEARCH & BARCODE SCANNER */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={4}>
+          <Typography variant="caption" sx={{
+            fontWeight: 600,
+            color: 'text.secondary',
+            fontSize: '0.75rem',
+          }}>
+            Barcode / EAN
+          </Typography>
               <TextField
                 placeholder="Scan barcode or press Enter..."
                 size="small"
                 fullWidth
+                inputRef={barcodeInputRef}
                 onKeyDown={async (e) => {
                   if (e.key === 'Enter' && e.target.value.trim()) {
                     try {
@@ -918,69 +962,51 @@ const ItemSection = ({
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="caption" sx={{
-                fontWeight: 700,
-                ml: 1,
-                color: 'text.secondary',
-                textTransform: 'uppercase',
-                fontSize: '0.75rem',
-              }}>
-                Product Name
-              </Typography>
-              <Select
-                options={uniqueNames}
-                value={uniqueNames.find(opt => opt.value === searchParams.name) || null}
-                onChange={(opt) => handleChange('name', opt, false)}
-                placeholder="Search by name..."
-                isClearable
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="caption" sx={{
-                fontWeight: 700,
-                ml: 1,
-                color: 'text.secondary',
-                textTransform: 'uppercase',
-                fontSize: '0.75rem',
-              }}>
-                SKU
-              </Typography>
-              <Select
-                options={uniqueSkus}
-                value={uniqueSkus.find(opt => opt.value === searchParams.sku) || null}
-                onChange={(opt) => handleChange('sku', opt, false)}
-                placeholder="SKU..."
-                isClearable
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Grid>
-            {isPharmacy && (
-              <Grid item xs={12} md={4}>
-                <Typography variant="caption" sx={{
-                  fontWeight: 700,
-                  ml: 1,
-                  color: 'text.secondary',
-                  textTransform: 'uppercase',
-                  fontSize: '0.75rem',
-                }}>
-                  Composition
-                </Typography>
-                <Select
-                  options={uniqueCompositions || []}
-                  value={(uniqueCompositions || []).find(opt => opt.value === searchParams.composition) || null}
-                  onChange={(opt) => handleChange('composition', opt, false)}
-                  placeholder="Search..."
-                  isClearable
-                  styles={selectStyles}
-                  menuPortalTarget={document.body}
-                />
-              </Grid>
-            )}
+        <Grid item xs={12} md={4}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
+            Product Name
+          </Typography>
+          <Select
+            options={uniqueNames}
+            value={uniqueNames.find(opt => opt.value === searchParams.name) || null}
+            onChange={(opt) => handleChange('name', opt, false)}
+            placeholder="Search by name..."
+            isClearable
+            styles={selectStyles}
+            menuPortalTarget={document.body}
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
+            SKU
+          </Typography>
+          <Select
+            options={uniqueSkus}
+            value={uniqueSkus.find(opt => opt.value === searchParams.sku) || null}
+            onChange={(opt) => handleChange('sku', opt, false)}
+            placeholder="SKU..."
+            isClearable
+            styles={selectStyles}
+            menuPortalTarget={document.body}
+          />
+        </Grid>
+        {isPharmacy && (
+          <Grid item xs={12} md={4}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
+              Composition
+            </Typography>
+            <Select
+              options={uniqueCompositions || []}
+              value={(uniqueCompositions || []).find(opt => opt.value === searchParams.composition) || null}
+              onChange={(opt) => handleChange('composition', opt, false)}
+              placeholder="Search..."
+              isClearable
+              styles={selectStyles}
+              menuPortalTarget={document.body}
+            />
           </Grid>
+        )}
+      </Grid>
 
           {/* FILTER BAR */}
           <FilterBar
@@ -994,19 +1020,17 @@ const ItemSection = ({
             optionsMap={optionsMap}
           />
 
-          {/* VARIANT SELECTION */}
-          <Box sx={{ mt: 4, mb: 2 }}>
-            <Typography variant="subtitle1" sx={{
-              fontWeight: 700,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              color: 'var(--color-teal)',
-            }}>
-              <Chip label="Step 2" size="small" sx={{ bgcolor: 'var(--color-teal)', color: 'white' }} />
-              {isPharmacy ? 'Select Medicine' : 'Select Variant'}
-            </Typography>
+      {/* VARIANT SELECTION */}
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Typography variant="caption" sx={{
+          fontWeight: 600,
+          color: 'text.secondary',
+          fontSize: '0.75rem',
+          display: 'block',
+          mb: 0.5,
+        }}>
+          {isPharmacy ? 'Select Medicine' : 'Select Variant'}
+        </Typography>
             <Select
               options={variants}
               onChange={handleVariantSelect}
@@ -1083,23 +1107,22 @@ const ItemSection = ({
             itemDetailsRef={itemDetailsRef}
             isPharmacy={isPharmacy}
             sellingMode={sellingMode}
-            handleAddItem={handleAddItem}
+            handleAddItem={handleAddAndRefocus}
             onQtyChange={handleQtyChange}
+            onDiscountChange={handleDiscountChange}
             error={error}
           />
 
 
 
-          {/* SUBSTITUTES */}
-          <SubstituteSuggestions
-            substitutes={substitutes}
-            onSelectSubstitute={onSelectSubstitute}
-            showSubstitutes={showSubstitutes}
-            onToggleSubstitutes={() => setShowSubstitutes(!showSubstitutes)}
-          />
-        </CardContent>
-      </Card>
-    </Grid>
+      {/* SUBSTITUTES */}
+      <SubstituteSuggestions
+        substitutes={substitutes}
+        onSelectSubstitute={onSelectSubstitute}
+        showSubstitutes={showSubstitutes}
+        onToggleSubstitutes={() => setShowSubstitutes(!showSubstitutes)}
+      />
+    </Box>
   );
 };
 

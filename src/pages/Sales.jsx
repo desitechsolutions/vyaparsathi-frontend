@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Box, Snackbar, Alert, CircularProgress, Divider, Chip,
-  Typography, Paper, Button, Tooltip, Stack, Dialog, DialogTitle,
-  DialogContent, DialogActions, alpha
+  Box, Snackbar, Alert, CircularProgress,
+  Typography, Paper, Button, IconButton, Tooltip, Stack, Menu, MenuItem, ListItemIcon, ListItemText,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -12,25 +12,30 @@ import SalesSummary from '../components/Sales/SalesSummary';
 import InvoiceModal from '../components/Sales/InvoiceModal';
 import SalesHistory from '../components/Sales/SalesHistory';
 import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 import { buildSalePayload } from '../utils/salesUtils';
 import {
   fetchCustomers, createSale, fetchItemVariants, createCustomer,
-  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes
+  draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes,
+  parkSale as parkSaleApi, discardDraftSale
 } from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import EnterpriseUpgradeModal from '../components/subscriptions/EnterpriseUpgradeModal';
 import PersonIcon from '@mui/icons-material/Person';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import LockIcon from '@mui/icons-material/Lock';
 
 // ============ CONSTANTS ============
 const initialItem = {
   id: '', sku: '', qty: '', unitPrice: 0, itemName: '', description: '',
   color: [], size: [], brand: '', design: '', currentStock: 0,
+  discount: 0,
 };
 
 const initialCustomer = {
@@ -45,6 +50,7 @@ const initialFormData = {
   remaining: 0, paymentStatus: 'Pending', deliveryRequired: false,
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: 'PACKED',
+  saleNotes: '',
 };
 
 const initialSearchParams = {
@@ -165,7 +171,7 @@ const useLoadData = () => {
 const Sales = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isPharmacy, isJewellery, industryType, shop } = useShop();
+  const { isJewellery, industryType, shop } = useShop();
   const { getStatus, canProcessSale, canStartTrial } = useSubscription();
   const { tabValue, setTabValue, resumeId, clearParams } = useURLParams();
 
@@ -205,7 +211,6 @@ const Sales = () => {
   // ── MODALS ──
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
   const [openInvoiceModal, setOpenInvoiceModal] = useState(false);
-  const [drugAlertOpen, setDrugAlertOpen] = useState(false);
 
   // ── CUSTOMER MODAL ──
   const [newCustomerData, setNewCustomerData] = useState(initialCustomer);
@@ -220,7 +225,6 @@ const Sales = () => {
   });
 
   // ── PENDING ACTIONS ──
-  const [pendingItem, setPendingItem] = useState(null);
 
   // ============ CALLBACKS ============
 
@@ -246,27 +250,55 @@ const Sales = () => {
         const res = await getSaleById(id);
         const draft = res.data;
 
+        // SaleItemDto is FLAT — MapStruct doesn't nest itemVariant / item objects.
+        // Read from top-level fields: si.id (aliased to itemVariantId via
+        // @JsonProperty), si.itemName, si.variantSku, si.variantColor, etc.
+        //
+        // currentStock isn't exposed on the DTO (it's a runtime inventory value,
+        // not a SaleItem column). Hydrate it from the `variants` list which the
+        // Sales page has already loaded — matching by variant id.
+        const variantById = new Map((variants || []).map((v) => [Number(v.id), v]));
+
         const resumedItems = (draft.items || []).map((si) => {
-          const actualVariantId = si.id || si.itemId || si.itemVariantId || si.itemVariant?.id;
-          const v = si.itemVariant || {};
-          const itemDetail = v.item || {};
+          // Prefer the true SaleItem PK (`saleItemId`) added by the F5 refactor,
+          // fall back to the JSON-aliased `id` (variantId) for legacy drafts.
+          const variantId =
+            si.itemVariantId != null ? si.itemVariantId
+            : si.id != null ? si.id                    // legacy: id was aliased to itemVariantId
+            : si.itemId != null ? si.itemId : null;
+          const liveVariant = variantId != null ? variantById.get(Number(variantId)) : null;
+          const displayName = si.itemName || liveVariant?.itemName || 'Item';
 
           return {
-            id: actualVariantId ? Number(actualVariantId) : null,
-            variantId: actualVariantId ? Number(actualVariantId) : null,
-            saleItemId: si.saleItemId || si.id,
-            sku: v.sku || '',
+            // Cart lines carry the variant id under both `id` and `variantId`
+            // — several downstream consumers read one or the other historically.
+            id: variantId ? Number(variantId) : null,
+            variantId: variantId ? Number(variantId) : null,
+            saleItemId: si.saleItemId != null ? si.saleItemId : null,
+            sku: si.variantSku || liveVariant?.sku || '',
             qty: Number(si.qty || 0),
             unitPrice: Number(si.unitPrice || 0),
-            itemName: itemDetail.name || v.itemName || 'Item',
-            description: itemDetail.description || '',
-            color: v.color || '',
-            size: v.size || '',
-            brand: itemDetail.brandName || v.brand || '',
-            design: v.design || '',
-            currentStock: Number(v.currentStock || 0),
+            itemName: displayName,
+            description: '',
+            color: si.variantColor || liveVariant?.color || '',
+            size: si.variantSize || liveVariant?.size || '',
+            brand: si.variantBrand || liveVariant?.brand || '',
+            design: si.variantDesign || liveVariant?.design || '',
+            gstRate: Number(si.gstRate || liveVariant?.gstRate || 0),
+            hsn: liveVariant?.hsn || liveVariant?.hsnCode || null,
+            // currentStock hydrated from live variants — the DTO doesn't carry it,
+            // so if we don't do this we'd render 0 and trigger a false out-of-stock
+            // guard when the user changes qty.
+            currentStock: Number(liveVariant?.currentStock ?? 0),
             discount: Number(si.discount || 0),
-            drugSchedule: v.drugSchedule || '',
+            batchNumber: si.batchNumber || null,
+            expiryDate: si.expiryDate || null,
+            // Custom line fields (variant-less service billing).
+            customItemName: si.customItemName || null,
+            customDescription: si.customDescription || null,
+            customHsnSac: si.customHsnSac || null,
+            customUnit: si.customUnit || null,
+            isCustom: !variantId,
           };
         });
 
@@ -291,7 +323,6 @@ const Sales = () => {
           deliveryCharge: draft.delivery?.deliveryCharge || '',
           deliveryStatus: draft.delivery?.deliveryStatus || 'PACKED',
           deliveryPaidBy: draft.delivery?.deliveryPaidBy || '',
-          ...(isPharmacy ? { patientName: draft.customer?.name || '' } : {}),
         }));
 
         setShowReviewPage(false);
@@ -304,7 +335,7 @@ const Sales = () => {
         setLoading(false);
       }
     },
-    [isPharmacy, clearParams, showSnackbar, t]
+    [clearParams, showSnackbar, t, variants]
   );
 
   useEffect(() => {
@@ -334,6 +365,8 @@ const Sales = () => {
       requiresPrescription: opt.requiresPrescription,
       mrp: opt.mrp || null,
       gstRate: opt.gstRate || 0,
+      // Preserve HSN/SAC so the cart row can display it inline for compliance visibility.
+      hsn: opt.hsn || opt.hsnCode || null,
       weightGrams: opt.weightGrams || null,
       netWeightGrams: opt.netWeightGrams || null,
       metalPurity: opt.metalPurity || null,
@@ -372,41 +405,35 @@ const Sales = () => {
       return;
     }
 
-    // Check drug schedule
-    const schedule = item.drugSchedule || selectedVariant?.drugSchedule;
-    if (isPharmacy && schedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(schedule)) {
-      setPendingItem({ ...item, qty: quantity });
-      setDrugAlertOpen(true);
-      return;
-    }
-
     doAddItem({ ...item, qty: quantity });
-  }, [item, selectedVariant, variants, isPharmacy]);
+  }, [item, selectedVariant, variants]);
 
   const doAddItem = useCallback(
     (itemToAdd) => {
-      let newItems;
-
-      if (editIndex !== null) {
-        newItems = [...formData.items];
-        newItems[editIndex] = itemToAdd;
-      } else {
-        const existingIdx = formData.items.findIndex((it) => it.id === itemToAdd.id);
-        if (existingIdx !== -1) {
-          newItems = [...formData.items];
-          newItems[existingIdx].qty += itemToAdd.qty;
+      // Functional updater so rapid consecutive adds never drop a line due to
+      // stale closure over formData.items.
+      setFormData((prev) => {
+        let newItems;
+        if (editIndex !== null) {
+          newItems = [...prev.items];
+          newItems[editIndex] = itemToAdd;
         } else {
-          newItems = [...formData.items, itemToAdd];
+          const existingIdx = prev.items.findIndex((it) => it.id === itemToAdd.id);
+          if (existingIdx !== -1) {
+            newItems = [...prev.items];
+            newItems[existingIdx] = { ...newItems[existingIdx], qty: newItems[existingIdx].qty + itemToAdd.qty };
+          } else {
+            newItems = [...prev.items, itemToAdd];
+          }
         }
-      }
-
-      setFormData((prev) => ({ ...prev, items: newItems }));
+        return { ...prev, items: newItems };
+      });
       setItem(initialItem);
       setSelectedVariant(null);
       setEditIndex(null);
       setSubstitutes([]);
     },
-    [formData.items, editIndex]
+    [editIndex]
   );
 
   const handleEditItem = useCallback(
@@ -426,6 +453,27 @@ const Sales = () => {
     }));
   }, []);
 
+  // Add a free-text (service / one-off charge) line item — no catalog variant, no stock.
+  const handleAddCustomItem = useCallback(
+    (payload) => {
+      const customItem = {
+        id: null,                                     // itemVariantId=null signals custom to backend
+        itemName: payload.customItemName,             // satisfies @NotBlank on backend DTO
+        customItemName: payload.customItemName,
+        customDescription: payload.customDescription,
+        customHsnSac: payload.customHsnSac,
+        customUnit: payload.customUnit,
+        qty: payload.qty,
+        unitPrice: payload.unitPrice,
+        gstRate: payload.gstRate,
+        discount: 0,
+        isCustom: true,                               // client-side flag to render differently in the list
+      };
+      setFormData((prev) => ({ ...prev, items: [...prev.items, customItem] }));
+    },
+    []
+  );
+
   // ── CUSTOMER MANAGEMENT ──
 
   const handleCustomerSelect = useCallback(
@@ -434,10 +482,9 @@ const Sales = () => {
       setFormData((prev) => ({
         ...prev,
         customerId: opt?.value || '',
-        ...(isPharmacy && opt ? { patientName: opt.name || opt.label?.split(' | ')[0] || '' } : {}),
       }));
     },
-    [isPharmacy]
+    []
   );
 
   const handleNewCustomer = useCallback(async () => {
@@ -448,11 +495,11 @@ const Sales = () => {
       setSelectedCustomer(newCust);
       setFormData((prev) => ({ ...prev, customerId: res.data.id }));
       setOpenCustomerModal(false);
-      showSnackbar(isPharmacy ? 'Patient registered!' : 'Customer added!', 'success');
+      showSnackbar('Customer added!', 'success');
     } catch {
       showSnackbar('Failed to add customer.', 'error');
     }
-  }, [newCustomerData, isPharmacy, showSnackbar]);
+  }, [newCustomerData, showSnackbar]);
 
   // ── SALE SUBMISSION ──
 
@@ -471,6 +518,75 @@ const Sales = () => {
       setLoading(false);
     }
   }, [formData, selectedCustomer, showSnackbar, t]);
+
+  /**
+   * "Hold this order" — POS staple. Save-as-draft first (persists the cart with
+   * an id), then flip DRAFT → HELD on the server, then reset the form so the
+   * cashier can serve the next customer. Held orders show up in Sales History
+   * with a Resume affordance.
+   */
+  const handleHoldSale = useCallback(async () => {
+    if (!formData.items?.length) {
+      showSnackbar('Add at least one item before holding', 'warning');
+      return;
+    }
+    setLoading(true);
+    try {
+      const draftPayload = buildSalePayload(formData, selectedCustomer, [], 'DRAFT');
+      const draftRes = await draftSale(draftPayload);
+      const saleId = draftRes?.data?.id;
+      if (!saleId) throw new Error('Draft id missing in response');
+      await parkSaleApi(saleId);
+      showSnackbar('Order held — find it in Sales History', 'success');
+      resetForm();
+    } catch (err) {
+      showSnackbar(err?.response?.data?.message || 'Failed to hold order', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [formData, selectedCustomer, resetForm, showSnackbar]);
+
+  // Non-binding proforma: creates the sale immediately as a real (non-DRAFT) row
+  // but with saleType=PROFORMA so the backend skips stock deduction and ledger
+  // posting. No payment collection needed — proformas exist to be shared with
+  // the customer for approval before a real invoice is issued.
+  const handleSaveAsProforma = useCallback(async () => {
+    setLoading(true);
+    // Proforma is a distinct sale type — createSale builds a fresh row rather
+    // than promoting the draft in place. Track the previous draft id so we can
+    // clean it up after the proforma is safely created (otherwise the draft
+    // would linger as an orphan in Sales History).
+    const previousDraftId = formData.id || null;
+    const payload = {
+      ...buildSalePayload(formData, selectedCustomer, [], 'COMPLETED'),
+      id: null,                // force createSale to mint a new row, not update the draft
+      saleType: 'PROFORMA',
+    };
+    try {
+      const res = await createSale(payload);
+      // Best-effort orphan cleanup — if the discard fails, we still succeed
+      // (user just sees a stray draft they can delete manually).
+      if (previousDraftId) {
+        try { await discardDraftSale(previousDraftId); }
+        catch (e) { /* non-fatal */ }
+      }
+      setInvoiceData({
+        saleId: res.data.id,
+        invoiceNo: res.data.invoiceNo,
+        signedUrl: res.data.signedInvoiceUrl,
+        customerPhone: selectedCustomer?.phone || null,
+        totalAmount: res.data.totalAmount ?? formData.totalAmount ?? null,
+      });
+      resetForm();
+      setOpenInvoiceModal(true);
+      showSnackbar(`Proforma ${res.data.invoiceNo} generated`, 'success');
+    } catch (err) {
+      showSnackbar(err?.response?.data?.message || 'Failed to generate proforma', 'error');
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, selectedCustomer, showSnackbar]);
 
   const handleSubmitSale = useCallback(
     async (payload) => {
@@ -536,7 +652,7 @@ const Sales = () => {
   // ============ MEMOIZED VALUES ============
 
   const memoizedFilterOptions = useMemo(() => ({
-    names: generateFilterOptions(variants, 'name', isPharmacy),
+    names: generateFilterOptions(variants, 'name', false),
     skus: generateFilterOptions(variants, 'sku'),
     colors: generateFilterOptions(variants, 'color'),
     sizes: generateFilterOptions(variants, 'size'),
@@ -546,7 +662,7 @@ const Sales = () => {
     seasons: generateFilterOptions(variants, 'season'),
     fits: generateFilterOptions(variants, 'fit'),
     compositions: generateFilterOptions(variants, 'composition'),
-  }), [variants, isPharmacy]);
+  }), [variants]);
 
   const filteredVariants = useMemo(() => {
     return variants.filter(v => {
@@ -565,7 +681,6 @@ const Sales = () => {
   }, [variants, searchParams]);
 
   const isDeliveryOk = useMemo(() => isDeliveryValid(formData), [formData]);
-  const isPrescriptionOk = false;
 
   // ============ RENDER ============
 
@@ -638,7 +753,9 @@ const Sales = () => {
               borderColor: 'divider',
               overflow: 'auto',
               mb: { xs: 1.5, md: 0 },
+              bgcolor: 'background.paper',
             }}>
+              <ErrorBoundary>
               <ItemSection
                 variants={filteredVariants}
                 selectedVariant={selectedVariant}
@@ -664,10 +781,10 @@ const Sales = () => {
                   }))
                 }
                 handleAddItem={handleAddItem}
+                handleAddCustomItem={handleAddCustomItem}
                 error={itemError}
                 editIndex={editIndex}
                 substitutes={substitutes}
-                isPharmacy={isPharmacy}
                 industryType={industryType}
                 onSelectSubstitute={(sub) => {
                   handleVariantSelect(sub);
@@ -683,58 +800,39 @@ const Sales = () => {
                   });
                 }}
               />
+              </ErrorBoundary>
             </Paper>
 
-            {/* RIGHT PANEL */}
-            <Box sx={{
+            {/* RIGHT PANEL — one unified Paper, three sections separated by hairline dividers */}
+            <Paper elevation={0} sx={{
               flex: { md: '0 0 46%' },
               width: { xs: '100%', md: '46%' },
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              gap: 0,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
             }}>
-              {/* Customer Header */}
-              <Paper elevation={0} sx={{
-                borderRadius: '8px 8px 0 0',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderBottom: 'none',
+              {/* Customer section */}
+              <Box sx={{
                 p: 1.5,
                 flexShrink: 0,
-                bgcolor: 'action.hover',
+                borderBottom: '1px solid',
+                borderBottomColor: 'divider',
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <PersonIcon fontSize="small" color="primary" />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    {isPharmacy ? 'Patient' : 'Customer'}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+                  <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    color: 'text.secondary',
+                  }}>
+                    Customer
                   </Typography>
-                  {isPharmacy && (
-                    <Chip
-                      label="Rx"
-                      size="small"
-                      color="error"
-                      sx={{
-                        ml: 1,
-                        height: 18,
-                        fontSize: '0.65rem',
-                        fontWeight: 700
-                      }}
-                    />
-                  )}
-                  {isJewellery && (
-                    <Chip
-                      label="💎"
-                      size="small"
-                      color="secondary"
-                      sx={{
-                        ml: 1,
-                        height: 18,
-                        fontSize: '0.65rem',
-                        fontWeight: 700
-                      }}
-                    />
-                  )}
                 </Box>
                 <CustomerSection
                   compact
@@ -748,64 +846,79 @@ const Sales = () => {
                   handleNewCustomer={handleNewCustomer}
                   openCustomerModal={openCustomerModal}
                   setOpenCustomerModal={setOpenCustomerModal}
-                  isPharmacy={isPharmacy}
-                  isJewellery={isJewellery}
+                    isJewellery={isJewellery}
                 />
-              </Paper>
+              </Box>
 
-              {/* Cart */}
+              {/* Cart section */}
               <Box sx={{
                 flex: 1,
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderTop: `1px solid ${alpha('#0f766e', 0.08)}`,
-                bgcolor: 'background.paper',
+                minHeight: 0,
               }}>
-                <SalesSummary
-                  embedded
-                  hideActions
-                  formData={formData}
-                  handleRemoveItem={handleRemoveItem}
-                  handleEditItem={handleEditItem}
-                  handleSaveDraft={handleSaveDraft}
-                  loading={loading}
-                  setFormData={setFormData}
-                  selectedCustomer={selectedCustomer}
-                  setShowReviewPage={setShowReviewPage}
-                  isPharmacy={isPharmacy}
-                  isJewellery={isJewellery}
+                <ErrorBoundary>
+                  <SalesSummary
+                    embedded
+                    hideActions
+                    formData={formData}
+                    handleRemoveItem={handleRemoveItem}
+                    handleEditItem={handleEditItem}
+                    handleSaveDraft={handleSaveDraft}
+                    loading={loading}
+                    setFormData={setFormData}
+                    selectedCustomer={selectedCustomer}
+                    setShowReviewPage={setShowReviewPage}
+                    isJewellery={isJewellery}
+                  />
+                </ErrorBoundary>
+              </Box>
+
+              {/* Sale-level notes — free-text metadata, persisted alongside the
+                  sale. Distinct from customer.notes and delivery.deliveryNotes. */}
+              <Box sx={{ px: 2, pb: 1 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  multiline
+                  minRows={1}
+                  maxRows={3}
+                  placeholder="Notes on this sale (optional)"
+                  value={formData.saleNotes || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, saleNotes: e.target.value }))}
+                  inputProps={{ maxLength: 1000 }}
                 />
               </Box>
 
-              {/* Action Bar */}
+              {/* Action bar */}
               <ActionBar
                 formData={formData}
                 selectedCustomer={selectedCustomer}
                 isDeliveryValid={isDeliveryOk}
-                isPrescriptionRequired={isPrescriptionOk}
                 loading={loading}
                 onClear={resetForm}
                 onDraft={handleSaveDraft}
+                onProforma={handleSaveAsProforma}
+                onHold={handleHoldSale}
                 onProceed={() => {
                   setShowReviewPage(true);
                 }}
               />
-            </Box>
+            </Paper>
           </Box>
         ) : (
-          <ReviewPaymentPage
-            formData={formData}
-            selectedCustomer={selectedCustomer}
-            onConfirm={handleSubmitSale}
-            onSaveDraft={handleSaveDraft}
-            onCancel={() => setShowReviewPage(false)}
-            setError={(msg) => showSnackbar(msg, 'error')}
-            loading={loading}
-            isPharmacy={isPharmacy}
-          />
+          <ErrorBoundary>
+            <ReviewPaymentPage
+              formData={formData}
+              selectedCustomer={selectedCustomer}
+              onConfirm={handleSubmitSale}
+              onSaveDraft={handleSaveDraft}
+              onCancel={() => setShowReviewPage(false)}
+              setError={(msg) => showSnackbar(msg, 'error')}
+              loading={loading}
+            />
+          </ErrorBoundary>
         )}
 
         <InvoiceModal
@@ -821,10 +934,12 @@ const Sales = () => {
       </SalesTabs.Panel>
 
       <SalesTabs.Panel value={tabValue} index={1}>
-        <SalesHistory
-          onResume={handleLoadDraft}
-          refreshTrigger={historyRefreshKey}
-        />
+        <ErrorBoundary>
+          <SalesHistory
+            onResume={handleLoadDraft}
+            refreshTrigger={historyRefreshKey}
+          />
+        </ErrorBoundary>
       </SalesTabs.Panel>
 
       <Snackbar
@@ -842,21 +957,6 @@ const Sales = () => {
         </Alert>
       </Snackbar>
 
-      {/* Drug Alert Dialog */}
-      <DrugAlertDialog
-        open={drugAlertOpen}
-        pendingItem={pendingItem}
-        onCancel={() => {
-          setDrugAlertOpen(false);
-          setPendingItem(null);
-        }}
-        onConfirm={() => {
-          setDrugAlertOpen(false);
-          if (pendingItem) doAddItem(pendingItem);
-          setPendingItem(null);
-        }}
-      />
-
       <EnterpriseUpgradeModal
         open={upgradeModalData.open}
         onClose={handleCloseUpgradeModal}
@@ -871,210 +971,147 @@ const Sales = () => {
 
 /**
  * Action Bar Component
+ *
+ * Simplified: KPI mini-strip removed (redundant with cart above).
+ * Draft + Proforma consolidated under a single "Save" split-button.
+ * Clear reduced to icon-only. Proceed remains the sole primary CTA.
  */
 const ActionBar = ({
   formData,
   selectedCustomer,
   isDeliveryValid,
-  isPrescriptionRequired,
   loading,
   onClear,
   onDraft,
+  onProforma,
+  onHold,
   onProceed,
-}) => (
-  <Paper elevation={0} sx={{
-    borderRadius: '0 0 8px 8px',
-    border: `1.5px solid ${alpha('#0f766e', 0.08)}`,
-    borderTop: '2px solid #e2e8f0',
-    p: 1.5,
-    bgcolor: 'rgba(255,255,255,0.97)',
-    flexShrink: 0,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 1,
-  }}>
-    <Stack direction="row" spacing={1.5} alignItems="center">
-      <Box>
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 800,
-            display: 'block',
-            lineHeight: 1,
-            mb: 0.25
-          }}
-        >
-          ITEMS
-        </Typography>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 900,
-            color: 'var(--color-teal)',
-            lineHeight: 1
-          }}
-        >
-          {String(formData.items.length).padStart(2, '0')}
-        </Typography>
-      </Box>
-      <Divider orientation="vertical" flexItem sx={{ height: 28 }} />
-      <Box>
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 800,
-            display: 'block',
-            lineHeight: 1,
-            mb: 0.25
-          }}
-        >
-          TOTAL
-        </Typography>
-        <Typography
-          variant="subtitle1"
-          sx={{
-            fontWeight: 900,
-            color: 'var(--color-teal)',
-            lineHeight: 1
-          }}
-        >
-          ₹{Number(formData.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-        </Typography>
-      </Box>
-    </Stack>
+}) => {
+  const [saveMenuAnchor, setSaveMenuAnchor] = useState(null);
+  const canSave = !!selectedCustomer && formData.items.length > 0 && !loading;
+  const canProceed = canSave && !!formData.customerId && isDeliveryValid;
+  // Hold is more permissive than Save: it needs items but no customer (POS
+  // typical "hold order while I look up the customer" workflow).
+  const canHold = formData.items.length > 0 && !loading;
 
-    <Stack direction="row" spacing={0.75} alignItems="center">
-      <Tooltip title="Clear all items">
-        <Button
-          variant="text"
-          size="small"
-          onClick={onClear}
-          disabled={formData.items.length === 0}
-          sx={{
-            minWidth: 0,
-            px: 1,
-            textTransform: 'none',
-            fontWeight: 700
-          }}
+  const openSaveMenu = (e) => setSaveMenuAnchor(e.currentTarget);
+  const closeSaveMenu = () => setSaveMenuAnchor(null);
+
+  const proceedTooltip = !formData.customerId
+    ? 'Please select a customer'
+    : !isDeliveryValid ? 'Complete delivery details' : '';
+
+  return (
+    <Box sx={{
+      borderTop: '1px solid',
+      borderTopColor: 'divider',
+      p: 1.25,
+      flexShrink: 0,
+      display: 'flex',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 1,
+    }}>
+      {!formData.customerId && formData.items.length > 0 && (
+        <Typography
+          variant="caption"
+          sx={{ color: 'error.main', fontWeight: 600, mr: 'auto', ml: 0.5 }}
         >
-          <ShoppingCartIcon fontSize="small" sx={{ mr: 0.5 }} />
-          Clear
-        </Button>
+          Select a customer to continue
+        </Typography>
+      )}
+
+      <Tooltip title="Clear cart">
+        <span>
+          <IconButton
+            size="small"
+            onClick={onClear}
+            disabled={formData.items.length === 0}
+            aria-label="Clear cart"
+          >
+            <DeleteSweepIcon fontSize="small" />
+          </IconButton>
+        </span>
       </Tooltip>
 
-      <Tooltip title={!selectedCustomer || formData.items.length === 0 ? 'Need customer + items' : ''}>
+      {onHold && (
+        <Tooltip title={canHold ? 'Park this cart to serve the next customer' : 'Add items to hold'}>
+          <span>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={onHold}
+              disabled={!canHold}
+              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+            >
+              Hold
+            </Button>
+          </span>
+        </Tooltip>
+      )}
+
+      <Tooltip title={canSave ? '' : 'Add customer and items to save'}>
         <span>
           <Button
             variant="outlined"
-            color="primary"
             size="small"
-            onClick={onDraft}
-            disabled={loading || formData.items.length === 0 || !selectedCustomer}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '0.75rem'
-            }}
+            onClick={onProforma ? openSaveMenu : onDraft}
+            disabled={!canSave}
+            endIcon={onProforma ? <ArrowDropDownIcon /> : null}
+            startIcon={<SaveOutlinedIcon />}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
           >
-            Draft
+            Save
           </Button>
         </span>
       </Tooltip>
 
-      {!formData.customerId && formData.items.length > 0 && (
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'var(--color-error)',
-            fontWeight: 700
-          }}
+      {onProforma && (
+        <Menu
+          anchorEl={saveMenuAnchor}
+          open={Boolean(saveMenuAnchor)}
+          onClose={closeSaveMenu}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          Select customer
-        </Typography>
+          <MenuItem onClick={() => { closeSaveMenu(); onDraft(); }}>
+            <ListItemIcon><SaveOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary="Save as Draft"
+              secondary="Resume later — no stock impact"
+              primaryTypographyProps={{ fontWeight: 600 }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </MenuItem>
+          <MenuItem onClick={() => { closeSaveMenu(); onProforma(); }}>
+            <ListItemIcon><DescriptionOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary="Generate Proforma"
+              secondary="Share for customer approval"
+              primaryTypographyProps={{ fontWeight: 600 }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </MenuItem>
+        </Menu>
       )}
 
-      <Tooltip title={
-        !formData.customerId ? 'Please select a customer' :
-          !isDeliveryValid ? 'Complete delivery details' : ''
-      }>
+      <Tooltip title={proceedTooltip}>
         <span>
           <Button
             variant="contained"
             size="small"
+            color="primary"
             endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ChevronRightIcon />}
-            disabled={formData.items.length === 0 || !formData.customerId || !isDeliveryValid || loading}
+            disabled={!canProceed}
             onClick={onProceed}
-            sx={{
-              background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-              textTransform: 'none',
-              fontWeight: 800,
-              borderRadius: 2,
-              boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
-              '&:hover': {
-                boxShadow: `0 6px 16px ${alpha('#0f766e', 0.08)}`,
-              },
-            }}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, minWidth: 120 }}
           >
             {loading ? 'Processing...' : 'Proceed'}
           </Button>
         </span>
       </Tooltip>
-    </Stack>
-  </Paper>
-);
-
-/**
- * Drug Alert Dialog Component
- */
-const DrugAlertDialog = ({ open, pendingItem, onCancel, onConfirm }) => (
-  <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-    <DialogTitle sx={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
-      bgcolor: alpha('#dc2626', 0.1),
-      color: 'var(--color-error)',
-      fontWeight: 800,
-    }}>
-      <WarningAmberIcon />
-      {pendingItem?.drugSchedule === 'SCHEDULE_X' ? 'Narcotic Drug' : 'Controlled Drug'}
-    </DialogTitle>
-    <DialogContent sx={{ pt: 2 }}>
-      <Typography variant="body1" gutterBottom>
-        <strong>{pendingItem?.itemName}</strong> is <strong>{pendingItem?.drugSchedule?.replace('_', ' ')}</strong>.
-      </Typography>
-      <Alert
-        severity={pendingItem?.drugSchedule === 'SCHEDULE_X' ? 'error' : 'warning'}
-        sx={{ mt: 2 }}
-      >
-        {pendingItem?.drugSchedule === 'SCHEDULE_X'
-          ? 'Narcotics Register required. Prescription with doctor details must be valid.'
-          : 'Valid prescription required. Verify before proceeding.'}
-      </Alert>
-      <Typography variant="body2" color="#64748b" sx={{ mt: 2 }}>
-        Confirm that a valid prescription has been checked.
-      </Typography>
-    </DialogContent>
-    <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
-      <Button onClick={onCancel} color="inherit">
-        Cancel
-      </Button>
-      <Button
-        variant="contained"
-        onClick={onConfirm}
-        sx={{
-          bgcolor: 'var(--color-teal)',
-          textTransform: 'none',
-          fontWeight: 700
-        }}
-      >
-        Confirm & Add
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+    </Box>
+  );
+};
 
 export default Sales;

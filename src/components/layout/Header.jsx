@@ -18,6 +18,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import SupportIcon from '@mui/icons-material/Support';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
@@ -573,6 +574,10 @@ const Header = ({ onDrawerToggle }) => {
                     <MenuItem onClick={() => { setOpenSupportDialog(true); handleClose(); }}>
                       <ListItemIcon><SupportIcon fontSize="small" /></ListItemIcon>
                       {t('header.helpSupport')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { handleClose(); navigate('/about-us'); }}>
+                      <ListItemIcon><InfoOutlinedIcon fontSize="small" /></ListItemIcon>
+                      {t('aboutUs', 'About')}
                     </MenuItem>
                     {/* Mobile-only: Quick actions, language, and plan in user menu */}
                     {isMobile && [

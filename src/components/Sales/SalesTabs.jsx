@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import { Tabs, Tab, Box, alpha } from '@mui/material';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import HistoryIcon from '@mui/icons-material/History';
+import { Tabs, Tab, Box } from '@mui/material';
 
 const SalesTabs = ({ value, onChange }) => {
   const handleChange = useMemo(() => (e, newValue) => onChange(newValue), [onChange]);
@@ -10,48 +8,35 @@ const SalesTabs = ({ value, onChange }) => {
     <Box sx={{
       borderBottom: '1px solid',
       borderColor: 'divider',
-      bgcolor: alpha('#0f766e', 0.02),
+      bgcolor: 'background.paper',
+      px: { xs: 1, md: 2 },
     }}>
       <Tabs
         value={value}
         onChange={handleChange}
-        centered
         sx={{
-          minHeight: 48,
+          minHeight: 44,
           '& .MuiTabs-indicator': {
-            background: 'linear-gradient(90deg, #0f766e 0%, #14b8a6 100%)',
-            height: 3,
+            bgcolor: 'primary.main',
+            height: 2,
           },
           '& .MuiTab-root': {
             textTransform: 'none',
-            fontSize: '0.95rem',
-            fontWeight: 700,
+            fontSize: '0.875rem',
+            fontWeight: 600,
             color: 'text.secondary',
-            transition: 'all 0.2s ease',
-            minHeight: 48,
+            minHeight: 44,
             py: 1,
             px: 2,
-            '&:hover': {
-              color: '#0f766e',
-              bgcolor: alpha('#0f766e', 0.05),
-            },
             '&.Mui-selected': {
-              color: '#0f766e',
-              fontWeight: 800,
+              color: 'text.primary',
+              fontWeight: 600,
             },
           },
         }}
       >
-        <Tab
-          label="Create Sale"
-          icon={<LocalShippingIcon sx={{ fontSize: 18, mr: 0.5 }} />}
-          iconPosition="start"
-        />
-        <Tab
-          label="Sales History"
-          icon={<HistoryIcon sx={{ fontSize: 18, mr: 0.5 }} />}
-          iconPosition="start"
-        />
+        <Tab label="Create Sale" />
+        <Tab label="Sales History" />
       </Tabs>
     </Box>
   );

@@ -28,6 +28,10 @@ import {
   FormControlLabel,
   Alert,
   Snackbar,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
   alpha,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -36,8 +40,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PrintIcon from '@mui/icons-material/Print';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DownloadIcon from '@mui/icons-material/Download';
-import HistoryIcon from '@mui/icons-material/History';
-import DateRangeIcon from '@mui/icons-material/DateRange';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -45,9 +47,15 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import HistoryIcon from '@mui/icons-material/History';
+
+import EInvoiceStatusBadge from '../EInvoice/EInvoiceStatusBadge';
 
 import API, {
   fetchSalesHistory,
@@ -57,31 +65,75 @@ import API, {
   generateEInvoice,
   cancelEInvoice,
   fetchEWayBillThreshold,
+  findCreditNotesBySale,
+  getCreditNoteSignedUrl,
+  downloadReceiptPdf,
+  updateSaleNotes,
+  convertProformaToInvoice,
+  resumeSale,
+  discardDraftSale,
+  fetchSaleTimeline,
   API_BASE_URL,
 } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAppPalette } from '../../hooks/useAppPalette';
-import EInvoiceStatusBadge from '../EInvoice/EInvoiceStatusBadge';
 import EWayBillDialog from '../EInvoice/EWayBillDialog';
 
+/**
+ * Small colored dot + text — used across sale, payment, and e-invoice statuses.
+ * Enterprise SaaS pattern (Zoho, Linear, Stripe): a 6-8px filled circle beside
+ * muted text carries the same signal as a filled chip without the visual weight.
+ */
+const StatusDot = ({ color, label, muted = false }) => (
+  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+    <Box
+      component="span"
+      sx={{
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        bgcolor: color,
+        flexShrink: 0,
+        boxShadow: `0 0 0 2px ${alpha(color, 0.12)}`,
+      }}
+    />
+    <Typography
+      variant="body2"
+      sx={{
+        fontSize: '0.8rem',
+        fontWeight: muted ? 500 : 600,
+        color: muted ? 'text.secondary' : 'text.primary',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </Typography>
+  </Box>
+);
 
-
-const statusConfig = {
-  COMPLETED: { label: 'Completed', color: 'success' },
-  DRAFT: { label: 'Draft', color: 'warning' },
-  CANCELLED: { label: 'Cancelled', color: 'error' },
-  RETURNED: { label: 'Returned', color: 'secondary' },
+const SALE_STATUS_META = {
+  COMPLETED:          { label: 'Completed',           colorKey: 'success' },
+  DRAFT:              { label: 'Draft',               colorKey: 'warning' },
+  HELD:               { label: 'Held',                colorKey: 'warning' },
+  PARTIALLY_RETURNED: { label: 'Partially returned',  colorKey: 'info'    },
+  RETURNED:           { label: 'Returned',            colorKey: 'info'    },
+  CANCELLED:          { label: 'Cancelled',           colorKey: 'danger'  },
 };
 
-const paymentStatusColors = {
-  PAID: 'success',
-  PARTIALLY_PAID: 'warning',
-  DUE: 'error',
+const PAYMENT_STATUS_META = {
+  PAID:            { label: 'Paid',            colorKey: 'success' },
+  PARTIALLY_PAID:  { label: 'Partially paid',  colorKey: 'warning' },
+  DUE:             { label: 'Due',             colorKey: 'danger'  },
 };
 
 const formatAmount = (amount) =>
   `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatShortDate = (d) => {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+};
 
 const getPaymentStatus = (dueAmount) => (Number(dueAmount) <= 0 ? 'PAID' : 'DUE');
 
@@ -116,14 +168,27 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const theme = useAppPalette();
 
   const [salesHistory, setSalesHistory] = useState([]);
+  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Status filter — empty string = "all non-cancelled" (server default). Explicit
+  // CANCELLED lets ops teams find voided invoices; the server flips the include-cancelled
+  // rule when a status is supplied. See SaleRepository.searchHistory.
+  const [statusFilter, setStatusFilter] = useState('');
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Debounce the free-text search so we don't fire a request on every keystroke.
+  // Filter/date changes trigger immediately — those are typed less frequently.
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
 
   const [expandedSaleKey, setExpandedSaleKey] = useState(null);
 
@@ -146,6 +211,26 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   // Cancel Logic State
   const [cancelReason, setCancelReason] = useState('');
 
+  // Notes edit state — dialog local to a single sale so parallel edits stay isolated.
+  const [notesDialog, setNotesDialog] = useState({ open: false, saleId: null, draft: '' });
+  const [notesSaving, setNotesSaving] = useState(false);
+
+  // Proforma → Invoice conversion is a shop-critical, non-reversible op — track
+  // the in-flight sale id so the row action can render a spinner and stay
+  // disabled during the request.
+  const [convertingProformaId, setConvertingProformaId] = useState(null);
+
+  // Discard-draft state — confirmation-gated because it's a hard delete.
+  // Only exposed for DRAFT / HELD rows (server also enforces).
+  const [discardDialog, setDiscardDialog] = useState({ open: false, sale: null });
+  const [discarding, setDiscarding] = useState(false);
+
+  // Timeline (void/refund history) dialog state — merges audit rows + linked
+  // credit notes so the user can trace every mutation the sale has seen.
+  const [timelineDialog, setTimelineDialog] = useState({ open: false, sale: null });
+  const [timelineEvents, setTimelineEvents] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
   const params = new URLSearchParams(location.search);
   const isFilteredView = params.get('search');
 
@@ -154,6 +239,11 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const [ewayBillSale, setEwayBillSale] = useState(null);
   const [ewayBillThreshold, setEwayBillThreshold] = useState(50000);
   const [einvoiceLoading, setEinvoiceLoading] = useState(null);
+
+  // Row-level overflow menu ({anchor, sale}) — only one row's menu can be open at a time
+  const [rowMenu, setRowMenu] = useState({ anchor: null, sale: null });
+  const openRowMenu = (e, sale) => setRowMenu({ anchor: e.currentTarget, sale });
+  const closeRowMenu = () => setRowMenu({ anchor: null, sale: null });
 
   useEffect(() => {
     fetchEWayBillThreshold()
@@ -224,22 +314,134 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     setSnackbar({ open: true, message, severity });
   }, []);
 
+  // Notes / proforma-conversion handlers — must sit AFTER showSnackbar so the
+  // useCallback closure can capture the reference at initialization time
+  // (avoids the TDZ error we hit when they were declared earlier in the file).
+  const openNotesDialog = useCallback((sale) => {
+    setNotesDialog({ open: true, saleId: sale.saleId ?? sale.id, draft: sale.notes || '' });
+  }, []);
+
+  const closeNotesDialog = useCallback(() => {
+    setNotesDialog({ open: false, saleId: null, draft: '' });
+  }, []);
+
+  const saveSaleNotes = useCallback(async () => {
+    if (!notesDialog.saleId) return;
+    setNotesSaving(true);
+    try {
+      // Trim + empty → null so we clear cleanly rather than storing whitespace.
+      const nextNotes = notesDialog.draft?.trim() || '';
+      await updateSaleNotes(notesDialog.saleId, nextNotes || null);
+      // Reflect locally without a full history refetch — patch the in-memory row.
+      setSalesHistory((prev) => {
+        const patchOne = (s) => ((s.saleId ?? s.id) === notesDialog.saleId ? { ...s, notes: nextNotes } : s);
+        if (Array.isArray(prev)) return prev.map(patchOne);
+        if (prev && Array.isArray(prev.content)) return { ...prev, content: prev.content.map(patchOne) };
+        return prev;
+      });
+      showSnackbar('Notes saved', 'success');
+      closeNotesDialog();
+    } catch (e) {
+      showSnackbar('Failed to save notes', 'error');
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [notesDialog.saleId, notesDialog.draft, showSnackbar, closeNotesDialog]);
+
+  const confirmDiscardDraft = useCallback(async () => {
+    const sale = discardDialog.sale;
+    const saleId = sale?.saleId ?? sale?.id;
+    if (!saleId) return;
+    setDiscarding(true);
+    try {
+      await discardDraftSale(saleId);
+      showSnackbar(
+        sale.status === 'HELD' ? 'Held order discarded' : 'Draft discarded',
+        'success'
+      );
+      setDiscardDialog({ open: false, sale: null });
+      loadData();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to discard';
+      showSnackbar(msg, 'error');
+    } finally {
+      setDiscarding(false);
+    }
+  // loadData is defined below — safe because this callback only fires on button
+  // click, well after module init completes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discardDialog.sale, showSnackbar]);
+
+  const handleOpenTimeline = useCallback(async (sale) => {
+    const saleId = sale?.saleId ?? sale?.id;
+    if (!saleId) return;
+    setTimelineDialog({ open: true, sale });
+    setTimelineEvents([]);
+    setTimelineLoading(true);
+    try {
+      const { data } = await fetchSaleTimeline(saleId);
+      setTimelineEvents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to load timeline';
+      showSnackbar(msg, 'error');
+    } finally {
+      setTimelineLoading(false);
+    }
+  }, [showSnackbar]);
+
+  const handleConvertProforma = useCallback(async (sale) => {
+    const saleId = sale?.saleId ?? sale?.id;
+    if (!saleId) return;
+    setConvertingProformaId(saleId);
+    try {
+      const res = await convertProformaToInvoice(saleId);
+      // Backend returns the fresh INVOICE SaleDto; refresh history so the new
+      // invoice appears and the source proforma's row (if the server ever
+      // exposes conversion status) stays consistent.
+      const newInvoiceNo = res?.data?.invoiceNo || res?.data?.data?.invoiceNo;
+      showSnackbar(
+        newInvoiceNo ? `Converted → invoice ${newInvoiceNo}` : 'Proforma converted to invoice',
+        'success'
+      );
+      // loadData is declared just below — safe because this callback only
+      // fires on user click, well after module init has finished.
+      loadData();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to convert proforma';
+      showSnackbar(msg, 'error');
+    } finally {
+      setConvertingProformaId(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSnackbar]);
+
   const loadData = useCallback(() => {
     setLoading(true);
-    fetchSalesHistory()
+    fetchSalesHistory({
+      page,
+      size: rowsPerPage,
+      q: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      from: startDate || undefined,
+      to: endDate || undefined,
+    })
       .then((res) => {
         const data = res.data;
         if (Array.isArray(data)) {
+          // Defensive: some older backends may still return a plain array.
           setSalesHistory(data);
+          setTotalElements(data.length);
         } else if (data && Array.isArray(data.content)) {
           setSalesHistory(data.content);
+          setTotalElements(Number(data.totalElements ?? data.content.length));
         } else {
           setSalesHistory([]);
+          setTotalElements(0);
         }
       })
       .catch(() => showSnackbar('Failed to load sales history', 'error'))
       .finally(() => setLoading(false));
-  }, [showSnackbar]);
+  }, [page, rowsPerPage, debouncedSearch, statusFilter, startDate, endDate, showSnackbar]);
 
   useEffect(() => {
     const urlSearch = params.get('search') || '';
@@ -251,9 +453,11 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     loadData();
   }, [refreshTrigger, loadData]);
 
+  // Any filter change resets to page 0 — otherwise a filter that shrinks
+  // the result set would leave the user paginated past the end.
   useEffect(() => {
     setPage(0);
-  }, [search, startDate, endDate]);
+  }, [debouncedSearch, statusFilter, startDate, endDate]);
 
   const totalReturnValue = useMemo(() => {
     return returnItems.reduce((acc, item) => acc + item.returnQuantity * item.unitPrice, 0);
@@ -452,7 +656,10 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
       setReturnItems(
         items.map((item) => ({
-          saleItemId: item.id,
+          // Prefer the real sale-item PK (populated by the mapper as `saleItemId`);
+          // fall back to `item.id` (which is JSON-aliased to `itemVariantId` on the
+          // DTO — legacy path). The backend's return handler resolves either.
+          saleItemId: item.saleItemId ?? item.id,
           itemName: item.itemName,
           originalQty: item.qty,
           returnedQty: item.returnedQty || 0,
@@ -490,9 +697,24 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
     try {
       await processSaleReturn(saleId, payload);
-      showSnackbar('Return processed successfully');
+      showSnackbar('Return processed successfully — downloading credit note');
       setReturnDialogOpen(false);
       loadData();
+      // Best-effort: fetch the credit note that was just issued and trigger a download.
+      // Failure here should not surface as an error — the return itself already succeeded.
+      try {
+        const notes = await findCreditNotesBySale(saleId);
+        if (notes && notes.length > 0) {
+          const latest = notes[0];
+          const signedPath = await getCreditNoteSignedUrl(latest.id);
+          await downloadReceiptPdf(
+            signedPath,
+            `credit_note_${(latest.creditNoteNo || latest.id).toString().replace(/[\/\\]/g, '_')}.pdf`,
+          );
+        }
+      } catch (dlErr) {
+        console.warn('Return succeeded but credit note download failed', dlErr);
+      }
     } catch (err) {
       showSnackbar(err.response?.data?.message || 'Return failed', 'error');
     }
@@ -518,30 +740,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     }
   };
 
-  // ============ FILTERING ============
-
+  // ============ SERVER-SIDE LIST ============
+  // Filtering and pagination live on the backend (see fetchSalesHistory params).
+  // `filteredSales` retained as a name for downstream callers; it's just the
+  // current page's rows exactly as the server returned them (already sorted
+  // by date DESC via the controller). No client-side re-filtering.
   const filteredSales = useMemo(() => {
-    const searchLower = search.toLowerCase();
-    const list = Array.isArray(salesHistory)
+    return Array.isArray(salesHistory)
       ? salesHistory
       : (salesHistory && Array.isArray(salesHistory.content) ? salesHistory.content : []);
+  }, [salesHistory]);
 
-    return list
-      .filter((sale) => {
-        const matchesSearch =
-          (sale.customerName || '').toLowerCase().includes(searchLower) ||
-          (sale.invoiceNo || '').toLowerCase().includes(searchLower);
-
-        const saleDate = new Date(sale.date).setHours(0, 0, 0, 0);
-        const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
-        const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
-
-        return matchesSearch && (!start || saleDate >= start) && (!end || saleDate <= end);
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [salesHistory, search, startDate, endDate]);
-
-  const paginatedSales = filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // Backend already paginated — render the returned page as-is.
+  const paginatedSales = filteredSales;
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -595,66 +806,53 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   return (
     <Box sx={{ p: 2 }}>
       {/* Header & Search Sections */}
-      <Stack spacing={3} sx={{ mb: 4 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {isFilteredView ? (
-              <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: alpha(theme.primary, 0.1), color: theme.primary }}>
-                <ArrowBackIcon />
+      <Stack spacing={2} sx={{ mb: 2 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={1.5}
+        >
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {isFilteredView && (
+              <IconButton onClick={() => navigate(-1)} size="small" aria-label="Back">
+                <ArrowBackIcon fontSize="small" />
               </IconButton>
-            ) : (
-              <Box sx={{ p: 1.2, borderRadius: 2, bgcolor: alpha(theme.primary, 0.1) }}>
-                <HistoryIcon sx={{ fontSize: 28, color: theme.primary }} />
-              </Box>
             )}
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: theme.textPrimary }}>
-                {isFilteredView ? 'Invoice Lookup' : 'Sales History'}
-              </Typography>
-              <Typography variant="body2" color={theme.textSecondary}>
-                Manage returns, payments, and invoice status
-              </Typography>
-            </Box>
-          </Box>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: theme.textPrimary }}>
+              {isFilteredView ? 'Invoice Lookup' : 'Sales History'}
+            </Typography>
+          </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="Refresh">
+              <span>
+                <IconButton size="small" onClick={loadData} disabled={loading} aria-label="Refresh">
+                  {loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
             <Button
               variant="outlined"
-              startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
-              disabled={loading}
-              onClick={loadData}
-              sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+              size="small"
+              startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
               disabled={exporting || filteredSales.length === 0}
               onClick={handleExportCSV}
-              sx={{ bgcolor: theme.success, borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
+              sx={{ borderRadius: 2, fontWeight: 600, textTransform: 'none' }}
             >
               {exporting ? 'Exporting...' : 'Export CSV'}
             </Button>
           </Stack>
         </Stack>
 
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2,
-            borderRadius: 3,
-            display: 'flex',
-            gap: 2,
-            alignItems: 'center',
-            bgcolor: 'background.default',
-            flexWrap: 'wrap',
-            border: `1.5px solid ${alpha(theme.primary, 0.15)}`,
-          }}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
         >
           <TextField
             size="small"
-            placeholder="Search name/invoice..."
+            placeholder="Search name or invoice #"
             value={search}
             onChange={handleSearchChange}
             InputProps={{
@@ -664,62 +862,92 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                 </InputAdornment>
               ),
             }}
-            sx={{ bgcolor: 'background.paper', minWidth: 250, borderRadius: 2 }}
+            sx={{ minWidth: { sm: 260 } }}
           />
-          <Divider orientation="vertical" flexItem />
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <DateRangeIcon fontSize="small" color="action" />
-            <TextField
-              type="date"
-              size="small"
-              label="From"
-              InputLabelProps={{ shrink: true }}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-            />
-            <TextField
-              type="date"
-              size="small"
-              label="To"
-              InputLabelProps={{ shrink: true }}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-            />
-          </Stack>
-        </Paper>
+          <TextField
+            type="date"
+            size="small"
+            label="From"
+            InputLabelProps={{ shrink: true }}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <TextField
+            type="date"
+            size="small"
+            label="To"
+            InputLabelProps={{ shrink: true }}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          <TextField
+            select
+            size="small"
+            label="Status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            // Force the label to stay floated regardless of value — otherwise
+            // MUI thinks value="" means empty and drops the label into the
+            // input, where it overlays the "All (excl. cancelled)" text.
+            InputLabelProps={{ shrink: true }}
+            SelectProps={{ displayEmpty: true }}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">All (excl. cancelled)</MenuItem>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="HELD">Held (parked)</MenuItem>
+            <MenuItem value="COMPLETED">Completed</MenuItem>
+            <MenuItem value="PARTIALLY_RETURNED">Partially returned</MenuItem>
+            <MenuItem value="RETURNED">Returned</MenuItem>
+            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          </TextField>
+        </Stack>
       </Stack>
 
-      {/* Main Table */}
-      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', border: `1.5px solid ${alpha(theme.primary, 0.15)}` }}>
+      {/* Main Table — clean, dot-based status, always-visible actions */}
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', borderColor: 'divider' }}>
         <TableContainer>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
-              <TableRow>
-                <TableCell width={50} />
-                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Invoice #</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Customer</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Date</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: theme.textPrimary }}>
-                  Total
-                </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: theme.textPrimary }}>Payment</TableCell>
+          <Table size="small" sx={{
+            '& .MuiTableCell-root': {
+              borderBottomColor: 'divider',
+              py: 1.25,
+            },
+          }}>
+            <TableHead>
+              <TableRow sx={{
+                '& .MuiTableCell-root': {
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.3,
+                  color: 'text.secondary',
+                  borderBottom: '1px solid',
+                  borderBottomColor: 'divider',
+                  bgcolor: 'transparent',
+                },
+              }}>
+                <TableCell width={40} />
+                <TableCell>Invoice</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell align="right">Amount</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>E-Invoice</TableCell>
+                <TableCell align="right" width={140}>Actions</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
-                    <CircularProgress sx={{ color: theme.primary }} />
+                  <TableCell colSpan={8} align="center" sx={{ py: 8, border: 0 }}>
+                    <CircularProgress size={26} sx={{ color: theme.primary }} />
                   </TableCell>
                 </TableRow>
               ) : paginatedSales.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5, color: theme.textSecondary }}>
-                    No transactions found.
+                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary', border: 0 }}>
+                    <Typography variant="body2">No transactions match your filters.</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -727,223 +955,276 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                   const saleKey = sale.id || sale.saleId || sale.invoiceNo || idx;
                   const isExpanded = expandedSaleKey === saleKey;
                   const payStatus = getPaymentStatus(sale.dueAmount);
-                  const isCancelable = sale.status === 'DRAFT' || (sale.status === 'COMPLETED' && isToday(sale.date));
                   const isLoadingThisSale = invoiceLoading === saleKey;
+
+                  const saleMeta = SALE_STATUS_META[sale.status] || { label: sale.status || 'Unknown', colorKey: 'info' };
+                  const payMeta = PAYMENT_STATUS_META[payStatus] || null;
+                  const showPayment = sale.status !== 'DRAFT' && sale.status !== 'CANCELLED' && payMeta;
+                  const showEInvoice = sale.status === 'COMPLETED' && sale.einvoiceStatus === 'GENERATED';
 
                   return (
                     <React.Fragment key={saleKey}>
-                      <TableRow hover sx={{ '&:hover': { bgcolor: alpha(theme.primary, 0.02) } }}>
+                      <TableRow
+                        hover
+                        sx={{
+                          '&:hover': { bgcolor: alpha(theme.primary, 0.02) },
+                          '& > *': { borderBottom: isExpanded ? 'unset' : undefined },
+                        }}
+                      >
                         <TableCell>
                           <IconButton
                             size="small"
                             onClick={() => setExpandedSaleKey(isExpanded ? null : saleKey)}
-                            sx={{ color: theme.primary }}
+                            aria-label={isExpanded ? 'Collapse' : 'Expand'}
                           >
-                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                           </IconButton>
                         </TableCell>
 
-                        <TableCell sx={{ fontWeight: 700, color: theme.textPrimary }}>{sale.invoiceNo}</TableCell>
-                        <TableCell sx={{ color: theme.textPrimary }}>{sale.customerName || 'Walk-in'}</TableCell>
-                        <TableCell sx={{ color: theme.textSecondary }}>{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 800, color: theme.primary }}>
+                        <TableCell sx={{ fontWeight: 600, color: 'text.primary', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.82rem' }}>
+                          {sale.invoiceNo || '—'}
+                        </TableCell>
+
+                        <TableCell sx={{ color: 'text.primary' }}>
+                          {sale.customerName || <Box component="span" sx={{ color: 'text.secondary' }}>Walk-in</Box>}
+                        </TableCell>
+
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                          {formatShortDate(sale.date)}
+                        </TableCell>
+
+                        <TableCell align="right" sx={{
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}>
                           {formatAmount(sale.totalAmount)}
                         </TableCell>
+
                         <TableCell>
-                          <Stack spacing={0.5}>
-                            <Chip
-                              label={sale.status}
-                              color={statusConfig[sale.status]?.color || 'default'}
-                              size="small"
-                              sx={{ fontWeight: 700, alignSelf: 'flex-start' }}
-                            />
-                            {sale.status === 'COMPLETED' && <EInvoiceStatusBadge sale={sale} />}
+                          <Stack spacing={0.4}>
+                            <StatusDot color={theme[saleMeta.colorKey]} label={saleMeta.label} />
+                            {showPayment && (
+                              <StatusDot color={theme[payMeta.colorKey]} label={payMeta.label} muted />
+                            )}
                           </Stack>
                         </TableCell>
+
                         <TableCell>
-                          {sale.status !== 'DRAFT' && (
-                            <Chip
-                              label={payStatus}
-                              size="small"
-                              color={paymentStatusColors[payStatus] || 'default'}
-                              sx={{ fontWeight: 700 }}
-                            />
-                          )}
+                          <EInvoiceStatusBadge sale={sale} />
+                        </TableCell>
+
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.25} justifyContent="flex-end" alignItems="center">
+                            {sale.status === 'DRAFT' ? (
+                              <Tooltip title="Resume draft">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => navigate(`/sales?resumeId=${sale.saleId}`)}
+                                  aria-label="Resume draft"
+                                >
+                                  <PlayArrowIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            ) : sale.status === 'HELD' ? (
+                              <Tooltip title="Resume held order">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  aria-label="Resume held order"
+                                  onClick={async () => {
+                                    try {
+                                      await resumeSale(sale.saleId);
+                                      navigate(`/sales?resumeId=${sale.saleId}`);
+                                    } catch (err) {
+                                      showSnackbar(err?.response?.data?.message || 'Failed to resume order', 'error');
+                                    }
+                                  }}
+                                >
+                                  <PlayArrowIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip title="View invoice">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() => handlePrintInvoice(sale)}
+                                    disabled={isLoadingThisSale}
+                                    aria-label="View invoice"
+                                  >
+                                    {isLoadingThisSale
+                                      ? <CircularProgress size={16} color="inherit" />
+                                      : <VisibilityIcon fontSize="small" />}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+
+                            {sale.status !== 'DRAFT' && sale.status !== 'CANCELLED' && (
+                              <Tooltip title="Return items">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenReturn(sale)}
+                                  aria-label="Return items"
+                                >
+                                  <AssignmentReturnIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
+                            <Tooltip title="More">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => openRowMenu(e, sale)}
+                                aria-label="More actions"
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
                         </TableCell>
                       </TableRow>
 
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ p: 0 }}>
+                        <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ p: 3, bgcolor: alpha(theme.primary, 0.02), borderBottom: `1px solid ${alpha(theme.primary, 0.1)}` }}>
-                              <Stack direction="row" spacing={4} divider={<Divider orientation="vertical" flexItem />}>
-                                <Stack spacing={1.5} sx={{ minWidth: 240 }}>
-                                  <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
-                                    Transaction Actions
+                            <Box sx={{
+                              px: 3,
+                              py: 2,
+                              bgcolor: alpha(theme.primary, 0.015),
+                              borderBottom: '1px solid',
+                              borderBottomColor: 'divider',
+                            }}>
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={{ xs: 1.5, sm: 4 }}
+                                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                flexWrap="wrap"
+                                useFlexGap
+                              >
+                                <Box>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                    Total
                                   </Typography>
-
-                                  {sale.status === 'DRAFT' ? (
-                                    <Button
-                                      variant="contained"
-                                      startIcon={<PlayArrowIcon />}
-
-                                      onClick={() => navigate(`/sales?resumeId=${sale.saleId}`)}
-                                      sx={{ background: `linear-gradient(135deg, ${theme.warning} 0%, ${theme.primaryLight} 100%)`, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                                    >
-                                      Resume Draft
-                                    </Button>
-                                  ) : (
-                                    <>
-                                      <Button
-                                        variant="contained"
-                                        startIcon={isLoadingThisSale ? <CircularProgress size={20} color="inherit" /> : <PrintIcon />}
-                                        onClick={() => handlePrintInvoice(sale)}
-                                        disabled={isLoadingThisSale}
-                                        sx={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primaryLight} 100%)`, textTransform: 'none', fontWeight: 700, borderRadius: 2, color: 'white' }}
-                                      >
-                                        {isLoadingThisSale ? 'Opening...' : 'Print / Preview'}
-                                      </Button>
-
-                                      <Button
-                                        variant="outlined"
-                                        startIcon={isLoadingThisSale ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
-                                        onClick={() => handleDownloadInvoice(sale)}
-                                        disabled={isLoadingThisSale}
-                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, borderColor: theme.primary, color: theme.primary }}
-                                      >
-                                        {isLoadingThisSale ? 'Downloading...' : 'Download PDF'}
-                                      </Button>
-
-                                      <Button
-                                        variant="contained"
-                                        startIcon={<WhatsAppIcon />}
-                                        onClick={() => handleWhatsAppInvoice(sale)}
-                                        sx={{ bgcolor: '#25D366', textTransform: 'none', fontWeight: 700, borderRadius: 2, color: '#fff', '&:hover': { bgcolor: '#1ebe5d' } }}
-                                      >
-                                        WhatsApp Invoice
-                                      </Button>
-
-                                      {sale.status !== 'CANCELLED' && (
-                                        <Button
-                                          variant="outlined"
-                                          color="secondary"
-                                          startIcon={<AssignmentReturnIcon />}
-                                          onClick={() => handleOpenReturn(sale)}
-                                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                                        >
-                                          Return Items
-                                        </Button>
-                                      )}
-                                    </>
-                                  )}
-
-                                  {isCancelable && sale.status !== 'CANCELLED' && (
-                                    <Button
-                                      variant="text"
-                                      color="error"
-                                      startIcon={<CancelIcon />}
-                                      onClick={() => handleOpenCancel(sale)}
-                                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                                    >
-                                      {sale.status === 'DRAFT' ? 'Discard Draft' : 'Cancel Sale'}
-                                    </Button>
-                                  )}
-                                </Stack>
-
-                                <Box sx={{ flexGrow: 1 }}>
-                                  <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
-                                    Financial Summary
+                                  <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                    {formatAmount(sale.totalAmount)}
                                   </Typography>
-                                  <Stack spacing={1.5} sx={{ mt: 1 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                      <Typography variant="body2" sx={{ color: theme.textSecondary }}>Total Bill Amount:</Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 800, color: theme.textPrimary }}>
-                                        {formatAmount(sale.totalAmount)}
-                                      </Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                      <Typography variant="body2" sx={{ color: theme.textSecondary }}>Current Outstanding:</Typography>
-                                      <Typography variant="body2" sx={{ fontWeight: 800, color: theme.danger }}>
-                                        {formatAmount(sale.dueAmount)}
-                                      </Typography>
-                                    </Box>
-
-                                    {Number(sale.dueAmount) > 0 && (
-                                      <Button
-                                        variant="contained"
-                                        size="small"
-                                        startIcon={<PaymentsIcon />}
-                                        onClick={() => navigate(`/customer-payments?saleId=${sale.saleId}`)}
-                                        sx={{ mt: 1, width: 'fit-content', borderRadius: 2, bgcolor: theme.success, textTransform: 'none', fontWeight: 700 }}
-                                      >
-                                        Receive Payment
-                                      </Button>
-                                    )}
-                                  </Stack>
+                                </Box>
+                                <Box>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                    Paid
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                    {formatAmount(Number(sale.totalAmount || 0) - Number(sale.dueAmount || 0))}
+                                  </Typography>
+                                </Box>
+                                <Box>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                    Due
+                                  </Typography>
+                                  <Typography variant="body2" sx={{
+                                    fontWeight: 600,
+                                    fontVariantNumeric: 'tabular-nums',
+                                    color: Number(sale.dueAmount) > 0 ? theme.danger : 'text.primary',
+                                  }}>
+                                    {formatAmount(sale.dueAmount)}
+                                  </Typography>
                                 </Box>
 
-                                {/* E-Invoice & E-Way Bill Section */}
-                                {sale.status === 'COMPLETED' && (
-                                  <Box sx={{ minWidth: 220 }}>
-                                    <Typography variant="overline" sx={{ fontWeight: 800, color: theme.textSecondary, fontSize: '0.75rem', letterSpacing: 0.5 }}>
-                                      E-Invoice & Compliance
-                                    </Typography>
-                                    <Stack spacing={1.5} sx={{ mt: 1 }}>
-                                      {sale.einvoiceStatus === 'GENERATED' ? (
-                                        <Box sx={{ p: 1.5, bgcolor: alpha(theme.success, 0.08), borderRadius: 2, border: `1px solid ${alpha(theme.success, 0.2)}` }}>
-                                          <Stack spacing={0.5}>
-                                            <Chip label="E-Invoice Active" color="success" size="small" sx={{ fontWeight: 700, alignSelf: 'flex-start' }} />
-                                            {sale.irn && (
-                                              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.primary', wordBreak: 'break-all', display: 'block', mt: 0.5 }}>
-                                                <b>IRN:</b> {sale.irn}
-                                              </Typography>
-                                            )}
-                                            {sale.ackNo && (
-                                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                                <b>Ack #:</b> {sale.ackNo}
-                                              </Typography>
-                                            )}
-                                            <Button
-                                              variant="outlined"
-                                              color="error"
-                                              size="small"
-                                              startIcon={<CancelIcon />}
-                                              onClick={() => handleCancelEInvoiceAction(sale)}
-                                              disabled={einvoiceLoading === (sale.id || sale.saleId)}
-                                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, mt: 1 }}
-                                            >
-                                              Cancel E-Invoice
-                                            </Button>
-                                          </Stack>
-                                        </Box>
-                                      ) : (
-                                        <Button
-                                          variant="outlined"
-                                          color="primary"
-                                          size="small"
-                                          startIcon={einvoiceLoading === (sale.id || sale.saleId) ? <CircularProgress size={16} /> : <QrCodeIcon />}
-                                          onClick={() => handleGenerateEInvoiceAction(sale)}
-                                          disabled={einvoiceLoading === (sale.id || sale.saleId)}
-                                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                                        >
-                                          Generate E-Invoice
-                                        </Button>
-                                      )}
+                                <Box sx={{ flexGrow: 1 }} />
 
-                                      <Button
-                                        variant="contained"
-                                        color="primary"
-                                        size="small"
-                                        startIcon={<LocalShippingIcon />}
-                                        onClick={() => handleOpenEWayBillModal(sale)}
-                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                                      >
-                                        {sale.ewayBillNo ? `E-Way Bill: ${sale.ewayBillNo}` : 'Generate E-Way Bill'}
-                                      </Button>
-                                    </Stack>
-                                  </Box>
+                                {/* Cross-link: open the customer's ledger + dues page. Only shown when
+                                    we actually have a customer id (walk-in sales don't get this). */}
+                                {sale.customerId && (
+                                  <Button
+                                    variant="text"
+                                    size="small"
+                                    onClick={() => navigate(`/customer-details/${sale.customerId}/dues`)}
+                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                                  >
+                                    Customer profile
+                                  </Button>
+                                )}
+
+                                {/* Cross-link: filter the Delivery Management page to this sale.
+                                    Uses the ?saleId= param the deliveries list already supports. */}
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  startIcon={<LocalShippingIcon fontSize="small" />}
+                                  onClick={() => navigate(`/delivery?saleId=${sale.saleId}`)}
+                                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                                >
+                                  Delivery
+                                </Button>
+
+                                {/* Proforma → Invoice conversion. Only shown for PROFORMA rows
+                                    that aren't already cancelled/returned. Server enforces
+                                    once-only via SaleRepository.existsByProformaSourceSale_Id. */}
+                                {sale.saleType === 'PROFORMA' && sale.status !== 'CANCELLED' && sale.status !== 'RETURNED' && (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => handleConvertProforma(sale)}
+                                    disabled={convertingProformaId === (sale.saleId ?? sale.id)}
+                                    startIcon={
+                                      convertingProformaId === (sale.saleId ?? sale.id)
+                                        ? <CircularProgress size={14} color="inherit" />
+                                        : null
+                                    }
+                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                                  >
+                                    Convert to invoice
+                                  </Button>
+                                )}
+
+                                {Number(sale.dueAmount) > 0 && (
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<PaymentsIcon fontSize="small" />}
+                                    onClick={() => navigate(`/customer-payments?saleId=${sale.saleId}`)}
+                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                                  >
+                                    Receive Payment
+                                  </Button>
                                 )}
                               </Stack>
+
+                              {/* Sale-level notes — inline read-only display + edit trigger.
+                                  Uses the SaleDueDto.notes field surfaced by /api/sales/history and
+                                  PATCH /api/sales/{id}/notes for the save. */}
+                              <Box sx={{
+                                mt: 1.5, pt: 1.25,
+                                borderTop: '1px dashed', borderTopColor: 'divider',
+                                display: 'flex', alignItems: 'flex-start', gap: 1,
+                              }}>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                    Notes
+                                  </Typography>
+                                  <Typography variant="body2" sx={{
+                                    fontStyle: sale.notes ? 'normal' : 'italic',
+                                    color: sale.notes ? 'text.primary' : 'text.disabled',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                  }}>
+                                    {sale.notes || 'No notes'}
+                                  </Typography>
+                                </Box>
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={() => openNotesDialog(sale)}
+                                  sx={{ textTransform: 'none', fontWeight: 600, flexShrink: 0 }}
+                                >
+                                  {sale.notes ? 'Edit' : 'Add note'}
+                                </Button>
+                              </Box>
                             </Box>
                           </Collapse>
                         </TableCell>
@@ -958,14 +1239,300 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
 
         <TablePagination
           component="div"
-          count={filteredSales.length}
+          count={totalElements}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
-          sx={{ bgcolor: alpha(theme.primary, 0.02), borderTop: `1px solid ${alpha(theme.primary, 0.1)}` }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          sx={{ borderTop: '1px solid', borderTopColor: 'divider' }}
         />
       </Paper>
+
+      {/* NOTES EDIT DIALOG — used by the "Add note" / "Edit" affordance on the expanded row.
+          PATCH /api/sales/{id}/notes with trimmed body; empty trim → null (server clears). */}
+      <Dialog open={notesDialog.open} onClose={closeNotesDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 700 }}>Sale notes</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
+            placeholder="Add a note about this sale (optional)…"
+            value={notesDialog.draft}
+            onChange={(e) => setNotesDialog((prev) => ({ ...prev, draft: e.target.value }))}
+            inputProps={{ maxLength: 1000 }}
+            sx={{ mt: 1 }}
+          />
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+            {notesDialog.draft?.length || 0}/1000
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeNotesDialog} disabled={notesSaving}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={saveSaleNotes}
+            disabled={notesSaving}
+            startIcon={notesSaving ? <CircularProgress size={14} /> : null}
+          >
+            {notesSaving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ROW-LEVEL OVERFLOW MENU (Invoice ops + Compliance + Cancel) */}
+      <Menu
+        anchorEl={rowMenu.anchor}
+        open={Boolean(rowMenu.anchor)}
+        onClose={closeRowMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => {
+            const sale = rowMenu.sale;
+            closeRowMenu();
+            if (sale) handleDownloadInvoice(sale);
+          }}
+        >
+          <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Download PDF" />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const sale = rowMenu.sale;
+            closeRowMenu();
+            if (sale) handleWhatsAppInvoice(sale);
+          }}
+        >
+          <ListItemIcon><WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} /></ListItemIcon>
+          <ListItemText primary="Share via WhatsApp" />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const sale = rowMenu.sale;
+            closeRowMenu();
+            if (sale) handlePrintInvoice(sale);
+          }}
+        >
+          <ListItemIcon><PrintIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Print" />
+        </MenuItem>
+
+        {rowMenu.sale?.status === 'COMPLETED' && [
+          <Divider key="d1" />,
+          rowMenu.sale?.einvoiceStatus === 'GENERATED' ? (
+            <MenuItem
+              key="einv-cancel"
+              onClick={() => {
+                const sale = rowMenu.sale;
+                closeRowMenu();
+                if (sale) handleCancelEInvoiceAction(sale);
+              }}
+            >
+              <ListItemIcon><CancelIcon fontSize="small" /></ListItemIcon>
+              <ListItemText
+                primary="Cancel E-Invoice"
+                secondary="IRN issued"
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+            </MenuItem>
+          ) : (
+            <MenuItem
+              key="einv-gen"
+              onClick={() => {
+                const sale = rowMenu.sale;
+                closeRowMenu();
+                if (sale) handleGenerateEInvoiceAction(sale);
+              }}
+            >
+              <ListItemIcon><QrCodeIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Generate E-Invoice" />
+            </MenuItem>
+          ),
+          <MenuItem
+            key="eway"
+            onClick={() => {
+              const sale = rowMenu.sale;
+              closeRowMenu();
+              if (sale) handleOpenEWayBillModal(sale);
+            }}
+          >
+            <ListItemIcon><LocalShippingIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={rowMenu.sale?.ewayBillNo ? 'View E-Way Bill' : 'Generate E-Way Bill'}
+              secondary={rowMenu.sale?.ewayBillNo || null}
+              secondaryTypographyProps={{ variant: 'caption', sx: { fontFamily: 'monospace' } }}
+            />
+          </MenuItem>,
+        ]}
+
+        {rowMenu.sale
+          // Prefer the server-truth flag (SaleDueDto.canCancel). Fall back to the
+          // legacy client-side gate for any older backend that hasn't shipped the
+          // field yet — status !== CANCELLED + (DRAFT or today's COMPLETED).
+          && (rowMenu.sale.canCancel != null
+                ? rowMenu.sale.canCancel
+                : (rowMenu.sale.status !== 'CANCELLED'
+                    && (rowMenu.sale.status === 'DRAFT'
+                        || (rowMenu.sale.status === 'COMPLETED' && isToday(rowMenu.sale.date))))) && [
+          <Divider key="d2" />,
+          <MenuItem
+            key="cancel"
+            onClick={() => {
+              const sale = rowMenu.sale;
+              closeRowMenu();
+              if (sale) handleOpenCancel(sale);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon><CancelIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText primary="Cancel Sale" />
+          </MenuItem>,
+        ]}
+
+        {/* Discard for DRAFT / HELD — a hard delete gated by server-side status guard.
+            Distinct from "Cancel Sale": Cancel is for committed sales (with ledger/stock
+            impact to reverse). Discard is for work-in-progress rows that never committed. */}
+        {rowMenu.sale && (rowMenu.sale.status === 'DRAFT' || rowMenu.sale.status === 'HELD') && [
+          <Divider key="d3" />,
+          <MenuItem
+            key="discard"
+            onClick={() => {
+              const sale = rowMenu.sale;
+              closeRowMenu();
+              if (sale) setDiscardDialog({ open: true, sale });
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon><CancelIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText primary={rowMenu.sale.status === 'HELD' ? 'Discard held order' : 'Discard draft'} />
+          </MenuItem>,
+        ]}
+
+        {/* Timeline — available for every committed row (i.e. anything past DRAFT/HELD)
+            since audit + credit-note rows only exist there. */}
+        {rowMenu.sale && rowMenu.sale.status !== 'DRAFT' && rowMenu.sale.status !== 'HELD' && [
+          <Divider key="d4" />,
+          <MenuItem
+            key="timeline"
+            onClick={() => {
+              const sale = rowMenu.sale;
+              closeRowMenu();
+              if (sale) handleOpenTimeline(sale);
+            }}
+          >
+            <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="View history" />
+          </MenuItem>,
+        ]}
+      </Menu>
+
+      {/* DISCARD DRAFT / HELD CONFIRMATION */}
+      <Dialog
+        open={discardDialog.open}
+        onClose={() => !discarding && setDiscardDialog({ open: false, sale: null })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {discardDialog.sale?.status === 'HELD' ? 'Discard held order?' : 'Discard draft?'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {discardDialog.sale
+              ? `${discardDialog.sale.invoiceNo} will be permanently deleted. This can't be undone.`
+              : ''}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDiscardDialog({ open: false, sale: null })} disabled={discarding}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDiscardDraft}
+            disabled={discarding}
+            startIcon={discarding ? <CircularProgress size={14} color="inherit" /> : null}
+          >
+            {discarding ? 'Discarding…' : 'Discard'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* TIMELINE DIALOG — void / refund / cancel history for a single sale */}
+      <Dialog
+        open={timelineDialog.open}
+        onClose={() => setTimelineDialog({ open: false, sale: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          History — {timelineDialog.sale?.invoiceNo || 'Sale'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {timelineLoading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
+              <CircularProgress size={28} sx={{ color: theme.primary }} />
+              <Typography variant="caption" color={theme.textSecondary}>Loading history…</Typography>
+            </Box>
+          ) : timelineEvents.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', py: 2 }}>
+              No mutation events recorded for this sale.
+            </Typography>
+          ) : (
+            <Stack spacing={1.5} sx={{ py: 0.5 }}>
+              {timelineEvents.map((ev) => {
+                const isMoney = ev.action === 'CREDIT_NOTE' || ev.action === 'PROCESS_RETURN';
+                const isCancel = ev.action === 'CANCEL_SALE';
+                const chipColor = isCancel ? 'error' : isMoney ? 'warning' : 'default';
+                const label = (ev.action || '').replace(/_/g, ' ');
+                return (
+                  <Paper
+                    key={ev.id}
+                    variant="outlined"
+                    sx={{ p: 1.25, borderRadius: 1.5, borderLeft: `3px solid ${isCancel ? theme.danger : isMoney ? theme.warning : theme.primary}` }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                      <Chip size="small" label={label} color={chipColor} sx={{ fontWeight: 700 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        {ev.timestamp ? formatShortDate(ev.timestamp) : '—'}
+                      </Typography>
+                    </Stack>
+                    {ev.message && (
+                      <Typography variant="body2" sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}>
+                        {ev.message}
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
+                      {ev.refNo && (
+                        <Typography variant="caption" color="text.secondary">
+                          Ref: <strong>{ev.refNo}</strong>
+                        </Typography>
+                      )}
+                      {ev.amount != null && (
+                        <Typography variant="caption" color="text.secondary">
+                          Amount: <strong>{formatAmount(ev.amount)}</strong>
+                        </Typography>
+                      )}
+                      {ev.username && (
+                        <Typography variant="caption" color="text.secondary">
+                          By: <strong>{ev.username}</strong>
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Paper>
+                );
+              })}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTimelineDialog({ open: false, sale: null })}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* RETURN DIALOG */}
       <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="sm" fullWidth>

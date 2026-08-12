@@ -140,6 +140,20 @@ export const createPurchaseOrder = (data) =>
 export const updatePurchaseOrder = (id, data) =>
   API.put(endpoints.purchaseOrderById(id), data).then((r) => r.data);
 
+// --- PURCHASE INVOICES ---
+// Standalone Purchase Invoice creation. Pass `receivingId` to link to a GRN;
+// when linked, the backend will NOT re-add stock (the GRN already did).
+// Direct-invoice flows (no GRN) omit `receivingId` — the invoice will add
+// stock as before.
+export const createPurchaseInvoice = (data) =>
+  API.post('/api/v1/purchases', data).then((r) => r.data);
+
+export const listPurchaseInvoices = (page = 0, size = 20) =>
+  API.get('/api/v1/purchases', { params: { page, size } }).then((r) => r.data);
+
+export const getPurchaseInvoiceById = (id) =>
+  API.get(`/api/v1/purchases/${id}`).then((r) => r.data);
+
 export const deletePurchaseOrder = (id) =>
   API.delete(endpoints.purchaseOrderById(id)).then((r) => r.data);
 
@@ -274,7 +288,76 @@ export const cancelSale = (saleId, reason) =>
   API.post(`/api/sales/${saleId}/cancel?reason=${encodeURIComponent(reason)}`, {});
 
 export const fetchSalesWithDue = () => API.get(endpoints.salesWithDue);
-export const fetchSalesHistory = () => API.get(endpoints.salesHistory);
+/**
+ * Paginated + filtered sales history.
+ *
+ * All params are optional:
+ *   page       — 0-based page index (default 0)
+ *   size       — page size (default 50)
+ *   q          — free-text: matches invoiceNo or customer.name (case-insensitive)
+ *   status     — SaleStatus (DRAFT / COMPLETED / PARTIALLY_RETURNED / RETURNED / CANCELLED).
+ *                When omitted the server returns everything except CANCELLED (legacy default).
+ *   customerId — filter to one customer
+ *   from / to  — ISO date strings (YYYY-MM-DD), inclusive
+ *
+ * Backend contract: {@code Page<SaleDueDto>} — { content, totalElements, totalPages, number, size, ... }.
+ * Callers that used the legacy no-arg helper keep working: with no params the server
+ * defaults to page=0, size=50, filters null.
+ */
+/**
+ * Update sale-level notes only (metadata edit, no ledger/stock impact).
+ * Pass an empty string or null to clear.
+ */
+export const updateSaleNotes = (saleId, notes) =>
+  API.patch(endpoints.saleNotesById(saleId), { notes });
+
+/**
+ * Park a DRAFT sale (POS "hold order for later"). Server transitions DRAFT → HELD.
+ * Idempotent — parking a HELD sale is a no-op. Any other status rejects.
+ */
+export const parkSale = (saleId) => API.post(`/api/sales/${saleId}/park`);
+
+/**
+ * Resume a HELD sale — server transitions HELD → DRAFT so the standard
+ * complete-draft flow works unchanged.
+ */
+export const resumeSale = (saleId) => API.post(`/api/sales/${saleId}/resume`);
+
+/**
+ * Discard a DRAFT or HELD sale (hard-delete). Rejects anything else on the server.
+ * Used to clean up an orphaned draft when the caller pivots to another sale type
+ * (e.g. save-as-proforma after previously saving as draft).
+ */
+export const discardDraftSale = (saleId) => API.delete(`/api/sales/drafts/${saleId}`);
+
+/**
+ * Read-only timeline of state-mutating events for a single sale (returns,
+ * cancels, parks, resumes, note edits + linked credit notes). Powers the
+ * "Void / refund history" dialog in SalesHistory.
+ */
+export const fetchSaleTimeline = (saleId) =>
+  API.get(`/api/sales/${saleId}/timeline`);
+
+export const fetchSalesHistory = (opts = {}) => {
+  const {
+    page,
+    size,
+    q,
+    status,
+    customerId,
+    from,
+    to,
+  } = opts || {};
+  const params = {};
+  if (page != null)       params.page = page;
+  if (size != null)       params.size = size;
+  if (q && q.trim())      params.q = q.trim();
+  if (status)             params.status = status;
+  if (customerId != null) params.customerId = customerId;
+  if (from)               params.from = from;
+  if (to)                 params.to = to;
+  return API.get(endpoints.salesHistory, { params });
+};
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
 export const fetchAllSales = (from, to) => {
@@ -289,22 +372,102 @@ export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 
 export const createDelivery = (data) => API.post(endpoints.createDelivery, data);
 export const getDelivery = (id) => API.get(endpoints.deliveryById(id));
-export const fetchDeliveries = (saleId) =>
-  saleId
-    ? API.get(`/api/deliveries?saleId=${saleId}`)
-    : API.get("/api/deliveries");
+
+/**
+ * Paginated + filtered delivery list.
+ *
+ * Backend returns Spring's Page shape ({content, totalElements, ...}).
+ * For call sites that only want the rows array, use `fetchDeliveries()` — it
+ * unwraps `content` for you. Filter/paginate variants call `fetchDeliveriesPage`.
+ *
+ * Signature is deliberately backwards-compat: a plain number/string is treated
+ * as a saleId to match the original callers, while an object is treated as a
+ * full param map.
+ */
+export const fetchDeliveriesPage = (params = {}) =>
+  API.get('/api/deliveries', { params });
+export const fetchDeliveries = (arg) => {
+  const params =
+    arg == null ? {}
+    : typeof arg === 'object' ? arg
+    : { saleId: arg };
+  // Unwrap Page.content so existing call sites that do `res.data.map(...)`
+  // keep working without change.
+  return fetchDeliveriesPage(params).then((res) => ({
+    ...res,
+    data: res.data?.content ?? res.data ?? [],
+    page: {
+      totalElements: res.data?.totalElements ?? 0,
+      totalPages:    res.data?.totalPages ?? 1,
+      number:        res.data?.number ?? 0,
+      size:          res.data?.size ?? (res.data?.content?.length ?? 0),
+    },
+  }));
+};
+
+export const fetchDeliveriesBySale = (saleId) =>
+  API.get(`/api/deliveries/by-sale/${saleId}`);
+
 export const updateDeliveryDetails = (id, data) =>
   API.patch(`/api/deliveries/${id}/details`, data);
 export const assignDeliveryPerson = (id, person) =>
   API.patch(`/api/deliveries/${id}/person`, { deliveryPerson: person });
-export const updateDeliveryStatus = (id, status, changedBy) =>
-  API.patch(`/api/deliveries/${id}/status?status=${status}&changedBy=${changedBy}`);
+
+/**
+ * Update delivery status. The old `changedBy` argument is retained for
+ * backwards compatibility with existing callers but is IGNORED — the backend
+ * now derives the audit-trail author from the JWT. Pass `note` to attach a
+ * comment to the audit-trail row.
+ */
+export const updateDeliveryStatus = (id, status, _changedByDeprecated, note) => {
+  const params = { status };
+  if (note) params.note = note;
+  return API.patch(`/api/deliveries/${id}/status`, null, { params });
+};
+
+export const capturePod = (id, podFields) =>
+  API.patch(`/api/deliveries/${id}/pod`, podFields);
+
+/**
+ * Upload a signature image (PNG / JPEG) for a delivery. `file` is a Blob or File.
+ * The backend stores it via the configured FileStorageService and returns the
+ * updated DeliveryDTO with podSignatureUrl set.
+ */
+export const uploadPodSignature = (id, file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return API.post(`/api/deliveries/${id}/pod/signature`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const uploadPodPhoto = (id, file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return API.post(`/api/deliveries/${id}/pod/photo`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const bulkAssignDeliveries = (deliveryIds, personId) =>
+  API.post('/api/deliveries/bulk-assign', { deliveryIds, personId });
+export const recordDeliveryAttempt = (id, reason) =>
+  API.post(`/api/deliveries/${id}/attempts`, null, { params: reason ? { reason } : {} });
+export const fetchDeliveryMetrics = (opts = {}) => {
+  const params = {};
+  if (opts.from) params.from = opts.from;
+  if (opts.to)   params.to = opts.to;
+  return API.get('/api/deliveries/metrics', { params });
+};
+
 export const fetchDeliveryHistory = (id) =>
   API.get(`/api/deliveries/${id}/history`);
 export const deleteDelivery = (id) => API.delete(`/api/deliveries/${id}`);
 
 export const createDeliveryPerson = (data) =>
   API.post("/api/delivery-persons", data);
+export const updateDeliveryPerson = (id, data) =>
+  API.put(`/api/delivery-persons/${id}`, data);
 export const fetchDeliveryPersons = () =>
   API.get("/api/delivery-persons");
 export const getDeliveryPerson = (id) =>
@@ -404,6 +567,154 @@ export const fetchPaymentHistory = (customerId, saleId, page = 0, size = 20) => 
 export const recordBulkPayment = (data) => API.post('/api/payments/bulk', data);
 export const fetchCustomerAdvanceBalance = (customerId) => API.get(`/api/payments/customer/${customerId}/advance-balance`);
 
+// --- CREDIT / DEBIT NOTES ---
+// Both credit and debit notes follow the same "issue signed URL → download PDF" pattern
+// as invoices and receipts. A credit note is auto-issued on every sales return; a
+// debit note is auto-issued on every approved purchase return.
+export const listCreditNotes = (page = 0, size = 20) =>
+  API.get('/api/v1/credit-notes', { params: { page, size } }).then((r) => r.data);
+
+export const getCreditNoteSignedUrl = (creditNoteId) =>
+  API.get(`/api/v1/credit-notes/${creditNoteId}/signed-url`).then((r) => r.data);
+
+export const applyCreditNote = (creditNoteId, amount) =>
+  API.post(`/api/v1/credit-notes/${creditNoteId}/apply`, { amount }).then((r) => r.data);
+
+// Returns [{ id, creditNoteNo, creditNoteDate, totalAmount, appliedAmount, status }]
+export const findCreditNotesBySale = (saleId) =>
+  API.get(`/api/v1/credit-notes/by-sale/${saleId}`).then((r) => r.data?.data ?? []);
+
+export const listDebitNotes = (page = 0, size = 20) =>
+  API.get('/api/v1/debit-notes', { params: { page, size } }).then((r) => r.data);
+
+export const getDebitNoteSignedUrl = (debitNoteId) =>
+  API.get(`/api/v1/debit-notes/${debitNoteId}/signed-url`).then((r) => r.data);
+
+// Returns [{ id, debitNoteNo, debitNoteDate, totalAmount, appliedAmount, status }]
+export const findDebitNotesByPurchaseReturn = (returnId) =>
+  API.get(`/api/v1/debit-notes/by-purchase-return/${returnId}`).then((r) => r.data?.data ?? []);
+
+// --- DELIVERY CHALLAN ---
+// Returns a signed path like "/api/deliveries/challan/signed?token=..." valid
+// for ~30 minutes. If the delivery has no challan number yet (legacy rows
+// created before V66), one is lazy-assigned on the backend.
+export const getDeliveryChallanSignedUrl = (deliveryId) =>
+  API.get(`/api/deliveries/${deliveryId}/challan-signed-url`).then((r) => r.data);
+
+// --- PROFORMA CONVERSION ---
+// Turns a proforma sale into a real INVOICE sale (deducts stock, posts ledger,
+// links back via proforma_source_sale_id). Backend rejects double conversion.
+export const convertProformaToInvoice = (saleId) =>
+  API.post(`/api/sales/${saleId}/convert-proforma-to-invoice`).then((r) => r.data);
+
+// --- SALES ORDERS ---
+export const createSalesOrder = (data) =>
+  API.post('/api/sales-orders', data).then((r) => r.data);
+
+export const updateSalesOrder = (id, data) =>
+  API.put(`/api/sales-orders/${id}`, data).then((r) => r.data);
+
+export const getSalesOrder = (id) =>
+  API.get(`/api/sales-orders/${id}`).then((r) => r.data);
+
+export const listSalesOrders = (page = 0, size = 20, status = null, customerId = null) => {
+  const params = { page, size };
+  if (status) params.status = status;
+  if (customerId) params.customerId = customerId;
+  return API.get('/api/sales-orders', { params }).then((r) => r.data);
+};
+
+export const approveSalesOrder = (id) =>
+  API.post(`/api/sales-orders/${id}/approve`).then((r) => r.data);
+
+export const cancelSalesOrder = (id) =>
+  API.post(`/api/sales-orders/${id}/cancel`).then((r) => r.data);
+
+// body: { lines: [{ salesOrderItemId, qty }] } — empty/null = full remaining
+export const convertSalesOrderToSale = (id, body) =>
+  API.post(`/api/sales-orders/${id}/convert-to-sale`, body || {}).then((r) => r.data);
+
+export const createSalesOrderFromQuotation = (quotationId) =>
+  API.post(`/api/sales-orders/from-quotation/${quotationId}`).then((r) => r.data);
+
+export const getSalesOrderSignedUrl = (id) =>
+  API.get(`/api/sales-orders/${id}/signed-url`).then((r) => r.data);
+
+// --- QUOTATIONS ---
+export const createQuotation = (data) =>
+  API.post('/api/quotations', data).then((r) => r.data);
+
+export const updateQuotation = (id, data) =>
+  API.put(`/api/quotations/${id}`, data).then((r) => r.data);
+
+export const getQuotation = (id) =>
+  API.get(`/api/quotations/${id}`).then((r) => r.data);
+
+export const listQuotations = (page = 0, size = 20, status = null, customerId = null) => {
+  const params = { page, size };
+  if (status) params.status = status;
+  if (customerId) params.customerId = customerId;
+  return API.get('/api/quotations', { params }).then((r) => r.data);
+};
+
+export const sendQuotation = (id) =>
+  API.post(`/api/quotations/${id}/send`).then((r) => r.data);
+
+export const acceptQuotation = (id) =>
+  API.post(`/api/quotations/${id}/accept`).then((r) => r.data);
+
+export const rejectQuotation = (id, reason) =>
+  API.post(`/api/quotations/${id}/reject`, { reason }).then((r) => r.data);
+
+export const cancelQuotation = (id) =>
+  API.post(`/api/quotations/${id}/cancel`).then((r) => r.data);
+
+export const convertQuotationToSale = (id) =>
+  API.post(`/api/quotations/${id}/convert-to-sale`).then((r) => r.data);
+
+export const getQuotationSignedUrl = (id) =>
+  API.get(`/api/quotations/${id}/signed-url`).then((r) => r.data);
+
+// --- REFUNDS ---
+export const refundPayment = (paymentId, request) =>
+  API.post(`/api/payments/${paymentId}/refund`, request).then((r) => r.data);
+
+export const listRefundsForPayment = (paymentId) =>
+  API.get(`/api/payments/${paymentId}/refunds`).then((r) => r.data);
+
+export const getRefundSignedUrl = (refundId) =>
+  API.get(`/api/refunds/${refundId}/signed-url`).then((r) => r.data);
+
+// --- PAYMENT RECEIPTS ---
+// Returns a signed path like "/api/receipts/signed?token=..." valid for ~30 minutes.
+// The receipt is lazily created if this is the first request for the given payment.
+export const getPaymentReceiptSignedUrl = (paymentId) =>
+  API.get(`/api/payments/${paymentId}/receipt-signed-url`).then((r) => r.data);
+
+// Downloads a receipt (or any signed PDF path) as a blob and triggers a browser download.
+export const downloadReceiptPdf = async (signedPath, filename = 'receipt.pdf') => {
+  const url = signedPath.includes('?')
+    ? `${signedPath}&download=true`
+    : `${signedPath}?download=true`;
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/pdf' },
+  });
+  if (!response.ok) {
+    throw new Error(`Receipt download failed: HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+};
+
 export const fetchProducts = () => API.get(endpoints.products);
 
 // --- AUDIT LOGS ---
@@ -420,15 +731,41 @@ export const exportAuditLogs = (params) =>
 
 // --- ANALYTICS ---
 
-export const fetchRevenueLeakage = () => API.get(endpoints.analytics.revenueLeakage);
-export const fetchItemDemand = () => API.get(endpoints.analytics.itemDemand);
-export const fetchCustomerTrends = () => API.get(endpoints.analytics.customerTrends);
+// Backend accepts optional { from, to } ISO-date strings and (for churn) { thresholdDays }.
+// Every helper here forwards them as `params` — pass null/undefined to fall back to
+// the backend's defaults (last 30 days for most, last 12 months for seasonal).
+const rangeParams = ({ from, to } = {}) => ({
+  ...(from ? { from } : {}),
+  ...(to ? { to } : {}),
+});
+
+export const fetchRevenueLeakage = (opts = {}) =>
+  API.get(endpoints.analytics.revenueLeakage, { params: { ...(opts.thresholdDays ? { thresholdDays: opts.thresholdDays } : {}) } });
+export const fetchItemDemand = (opts = {}) =>
+  API.get(endpoints.analytics.itemDemand, { params: { ...rangeParams(opts), ...(opts.itemId ? { itemId: opts.itemId } : {}) } });
+export const fetchCustomerTrends = (opts = {}) =>
+  API.get(endpoints.analytics.customerTrends, { params: { ...rangeParams(opts), ...(opts.customerId ? { customerId: opts.customerId } : {}) } });
 export const fetchFuturePurchaseOrders = () => API.get(endpoints.analytics.futurePurchaseOrders);
-export const fetchTopItems = () => API.get(endpoints.analytics.topItems);
-export const fetchSeasonalTrends = () => API.get(endpoints.analytics.seasonalTrends);
-export const fetchChurnPrediction = () => API.get(endpoints.analytics.churnPrediction);
+export const fetchTopItems = (opts = {}) =>
+  API.get(endpoints.analytics.topItems, { params: rangeParams(opts) });
+export const fetchSeasonalTrends = (opts = {}) =>
+  API.get(endpoints.analytics.seasonalTrends, { params: rangeParams(opts) });
+export const fetchChurnPrediction = (opts = {}) =>
+  API.get(endpoints.analytics.churnPrediction, { params: { ...(opts.thresholdDays ? { thresholdDays: opts.thresholdDays } : {}) } });
 export const exportProcurementPlan = (format = 'xlsx') =>
   API.get(`${endpoints.analytics.exportProcurementPlan}?format=${format}`, { responseType: 'blob' });
+
+// New 4.1 endpoints — accept { from, to, granularity }.
+export const fetchKpis = (opts = {}) =>
+  API.get(endpoints.analytics.kpis, { params: rangeParams(opts) });
+export const fetchRevenueTimeSeries = (opts = {}) =>
+  API.get(endpoints.analytics.revenueTimeseries, {
+    params: { ...rangeParams(opts), ...(opts.granularity ? { granularity: opts.granularity } : {}) },
+  });
+export const fetchPaymentMix = (opts = {}) =>
+  API.get(endpoints.analytics.paymentMix, { params: rangeParams(opts) });
+export const fetchGrossMargin = (opts = {}) =>
+  API.get(endpoints.analytics.grossMargin, { params: rangeParams(opts) });
 
 // --- RECEIVING ---
 

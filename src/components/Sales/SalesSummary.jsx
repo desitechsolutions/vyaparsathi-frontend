@@ -3,11 +3,10 @@ import {
   Card, CardContent, Typography, Table, TableBody, TableCell, TableHead,
   TableRow, Button, Alert, IconButton, Divider, CardActions, Box, TextField,
   CircularProgress, Tooltip, Stack, Chip, Dialog, DialogTitle, DialogContent,
-  DialogActions, alpha
+  DialogActions, alpha, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -85,19 +84,24 @@ const calcMakingCharges = (item) => {
 };
 
 /**
- * Calculate GST based on industry type
+ * Net-of-discount line base (qty × unit price − line discount, clamped to 0).
+ * This is the exact figure the backend uses for `taxableValue` on the sale item,
+ * so the FE cart and the server's stored totals stay in sync.
  */
-const calcLineGst = (item, isPharmacy) => {
-  if (!item.gstRate) return 0;
-  const lineTotal = Number(item.qty) * Number(item.unitPrice);
-  const rate = Number(item.gstRate) || 0;
+const lineNetBase = (item) => {
+  const gross = Number(item.qty || 0) * Number(item.unitPrice || 0);
+  const disc  = Number(item.discount || 0);
+  return Math.max(0, gross - disc);
+};
 
-  if (isPharmacy) {
-    // MRP-inclusive: GST = lineTotal × rate / (100 + rate)
-    return lineTotal * rate / (100 + rate);
-  }
-  // Non-pharmacy: GST is added on top
-  return lineTotal * rate / 100;
+/**
+ * Calculate line-level GST — always exclusive (added on top of the net line total,
+ * so a per-line discount reduces the tax it attracts, matching backend behavior).
+ */
+const calcLineGst = (item) => {
+  if (!item.gstRate) return 0;
+  const rate = Number(item.gstRate) || 0;
+  return lineNetBase(item) * rate / 100;
 };
 
 // ============ SUB-COMPONENTS ============
@@ -105,11 +109,26 @@ const calcLineGst = (item, isPharmacy) => {
 /**
  * Item Details Column
  */
-const ItemDetailsCell = ({ item, isPharmacy, isJewellery }) => (
+const ItemDetailsCell = ({ item, isJewellery }) => {
+  // Real-time stock chip — data is already loaded on `item.currentStock` when the
+  // line was picked in ItemSection. Custom / service lines have no inventory,
+  // so the chip is suppressed for them.
+  const showStock = !item.isCustom && item.currentStock != null;
+  const stockNum = Number(item.currentStock);
+  const soldNum = Number(item.qty || 0);
+  const remaining = Number.isFinite(stockNum) ? Math.max(0, stockNum - soldNum) : null;
+  const stockColor = remaining == null ? 'default'
+      : remaining <= 0 ? 'error'
+      : remaining <= 5 ? 'warning'
+      : 'success';
+
+  return (
   <Tooltip
     title={
       <Box sx={{ p: 0.5, fontSize: '0.75rem' }}>
-        SKU: {item.sku}
+        {item.isCustom
+          ? (item.customDescription || 'Custom / Service line')
+          : `SKU: ${item.sku || '-'}`}
         {item.batchNumber && ` | Batch: ${item.batchNumber}`}
         {item.hallmarkNo && ` | HUID: ${item.hallmarkNo}`}
       </Box>
@@ -117,12 +136,28 @@ const ItemDetailsCell = ({ item, isPharmacy, isJewellery }) => (
     arrow
   >
     <Box>
-      <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
         {item.itemName}
       </Typography>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        {item.color} / {item.size}
+        {item.isCustom
+          ? (item.customHsnSac ? `Custom · SAC/HSN ${item.customHsnSac}` : 'Custom / Service')
+          : `${item.color || ''} / ${item.size || ''}`}
       </Typography>
+      {!item.isCustom && item.hsn && (
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.68rem' }}>
+          HSN {item.hsn}
+        </Typography>
+      )}
+      {showStock && (
+        <Chip
+          size="small"
+          color={stockColor}
+          variant="outlined"
+          label={remaining <= 0 ? 'Out of stock' : `Stock: ${remaining}`}
+          sx={{ ml: 0.5, mt: 0.25, height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+        />
+      )}
 
       {isJewellery && item.weightGrams && (
         <Typography variant="caption" sx={{
@@ -147,7 +182,8 @@ const ItemDetailsCell = ({ item, isPharmacy, isJewellery }) => (
       )}
     </Box>
   </Tooltip>
-);
+  );
+};
 
 /**
  * Expiry Cell (Pharmacy Only)
@@ -208,14 +244,18 @@ const MakingChargesCell = ({ item, makingCharges }) => {
 const CartItemRow = ({
   item,
   index,
-  isPharmacy,
   isJewellery,
   showGst,
   onEdit,
   onDelete,
 }) => {
-  const lineTotal = Number(item.qty) * Number(item.unitPrice);
-  const lineGst = calcLineGst(item, isPharmacy);
+  // Line total is net of line-level discount (matches backend taxableValue).
+  // `gross` and `lineDiscount` power the strike-through visualization when a
+  // per-line discount is present.
+  const gross = Number(item.qty || 0) * Number(item.unitPrice || 0);
+  const lineDiscount = Number(item.discount || 0);
+  const lineTotal = lineNetBase(item);
+  const lineGst = calcLineGst(item);
   const lineMakingCharges = isJewellery ? calcMakingCharges(item) : 0;
 
   return (
@@ -223,7 +263,7 @@ const CartItemRow = ({
       '&:hover': { bgcolor: alpha('#0f766e', 0.04) },
     }}>
       <TableCell>
-        <ItemDetailsCell item={item} isPharmacy={isPharmacy} isJewellery={isJewellery} />
+        <ItemDetailsCell item={item} isJewellery={isJewellery} />
       </TableCell>
 
       <TableCell align="center" sx={{ fontWeight: 600 }}>
@@ -240,13 +280,7 @@ const CartItemRow = ({
         </TableCell>
       )}
 
-      {isPharmacy && (
-        <TableCell align="center">
-          <ExpiryCell expiryDate={item.expiryDate} />
-        </TableCell>
-      )}
-
-      {showGst && !isPharmacy && (
+      {showGst && (
         <TableCell align="right" sx={{ color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600 }}>
           {item.gstRate > 0 ? `₹${lineGst.toFixed(2)} (${item.gstRate}%)` : '—'}
         </TableCell>
@@ -254,6 +288,11 @@ const CartItemRow = ({
 
       <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
         ₹{lineTotal.toFixed(2)}
+        {lineDiscount > 0 && (
+          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, textDecoration: 'line-through' }}>
+            ₹{gross.toFixed(2)}
+          </Typography>
+        )}
       </TableCell>
 
       <TableCell align="center">
@@ -279,12 +318,19 @@ const EmptyCartState = ({ embedded }) => (
   <Box sx={{
     p: 4,
     textAlign: 'center',
-    bgcolor: alpha('#0f766e', 0.02),
     flex: embedded ? 1 : 'none',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
   }}>
-    <ShoppingCartIcon sx={{ fontSize: 48, color: alpha('#0f766e', 0.3), mb: 1 }} />
+    <ShoppingCartIcon sx={{ fontSize: 36, color: 'text.disabled' }} />
     <Typography variant="body2" color="text.secondary">
-      Your cart is empty. Search and add items above.
+      No items yet.
+    </Typography>
+    <Typography variant="caption" color="text.disabled">
+      Search or scan a barcode to add.
     </Typography>
   </Box>
 );
@@ -292,100 +338,115 @@ const EmptyCartState = ({ embedded }) => (
 /**
  * Summary Box Component
  */
+const SummaryRow = ({ label, value, muted = true, bold = false, valueColor }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
+    <Typography variant="body2" sx={{
+      color: muted ? 'text.secondary' : 'text.primary',
+      fontSize: '0.82rem',
+    }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{
+      fontWeight: bold ? 700 : 500,
+      color: valueColor || 'text.primary',
+      fontSize: bold ? '0.95rem' : '0.82rem',
+      fontVariantNumeric: 'tabular-nums',
+    }}>
+      {value}
+    </Typography>
+  </Box>
+);
+
 const SummaryBox = ({
   subtotal,
   makingCharges,
   discount,
   gst,
   netPayable,
-  isPharmacy,
   isJewellery,
   showGst,
   onDiscountChange,
+  discountMode = 'AMT',
+  onDiscountModeChange,
+  pctInput = 0,
   embedded,
 }) => (
   <Box sx={{
-    p: embedded ? 1.5 : 2,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    bgcolor: 'action.hover',
-    borderRadius: 2,
+    px: embedded ? 1.5 : 2,
+    py: 1,
     flexShrink: 0,
+    borderTop: '1px solid',
+    borderTopColor: 'divider',
   }}>
-    <Box sx={{ width: embedded ? '100%' : { xs: '100%', md: '360px' } }}>
-      {/* Subtotal */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          {isJewellery ? 'Subtotal (Metal + Stone):' : 'Subtotal:'}
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-          ₹{subtotal.toFixed(2)}
-        </Typography>
-      </Box>
+    <Box sx={{ width: '100%', ml: 'auto', maxWidth: embedded ? '100%' : 360 }}>
+      <SummaryRow
+        label={isJewellery ? 'Subtotal (metal + stone)' : 'Subtotal'}
+        value={`₹${subtotal.toFixed(2)}`}
+      />
 
-      {/* Making Charges */}
       {isJewellery && makingCharges > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 700 }}>
-            Making Charges:
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: 'secondary.main' }}>
-            +₹{makingCharges.toFixed(2)}
-          </Typography>
-        </Box>
-      )}
-
-      {/* Discount */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          Discount:
-        </Typography>
-        <TextField
-          type="number"
-          variant="standard"
-          value={discount}
-          onChange={onDiscountChange}
-          inputProps={{
-            style: { textAlign: 'right', fontWeight: 700, fontSize: '0.875rem' },
-            min: 0,
-          }}
-          sx={{ width: 80 }}
+        <SummaryRow
+          label="Making charges"
+          value={`+ ₹${makingCharges.toFixed(2)}`}
         />
-      </Box>
-
-      {/* GST (Non-Pharmacy) */}
-      {showGst && !isPharmacy && gst > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Total GST:
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main' }}>
-            +₹{gst.toFixed(2)}
-          </Typography>
-        </Box>
       )}
 
-      <Divider sx={{ my: 1.5 }} />
-
-      {/* Grand Total */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'var(--color-teal)' }}>
-          Grand Total:
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, gap: 1 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>
+          Discount
         </Typography>
-        <Typography variant="h7" sx={{ fontWeight: 900, color: 'primary.main' }}>
-          ₹{netPayable.toFixed(2)}
-        </Typography>
-      </Box>
-
-      {/* GST Breakdown (Pharmacy) */}
-      {isPharmacy && showGst && gst > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            (incl. Tax ₹{gst.toFixed(2)})
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <ToggleButtonGroup
+            size="small"
+            value={discountMode}
+            exclusive
+            onChange={onDiscountModeChange}
+            aria-label="Discount mode"
+            sx={{
+              '& .MuiToggleButton-root': {
+                minWidth: 28, height: 24, px: 0.75, py: 0,
+                fontSize: '0.72rem', fontWeight: 700, lineHeight: 1,
+              },
+            }}
+          >
+            <ToggleButton value="AMT" aria-label="Rupees">₹</ToggleButton>
+            <ToggleButton value="PCT" aria-label="Percent">%</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            type="number"
+            variant="standard"
+            value={discountMode === 'PCT' ? pctInput : discount}
+            onChange={onDiscountChange}
+            inputProps={{
+              style: { textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem' },
+              min: 0,
+              max: discountMode === 'PCT' ? 100 : undefined,
+            }}
+            sx={{ width: 70 }}
+          />
         </Box>
+      </Box>
+      {discountMode === 'PCT' && discount > 0 && (
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', color: 'text.secondary', mt: -0.5 }}>
+          {pctInput}% = ₹{Number(discount).toFixed(2)}
+        </Typography>
       )}
+
+      {showGst && gst > 0 && (
+        <SummaryRow
+          label="GST"
+          value={`+ ₹${gst.toFixed(2)}`}
+        />
+      )}
+
+      <Divider sx={{ my: 0.75 }} />
+
+      <SummaryRow
+        label={<Typography component="span" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.9rem' }}>Total</Typography>}
+        value={`₹${netPayable.toFixed(2)}`}
+        muted={false}
+        bold
+      />
     </Box>
   </Box>
 );
@@ -443,12 +504,16 @@ const SalesSummary = ({
   setSearchParams,
   handleEditItem,
   handleSaveDraft,
-  isPharmacy,
   isJewellery,
   embedded,
   hideActions,
 }) => {
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
+  // Bill-level discount mode: flat rupees ('AMT') or percentage-of-subtotal ('PCT').
+  // Payload / backend / receipt still see a resolved ₹ amount — the mode is a
+  // pure UX affordance so users can enter "10% off" without doing the math.
+  const [discountMode, setDiscountMode] = useState('AMT');
+  const [pctInput, setPctInput] = useState(0);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -457,8 +522,10 @@ const SalesSummary = ({
 
   // ── MEMOIZED CALCULATIONS ──
 
+  // Subtotal is net of line-level discounts — matches taxableValue on the backend
+  // per SaleService.createSale (qty × unitPrice − line discount).
   const subtotal = useMemo(() =>
-    formData.items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.unitPrice)), 0),
+    formData.items.reduce((sum, item) => sum + lineNetBase(item), 0),
     [formData.items]
   );
 
@@ -469,21 +536,16 @@ const SalesSummary = ({
 
   const totalGst = useMemo(() => {
     if (formData.isGstRequired !== 'yes') return 0;
-    return formData.items.reduce((sum, item) =>
-      sum + calcLineGst(item, isPharmacy),
-      0
-    );
-  }, [formData.items, formData.isGstRequired, isPharmacy]);
+    return formData.items.reduce((sum, item) => sum + calcLineGst(item), 0);
+  }, [formData.items, formData.isGstRequired]);
 
+  // Net total includes exclusive GST so this matches the ReviewPaymentPage total.
   const netTotal = useMemo(
-    () => Math.max(0, subtotal + totalMakingCharges - discount),
-    [subtotal, totalMakingCharges, discount]
+    () => Math.max(0, subtotal + totalMakingCharges + totalGst - discount),
+    [subtotal, totalMakingCharges, totalGst, discount]
   );
 
-  const netPayable = useMemo(
-    () => isPharmacy ? Math.round(netTotal) : netTotal,
-    [netTotal, isPharmacy]
-  );
+  const netPayable = netTotal;
 
   // ── EFFECTS ──
 
@@ -497,11 +559,41 @@ const SalesSummary = ({
     }));
   }, [subtotal, totalMakingCharges, discount, netPayable, setFormData]);
 
+  // When in PCT mode, keep the resolved ₹ discount in sync with the % input
+  // and the current subtotal — cart edits reflow the discount automatically.
+  // Base is (subtotal + making charges + GST) to match how billLevelDiscount
+  // is subtracted from the grand total on ReviewPaymentPage.
+  useEffect(() => {
+    if (discountMode !== 'PCT') return;
+    const base = subtotal + totalMakingCharges + totalGst;
+    const pct = Math.max(0, Math.min(100, Number(pctInput) || 0));
+    const resolved = Number(((base * pct) / 100).toFixed(2));
+    setDiscount(resolved);
+  }, [discountMode, pctInput, subtotal, totalMakingCharges, totalGst]);
+
   // ── CALLBACKS ──
 
   const handleDiscountChange = useCallback((e) => {
-    setDiscount(Math.max(0, parseFloat(e.target.value) || 0));
-  }, []);
+    const val = Math.max(0, parseFloat(e.target.value) || 0);
+    if (discountMode === 'PCT') {
+      // Clamp % to [0, 100] — no over-100% discounts.
+      setPctInput(Math.min(100, val));
+    } else {
+      setDiscount(val);
+    }
+  }, [discountMode]);
+
+  const handleDiscountModeChange = useCallback((_e, next) => {
+    if (!next || next === discountMode) return;
+    setDiscountMode(next);
+    if (next === 'AMT') {
+      // Leaving PCT: the resolved ₹ discount stays as-is; user can now edit it flat.
+      setPctInput(0);
+    } else {
+      // Entering PCT from AMT: keep pct 0 (don't guess a percentage from a ₹ amount).
+      setDiscount(0);
+    }
+  }, [discountMode]);
 
   const doClearForm = useCallback(() => {
     setFormData({
@@ -514,9 +606,12 @@ const SalesSummary = ({
       paymentMethods: [{ method: 'Cash', amount: 0 }],
       deliveryRequired: false,
     });
-    handleCustomerSelect(null);
-    setSelectedVariant(null);
-    setItem({
+    // These callbacks are only wired when SalesSummary runs inside the standalone
+    // Sales page. In the embedded/preview mode they are undefined — guard each
+    // call so Clear doesn't crash on undefined().
+    handleCustomerSelect?.(null);
+    setSelectedVariant?.(null);
+    setItem?.({
       id: '',
       sku: '',
       qty: '',
@@ -529,7 +624,7 @@ const SalesSummary = ({
       design: '',
       currentStock: 0,
     });
-    setSearchParams({});
+    setSearchParams?.({});
     setDiscount(0);
     setClearConfirmOpen(false);
   }, [setFormData, handleCustomerSelect, setSelectedVariant, setItem, setSearchParams]);
@@ -580,17 +675,23 @@ const SalesSummary = ({
         }}>
           {/* Header */}
           <Box sx={{
-            p: 1.5,
+            px: 1.5,
+            py: 1,
             display: 'flex',
             alignItems: 'center',
-            gap: 1,
-            borderBottom: `1px solid ${alpha('#0f766e', 0.1)}`,
+            justifyContent: 'space-between',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
             flexShrink: 0,
-            bgcolor: alpha('#0f766e', 0.02),
           }}>
-            <ReceiptLongIcon sx={{ color: 'var(--color-teal)' }} fontSize="small" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-              Order Items ({formData.items.length})
+            <Typography variant="caption" sx={{
+              fontWeight: 600,
+              fontSize: '0.72rem',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              color: 'text.secondary',
+            }}>
+              Cart {formData.items.length > 0 && `· ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
             </Typography>
           </Box>
 
@@ -604,33 +705,30 @@ const SalesSummary = ({
               flex: embedded ? 1 : 'none',
               minHeight: 0,
             }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: alpha('#0f766e', 0.05) }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Item Details</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Qty</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>Rate</TableCell>
-                    {isJewellery && (
-                      <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-secondary)' }}>
-                        Making
-                      </TableCell>
-                    )}
-                    {isPharmacy && (
-                      <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-                        Expiry
-                      </TableCell>
-                    )}
-                    {showGst && !isPharmacy && (
-                      <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-success)' }}>
-                        GST
-                      </TableCell>
-                    )}
-                    <TableCell align="right" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-                      Total
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-                      Action
-                    </TableCell>
+              <Table size="small" sx={{
+                '& .MuiTableCell-root': { borderBottomColor: 'divider' },
+              }}>
+                <TableHead>
+                  <TableRow sx={{
+                    '& .MuiTableCell-root': {
+                      fontWeight: 600,
+                      fontSize: '0.7rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.4,
+                      color: 'text.secondary',
+                      borderBottom: '1px solid',
+                      borderBottomColor: 'divider',
+                      bgcolor: 'transparent',
+                      py: 1,
+                    },
+                  }}>
+                    <TableCell>Item</TableCell>
+                    <TableCell align="center">Qty</TableCell>
+                    <TableCell align="right">Rate</TableCell>
+                    {isJewellery && <TableCell align="right">Making</TableCell>}
+                    {showGst && <TableCell align="right">GST</TableCell>}
+                    <TableCell align="right">Total</TableCell>
+                    <TableCell align="center" width={72} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -639,7 +737,6 @@ const SalesSummary = ({
                       key={`${item.id}-${index}`}
                       item={item}
                       index={index}
-                      isPharmacy={isPharmacy}
                       isJewellery={isJewellery}
                       showGst={showGst}
                       onEdit={handleEditItem}
@@ -658,10 +755,12 @@ const SalesSummary = ({
             discount={discount}
             gst={totalGst}
             netPayable={netPayable}
-            isPharmacy={isPharmacy}
             isJewellery={isJewellery}
             showGst={showGst}
             onDiscountChange={handleDiscountChange}
+            discountMode={discountMode}
+            onDiscountModeChange={handleDiscountModeChange}
+            pctInput={pctInput}
             embedded={embedded}
           />
         </CardContent>

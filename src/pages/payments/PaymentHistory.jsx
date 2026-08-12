@@ -12,10 +12,14 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PrintIcon from '@mui/icons-material/Print';
 import HistoryIcon from '@mui/icons-material/History';
 import DownloadIcon from '@mui/icons-material/Download';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppPalette } from '../../hooks/useAppPalette';
+import { getPaymentReceiptSignedUrl, downloadReceiptPdf } from '../../services/api';
+import RefundDialog from '../../components/payments/RefundDialog';
 
 
 
@@ -33,6 +37,21 @@ const formatCurrencyPDF = (amount) => {
   return `Rs. ${formattedInteger}.${decimal}`;
 };
 
+// Downloads the printable PDF receipt for a given payment.
+// Uses the signed-URL flow so the actual PDF fetch does not require session auth.
+const handleDownloadReceipt = async (paymentId, invoiceNumber) => {
+  try {
+    const signedPath = await getPaymentReceiptSignedUrl(paymentId);
+    const filename = invoiceNumber
+      ? `receipt_${invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`
+      : `receipt_payment_${paymentId}.pdf`;
+    await downloadReceiptPdf(signedPath, filename);
+  } catch (err) {
+    console.error('Failed to download receipt', err);
+    alert(err?.response?.data?.message || 'Could not download receipt. Please try again.');
+  }
+};
+
 // Helper component for smooth loading states
 const SkeletonRow = () => (
   <TableRow>
@@ -42,6 +61,7 @@ const SkeletonRow = () => (
     <TableCell><Skeleton variant="text" width="75%" /></TableCell>
     <TableCell><Skeleton variant="text" width="80%" /></TableCell>
     <TableCell><Skeleton variant="rectangular" width={70} height={24} sx={{ borderRadius: 1.5 }} /></TableCell>
+    <TableCell align="center"><Skeleton variant="circular" width={28} height={28} /></TableCell>
   </TableRow>
 );
 
@@ -65,6 +85,7 @@ const PaymentHistory = ({
   const [orderBy, setOrderBy] = useState('paymentDate');
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [refundTarget, setRefundTarget] = useState(null); // payment object; opens the refund dialog when non-null
 
   const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -512,8 +533,8 @@ const PaymentHistory = ({
               >
                 Reference
               </TableCell>
-              <TableCell 
-                sx={{ 
+              <TableCell
+                sx={{
                   bgcolor: alpha(customTheme.primary, 0.06),
                   fontWeight: 800,
                   color: customTheme.textPrimary,
@@ -525,6 +546,20 @@ const PaymentHistory = ({
               >
                 Status
               </TableCell>
+              <TableCell
+                align="center"
+                sx={{
+                  bgcolor: alpha(customTheme.primary, 0.06),
+                  fontWeight: 800,
+                  color: customTheme.textPrimary,
+                  fontSize: '0.85rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
+                }}
+              >
+                Actions
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -532,7 +567,7 @@ const PaymentHistory = ({
               [...Array(rowsPerPage)].map((_, i) => <SkeletonRow key={i} />)
             ) : processedHistory.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                   <Stack alignItems="center" spacing={1}>
                     <HistoryIcon sx={{ fontSize: 48, color: alpha(customTheme.primary, 0.2) }} />
                     <Typography variant="body2" color={customTheme.textSecondary} fontWeight={600}>
@@ -642,6 +677,29 @@ const PaymentHistory = ({
                         }}
                       />
                     </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Download payment receipt PDF">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownloadReceipt(p.id, p.invoiceNumber)}
+                          sx={{ color: customTheme.primary }}
+                        >
+                          <ReceiptLongIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Refund this payment">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => setRefundTarget(p)}
+                            disabled={!p.id || Number(p.amount) <= 0}
+                            sx={{ color: customTheme.error || '#e74c3c' }}
+                          >
+                            <CurrencyRupeeIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -679,6 +737,17 @@ const PaymentHistory = ({
             color: customTheme.textPrimary,
             fontWeight: 700
           }
+        }}
+      />
+
+      <RefundDialog
+        open={refundTarget !== null}
+        payment={refundTarget}
+        onClose={() => setRefundTarget(null)}
+        onSuccess={() => {
+          setRefundTarget(null);
+          // Notify parent to refresh — the parent already handles page reloads via loadData().
+          if (typeof onPageChange === 'function') onPageChange(page);
         }}
       />
     </Paper>

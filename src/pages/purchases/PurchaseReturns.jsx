@@ -12,7 +12,15 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/WarningAmber';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PrintIcon from '@mui/icons-material/Print';
-import { fetchPurchaseReturns, approvePurchaseReturn, cancelPurchaseReturn, getSuppliers } from '../../services/api';
+import {
+  fetchPurchaseReturns,
+  approvePurchaseReturn,
+  cancelPurchaseReturn,
+  getSuppliers,
+  findDebitNotesByPurchaseReturn,
+  getDebitNoteSignedUrl,
+  downloadReceiptPdf,
+} from '../../services/api';
 import PurchaseReturnFormDialog from './PurchaseReturnFormDialog';
 import PurchaseReturnDetailsDialog from './PurchaseReturnDetailsDialog';
 
@@ -87,6 +95,20 @@ const PurchaseReturns = () => {
       if (actionType === 'APPROVE') {
         await approvePurchaseReturn(targetId);
         showSnackbar('Purchase Return approved successfully! Stock deducted & Debit Note created.');
+        // Best-effort auto-download of the debit note just issued
+        try {
+          const notes = await findDebitNotesByPurchaseReturn(targetId);
+          if (notes && notes.length > 0) {
+            const latest = notes[0];
+            const signedPath = await getDebitNoteSignedUrl(latest.id);
+            await downloadReceiptPdf(
+              signedPath,
+              `debit_note_${(latest.debitNoteNo || latest.id).toString().replace(/[\/\\]/g, '_')}.pdf`,
+            );
+          }
+        } catch (dlErr) {
+          console.warn('Approval succeeded but debit note download failed', dlErr);
+        }
       } else if (actionType === 'CANCEL') {
         await cancelPurchaseReturn(targetId);
         showSnackbar('Purchase Return cancelled.');

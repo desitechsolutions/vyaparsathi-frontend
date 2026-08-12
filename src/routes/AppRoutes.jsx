@@ -28,6 +28,10 @@ import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
+import Quotations from '../pages/Quotations';
+import SalesOrders from '../pages/SalesOrders';
+import CreditNotes from '../pages/CreditNotes';
+import DebitNotes from '../pages/DebitNotes';
 import Suppliers from '../pages/Suppliers';
 import LandingLayout from '../components/layout/LandingLayout';
 import AuthLayout from '../components/layout/AuthLayout';
@@ -201,6 +205,15 @@ function AppRoutes() {
             <Route path="admin/users" element={<UserManagementPage />} />
             <Route path="admin/settings" element={<SettingsPage />} />
             <Route path="admin/billing" element={<BillingDashboard />} />
+
+            {/* QUOTATIONS — available on all tiers as a core sales tool */}
+            <Route path="quotations" element={<Quotations />} />
+            {/* SALES ORDERS — with stock reservation, above the tier line */}
+            <Route path="sales-orders" element={<SalesOrders />} />
+            {/* CREDIT NOTES — customer-facing returns / adjustments */}
+            <Route path="credit-notes" element={<CreditNotes />} />
+            {/* DEBIT NOTES — supplier-facing returns / adjustments */}
+            <Route path="debit-notes" element={<TierGuard requiredTier="PRO"><DebitNotes /></TierGuard>} />
 
             {/* STARTER TIER & ABOVE */}
             <Route path="delivery" element={<TierGuard requiredTier="STARTER"><DeliveryManagement /></TierGuard>} />
