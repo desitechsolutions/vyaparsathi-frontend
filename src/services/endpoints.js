@@ -104,6 +104,14 @@ const endpoints = {
   from && to
     ? `${API_BASE}/reports/customer-sales?from=${from}&to=${to}`
     : `${API_BASE}/reports/customer-sales`,
+  salespersonLeaderboard: (from, to) =>
+  from && to
+    ? `${API_BASE}/reports/salesperson-leaderboard?from=${from}&to=${to}`
+    : `${API_BASE}/reports/salesperson-leaderboard`,
+  zReport: (date) =>
+    date
+      ? `${API_BASE}/reports/z-report?date=${date}`
+      : `${API_BASE}/reports/z-report`,
   expensesSummary: (from, to) =>
   from && to
     ? `${API_BASE}/reports/expenses-summary?from=${from}&to=${to}`

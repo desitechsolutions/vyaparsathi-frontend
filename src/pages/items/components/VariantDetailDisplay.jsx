@@ -39,10 +39,6 @@ export default function VariantDetailDisplay({
       colorSize: (v) => `${v.size} (Specs) — ${v.color} (Coating)`,
       secondary: (v) => `${v.design || 'Grade'} • ${v.fit || 'Mounting'}`
     },
-    PHARMACY: {
-      colorSize: (v) => `${v.size} (Strength) — ${v.color} (Ref)`,
-      secondary: (v) => `${v.design || 'Type'} • ${v.fit || 'Usage'}`
-    },
     GROCERY: {
       colorSize: (v) => `${v.size} (Qty) — ${v.color} (Origin)`,
       secondary: (v) => `${v.design || 'Grade'} • ${v.fit || 'Shelf Life'}`
@@ -175,8 +171,8 @@ export default function VariantDetailDisplay({
                       {labels.secondary(variant)} • {variant.unit}
                     </Typography>
 
-                    {/* Pharmacy-specific variant info */}
-                    {shopCategory === 'PHARMACY' && (variant.batchNumber || variant.expiryDate || variant.mrp) && (
+                    {/* Batch / expiry / MRP — shown when tracked */}
+                    {(variant.batchNumber || variant.expiryDate || variant.mrp) && (
                       <Box sx={{ mb: 1, p: 1, bgcolor: 'rgba(34, 197, 94, 0.12)', borderRadius: 1.5, border: '1px solid', borderColor: 'success.light' }}>
                         {variant.mrp && (
                           <Typography variant="caption" sx={{ display: 'block', color: '#166534', fontWeight: 700 }}>

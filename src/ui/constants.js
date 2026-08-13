@@ -39,13 +39,6 @@ export const categoryData = {
     PAINTS: ['Interior Paint','Exterior Paint','Primers','Thinners']
   },
 
-  PHARMACY: {
-    MEDICINES: ['Tablets','Capsules','Syrups','Injections'],
-    'PERSONAL CARE': ['Skincare','Haircare','Oral Care'],
-    SURGICALS: ['Bandages','Gloves','Syringes','Masks'],
-    WELLNESS: ['Supplements','Protein Powders','Vitamins']
-  },
-
   GROCERY: {
     'DAIRY & BAKERY': ['Milk','Bread','Butter','Cheese'],
     STAPLES: ['Rice','Flour','Pulses','Oil','Sugar'],
@@ -94,8 +87,6 @@ export const variantSpecs = {
 
   HARDWARE: ['1/2 inch','3/4 inch','1 inch','50mm','100mm','M8','M10'],
 
-  PHARMACY: ['50mg','100mg','250mg','500mg','650mg','10ml','100ml'],
-
   GROCERY: ['100g','250g','500g','1kg','2kg','5kg','10kg'],
 
   AUTOMOBILE: ['Standard','Heavy Duty','Universal'],
@@ -124,8 +115,6 @@ export const variantColors = {
   ELECTRONICS: ['Space Grey','Silver','Gold','Black','White'],
 
   HARDWARE: ['Stainless Steel','Brass','Chrome','Matte','Glossy'],
-
-  PHARMACY: ['Transparent','White','Amber'],
 
   GROCERY: ['Natural','Organic'],
 
@@ -156,8 +145,6 @@ export const shopUnits = {
 
   HARDWARE: ['PIECE','KG','PACK','BOX','ROLL'],
 
-  PHARMACY: ['STRIP','BOTTLE','BOX','PIECE'],
-
   GROCERY: ['PACK','KG','GRAM','LITRE','ML'],
 
   AUTOMOBILE: ['PIECE','SET','UNIT'],
@@ -186,8 +173,6 @@ export const variantModels = {
   ELECTRONICS: ['Original','OEM','Refurbished','Generic','Global Version'],
 
   HARDWARE: ['Grade 304','Grade 316','Heavy Duty','Standard'],
-
-  PHARMACY: ['Generic','Branded','Ayurvedic','Homeopathic'],
 
   GROCERY: ['Premium','Regular','Fresh','Frozen'],
 
@@ -218,8 +203,6 @@ export const variantFits = {
 
   HARDWARE: ['Wall Mount','Floor Mount','Screw-in'],
 
-  PHARMACY: ['External Use','Internal Use'],
-
   GROCERY: ['Vegetarian','Non-Vegetarian','Vegan'],
 
   AUTOMOBILE: ['Front','Rear','Universal Fit'],
@@ -246,8 +229,6 @@ export const variantMaterials = {
   ELECTRONICS: ['Aluminum','Plastic','Polycarbonate','Glass','Stainless Steel'],
 
   HARDWARE: ['Mild Steel','Brass','PVC','UPVC','Cast Iron','Ceramic'],
-
-  PHARMACY: ['Plastic','Glass','Metal','Latex'],
 
   GROCERY: ['Plastic Wrap','Paper Bag','Glass Jar','Tin Can'],
 
@@ -278,8 +259,6 @@ export const variantUsage = {
 
   HARDWARE: ['Indoor Use','Outdoor Use','Industrial','Residential'],
 
-  PHARMACY: ['Prescription Required','Over-the-Counter','Store in Cool Place'],
-
   GROCERY: ['Perishable','Long Shelf Life','Keep Refrigerated'],
 
   AUTOMOBILE: ['Heavy Vehicle','Light Vehicle','Two Wheeler','Four Wheeler'],
@@ -298,21 +277,7 @@ export const variantUsage = {
 
 
 // ===============================
-// 9. DRUG SCHEDULES (PHARMACY)
-// ===============================
-
-export const DRUG_SCHEDULES = [
-  { value: 'OTC', label: 'OTC — Over The Counter' },
-  { value: 'NON_SCHEDULED', label: 'Non-Scheduled — Prescription (Unclassified)' },
-  { value: 'SCHEDULE_H', label: 'Schedule H — Prescription Required' },
-  { value: 'SCHEDULE_H1', label: 'Schedule H1 — Stringent Prescription (3rd-gen antibiotics, anti-TB)' },
-  { value: 'SCHEDULE_X', label: 'Schedule X — Narcotic / Psychotropic' },
-];
-
-
-
-// ===============================
-// 10. INDUSTRY RESOLVER HELPER
+// 9. INDUSTRY RESOLVER HELPER
 // ===============================
 
 /**
@@ -322,7 +287,7 @@ export const DRUG_SCHEDULES = [
 export const resolveIndustry = (categoryName = '') => {
   const name = categoryName.toUpperCase();
   const industries = Object.keys({
-    CLOTHING: 1, FOOTWEAR: 1, ELECTRONICS: 1, HARDWARE: 1, PHARMACY: 1,
+    CLOTHING: 1, FOOTWEAR: 1, ELECTRONICS: 1, HARDWARE: 1,
     GROCERY: 1, AUTOMOBILE: 1, STATIONERY: 1, FURNITURE: 1, JEWELLERY: 1,
   });
   return industries.find((ind) => name.includes(ind)) || 'GENERAL';
@@ -404,7 +369,6 @@ export const AUTOMOBILE_VEHICLE_TYPES = [
  * These are suggestions; actual rates depend on the specific product/HSN code.
  */
 export const DEFAULT_GST_RATES = {
-  PHARMACY: [0, 5, 12, 18],
   GROCERY: [0, 5, 12],
   CLOTHING: [0, 5, 12],
   FOOTWEAR: [0, 5, 12],

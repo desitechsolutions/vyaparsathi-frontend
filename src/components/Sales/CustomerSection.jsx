@@ -1,8 +1,9 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react';
-import { 
-  Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio, 
-  TextField, Typography, Box, Checkbox, FormControl, InputLabel, 
-  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Switch, Chip, Stack, alpha
+import React, { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio,
+  TextField, Typography, Box, Checkbox, FormControl, InputLabel,
+  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Chip, Stack, alpha
 } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -14,9 +15,6 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import HomeIcon from '@mui/icons-material/Home';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TuneIcon from '@mui/icons-material/Tune';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
@@ -37,20 +35,14 @@ const CustomerSection = ({
   handleNewCustomer,
   openCustomerModal,
   setOpenCustomerModal,
-  isPharmacy,
   isJewellery,
   compact,
 }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const selectStyles = useMemo(() => getSalesSelectStyles(theme), [theme]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
-  const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
-  const [prescriptionImage, setPrescriptionImage] = useState(null);
-  const [cameraStream, setCameraStream] = useState(null);
-  
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
 
   const PAN_THRESHOLD = 200000;
   const isHighValueJewellery = isJewellery && Number(formData.totalAmount) >= PAN_THRESHOLD;
@@ -59,38 +51,8 @@ const CustomerSection = ({
   const isPanMissing = isHighValueJewellery && !formData.buyerPan?.trim();
   const isPanError = isPanMissing || (formData.buyerPan?.trim() && !isPanFormatValid);
 
-  const openCamera = async () => {
-    setPrescriptionDialogOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setCameraStream(stream);
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch {
-      // Camera not available
-    }
-  };
-
-  const closeCamera = useCallback(() => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-    }
-    setPrescriptionDialogOpen(false);
-  }, [cameraStream]);
-
-  const capturePhoto = useCallback(() => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
-      setPrescriptionImage(canvas.toDataURL('image/jpeg'));
-    }
-    closeCamera();
-  }, [closeCamera]);
-
   const isGstMissing = formData.isGstRequired === 'yes' && selectedCustomer && !selectedCustomer.gstNumber;
-  const isGstDisabled = (isPharmacy || isJewellery) ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
+  const isGstDisabled = isJewellery ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
   
   const handleGstToggle = useCallback((e) => {
     if (e.target.value === 'yes' && isGstDisabled) return;
@@ -142,13 +104,13 @@ const CustomerSection = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <LocationOnIcon sx={{ color: 'var(--color-teal)', fontSize: 22 }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-            Delivery Address
+            {t('salesFlow.customer.deliveryAddressTitle')}
           </Typography>
         </Box>
 
         {selectedCustomer && (
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             variant="outlined"
             startIcon={<HomeIcon />}
             onClick={copyCustomerAddress}
@@ -166,18 +128,18 @@ const CustomerSection = ({
               }
             }}
           >
-            Use Customer Address
+            {t('salesFlow.customer.useCustomerAddress')}
           </Button>
         )}
 
-        <TextField 
-          label="Delivery Address" 
-          multiline 
+        <TextField
+          label={t('salesFlow.customer.deliveryAddressTitle')}
+          multiline
           rows={3}
-          fullWidth 
-          value={formData.deliveryAddress || ''} 
+          fullWidth
+          value={formData.deliveryAddress || ''}
           onChange={handleDeliveryAddressChange}
-          placeholder="Enter complete delivery address or click 'Use Customer Address'"
+          placeholder={t('salesFlow.customer.deliveryAddressPlaceholder')}
           size="small"
           variant="outlined"
           sx={{
@@ -191,7 +153,7 @@ const CustomerSection = ({
           }}
         />
         <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.75, display: 'block' }}>
-          Street, building, apartment, city, postal code
+          {t('salesFlow.customer.deliveryAddressCaption')}
         </Typography>
       </Box>
 
@@ -202,14 +164,14 @@ const CustomerSection = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <LocalOfferIcon sx={{ color: 'var(--color-teal)', fontSize: 22 }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)' }}>
-            Delivery Charge & Payment
+            {t('salesFlow.customer.deliveryChargePaymentTitle')}
           </Typography>
         </Box>
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={6}>
             <TextField
-              label="Charge Amount"
+              label={t('salesFlow.customer.chargeAmountLabel')}
               type="number"
               fullWidth
               size="small"
@@ -229,10 +191,10 @@ const CustomerSection = ({
 
           <Grid item xs={6}>
             <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: '0.9rem' }}>Paid By</InputLabel>
+              <InputLabel sx={{ fontSize: '0.9rem' }}>{t('salesFlow.customer.paidByLabel')}</InputLabel>
               <MuiSelect
                 value={formData.deliveryPaidBy || ''}
-                label="Paid By"
+                label={t('salesFlow.customer.paidByLabel')}
                 onChange={handleDeliveryPaidByChange}
                 sx={{
                   borderRadius: 2,
@@ -243,14 +205,14 @@ const CustomerSection = ({
               >
                 <MenuItem value="CUSTOMER">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span>Customer</span>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>(To Pay)</Typography>
+                    <span>{t('salesFlow.customer.paidByCustomer')}</span>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('salesFlow.customer.toPay')}</Typography>
                   </Box>
                 </MenuItem>
                 <MenuItem value="SHOP">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span>Shop</span>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>(Inclusive)</Typography>
+                    <span>{t('salesFlow.customer.paidByShop')}</span>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('salesFlow.customer.inclusive')}</Typography>
                   </Box>
                 </MenuItem>
               </MuiSelect>
@@ -267,7 +229,7 @@ const CustomerSection = ({
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
-                Delivery Charge:
+                {t('salesFlow.customer.deliveryChargeInfoLabel')}
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 900, color: 'var(--color-teal)' }}>
                 ₹{Number(formData.deliveryCharge).toFixed(2)}
@@ -275,7 +237,7 @@ const CustomerSection = ({
             </Box>
             <Box sx={{ height: 1, bgcolor: alpha('#0f766e', 0.08), mb: 1 }} />
             <Typography variant="caption" sx={{ color: 'var(--color-teal)', fontWeight: 700 }}>
-              Paid by: <span style={{ fontWeight: 900 }}>{formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'}</span>
+              {t('salesFlow.customer.paidByInfo')} <span style={{ fontWeight: 900 }}>{formData.deliveryPaidBy === 'CUSTOMER' ? t('salesFlow.customer.paidByCustomer') : t('salesFlow.customer.paidByShop')}</span>
             </Typography>
           </Box>
         )}
@@ -286,11 +248,11 @@ const CustomerSection = ({
       {/* Special Instructions Section */}
       <Box>
         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--color-teal)', mb: 1.5 }}>
-          Special Instructions
+          {t('salesFlow.customer.specialInstructionsTitle')}
         </Typography>
         <TextField
-          label="Delivery Notes"
-          placeholder="E.g., Ring bell twice, Gate code 1234, Leave at reception..."
+          label={t('salesFlow.customer.deliveryNotesLabel')}
+          placeholder={t('salesFlow.customer.deliveryNotesPlaceholder')}
           fullWidth
           multiline
           rows={2}
@@ -309,7 +271,7 @@ const CustomerSection = ({
           }}
         />
         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-          Optional: Add any special instructions for delivery personnel
+          {t('salesFlow.customer.deliveryNotesCaption')}
         </Typography>
       </Box>
     </>
@@ -327,14 +289,14 @@ const CustomerSection = ({
               options={customers}
               value={selectedCustomer}
               onChange={handleCustomerSelect}
-              placeholder={isPharmacy ? 'Search patient...' : 'Search customer...'}
+              placeholder={t('salesFlow.customer.searchCustomerPlaceholder')}
               isSearchable
               isClearable
               styles={selectStyles}
               menuPortalTarget={document.body}
             />
           </Box>
-          <Tooltip title={isPharmacy ? 'Register New Patient' : 'Add New Customer'}>
+          <Tooltip title={t('salesFlow.customer.addNewCustomer')}>
             <Button variant="contained" onClick={() => setOpenCustomerModal(true)} sx={{ minWidth: 40, p: 1 }}>
               <PersonAddIcon fontSize="small" />
             </Button>
@@ -343,19 +305,19 @@ const CustomerSection = ({
 
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
-            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>Retail</Typography>} sx={{ mr: 1 }} />
-            <Tooltip title={isGstDisabled ? 'Customer has no GST number on file' : ''}>
+            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>{t('salesFlow.customer.retailLabel')}</Typography>} sx={{ mr: 1 }} />
+            <Tooltip title={isGstDisabled ? t('salesFlow.customer.noGstOnFile') : ''}>
               <FormControlLabel
                 value="yes"
                 control={<Radio size="small" />}
-                label={<Typography variant="caption" fontWeight={600}>{isPharmacy ? 'GST (Med)' : isJewellery ? 'GST 3%' : 'Tax (GST)'}</Typography>}
+                label={<Typography variant="caption" fontWeight={600}>{isJewellery ? t('salesFlow.customer.gstJewelleryShort') : t('salesFlow.customer.taxGst')}</Typography>}
                 disabled={isGstDisabled}
                 sx={{ mr: 0 }}
               />
             </Tooltip>
           </RadioGroup>
           
-          <Tooltip title={formData.deliveryRequired ? 'Delivery enabled — click to edit' : 'Enable delivery'}>
+          <Tooltip title={formData.deliveryRequired ? t('salesFlow.customer.deliveryEnabled') : t('salesFlow.customer.enableDelivery')}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -370,14 +332,11 @@ const CustomerSection = ({
                   checkedIcon={<LocalShippingIcon color="primary" />}
                 />
               }
-              label={<Typography variant="caption" fontWeight={600}>Delivery</Typography>}
+              label={<Typography variant="caption" fontWeight={600}>{t('salesFlow.customer.deliveryLabel')}</Typography>}
               sx={{ mr: 0 }}
             />
           </Tooltip>
           
-          {isPharmacy && formData.doctorName && (
-            <Chip label="Rx ✓" size="small" color="success" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
-          )}
           {isJewellery && formData.buyerPan && (
             <Chip label={`PAN: ${formData.buyerPan}`} size="small" color="secondary" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
           )}
@@ -408,12 +367,12 @@ const CustomerSection = ({
             pb: 2
           }}>
             <LocalShippingIcon sx={{ fontSize: 28 }} />
-            <span>Delivery Details</span>
+            <span>{t('salesFlow.customer.deliveryDetailsTitle')}</span>
             {formData.deliveryRequired && (
               <Chip 
                 icon={<DoneIcon sx={{ fontSize: 16 }} />}
-                label="Active" 
-                size="small" 
+                label={t('salesFlow.customer.activeChip')}
+                size="small"
                 color="success"
                 variant="outlined"
                 sx={{ ml: 'auto', fontWeight: 700, fontSize: '0.7rem' }}
@@ -449,7 +408,7 @@ const CustomerSection = ({
                 }
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => setDeliveryModalOpen(false)}
@@ -468,7 +427,7 @@ const CustomerSection = ({
               }}
               startIcon={<DoneIcon />}
             >
-              Save & Close
+              {t('salesFlow.customer.saveAndClose')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -476,62 +435,34 @@ const CustomerSection = ({
         {/* Options Dialog */}
         <Dialog open={optionsOpen} onClose={() => setOptionsOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.default' }}>
-            <TuneIcon color="primary" /> Sale Options
-            {isPharmacy && <Chip label="Pharmacy" size="small" color="primary" sx={{ ml: 'auto' }} />}
-            {isJewellery && <Chip label="💎 Jewellery" size="small" sx={{ ml: 'auto', bgcolor: 'rgba(139, 92, 246, 0.12)', color: 'var(--color-secondary)' }} />}
+            <TuneIcon color="primary" /> {t('salesFlow.customer.saleOptionsTitle')}
+            {isJewellery && <Chip label={t('salesFlow.customer.jewelleryChip')} size="small" sx={{ ml: 'auto', bgcolor: 'rgba(139, 92, 246, 0.12)', color: 'var(--color-secondary)' }} />}
           </DialogTitle>
           <DialogContent dividers>
-            {isPharmacy && (
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <LocalHospitalIcon color="primary" fontSize="small" />
-                  <Typography variant="subtitle2" fontWeight={700} color="primary">Prescription Details</Typography>
-                  <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {prescriptionImage && <Tooltip title="Prescription captured"><CheckCircleIcon color="success" fontSize="small" /></Tooltip>}
-                    <Button size="small" variant={prescriptionImage ? 'outlined' : 'contained'} color={prescriptionImage ? 'success' : 'primary'} startIcon={<CameraAltIcon />} onClick={openCamera} sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}>
-                      {prescriptionImage ? 'Re-capture Rx' : 'Capture Prescription'}
-                    </Button>
-                  </Box>
-                </Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <TextField label="Prescribing Doctor" fullWidth value={formData.doctorName || ''} onChange={e => setFormData(prev => ({ ...prev, doctorName: e.target.value }))} placeholder="Dr. Sharma" InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontSize: '0.85rem' }}>Dr.</Typography> }} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField label="Doctor Reg. No." fullWidth value={formData.doctorRegistrationNumber || ''} onChange={e => setFormData(prev => ({ ...prev, doctorRegistrationNumber: e.target.value }))} placeholder="MCI-12345" helperText="Required for Schedule H1/X drugs" />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField label="Patient Name / ID" fullWidth value={formData.patientName || ''} onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))} placeholder="For chronic medication tracking" helperText="Links sale to patient history" />
-                  </Grid>
-                </Grid>
-                <Divider sx={{ mt: 2 }} />
-              </Box>
-            )}
-
             {isJewellery && (
               <Box sx={{ mb: 3 }}>
                 {isHighValueJewellery && (
                   <Alert severity={isPanMissing ? 'warning' : (isPanError ? 'error' : 'success')} sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }} icon={(isPanMissing || isPanError) ? <WarningAmberIcon /> : undefined}>
-                    {isPanMissing ? 'PAN required: Sale amount ≥ ₹2,00,000. Mandatory under IT Act Sec. 269ST.' : isPanError ? 'Invalid PAN format. Must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F).' : `PAN captured: ${formData.buyerPan} ✓`}
+                    {isPanMissing ? t('salesFlow.customer.panRequiredCompact') : isPanError ? t('salesFlow.customer.panInvalidFormatCompact') : t('salesFlow.customer.panCaptured', { pan: formData.buyerPan })}
                   </Alert>
                 )}
-                <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'var(--color-secondary)', mb: 2 }}>💎 Jewellery Buyer Details</Typography>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'var(--color-secondary)', mb: 2 }}>{t('salesFlow.customer.jewelleryBuyerDetails')}</Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}>
-                    <TextField label="Buyer PAN" fullWidth value={formData.buyerPan || ''} onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }} error={isPanError} helperText={isPanError && formData.buyerPan?.trim() ? 'Invalid format — AAAAA9999A' : isHighValueJewellery ? 'Mandatory for transactions ≥ ₹2,00,000' : 'Optional for smaller transactions'} />
+                    <TextField label={t('salesFlow.customer.buyerPanLabel')} fullWidth value={formData.buyerPan || ''} onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" inputProps={{ maxLength: 10, style: { textTransform: 'uppercase', letterSpacing: 2 } }} error={isPanError} helperText={isPanError && formData.buyerPan?.trim() ? t('salesFlow.customer.panHelperInvalid') : isHighValueJewellery ? t('salesFlow.customer.panHelperMandatory') : t('salesFlow.customer.panHelperOptional')} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField label="Buyer Aadhaar (last 4 digits)" fullWidth value={formData.buyerAadhaarLast4 || ''} onChange={e => { const val = e.target.value.replace(/\D/g, '').slice(0, 4); setFormData(prev => ({ ...prev, buyerAadhaarLast4: val })); }} placeholder="XXXX" inputProps={{ maxLength: 4 }} helperText="Optional — for KYC records" />
+                    <TextField label={t('salesFlow.customer.buyerAadhaarLabel')} fullWidth value={formData.buyerAadhaarLast4 || ''} onChange={e => { const val = e.target.value.replace(/\D/g, '').slice(0, 4); setFormData(prev => ({ ...prev, buyerAadhaarLast4: val })); }} placeholder="XXXX" inputProps={{ maxLength: 4 }} helperText={t('salesFlow.customer.aadhaarHelperText')} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField label="Purpose / Occasion" fullWidth value={formData.jewelleryPurpose || ''} onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))} placeholder="e.g., Wedding, Birthday Gift" helperText="Printed on invoice" />
+                    <TextField label={t('salesFlow.customer.purposeOccasionLabel')} fullWidth value={formData.jewelleryPurpose || ''} onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))} placeholder={t('salesFlow.customer.purposeOccasionPlaceholder')} helperText={t('salesFlow.customer.printedOnInvoice')} />
                   </Grid>
                 </Grid>
               </Box>
             )}
           </DialogContent>
           <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
-            <Button onClick={() => setOptionsOpen(false)} variant="contained">Done</Button>
+            <Button onClick={() => setOptionsOpen(false)} variant="contained">{t('salesFlow.customer.doneButton')}</Button>
           </DialogActions>
         </Dialog>
 
@@ -539,44 +470,24 @@ const CustomerSection = ({
         <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontWeight: 800, bgcolor: 'background.default' }}>
             <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
+            {t('salesFlow.customer.createNewCustomerTitle')}
           </DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid item xs={12} sm={6}><TextField label="Full Name" required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? 'Name is required' : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="Phone Number" required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? 'Enter valid phone' : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
-              {isPharmacy && (
-                <>
-                  <Grid item xs={6} sm={4}><TextField label="Age" type="number" fullWidth value={newCustomerData.age || ''} onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })} inputProps={{ min: 0, max: 130 }} /></Grid>
-                  <Grid item xs={6} sm={4}><FormControl fullWidth><InputLabel>Gender</InputLabel><MuiSelect value={newCustomerData.gender || ''} label="Gender" onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}><MenuItem value="MALE">Male</MenuItem><MenuItem value="FEMALE">Female</MenuItem><MenuItem value="OTHER">Other</MenuItem></MuiSelect></FormControl></Grid>
-                  <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}><FormControlLabel control={<Switch checked={!!newCustomerData.isChronicPatient} onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })} color="warning" />} label={<Typography variant="body2" fontWeight={600}>Chronic Patient</Typography>} /></Grid>
-                </>
-              )}
-              <Grid item xs={12}><TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
-              <Grid item xs={12} sm={6}><TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
-              {!isPharmacy && <Grid item xs={12} sm={6}><TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>}
-              <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.fullName')} required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? t('salesFlow.customer.nameRequired') : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.phoneNumber')} required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
+              <Grid item xs={12}><TextField label={t('salesFlow.customer.addressLine1Label')} fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.cityLabel')} fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.gstNumberLabel')} fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>
+              <Grid item xs={12}><TextField label={t('salesFlow.customer.notesLabel')} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} /></Grid>
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
-            <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
-            <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
+            <Button onClick={() => setOpenCustomerModal(false)} color="inherit">{t('common.cancel')}</Button>
+            <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{t('salesFlow.customer.saveCustomer')}</Button>
           </DialogActions>
         </Dialog>
 
-        {/* Prescription Capture Dialog */}
-        <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700, bgcolor: 'rgba(34, 197, 94, 0.12)' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
-          <DialogContent dividers sx={{ textAlign: 'center' }}>
-            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-            {!cameraStream && <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Camera access is required to capture a prescription photo.</Typography>}
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={closeCamera} color="inherit">Cancel</Button>
-            <Button variant="contained" startIcon={<CameraAltIcon />} onClick={capturePhoto} disabled={!cameraStream}>Capture Photo</Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     );
   }
@@ -586,16 +497,10 @@ const CustomerSection = ({
       <Card raised sx={{ borderRadius: 3, boxShadow: '0 8px 24px rgba(0,0,0,0.05)' }}>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ReceiptIcon color="primary" /> Transaction Details
-            {isPharmacy && (
-              <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <LocalHospitalIcon color="primary" fontSize="small" />
-                <Typography variant="caption" color="primary" fontWeight={700}>Pharmacy Sale</Typography>
-              </Box>
-            )}
+            <ReceiptIcon color="primary" /> {t('salesFlow.customer.transactionDetailsTitle')}
             {isJewellery && (
               <Box component="span" sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography variant="caption" sx={{ color: 'var(--color-secondary)', fontWeight: 700 }}>💎 Jewellery Sale</Typography>
+                <Typography variant="caption" sx={{ color: 'var(--color-secondary)', fontWeight: 700 }}>{t('salesFlow.customer.jewelleryLabel')}</Typography>
               </Box>
             )}
           </Typography>
@@ -603,7 +508,7 @@ const CustomerSection = ({
           <Grid container spacing={3}>
             <Grid item xs={12} md={7}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
-                {isPharmacy ? 'SELECT PATIENT' : 'SELECT CUSTOMER'}
+                {t('salesFlow.customer.selectCustomerLabel')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                 <Box sx={{ flexGrow: 1 }}>
@@ -611,16 +516,16 @@ const CustomerSection = ({
                     options={customers}
                     value={selectedCustomer}
                     onChange={handleCustomerSelect}
-                    placeholder={isPharmacy ? 'Search patient name or phone...' : 'Search name, phone, or GST...'}
+                    placeholder={t('salesFlow.customer.searchCustomerGstPlaceholder')}
                     isSearchable
                     isClearable
                     styles={selectStyles}
                     menuPortalTarget={document.body}
                   />
                 </Box>
-                <Tooltip title={isPharmacy ? 'Register New Patient' : 'Add New Customer'}>
-                  <Button 
-                    variant="contained" 
+                <Tooltip title={t('salesFlow.customer.addNewCustomer')}>
+                  <Button
+                    variant="contained"
                     onClick={() => setOpenCustomerModal(true)}
                     sx={{ minWidth: '50px', borderRadius: '8px' }}
                   >
@@ -628,21 +533,21 @@ const CustomerSection = ({
                   </Button>
                 </Tooltip>
               </Box>
-              
-              <Collapse in={isGstMissing && !isPharmacy}>
-                <Alert 
-                  severity="warning" 
+
+              <Collapse in={isGstMissing}>
+                <Alert
+                  severity="warning"
                   icon={<WarningAmberIcon fontSize="inherit" />}
                   sx={{ mt: 1, borderRadius: 2, '& .MuiAlert-message': { fontWeight: 500 } }}
                 >
-                  Selected customer does not have a GST number.
+                  {t('salesFlow.customer.noGstAlert')}
                 </Alert>
               </Collapse>
             </Grid>
 
             <Grid item xs={12} md={5}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', ml: 1 }}>
-                INVOICE TYPE {!isPharmacy && !isJewellery && isGstDisabled && "(GST requires customer GSTIN)"}
+                {t('salesFlow.customer.invoiceTypeLabel')} {!isJewellery && isGstDisabled && t('salesFlow.customer.gstRequiresGstin')}
               </Typography>
               <RadioGroup
                   row
@@ -650,19 +555,19 @@ const CustomerSection = ({
                   onChange={handleGstToggle}
                   sx={{ mb: 1 }}
                 >
-                  <FormControlLabel value="no" control={<Radio size="small" />} label="Retail (No GST)" />
-                  <Tooltip title={isGstDisabled ? "Selected customer has no GST number on file" : ""}>
-                    <FormControlLabel 
-                      value="yes" 
-                      control={<Radio size="small" />} 
-                      label={isPharmacy ? "Inclusive GST (Medicine)" : isJewellery ? "GST @ 3% (Jewellery)" : "Tax (GST)"}
+                  <FormControlLabel value="no" control={<Radio size="small" />} label={t('salesFlow.customer.retailNoGst')} />
+                  <Tooltip title={isGstDisabled ? t('salesFlow.customer.noGstOnFileFull') : ''}>
+                    <FormControlLabel
+                      value="yes"
+                      control={<Radio size="small" />}
+                      label={isJewellery ? t('salesFlow.customer.gstJewellery') : t('salesFlow.customer.taxGst')}
                       disabled={isGstDisabled}
                     />
                   </Tooltip>
                 </RadioGroup>
-              
+
               <TextField
-                label="Total Sale Amount"
+                label={t('salesFlow.customer.totalSaleAmount')}
                 fullWidth
                 value={formData.totalAmount}
                 InputProps={{ 
@@ -675,67 +580,6 @@ const CustomerSection = ({
 
           <Divider sx={{ my: 3 }} />
 
-          {isPharmacy && (
-            <Box sx={{ mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <LocalHospitalIcon color="primary" fontSize="small" />
-                <Typography variant="subtitle2" fontWeight={700} color="primary">
-                  Prescription Details
-                </Typography>
-                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {prescriptionImage && (
-                    <Tooltip title="Prescription captured">
-                      <CheckCircleIcon color="success" fontSize="small" />
-                    </Tooltip>
-                  )}
-                  <Button
-                    size="small"
-                    variant={prescriptionImage ? 'outlined' : 'contained'}
-                    color={prescriptionImage ? 'success' : 'primary'}
-                    startIcon={<CameraAltIcon />}
-                    onClick={openCamera}
-                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-                  >
-                    {prescriptionImage ? 'Re-capture Rx' : 'Capture Prescription'}
-                  </Button>
-                </Box>
-              </Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Prescribing Doctor"
-                    fullWidth
-                    value={formData.doctorName || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, doctorName: e.target.value }))}
-                    placeholder="Dr. Sharma"
-                    InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontSize: '0.85rem' }}>Dr.</Typography> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Doctor Reg. No."
-                    fullWidth
-                    value={formData.doctorRegistrationNumber || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, doctorRegistrationNumber: e.target.value }))}
-                    placeholder="MCI-12345"
-                    helperText="Required for Schedule H1/X drugs"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Patient Name / ID"
-                    fullWidth
-                    value={formData.patientName || ''}
-                    onChange={e => setFormData(prev => ({ ...prev, patientName: e.target.value }))}
-                    placeholder="For chronic medication tracking"
-                    helperText="Links sale to patient history"
-                  />
-                </Grid>
-              </Grid>
-              <Divider sx={{ mt: 2 }} />
-            </Box>
-          )}
-
           {isJewellery && (
             <Box sx={{ mb: 2 }}>
               {isHighValueJewellery && (
@@ -745,21 +589,21 @@ const CustomerSection = ({
                   icon={(isPanMissing || isPanError) ? <WarningAmberIcon /> : undefined}
                 >
                   {isPanMissing
-                    ? 'PAN required: Sale amount ≥ ₹2,00,000. Collecting buyer PAN is mandatory under IT Act Sec. 269ST.'
+                    ? t('salesFlow.customer.panRequired')
                     : isPanError
-                    ? 'Invalid PAN format. PAN must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F).'
-                    : `PAN captured: ${formData.buyerPan} ✓`}
+                    ? t('salesFlow.customer.panInvalidFormat')
+                    : t('salesFlow.customer.panCaptured', { pan: formData.buyerPan })}
                 </Alert>
               )}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'var(--color-secondary)' }}>
-                  💎 Jewellery Buyer Details
+                  {t('salesFlow.customer.jewelleryBuyerDetails')}
                 </Typography>
               </Box>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={4}>
                   <TextField
-                    label="Buyer PAN"
+                    label={t('salesFlow.customer.buyerPanLabel')}
                     fullWidth
                     value={formData.buyerPan || ''}
                     onChange={e => setFormData(prev => ({ ...prev, buyerPan: e.target.value.toUpperCase() }))}
@@ -768,16 +612,16 @@ const CustomerSection = ({
                     error={isPanError}
                     helperText={
                       isPanError && formData.buyerPan?.trim()
-                        ? 'Invalid format — must be AAAAA9999A (5 letters, 4 digits, 1 letter)'
+                        ? t('salesFlow.customer.panHelperInvalid')
                         : isHighValueJewellery
-                        ? 'Mandatory for transactions ≥ ₹2,00,000'
-                        : 'Optional for smaller transactions'
+                        ? t('salesFlow.customer.panHelperMandatory')
+                        : t('salesFlow.customer.panHelperOptional')
                     }
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
-                    label="Buyer Aadhaar (last 4 digits)"
+                    label={t('salesFlow.customer.buyerAadhaarLabel')}
                     fullWidth
                     value={formData.buyerAadhaarLast4 || ''}
                     onChange={e => {
@@ -786,17 +630,17 @@ const CustomerSection = ({
                     }}
                     placeholder="XXXX"
                     inputProps={{ maxLength: 4 }}
-                    helperText="Optional — for KYC records"
+                    helperText={t('salesFlow.customer.aadhaarHelperText')}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
-                    label="Purpose / Occasion"
+                    label={t('salesFlow.customer.purposeOccasionLabel')}
                     fullWidth
                     value={formData.jewelleryPurpose || ''}
                     onChange={e => setFormData(prev => ({ ...prev, jewelleryPurpose: e.target.value }))}
-                    placeholder="e.g., Wedding, Birthday Gift"
-                    helperText="Printed on invoice"
+                    placeholder={t('salesFlow.customer.purposeOccasionPlaceholder')}
+                    helperText={t('salesFlow.customer.printedOnInvoice')}
                   />
                 </Grid>
               </Grid>
@@ -820,14 +664,14 @@ const CustomerSection = ({
                     checkedIcon={<LocalShippingIcon color="primary" />}
                   />
                 }
-                label={<Typography sx={{ fontWeight: 700 }}>Enable Delivery</Typography>}
+                label={<Typography sx={{ fontWeight: 700 }}>{t('salesFlow.customer.enableDeliveryLabel')}</Typography>}
               />
               {formData.deliveryRequired && (
-                <Chip 
-                  label="Configured" 
-                  size="small" 
-                  color="success" 
-                  variant="outlined" 
+                <Chip
+                  label={t('salesFlow.customer.configuredChip')}
+                  size="small"
+                  color="success"
+                  variant="outlined"
                   icon={<DoneIcon />}
                   sx={{ fontWeight: 700 }}
                   onClick={() => setDeliveryModalOpen(true)}
@@ -848,10 +692,10 @@ const CustomerSection = ({
                   <LocationOnIcon sx={{ color: 'var(--color-teal)', mt: 0.5, flexShrink: 0, fontSize: 20 }} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                      Delivery Address
+                      {t('salesFlow.customer.deliveryAddressTitle')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'var(--color-teal)', wordBreak: 'break-word', fontWeight: 600 }}>
-                      {formData.deliveryAddress ? formData.deliveryAddress : <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>Not set yet</Typography>}
+                      {formData.deliveryAddress ? formData.deliveryAddress : <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>{t('salesFlow.customer.notSetYet')}</Typography>}
                     </Typography>
                   </Box>
                 </Box>
@@ -860,10 +704,10 @@ const CustomerSection = ({
                   <LocalOfferIcon sx={{ color: 'var(--color-teal)', flexShrink: 0, fontSize: 20 }} />
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                      Charge Details
+                      {t('salesFlow.customer.chargeDetailsLabel')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'var(--color-teal)', fontWeight: 800 }}>
-                      ₹{Number(formData.deliveryCharge || 0).toFixed(2)} <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'var(--color-teal)', ml: 1 }}>({formData.deliveryPaidBy === 'CUSTOMER' ? 'Customer' : 'Shop'})</Typography>
+                      ₹{Number(formData.deliveryCharge || 0).toFixed(2)} <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'var(--color-teal)', ml: 1 }}>({formData.deliveryPaidBy === 'CUSTOMER' ? t('salesFlow.customer.paidByCustomer') : t('salesFlow.customer.paidByShop')})</Typography>
                     </Typography>
                   </Box>
                 </Box>
@@ -871,7 +715,7 @@ const CustomerSection = ({
                 {formData.deliveryNotes && (
                   <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha('#0f766e', 0.08)}` }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-teal)', display: 'block', mb: 0.75, textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                      Special Instructions
+                      {t('salesFlow.customer.specialInstructionsTitle')}
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'var(--color-teal)', display: 'block' }}>
                       {formData.deliveryNotes}
@@ -893,7 +737,7 @@ const CustomerSection = ({
                     fontSize: '0.85rem',
                   }}
                 >
-                  Edit Details
+                  {t('salesFlow.customer.editDetails')}
                 </Button>
               </Box>
             )}
@@ -926,11 +770,11 @@ const CustomerSection = ({
           pb: 2
         }}>
           <LocalShippingIcon sx={{ fontSize: 28 }} />
-          <span>Delivery Details</span>
+          <span>{t('salesFlow.customer.deliveryDetailsTitle')}</span>
           {formData.deliveryRequired && (
-            <Chip 
+            <Chip
               icon={<DoneIcon sx={{ fontSize: 16 }} />}
-              label="Active" 
+              label={t('salesFlow.customer.activeChip')}
               size="small" 
               color="success"
               variant="outlined"
@@ -991,46 +835,25 @@ const CustomerSection = ({
         </DialogActions>
       </Dialog>
 
-      {/* NEW CUSTOMER / PATIENT MODAL */}
+      {/* NEW CUSTOMER MODAL */}
       <Dialog open={openCustomerModal} onClose={() => setOpenCustomerModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 800, bgcolor: 'background.default' }}>
           <PersonAddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          {isPharmacy ? 'Register New Patient' : 'Create New Customer'}
+          {t('salesFlow.customer.createNewCustomerTitle')}
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}><TextField label="Full Name" required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? 'Name is required' : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="Phone Number" required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? 'Enter valid phone' : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
-            {isPharmacy && (
-              <>
-                <Grid item xs={6} sm={4}><TextField label="Age" type="number" fullWidth value={newCustomerData.age || ''} onChange={(e) => setNewCustomerData({ ...newCustomerData, age: e.target.value })} inputProps={{ min: 0, max: 130 }} /></Grid>
-                <Grid item xs={6} sm={4}><FormControl fullWidth><InputLabel>Gender</InputLabel><MuiSelect value={newCustomerData.gender || ''} label="Gender" onChange={(e) => setNewCustomerData({ ...newCustomerData, gender: e.target.value })}><MenuItem value="MALE">Male</MenuItem><MenuItem value="FEMALE">Female</MenuItem><MenuItem value="OTHER">Other</MenuItem></MuiSelect></FormControl></Grid>
-                <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'center' }}><FormControlLabel control={<Switch checked={!!newCustomerData.isChronicPatient} onChange={(e) => setNewCustomerData({ ...newCustomerData, isChronicPatient: e.target.checked })} color="warning" />} label={<Typography variant="body2" fontWeight={600}>Chronic Patient</Typography>} /></Grid>
-              </>
-            )}
-            <Grid item xs={12}><TextField label="Address Line 1" fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="City" fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
-            {!isPharmacy && <Grid item xs={12} sm={6}><TextField label="GST Number" fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>}
-            <Grid item xs={12}><TextField label={isPharmacy ? 'Medical Notes / Allergies' : 'Notes'} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} placeholder={isPharmacy ? 'Known allergies, chronic conditions...' : ''} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.fullName')} required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? t('salesFlow.customer.nameRequired') : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.phoneNumber')} required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
+            <Grid item xs={12}><TextField label={t('salesFlow.customer.addressLine1Label')} fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.cityLabel')} fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.gstNumberLabel')} fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>
+            <Grid item xs={12}><TextField label={t('salesFlow.customer.notesLabel')} fullWidth multiline rows={2} value={newCustomerData.notes} onChange={(e) => setNewCustomerData({ ...newCustomerData, notes: e.target.value })} /></Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
-          <Button onClick={() => setOpenCustomerModal(false)} color="inherit">Cancel</Button>
-          <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{isPharmacy ? 'Register Patient' : 'Save Customer'}</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* PRESCRIPTION CAPTURE DIALOG */}
-      <Dialog open={prescriptionDialogOpen} onClose={closeCamera} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: 'rgba(34, 197, 94, 0.12)' }}><CameraAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />Capture Prescription</DialogTitle>
-        <DialogContent dividers sx={{ textAlign: 'center' }}>
-          <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '320px', borderRadius: 8, background: '#000' }} />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
-          {!cameraStream && <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Camera access is required to capture a prescription photo.</Typography>}
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={closeCamera} color="inherit">Cancel</Button>
-          <Button variant="contained" startIcon={<CameraAltIcon />} onClick={capturePhoto} disabled={!cameraStream}>Capture Photo</Button>
+          <Button onClick={() => setOpenCustomerModal(false)} color="inherit">{t('common.cancel')}</Button>
+          <Button onClick={handleNewCustomer} variant="contained" disabled={!isNewCustomerValid()}>{t('salesFlow.customer.saveCustomer')}</Button>
         </DialogActions>
       </Dialog>
     </Grid>

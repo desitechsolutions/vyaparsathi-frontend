@@ -41,7 +41,7 @@ const initialItem = {
 const initialCustomer = {
   name: '', phone: '', addressLine1: '', addressLine2: '', city: '',
   state: '', postalCode: '', country: '', gstNumber: '', panNumber: '',
-  notes: '', creditBalance: 0, age: '', gender: '', isChronicPatient: false,
+  notes: '', creditBalance: 0,
 };
 
 const initialFormData = {
@@ -55,7 +55,7 @@ const initialFormData = {
 
 const initialSearchParams = {
   name: '', sku: '', color: [], size: [], design: '',
-  category: '', fabric: '', season: '', fit: '', composition: '',
+  category: '', fabric: '', season: '', fit: '',
 };
 
 // ============ HELPER FUNCTIONS ============
@@ -361,8 +361,6 @@ const Sales = () => {
       color: opt.color,
       size: opt.size,
       currentStock: opt.currentStock,
-      drugSchedule: opt.drugSchedule,
-      requiresPrescription: opt.requiresPrescription,
       mrp: opt.mrp || null,
       gstRate: opt.gstRate || 0,
       // Preserve HSN/SAC so the cart row can display it inline for compliance visibility.
@@ -661,7 +659,6 @@ const Sales = () => {
     fabrics: generateFilterOptions(variants, 'fabric'),
     seasons: generateFilterOptions(variants, 'season'),
     fits: generateFilterOptions(variants, 'fit'),
-    compositions: generateFilterOptions(variants, 'composition'),
   }), [variants]);
 
   const filteredVariants = useMemo(() => {
@@ -675,7 +672,6 @@ const Sales = () => {
       if (searchParams.fabric && v.fabric !== searchParams.fabric) return false;
       if (searchParams.season && v.season !== searchParams.season) return false;
       if (searchParams.fit && v.fit !== searchParams.fit) return false;
-      if (searchParams.composition && v.composition !== searchParams.composition) return false;
       return true;
     });
   }, [variants, searchParams]);
@@ -770,7 +766,6 @@ const Sales = () => {
                 uniqueFabrics={memoizedFilterOptions.fabrics}
                 uniqueSeasons={memoizedFilterOptions.seasons}
                 uniqueFits={memoizedFilterOptions.fits}
-                uniqueCompositions={memoizedFilterOptions.compositions}
                 handleResetFilters={() => setSearchParams(initialSearchParams)}
                 searchParams={searchParams}
                 handleVariantSelect={handleVariantSelect}
@@ -796,7 +791,6 @@ const Sales = () => {
                     unitPrice: sub.pricePerUnit,
                     itemName: sub.itemName,
                     currentStock: sub.currentStock,
-                    drugSchedule: sub.drugSchedule
                   });
                 }}
               />

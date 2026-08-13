@@ -430,7 +430,6 @@ const ContactSection = () => {
                   >
                     <MenuItem value="retail">Kirana & General Store</MenuItem>
                     <MenuItem value="wholesale">Wholesaler / Trading</MenuItem>
-                    <MenuItem value="pharmacy">Medical Pharmacy</MenuItem>
                     <MenuItem value="fashion">Apparel & Footwear</MenuItem>
                     <MenuItem value="electronics">Electronics / Appliances</MenuItem>
                     <MenuItem value="distribution">Distribution / Route Sales</MenuItem>

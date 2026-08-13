@@ -17,18 +17,15 @@ import {
   Divider,
   InputAdornment,
 } from '@mui/material';
-import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import CheckroomIcon from '@mui/icons-material/Checkroom';
 import BuildIcon from '@mui/icons-material/Build';
 
-import { 
-  variantMaterials, 
+import {
+  variantMaterials,
   variantUsage,
-  DRUG_SCHEDULES,
   JEWELLERY_METAL_TYPES,
   JEWELLERY_METAL_PURITIES,
   JEWELLERY_STONE_TYPES,
@@ -36,31 +33,19 @@ import {
   AUTOMOBILE_VEHICLE_TYPES,
 } from '../../../ui/constants';
 
-const STORAGE_REQUIREMENTS = [
-  'Room Temperature',
-  'Cool Place (8–25°C)',
-  'Refrigerated (2–8°C)',
-  'Frozen (Below 0°C)',
-  'Keep Away from Light',
-  'Keep Away from Moisture',
-];
-
 export default function ItemDetailsForm({
-  shopCategory = 'CLOTHING', 
+  shopCategory = 'CLOTHING',
   itemFormData,
   setItemFormData,
   apiCategories,
 }) {
   const { t } = useTranslation();
 
-  const isPharmacy = shopCategory === 'PHARMACY';
-
   // --- DYNAMIC INDUSTRY CONFIG ---
   const industryLabels = {
     CLOTHING:    { attr1: t('itemsPage.form.fabric'), attr2: t('itemsPage.form.season') },
     ELECTRONICS: { attr1: 'Build Material', attr2: 'Warranty Period' },
     HARDWARE:    { attr1: 'Primary Material', attr2: 'Usage Environment' },
-    PHARMACY:    { attr1: t('itemsPage.form.dosageForm'), attr2: t('itemsPage.form.storageReq') },
     GROCERY:     { attr1: 'Packaging Type', attr2: 'Dietary Info' },
     AUTOMOBILE:  { attr1: 'Material Type', attr2: 'Vehicle Compatibility' },
     STATIONERY:  { attr1: 'Material', attr2: 'Intended Use' },
@@ -205,55 +190,6 @@ export default function ItemDetailsForm({
             )}
           />
         </Grid>
-
-        {/* ---- PHARMACY / HEALTHCARE PRODUCT FIELDS ---- */}
-        {shopCategory === 'PHARMACY' && (
-          <>
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Chip
-                  icon={<MedicalServicesIcon fontSize="small" />}
-                  label="Product Details"
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-              </Divider>
-            </Grid>
-
-            {/* Specifications / Ingredients */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Specifications / Key Attributes (e.g., Paracetamol 500mg)"
-                name="specifications"
-                value={itemFormData.specifications || itemFormData.composition || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setItemFormData((prev) => ({ ...prev, specifications: val, composition: val }));
-                }}
-                fullWidth
-                variant="outlined"
-                placeholder="Product attributes or key ingredients"
-                sx={inputSx}
-              />
-            </Grid>
-
-            {/* HSN Code */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="HSN Code"
-                name="hsnCode"
-                value={itemFormData.hsnCode || ''}
-                onChange={handleChange}
-                fullWidth
-                variant="outlined"
-                placeholder="e.g., 3004"
-                sx={inputSx}
-                helperText="Required for GST filing"
-              />
-            </Grid>
-          </>
-        )}
 
         {/* ---- JEWELLERY-SPECIFIC FIELDS ---- */}
         {shopCategory === 'JEWELLERY' && (

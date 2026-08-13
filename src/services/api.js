@@ -515,6 +515,14 @@ export const fetchCustomerSales = (from, to) => {
   }
   return API.get(endpoints.reports.customerSales());
 };
+export const fetchSalespersonLeaderboard = (from, to) => {
+  if (from && to) {
+    return API.get(endpoints.reports.salespersonLeaderboard(from, to));
+  }
+  return API.get(endpoints.reports.salespersonLeaderboard());
+};
+export const fetchZReport = (date) =>
+  API.get(endpoints.reports.zReport(date));
 export const fetchExpensesSummary = (from, to) => {
   if (from && to) {
     return API.get(endpoints.reports.expensesSummary(from, to));

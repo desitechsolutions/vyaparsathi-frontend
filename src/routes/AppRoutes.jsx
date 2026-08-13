@@ -7,6 +7,7 @@ import ItemsPage from '../pages/ItemsPage';
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
 import Sales from '../pages/Sales';
+import SalesReturn from '../pages/SalesReturn';
 import TaxComplianceHub from '../pages/reports/TaxComplianceHub';
 import ReportsIndex from '../pages/reports/ReportsIndex';
 import DailyReport from '../pages/reports/DailyReport';
@@ -16,6 +17,8 @@ import GstBreakdown from '../pages/reports/GstBreakdown';
 import ItemsSold from '../pages/reports/ItemsSold';
 import CategorySales from '../pages/reports/CategorySales';
 import CustomerSales from '../pages/reports/CustomerSales';
+import SalespersonLeaderboard from '../pages/reports/SalespersonLeaderboard';
+import ZReport from '../pages/reports/ZReport';
 import ExpensesSummary from '../pages/reports/ExpensesSummary';
 import PaymentsSummary from '../pages/reports/PaymentsSummary';
 import Expenses from '../pages/Expenses';
@@ -29,7 +32,9 @@ import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import Quotations from '../pages/Quotations';
+import QuotationEditor from '../pages/QuotationEditor';
 import SalesOrders from '../pages/SalesOrders';
+import SalesOrderEditor from '../pages/SalesOrderEditor';
 import CreditNotes from '../pages/CreditNotes';
 import DebitNotes from '../pages/DebitNotes';
 import Suppliers from '../pages/Suppliers';
@@ -198,6 +203,7 @@ function AppRoutes() {
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
             <Route path="sales" element={<Sales />} />
             <Route path="sales/drafts" element={<Sales />} />
+            <Route path="sales/return" element={<SalesReturn />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="products" element={<ProductOverview />} />
             <Route path="customer-payments" element={<CustomerPaymentPage />} />
@@ -208,8 +214,12 @@ function AppRoutes() {
 
             {/* QUOTATIONS — available on all tiers as a core sales tool */}
             <Route path="quotations" element={<Quotations />} />
+            <Route path="quotations/new" element={<QuotationEditor />} />
+            <Route path="quotations/:id/edit" element={<QuotationEditor />} />
             {/* SALES ORDERS — with stock reservation, above the tier line */}
             <Route path="sales-orders" element={<SalesOrders />} />
+            <Route path="sales-orders/new" element={<SalesOrderEditor />} />
+            <Route path="sales-orders/:id/edit" element={<SalesOrderEditor />} />
             {/* CREDIT NOTES — customer-facing returns / adjustments */}
             <Route path="credit-notes" element={<CreditNotes />} />
             {/* DEBIT NOTES — supplier-facing returns / adjustments */}
@@ -241,6 +251,8 @@ function AppRoutes() {
             <Route path="reports/items-sold" element={<TierGuard requiredTier="PRO"><ItemsSold /></TierGuard>} />
             <Route path="reports/category-sales" element={<TierGuard requiredTier="PRO"><CategorySales /></TierGuard>} />
             <Route path="reports/customer-sales" element={<TierGuard requiredTier="PRO"><CustomerSales /></TierGuard>} />
+            <Route path="reports/salesperson-leaderboard" element={<TierGuard requiredTier="PRO"><SalespersonLeaderboard /></TierGuard>} />
+            <Route path="reports/z-report" element={<TierGuard requiredTier="PRO"><ZReport /></TierGuard>} />
             <Route path="reports/expenses-summary" element={<TierGuard requiredTier="PRO"><ExpensesSummary /></TierGuard>} />
             <Route path="reports/payments-summary" element={<TierGuard requiredTier="PRO"><PaymentsSummary /></TierGuard>} />
             <Route path="reports/accounting" element={<TierGuard requiredTier="PRO"><AccountingDashboard /></TierGuard>} />

@@ -28,7 +28,7 @@ const statusChipColor = (status) => {
   }
 };
 
-const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById, getPoItems, isPharmacy, isElectronics, isAutomobile }) => {
+const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById, getPoItems, isElectronics, isAutomobile }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [receivingOptions, setReceivingOptions] = useState([]);
   const [selectedReceivingId, setSelectedReceivingId] = useState('');
@@ -160,12 +160,10 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
             isOveraged: isOver,
             overageReason: isOver ? overageAudit?.overageReason : null,
             overageNotes: isOver ? overageAudit?.overageNotes : null,
-            // Pharmacy fields — only sent when isPharmacy to keep payload clean
-            ...(isPharmacy && {
-              batchNumber: item.batchNumber || null,
-              manufacturingDate: item.manufacturingDate || null,
-              expiryDate: item.expiryDate || null,
-            }),
+            // Batch / expiry (FMCG, food perishables, etc.)
+            batchNumber: item.batchNumber || null,
+            manufacturingDate: item.manufacturingDate || null,
+            expiryDate: item.expiryDate || null,
             // Electronics fields
             ...(isElectronics && {
               serialNumber: item.serialNumber || null,
@@ -272,11 +270,10 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
                         }}
                       />
                     </Grid>
-                    {isPharmacy && (
-                      <>
+                    <>
                         <Grid item xs={12}>
                           <Divider sx={{ my: 0.5 }}>
-                            <Chip label="Batch / Expiry Info" size="small" color="primary" variant="outlined" />
+                            <Chip label="Batch / Expiry Info (optional)" size="small" color="primary" variant="outlined" />
                           </Divider>
                         </Grid>
                         <Grid item xs={12} sm={4}>
@@ -320,7 +317,6 @@ const ReceiveGoodsForm = ({ onSubmit, onCancel, getReceivings, getReceivingById,
                           />
                         </Grid>
                       </>
-                    )}
 
                     {/* ELECTRONICS: Serial / IMEI tracking on intake */}
                     {isElectronics && (

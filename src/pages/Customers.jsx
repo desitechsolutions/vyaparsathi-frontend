@@ -3,24 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid, GridToolbarContainer, GridToolbarColumnsButton,
-  GridToolbarFilterButton, GridToolbarDensitySelector, GridToolbarQuickFilter,
+  GridToolbarFilterButton, GridToolbarQuickFilter,
 } from '@mui/x-data-grid';
 import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
   CircularProgress, Box, Typography, Snackbar, Alert, Paper, IconButton,
-  Tooltip, Avatar, Stack, Card, Grid, Divider, Chip
+  Tooltip, Avatar, Stack, Card, Grid, Divider
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, ReceiptLong as StatementIcon,
-  Visibility as ViewIcon, AccountCircle as AccountIcon, 
+  AccountCircle as AccountIcon,
   TrendingUp as TrendingUpIcon, WhatsApp as WhatsAppIcon,
-  MedicalServices as MedicalServicesIcon,
-  Vaccines as VaccinesIcon,
 } from '@mui/icons-material';
 import { fetchCustomers, createCustomer, updateCustomer } from '../services/api';
-import { useShop } from '../context/ShopContext';
 
-const CustomToolbar = ({ onAddClick, isPharmacy, t }) => (
+const CustomToolbar = ({ onAddClick, t }) => (
   <GridToolbarContainer sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}>
     <Box sx={{ display: 'flex', gap: 1 }}>
       <GridToolbarQuickFilter variant="outlined" size="small" sx={{ width: 250 }} />
@@ -28,7 +25,7 @@ const CustomToolbar = ({ onAddClick, isPharmacy, t }) => (
       <GridToolbarColumnsButton />
     </Box>
     <Button variant="contained" startIcon={<AddIcon />} onClick={onAddClick}>
-      {isPharmacy ? t('customersPage.addPatient') : t('customersPage.addCustomer')}
+      {t('customersPage.addCustomer')}
     </Button>
   </GridToolbarContainer>
 );
@@ -37,14 +34,11 @@ const initialFormState = {
   name: '', phone: '', email: '', addressLine1: '', addressLine2: '',
   city: '', state: '', postalCode: '', country: 'India', gstNumber: '',
   panNumber: '', notes: '', creditBalance: 0,
-  // Pharmacy-specific (stored in notes if backend doesn't support them yet)
-  dateOfBirth: '', bloodGroup: '', allergies: '', chronicConditions: '',
 };
 
 const Customers = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isPharmacy } = useShop();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +80,7 @@ const Customers = () => {
       } else {
         await createCustomer(formData);
       }
-      setSnackbar({ open: true, message: isPharmacy ? t('customersPage.successSavePatient') : t('customersPage.successSaveCustomer'), severity: 'success' });
+      setSnackbar({ open: true, message: t('customersPage.successSaveCustomer'), severity: 'success' });
       setIsDialogOpen(false);
       loadCustomers();
     } catch (err) {
@@ -99,33 +93,22 @@ const Customers = () => {
   const columns = [
     {
       field: 'name',
-      headerName: isPharmacy ? t('customersPage.columns.patientName') : t('customersPage.columns.customerName'),
+      headerName: t('customersPage.columns.customerName'),
       flex: 1.5,
       renderCell: (params) => (
         <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar sx={{ width: 32, height: 32, bgcolor: isPharmacy ? '#e0f2e9' : 'primary.light', color: isPharmacy ? '#166534' : undefined, fontSize: '14px' }}>
-            {params.value ? params.value[0].toUpperCase() : (isPharmacy ? 'P' : 'C')}
+          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light', fontSize: '14px' }}>
+            {params.value ? params.value[0].toUpperCase() : 'C'}
           </Avatar>
           <Typography variant="body2" fontWeight={600}>{params.value}</Typography>
         </Stack>
       ),
     },
     { field: 'phone', headerName: t('customersPage.columns.phone'), flex: 1 },
-    ...(isPharmacy
-      ? [
-          {
-            field: 'notes',
-            headerName: t('customersPage.columns.medicalNotes'),
-            flex: 1.5,
-            valueFormatter: ({ value }) => value || '—',
-          },
-        ]
-      : [
-          { field: 'gstNumber', headerName: t('customersPage.columns.gstin'), flex: 1, valueFormatter: ({ value }) => value || 'N/A' },
-        ]),
+    { field: 'gstNumber', headerName: t('customersPage.columns.gstin'), flex: 1, valueFormatter: ({ value }) => value || 'N/A' },
     {
       field: 'outstanding',
-      headerName: isPharmacy ? t('customersPage.columns.outstandingDues') : t('customersPage.columns.outstanding'),
+      headerName: t('customersPage.columns.outstanding'),
       flex: 1,
       type: 'number',
       renderCell: (params) => (
@@ -142,7 +125,7 @@ const Customers = () => {
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
           <Tooltip title={t('customersPage.tooltips.viewDues')}><IconButton size="small" color="info" onClick={() => navigate(`/customer-details/${params.row.id}/dues`)}><StatementIcon /></IconButton></Tooltip>
-          <Tooltip title={isPharmacy ? t('customersPage.tooltips.editPatient') : t('customersPage.tooltips.editProfile')}><IconButton size="small" color="primary" onClick={() => { setEditingCustomer(params.row); setFormData({ ...initialFormState, ...params.row }); setIsDialogOpen(true); }}><EditIcon /></IconButton></Tooltip>
+          <Tooltip title={t('customersPage.tooltips.editProfile')}><IconButton size="small" color="primary" onClick={() => { setEditingCustomer(params.row); setFormData({ ...initialFormState, ...params.row }); setIsDialogOpen(true); }}><EditIcon /></IconButton></Tooltip>
           <Tooltip title={t('customersPage.tooltips.whatsapp')}><IconButton size="small" color="success" onClick={() => window.open(`https://wa.me/91${params.row.phone}`, '_blank')}><WhatsAppIcon /></IconButton></Tooltip>
         </Stack>
       ),
@@ -152,25 +135,21 @@ const Customers = () => {
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        {isPharmacy && <MedicalServicesIcon color="primary" sx={{ fontSize: 36 }} />}
         <Typography variant="h4" sx={{ fontWeight: 800 }}>
-          {isPharmacy ? t('customersPage.titlePharmacy') : t('customersPage.title')}
+          {t('customersPage.title')}
         </Typography>
-        {isPharmacy && (
-          <Chip label={t('customersPage.pharmacyMode')} color="primary" size="small" icon={<VaccinesIcon />} />
-        )}
       </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid' }}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar sx={{ bgcolor: isPharmacy ? '#e0f2e9' : '#e0f2fe', color: isPharmacy ? '#166534' : '#0369a1' }}>
-                {isPharmacy ? <MedicalServicesIcon /> : <AccountIcon />}
+              <Avatar sx={{ bgcolor: '#e0f2fe', color: '#0369a1' }}>
+                <AccountIcon />
               </Avatar>
               <Box>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                  {isPharmacy ? t('customersPage.totalPatients') : t('customersPage.totalCustomers')}
+                  {t('customersPage.totalCustomers')}
                 </Typography>
                 <Typography variant="h5" fontWeight={800}>{stats.total}</Typography>
               </Box>
@@ -198,7 +177,7 @@ const Customers = () => {
           autoHeight
           disableRowSelectionOnClick
           slots={{ toolbar: CustomToolbar }}
-          slotProps={{ toolbar: { onAddClick: () => { setEditingCustomer(null); setFormData(initialFormState); setIsDialogOpen(true); }, isPharmacy, t } }}
+          slotProps={{ toolbar: { onAddClick: () => { setEditingCustomer(null); setFormData(initialFormState); setIsDialogOpen(true); }, t } }}
           sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.default' } }}
         />
       </Paper>
@@ -206,8 +185,8 @@ const Customers = () => {
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} fullWidth maxWidth="md">
         <DialogTitle sx={{ fontWeight: 800 }}>
           {editingCustomer
-            ? (isPharmacy ? t('customersPage.editPatient') : t('customersPage.editCustomer'))
-            : (isPharmacy ? t('customersPage.registerPatient') : t('customersPage.registerCustomer'))}
+            ? t('customersPage.editCustomer')
+            : t('customersPage.registerCustomer')}
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -215,27 +194,14 @@ const Customers = () => {
             <Grid item xs={12} sm={6}><TextField label={t('customersPage.phone')} name="phone" fullWidth value={formData.phone} onChange={handleFormChange} /></Grid>
             <Grid item xs={12} sm={6}><TextField label={t('customersPage.email')} name="email" fullWidth value={formData.email} onChange={handleFormChange} /></Grid>
 
-            {isPharmacy ? (
-              <>
-                <Grid item xs={12} sm={6}><TextField label={t('customersPage.dateOfBirth')} name="dateOfBirth" type="date" fullWidth value={formData.dateOfBirth || ''} onChange={handleFormChange} InputLabelProps={{ shrink: true }} /></Grid>
-                <Grid item xs={12} sm={6}><TextField label={t('customersPage.bloodGroup')} name="bloodGroup" fullWidth value={formData.bloodGroup || ''} onChange={handleFormChange} placeholder={t('customersPage.bloodGroupPlaceholder')} /></Grid>
-                <Grid item xs={12} sm={6}><TextField label={t('customersPage.panNumber')} name="panNumber" fullWidth value={formData.panNumber} onChange={handleFormChange} /></Grid>
-                <Grid item xs={12}><TextField label={t('customersPage.allergies')} name="allergies" fullWidth multiline rows={2} value={formData.allergies || ''} onChange={handleFormChange} placeholder={t('customersPage.allergiesPlaceholder')} /></Grid>
-                <Grid item xs={12}><TextField label={t('customersPage.chronicConditions')} name="chronicConditions" fullWidth multiline rows={2} value={formData.chronicConditions || ''} onChange={handleFormChange} placeholder={t('customersPage.chronicConditionsPlaceholder')} /></Grid>
-                <Grid item xs={12}><TextField label={t('customersPage.medicalNotes')} name="notes" fullWidth multiline rows={2} value={formData.notes} onChange={handleFormChange} /></Grid>
-              </>
-            ) : (
-              <>
-                <Grid item xs={12} sm={6}><TextField label={t('customersPage.gstin')} name="gstNumber" fullWidth value={formData.gstNumber} onChange={handleFormChange} /></Grid>
-                <Grid item xs={12} sm={6}><TextField label={t('customersPage.panNumber')} name="panNumber" fullWidth value={formData.panNumber} onChange={handleFormChange} /></Grid>
-                <Grid item xs={12}><TextField label={t('customersPage.internalNotes')} name="notes" fullWidth multiline rows={2} value={formData.notes} onChange={handleFormChange} /></Grid>
-              </>
-            )}
+            <Grid item xs={12} sm={6}><TextField label={t('customersPage.gstin')} name="gstNumber" fullWidth value={formData.gstNumber} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12} sm={6}><TextField label={t('customersPage.panNumber')} name="panNumber" fullWidth value={formData.panNumber} onChange={handleFormChange} /></Grid>
+            <Grid item xs={12}><TextField label={t('customersPage.internalNotes')} name="notes" fullWidth multiline rows={2} value={formData.notes} onChange={handleFormChange} /></Grid>
 
             <Grid item xs={12} sm={6}><TextField label={t('customersPage.openingBalance')} name="creditBalance" type="number" fullWidth value={formData.creditBalance} onChange={handleFormChange} disabled={!!editingCustomer} helperText={t('customersPage.openingBalanceHelper')} /></Grid>
-            
+
             <Grid item xs={12}><Divider sx={{ my: 1 }}>{t('customersPage.addressDetails')}</Divider></Grid>
-            
+
             <Grid item xs={12} sm={6}><TextField label={t('customersPage.addressLine1')} name="addressLine1" fullWidth value={formData.addressLine1} onChange={handleFormChange} /></Grid>
             <Grid item xs={12} sm={6}><TextField label={t('customersPage.addressLine2')} name="addressLine2" fullWidth value={formData.addressLine2} onChange={handleFormChange} /></Grid>
             <Grid item xs={12} sm={4}><TextField label={t('customersPage.city')} name="city" fullWidth value={formData.city} onChange={handleFormChange} /></Grid>

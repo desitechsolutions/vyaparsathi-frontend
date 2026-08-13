@@ -82,7 +82,6 @@ export default function VariantFormFields({
     CLOTHING: { labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') } },
     ELECTRONICS: { labels: { size: 'Storage', color: 'Finish', design: 'Model', fit: 'Connectivity' } },
     HARDWARE: { labels: { size: 'Dimensions', color: 'Finish', design: 'Grade', fit: 'Mounting' } },
-    PHARMACY: { labels: { size: 'Strength', color: 'Visual', design: 'Brand Type', fit: 'Usage' } },
     GROCERY: { labels: { size: 'Weight/Vol', color: 'Origin', design: 'Quality', fit: 'Dietary' } },
     AUTOMOBILE: { labels: { size: 'Specs', color: 'Color', design: 'Part No', fit: 'Position' } },
     STATIONERY: { labels: { size: 'GSM/Size', color: 'Ink/Color', design: 'Binding', fit: 'Layout' } },

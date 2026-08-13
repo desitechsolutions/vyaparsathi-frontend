@@ -112,6 +112,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       { text: t('sidebar.quotations', 'Quotations'), icon: <RequestQuoteIcon />, path: '/quotations' },
       { text: t('sidebar.salesOrders', 'Sales Orders'), icon: <AssignmentIcon />, path: '/sales-orders' },
       { text: t('sidebar.delivery', 'Delivery'), icon: <LocalShippingIcon />, path: '/delivery', requiredTier: 'STARTER' },
+      { text: t('sidebar.salesReturns', 'Sales Returns'), icon: <AssignmentReturnIcon />, path: '/sales/return' },
       { text: t('sidebar.creditNotes', 'Credit Notes'), icon: <UndoIcon />, path: '/credit-notes' },
     ],
   };

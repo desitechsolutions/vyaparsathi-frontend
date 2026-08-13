@@ -26,7 +26,7 @@ import { useShop } from '../context/ShopContext';
 
 const Receiving = () => {
   const { t } = useTranslation();
-  const { isPharmacy, isElectronics, isAutomobile, industryType } = useShop();
+  const { isElectronics, isAutomobile, industryType } = useShop();
   // View State
   const [view, setView] = useState('list'); // 'list', 'create', 'details', 'receive_goods', 'edit_receive_goods', 'ticket_form', 'ticket_list'
   const [receivings, setReceivings] = useState([]);
@@ -172,7 +172,6 @@ const Receiving = () => {
                   getReceivings={api.getReceivings} 
                   getReceivingById={fetchReceivingById}
                   getPoItems={api.getPoItems}
-                  isPharmacy={isPharmacy}
                   isElectronics={isElectronics}
                   isAutomobile={isAutomobile}
                   industryType={industryType}

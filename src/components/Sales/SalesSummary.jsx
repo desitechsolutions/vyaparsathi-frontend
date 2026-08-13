@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card, CardContent, Typography, Table, TableBody, TableCell, TableHead,
   TableRow, Button, Alert, IconButton, Divider, CardActions, Box, TextField,
@@ -12,14 +13,6 @@ import SaveAsIcon from '@mui/icons-material/SaveAs';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
-
-// ============ CONSTANTS ============
-const COLUMN_CONFIG = {
-  standard: ['itemDetails', 'qty', 'unitPrice', 'total', 'actions'],
-  pharmacy: ['itemDetails', 'qty', 'unitPrice', 'expiry', 'total', 'actions'],
-  jewellery: ['itemDetails', 'qty', 'unitPrice', 'makingCharges', 'total', 'actions'],
-  withGst: ['itemDetails', 'qty', 'unitPrice', 'gst', 'total', 'actions'],
-};
 
 // ============ HELPER FUNCTIONS ============
 
@@ -110,6 +103,7 @@ const calcLineGst = (item) => {
  * Item Details Column
  */
 const ItemDetailsCell = ({ item, isJewellery }) => {
+  const { t } = useTranslation();
   // Real-time stock chip — data is already loaded on `item.currentStock` when the
   // line was picked in ItemSection. Custom / service lines have no inventory,
   // so the chip is suppressed for them.
@@ -127,7 +121,7 @@ const ItemDetailsCell = ({ item, isJewellery }) => {
     title={
       <Box sx={{ p: 0.5, fontSize: '0.75rem' }}>
         {item.isCustom
-          ? (item.customDescription || 'Custom / Service line')
+          ? (item.customDescription || t('salesFlow.summary.customServiceLine'))
           : `SKU: ${item.sku || '-'}`}
         {item.batchNumber && ` | Batch: ${item.batchNumber}`}
         {item.hallmarkNo && ` | HUID: ${item.hallmarkNo}`}
@@ -141,7 +135,7 @@ const ItemDetailsCell = ({ item, isJewellery }) => {
       </Typography>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
         {item.isCustom
-          ? (item.customHsnSac ? `Custom · SAC/HSN ${item.customHsnSac}` : 'Custom / Service')
+          ? (item.customHsnSac ? `Custom · SAC/HSN ${item.customHsnSac}` : t('salesFlow.summary.customService'))
           : `${item.color || ''} / ${item.size || ''}`}
       </Typography>
       {!item.isCustom && item.hsn && (
@@ -154,7 +148,7 @@ const ItemDetailsCell = ({ item, isJewellery }) => {
           size="small"
           color={stockColor}
           variant="outlined"
-          label={remaining <= 0 ? 'Out of stock' : `Stock: ${remaining}`}
+          label={remaining <= 0 ? t('salesFlow.summary.outOfStock') : t('salesFlow.summary.stockRemaining', { count: remaining })}
           sx={{ ml: 0.5, mt: 0.25, height: 18, fontSize: '0.65rem', fontWeight: 700 }}
         />
       )}
@@ -177,7 +171,7 @@ const ItemDetailsCell = ({ item, isJewellery }) => {
           fontWeight: 700,
           mt: 0.25,
         }}>
-          {calcMrpDiscountPct(item.mrp, item.unitPrice)}% off MRP ₹{Number(item.mrp).toFixed(2)}
+          {t('salesFlow.review.mrpOffDisplay', { pct: calcMrpDiscountPct(item.mrp, item.unitPrice), mrp: Number(item.mrp).toFixed(2) })}
         </Typography>
       )}
     </Box>
@@ -249,6 +243,7 @@ const CartItemRow = ({
   onEdit,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   // Line total is net of line-level discount (matches backend taxableValue).
   // `gross` and `lineDiscount` power the strike-through visualization when a
   // per-line discount is present.
@@ -296,12 +291,12 @@ const CartItemRow = ({
       </TableCell>
 
       <TableCell align="center">
-        <Tooltip title="Edit">
+        <Tooltip title={t('salesFlow.summary.editTooltip')}>
           <IconButton color="primary" size="small" onClick={() => onEdit(index)}>
             <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Delete">
+        <Tooltip title={t('salesFlow.summary.deleteTooltip')}>
           <IconButton color="error" size="small" onClick={() => onDelete(index)}>
             <DeleteIcon fontSize="small" />
           </IconButton>
@@ -314,26 +309,29 @@ const CartItemRow = ({
 /**
  * Empty State
  */
-const EmptyCartState = ({ embedded }) => (
-  <Box sx={{
-    p: 4,
-    textAlign: 'center',
-    flex: embedded ? 1 : 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-  }}>
-    <ShoppingCartIcon sx={{ fontSize: 36, color: 'text.disabled' }} />
-    <Typography variant="body2" color="text.secondary">
-      No items yet.
-    </Typography>
-    <Typography variant="caption" color="text.disabled">
-      Search or scan a barcode to add.
-    </Typography>
-  </Box>
-);
+const EmptyCartState = ({ embedded }) => {
+  const { t } = useTranslation();
+  return (
+    <Box sx={{
+      p: 4,
+      textAlign: 'center',
+      flex: embedded ? 1 : 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 1,
+    }}>
+      <ShoppingCartIcon sx={{ fontSize: 36, color: 'text.disabled' }} />
+      <Typography variant="body2" color="text.secondary">
+        {t('salesFlow.summary.emptyCart')}
+      </Typography>
+      <Typography variant="caption" color="text.disabled">
+        {t('salesFlow.summary.emptyCartHint')}
+      </Typography>
+    </Box>
+  );
+};
 
 /**
  * Summary Box Component
@@ -370,7 +368,9 @@ const SummaryBox = ({
   onDiscountModeChange,
   pctInput = 0,
   embedded,
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <Box sx={{
     px: embedded ? 1.5 : 2,
     py: 1,
@@ -380,20 +380,20 @@ const SummaryBox = ({
   }}>
     <Box sx={{ width: '100%', ml: 'auto', maxWidth: embedded ? '100%' : 360 }}>
       <SummaryRow
-        label={isJewellery ? 'Subtotal (metal + stone)' : 'Subtotal'}
+        label={isJewellery ? t('salesFlow.summary.subtotalMetal') : t('salesFlow.summary.subtotal')}
         value={`₹${subtotal.toFixed(2)}`}
       />
 
       {isJewellery && makingCharges > 0 && (
         <SummaryRow
-          label="Making charges"
+          label={t('salesFlow.summary.makingCharges')}
           value={`+ ₹${makingCharges.toFixed(2)}`}
         />
       )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, gap: 1 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>
-          Discount
+          {t('salesFlow.summary.discount')}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <ToggleButtonGroup
@@ -434,7 +434,7 @@ const SummaryBox = ({
 
       {showGst && gst > 0 && (
         <SummaryRow
-          label="GST"
+          label={t('salesFlow.summary.gstHeader')}
           value={`+ ₹${gst.toFixed(2)}`}
         />
       )}
@@ -442,19 +442,22 @@ const SummaryBox = ({
       <Divider sx={{ my: 0.75 }} />
 
       <SummaryRow
-        label={<Typography component="span" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.9rem' }}>Total</Typography>}
+        label={<Typography component="span" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.9rem' }}>{t('salesFlow.summary.total')}</Typography>}
         value={`₹${netPayable.toFixed(2)}`}
         muted={false}
         bold
       />
     </Box>
   </Box>
-);
+  );
+};
 
 /**
  * Clear Confirmation Dialog
  */
-const ClearConfirmDialog = ({ open, itemCount, onConfirm, onCancel }) => (
+const ClearConfirmDialog = ({ open, itemCount, onConfirm, onCancel }) => {
+  const { t } = useTranslation();
+  return (
   <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
     <DialogTitle sx={{
       display: 'flex',
@@ -464,17 +467,16 @@ const ClearConfirmDialog = ({ open, itemCount, onConfirm, onCancel }) => (
       fontWeight: 800,
     }}>
       <WarningAmberIcon color="warning" />
-      Clear Order?
+      {t('salesFlow.summary.clearOrderTitle')}
     </DialogTitle>
     <DialogContent sx={{ pt: 2 }}>
       <Typography variant="body2">
-        This will remove all <strong>{itemCount} item(s)</strong> from the cart and reset the form.
-        This action cannot be undone.
+        {t('salesFlow.summary.clearOrderText', { count: itemCount })}
       </Typography>
     </DialogContent>
     <DialogActions sx={{ p: 2 }}>
       <Button onClick={onCancel} color="inherit" sx={{ fontWeight: 700 }}>
-        Cancel
+        {t('common.cancel')}
       </Button>
       <Button
         variant="contained"
@@ -482,11 +484,12 @@ const ClearConfirmDialog = ({ open, itemCount, onConfirm, onCancel }) => (
         onClick={onConfirm}
         sx={{ fontWeight: 700 }}
       >
-        Clear All
+        {t('salesFlow.summary.clearAllButton')}
       </Button>
     </DialogActions>
   </Dialog>
-);
+  );
+};
 
 // ============ MAIN COMPONENT ============
 
@@ -508,6 +511,7 @@ const SalesSummary = ({
   embedded,
   hideActions,
 }) => {
+  const { t } = useTranslation();
   const [discount, setDiscount] = useState(Number(formData.discount) || 0);
   // Bill-level discount mode: flat rupees ('AMT') or percentage-of-subtotal ('PCT').
   // Payload / backend / receipt still see a resolved ₹ amount — the mode is a
@@ -691,7 +695,7 @@ const SalesSummary = ({
               letterSpacing: 0.5,
               color: 'text.secondary',
             }}>
-              Cart {formData.items.length > 0 && `· ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
+              {t('salesFlow.summary.cartLabel')}{formData.items.length > 0 && ` · ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
             </Typography>
           </Box>
 
@@ -722,12 +726,12 @@ const SalesSummary = ({
                       py: 1,
                     },
                   }}>
-                    <TableCell>Item</TableCell>
-                    <TableCell align="center">Qty</TableCell>
-                    <TableCell align="right">Rate</TableCell>
-                    {isJewellery && <TableCell align="right">Making</TableCell>}
-                    {showGst && <TableCell align="right">GST</TableCell>}
-                    <TableCell align="right">Total</TableCell>
+                    <TableCell>{t('salesFlow.summary.itemHeader')}</TableCell>
+                    <TableCell align="center">{t('salesFlow.summary.qtyHeader')}</TableCell>
+                    <TableCell align="right">{t('salesFlow.summary.rateHeader')}</TableCell>
+                    {isJewellery && <TableCell align="right">{t('salesFlow.summary.makingHeader')}</TableCell>}
+                    {showGst && <TableCell align="right">{t('salesFlow.summary.gstHeader')}</TableCell>}
+                    <TableCell align="right">{t('salesFlow.summary.totalHeader')}</TableCell>
                     <TableCell align="center" width={72} />
                   </TableRow>
                 </TableHead>
@@ -780,7 +784,7 @@ const SalesSummary = ({
               onClick={handleClearForm}
               sx={{ fontWeight: 700, textTransform: 'none' }}
             >
-              Clear All
+              {t('salesFlow.summary.clearAllButton')}
             </Button>
 
             <Stack direction="row" spacing={2} alignItems="center">
@@ -797,7 +801,7 @@ const SalesSummary = ({
                   color: 'var(--color-teal)',
                 }}
               >
-                Save Draft
+                {t('salesFlow.summary.saveDraft')}
               </Button>
 
               {error && (

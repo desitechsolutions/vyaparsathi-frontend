@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { 
-  Grid, Card, CardContent, TextField, Button, Typography, 
+import {
+  Grid, TextField, Button, Typography,
   Box, Collapse, Tooltip, Paper, Chip,
-  Alert, ToggleButton, ToggleButtonGroup, InputAdornment, CircularProgress, alpha
+  InputAdornment, alpha
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -10,19 +10,15 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
-import MedicationIcon from '@mui/icons-material/Medication';
-import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import AddIcon from '@mui/icons-material/Add';
 import CustomItemDialog from './CustomItemDialog';
 import { calcMrpDiscountPct } from '../../utils/salesUtils';
-import { fetchBatchWiseStock, lookupByBarcode } from '../../services/api';
+import { lookupByBarcode } from '../../services/api';
 
 import { useTheme } from '@mui/material/styles';
 
 // ============ CONSTANTS ============
-const DEFAULT_PACK_SIZE = 10;
 
 const getCustomSelectStyles = (theme) => {
   const isDark = theme?.palette?.mode === 'dark';
@@ -79,17 +75,6 @@ const getCustomSelectStyles = (theme) => {
 };
 
 const INDUSTRY_FILTER_CONFIG = {
-  PHARMACY: {
-    main: [
-      { label: 'Category', key: 'category', options: 'uniqueCategory', multi: false },
-      { label: 'Strength / Size', key: 'size', options: 'uniqueSizes', multi: true },
-      { label: 'Manufacturer', key: 'color', options: 'uniqueColors', multi: true },
-    ],
-    advanced: [
-      { label: 'Brand Type', key: 'design', options: 'uniqueDesigns' },
-      { label: 'Usage / Form', key: 'fit', options: 'uniqueFits' },
-    ],
-  },
   CLOTHING: {
     main: [
       { label: 'Category', key: 'category', options: 'uniqueCategory', multi: false },
@@ -161,64 +146,12 @@ const INDUSTRY_FILTER_CONFIG = {
 };
 
 const INDUSTRY_HEADER = {
-  PHARMACY: 'Medicine Search',
   CLOTHING: 'Clothing & Apparel Search',
   ELECTRONICS: 'Electronics Search',
   HARDWARE: 'Hardware & Building Materials',
   AUTOMOBILE: 'Auto Parts Search',
   STATIONERY: 'Stationery Search',
   JEWELLERY: 'Jewellery Search',
-};
-
-// ============ HELPER FUNCTIONS ============
-
-/**
- * Calculate loose unit price from pack price
- */
-const calcLooseUnitPrice = (price, packSize) => {
-  return parseFloat((price / Math.max(1, packSize)).toFixed(2));
-};
-
-/**
- * Parse Java LocalDate (array or string) to Date object
- */
-const parseBatchDate = (d) => {
-  if (!d) return null;
-  if (Array.isArray(d)) {
-    const [y, m, day] = d;
-    return new Date(y, m - 1, day);
-  }
-  return new Date(d);
-};
-
-/**
- * Format batch date to display string
- */
-const formatBatchDate = (d) => {
-  const parsed = parseBatchDate(d);
-  if (!parsed || isNaN(parsed)) return '?';
-  return parsed.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-};
-
-/**
- * Calculate days until expiry
- */
-const calcDaysUntilExpiry = (expiryDate) => {
-  const expDate = parseBatchDate(expiryDate);
-  if (!expDate) return null;
-  return Math.floor((expDate - new Date()) / 86400000);
-};
-
-/**
- * Build batch label with expiry and stock info
- */
-const buildBatchLabel = (batch) => {
-  const daysLeft = calcDaysUntilExpiry(batch.expiryDate);
-  const expiryLabel = batch.expiryDate ? formatBatchDate(batch.expiryDate) : 'No expiry';
-  const expiryStatus = daysLeft === null ? '' : daysLeft <= 0 ? ' ⚠️ EXPIRED' : daysLeft <= 30 ? ' ⚠️ <30d' : '';
-  const stock = batch.quantity ?? batch.totalQuantity ?? '?';
-  
-  return `Batch: ${batch.batchNumber} | Exp: ${expiryLabel}${expiryStatus} | MRP: ₹${Number(batch.mrp || 0).toFixed(2)} | Stock: ${stock}`;
 };
 
 // ============ SUB-COMPONENTS ============
@@ -233,7 +166,6 @@ const FilterBar = ({
   showAdvanced,
   onToggleAdvanced,
   onReset,
-  isPharmacy,
   optionsMap,
 }) => {
   const theme = useTheme();
@@ -303,177 +235,28 @@ const FilterBar = ({
 };
 
 /**
- * Batch Selection Component (Pharmacy Only)
- */
-const BatchSelector = ({
-  batches,
-  selectedBatch,
-  onBatchSelect,
-  loadingBatches,
-}) => (
-  <Box sx={{
-    mt: 2,
-    mb: 1,
-    p: 2,
-    borderRadius: 3,
-    bgcolor: alpha('#f59e0b', 0.08),
-    border: `1.5px solid ${alpha('#f59e0b', 0.3)}`,
-  }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-      <Chip label="Step 3" size="small" color="warning" />
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#92400e' }}>
-        Select Batch
-      </Typography>
-      {loadingBatches && <CircularProgress size={16} sx={{ ml: 1 }} />}
-    </Box>
-    {batches.length === 0 && !loadingBatches ? (
-      <Alert severity="info" sx={{ borderRadius: 2 }}>
-        No batch data available. Proceed without batch selection.
-      </Alert>
-    ) : (
-      <Select
-        options={batches.map(b => ({
-          value: b.batchNumber,
-          label: buildBatchLabel(b),
-          ...b,
-          _daysLeft: calcDaysUntilExpiry(b.expiryDate),
-        }))}
-        value={selectedBatch}
-        onChange={onBatchSelect}
-        placeholder="Select batch (Expiry, MRP, Stock)..."
-        isClearable
-        isLoading={loadingBatches}
-        styles={{
-          control: (base, state) => ({
-            ...base,
-            borderRadius: '8px',
-            borderColor: state.isFocused ? 'var(--color-warning)' : alpha('#f59e0b', 0.5),
-            boxShadow: state.isFocused ? `0 0 0 1px #f59e0b` : 'none',
-            minHeight: '44px',
-          }),
-          option: (base, { data }) => ({
-            ...base,
-            color: data._daysLeft !== null && data._daysLeft <= 0
-              ? 'var(--color-error)'
-              : data._daysLeft !== null && data._daysLeft <= 30
-              ? '#d97706'
-              : base.color,
-          }),
-          menuPortal: base => ({ ...base, zIndex: 9999 }),
-        }}
-        menuPortalTarget={document.body}
-      />
-    )}
-  </Box>
-);
-
-/**
- * Dispensing Mode Selector (Pharmacy Only)
- */
-const DispensingMode = ({
-  sellingMode,
-  packSize,
-  basePrice,
-  looseUnitPrice,
-  onModeChange,
-  onPackSizeChange,
-}) => (
-  <Box sx={{
-    mt: 2,
-    p: 2,
-    borderRadius: 3,
-    bgcolor: alpha('#10b981', 0.08),
-    border: `1.5px solid ${alpha('#10b981', 0.08)}`,
-  }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-      <MedicationIcon sx={{ color: 'var(--color-success)' }} fontSize="small" />
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#065f46' }}>
-        Dispensing Mode
-      </Typography>
-    </Box>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-      <ToggleButtonGroup
-        value={sellingMode}
-        exclusive
-        onChange={onModeChange}
-        size="small"
-        sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-      >
-        <ToggleButton value="PACK" sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}>
-          Strip / Box
-        </ToggleButton>
-        <ToggleButton value="LOOSE" sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}>
-          Loose Tablets
-        </ToggleButton>
-      </ToggleButtonGroup>
-
-      {sellingMode === 'LOOSE' && (
-        <TextField
-          label="Tablets per strip"
-          type="number"
-          size="small"
-          value={packSize}
-          onChange={onPackSizeChange}
-          inputProps={{ min: 1, max: 1000 }}
-          sx={{ width: 160, bgcolor: 'background.paper', borderRadius: 1 }}
-          InputProps={{
-            endAdornment: <InputAdornment position="end">tabs</InputAdornment>,
-          }}
-        />
-      )}
-
-      {sellingMode === 'LOOSE' && (
-        <Chip
-          label={`₹${looseUnitPrice} per tablet`}
-          color="success"
-          size="small"
-          variant="outlined"
-          icon={<MedicationIcon />}
-        />
-      )}
-    </Box>
-    {sellingMode === 'LOOSE' && (
-      <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#047857' }}>
-        Strip ₹{basePrice} ÷ {packSize} tabs = ₹{looseUnitPrice}/tablet
-      </Typography>
-    )}
-  </Box>
-);
-
-/**
  * Item Details Display
  */
 const ItemDetails = ({
   selectedVariant,
   item,
   itemDetailsRef,
-  isPharmacy,
-  sellingMode,
   handleAddItem,
   onQtyChange,
   onDiscountChange,
   error,
 }) => {
-  const mrpDiscount = isPharmacy && selectedVariant?.mrp 
-    ? calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice) 
+  const mrpDiscount = selectedVariant?.mrp
+    ? calcMrpDiscountPct(selectedVariant.mrp, item.unitPrice)
     : null;
 
-  const detailsConfig = isPharmacy
-    ? [
-        { label: 'SKU / Batch', val: item.sku },
-        { label: sellingMode === 'LOOSE' ? 'Per Tablet' : 'Per Strip', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
-        { label: 'Stock (strips)', val: item.currentStock },
-        { label: 'Strength', val: item.size },
-        { label: 'Brand', val: item.color },
-        ...(selectedVariant?.composition ? [{ label: 'Composition', val: selectedVariant.composition }] : []),
-      ]
-    : [
-        { label: 'SKU', val: item.sku },
-        { label: 'Price', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
-        { label: 'Stock', val: item.currentStock },
-        { label: 'Color', val: item.color },
-        { label: 'Size', val: item.size },
-      ];
+  const detailsConfig = [
+    { label: 'SKU', val: item.sku },
+    { label: 'Price', val: item.unitPrice ? `₹${item.unitPrice}` : '-' },
+    { label: 'Stock', val: item.currentStock },
+    { label: 'Color', val: item.color },
+    { label: 'Size', val: item.size },
+  ];
 
   return (
     <Box
@@ -509,7 +292,7 @@ const ItemDetails = ({
         <Grid item xs={12} md={5}>
           <Grid container spacing={1}>
             {detailsConfig.map((d, i) => (
-              <Grid item xs={isPharmacy && d.label === 'Composition' ? 12 : 4} key={i}>
+              <Grid item xs={4} key={i}>
                 <Typography
                   variant="caption"
                   sx={{ fontWeight: 700, color: 'text.secondary' }}
@@ -533,7 +316,7 @@ const ItemDetails = ({
 
         <Grid item xs={6} md={2}>
           <TextField
-            label={isPharmacy && sellingMode === 'LOOSE' ? 'Tablets' : 'Qty'}
+            label="Qty"
             type="number"
             fullWidth
             value={item.qty}
@@ -541,9 +324,6 @@ const ItemDetails = ({
             onFocus={(e) => e.target.select()}
             InputProps={{
               sx: { borderRadius: 2, bgcolor: 'background.paper', fontWeight: 800 },
-              ...(isPharmacy && sellingMode === 'LOOSE'
-                ? { endAdornment: <InputAdornment position="end">tabs</InputAdornment> }
-                : {}),
             }}
           />
         </Grid>
@@ -583,7 +363,7 @@ const ItemDetails = ({
               },
             }}
           >
-            {isPharmacy && sellingMode === 'LOOSE' ? 'Dispense' : 'Add Item'}
+            Add Item
           </Button>
         </Grid>
       </Grid>
@@ -677,7 +457,6 @@ const ItemSection = ({
   uniqueFabrics,
   uniqueSeasons,
   uniqueFits,
-  uniqueCompositions,
   searchParams,
   handleVariantSelect,
   handleSearchParamChange,
@@ -687,7 +466,6 @@ const ItemSection = ({
   error,
   substitutes,
   onSelectSubstitute,
-  isPharmacy,
   industryType,
 }) => {
   const theme = useTheme();
@@ -696,11 +474,6 @@ const ItemSection = ({
   // ── STATE ──
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSubstitutes, setShowSubstitutes] = useState(false);
-  const [sellingMode, setSellingMode] = useState('PACK');
-  const [packSize, setPackSize] = useState(DEFAULT_PACK_SIZE);
-  const [batches, setBatches] = useState([]);
-  const [selectedBatch, setSelectedBatch] = useState(null);
-  const [loadingBatches, setLoadingBatches] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
 
   const itemDetailsRef = useRef(null);
@@ -723,7 +496,7 @@ const ItemSection = ({
   }, [handleAddItem]);
 
   // ── MEMOIZED VALUES ──
-  const industry = useMemo(() => industryType || (isPharmacy ? 'PHARMACY' : 'GENERAL'), [industryType, isPharmacy]);
+  const industry = industryType || 'GENERAL';
   const filterConfig = useMemo(() => INDUSTRY_FILTER_CONFIG[industry] || INDUSTRY_FILTER_CONFIG.CLOTHING, [industry]);
   const headerTitle = useMemo(() => INDUSTRY_HEADER[industry] || 'Inventory Search', [industry]);
 
@@ -735,53 +508,9 @@ const ItemSection = ({
     uniqueFabrics,
     uniqueSeasons,
     uniqueFits,
-    uniqueCompositions,
-  }), [uniqueCategory, uniqueColors, uniqueSizes, uniqueDesigns, uniqueFabrics, uniqueSeasons, uniqueFits, uniqueCompositions]);
-
-  const basePrice = selectedVariant?.pricePerUnit || 0;
-  const looseUnitPrice = useMemo(
-    () => sellingMode === 'LOOSE' && packSize > 0 ? calcLooseUnitPrice(basePrice, packSize) : basePrice,
-    [sellingMode, packSize, basePrice]
-  );
-
-  const drugSchedule = selectedVariant?.drugSchedule;
-  const isControlledDrug = useMemo(() => drugSchedule && ['SCHEDULE_H', 'SCHEDULE_H1', 'SCHEDULE_X'].includes(drugSchedule), [drugSchedule]);
-  const isNarcotic = useMemo(() => drugSchedule === 'SCHEDULE_X' || drugSchedule === 'SCHEDULE_H1', [drugSchedule]);
+  }), [uniqueCategory, uniqueColors, uniqueSizes, uniqueDesigns, uniqueFabrics, uniqueSeasons, uniqueFits]);
 
   // ── EFFECTS ──
-  useEffect(() => {
-    if (selectedVariant) {
-      const backendPackSize = Number(selectedVariant.packSize) || DEFAULT_PACK_SIZE;
-      setPackSize(backendPackSize);
-      
-      if (sellingMode === 'LOOSE') {
-        const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, backendPackSize);
-        setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: backendPackSize }));
-      }
-
-      if (isPharmacy) {
-        setLoadingBatches(true);
-        setSelectedBatch(null);
-        fetchBatchWiseStock(selectedVariant.id)
-          .then(res => {
-            const allBatches = Array.isArray(res.data) ? res.data : [];
-            const variantBatches = allBatches
-              .filter(b => !b.itemVariantId || Number(b.itemVariantId) === Number(selectedVariant.id))
-              .filter(b => b.batchNumber);
-            setBatches(variantBatches);
-          })
-          .catch(() => setBatches([]))
-          .finally(() => setLoadingBatches(false));
-      } else {
-        setBatches([]);
-        setSelectedBatch(null);
-      }
-    } else {
-      setBatches([]);
-      setSelectedBatch(null);
-    }
-  }, [selectedVariant?.id, isPharmacy, sellingMode]);
-
   useEffect(() => {
     if (selectedVariant && itemDetailsRef.current) {
       const timer = setTimeout(() => {
@@ -806,45 +535,6 @@ const ItemSection = ({
       handleSearchParamChange(key, selectedOption || { value: '' });
     }
   }, [handleSearchParamChange]);
-
-  const handleSellingModeChange = useCallback((_, newMode) => {
-    if (!newMode) return;
-    setSellingMode(newMode);
-    if (selectedVariant) {
-      const newPrice = newMode === 'LOOSE'
-        ? calcLooseUnitPrice(selectedVariant.pricePerUnit, packSize)
-        : selectedVariant.pricePerUnit;
-      setItem(prev => ({
-        ...prev,
-        unitPrice: newPrice,
-        sellingMode: newMode,
-        packSizeUsed: newMode === 'LOOSE' ? packSize : null,
-      }));
-    }
-  }, [selectedVariant, packSize]);
-
-  const handlePackSizeChange = useCallback((e) => {
-    const size = Math.max(1, parseInt(e.target.value) || 1);
-    setPackSize(size);
-    if (selectedVariant && sellingMode === 'LOOSE') {
-      const newPrice = calcLooseUnitPrice(selectedVariant.pricePerUnit, size);
-      setItem(prev => ({ ...prev, unitPrice: newPrice, packSizeUsed: size }));
-    }
-  }, [selectedVariant, sellingMode]);
-
-  const handleBatchSelect = useCallback((opt) => {
-    setSelectedBatch(opt);
-    if (opt) {
-      setItem(prev => ({
-        ...prev,
-        batchNumber: opt.batchNumber,
-        expiryDate: opt.expiryDate,
-        mrp: opt.mrp || prev.mrp,
-      }));
-    } else {
-      setItem(prev => ({ ...prev, batchNumber: null, expiryDate: null }));
-    }
-  }, []);
 
   const handleDiscountChange = useCallback((e) => {
     // Coerce to a non-negative number; blank input treated as 0 so the cart total
@@ -990,22 +680,6 @@ const ItemSection = ({
             menuPortalTarget={document.body}
           />
         </Grid>
-        {isPharmacy && (
-          <Grid item xs={12} md={4}>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
-              Composition
-            </Typography>
-            <Select
-              options={uniqueCompositions || []}
-              value={(uniqueCompositions || []).find(opt => opt.value === searchParams.composition) || null}
-              onChange={(opt) => handleChange('composition', opt, false)}
-              placeholder="Search..."
-              isClearable
-              styles={selectStyles}
-              menuPortalTarget={document.body}
-            />
-          </Grid>
-        )}
       </Grid>
 
           {/* FILTER BAR */}
@@ -1016,7 +690,6 @@ const ItemSection = ({
             showAdvanced={showAdvanced}
             onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
             onReset={handleResetFilters}
-            isPharmacy={isPharmacy}
             optionsMap={optionsMap}
           />
 
@@ -1029,12 +702,12 @@ const ItemSection = ({
           display: 'block',
           mb: 0.5,
         }}>
-          {isPharmacy ? 'Select Medicine' : 'Select Variant'}
+          Select Variant
         </Typography>
             <Select
               options={variants}
               onChange={handleVariantSelect}
-              placeholder={isPharmacy ? 'Select medicine, strength...' : 'Select variant...'}
+              placeholder="Select variant..."
               value={selectedVariant}
               isClearable
               styles={{
@@ -1077,36 +750,11 @@ const ItemSection = ({
             />
           </Box>
 
-          {/* BATCH SELECTOR */}
-          {isPharmacy && selectedVariant && (
-            <BatchSelector
-              batches={batches}
-              selectedBatch={selectedBatch}
-              onBatchSelect={handleBatchSelect}
-              loadingBatches={loadingBatches}
-            />
-          )}
-
-          {/* DISPENSING MODE */}
-          {isPharmacy && selectedVariant && (
-            <DispensingMode
-              sellingMode={sellingMode}
-              packSize={packSize}
-              basePrice={basePrice}
-              looseUnitPrice={looseUnitPrice}
-              onModeChange={handleSellingModeChange}
-              onPackSizeChange={handlePackSizeChange}
-            />
-          )}
-
           {/* ITEM DETAILS */}
           <ItemDetails
-            ref={itemDetailsRef}
             selectedVariant={selectedVariant}
             item={item}
             itemDetailsRef={itemDetailsRef}
-            isPharmacy={isPharmacy}
-            sellingMode={sellingMode}
             handleAddItem={handleAddAndRefocus}
             onQtyChange={handleQtyChange}
             onDiscountChange={handleDiscountChange}

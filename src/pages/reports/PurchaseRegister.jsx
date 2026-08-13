@@ -81,7 +81,7 @@ export default function PurchaseRegister() {
             <Typography variant="h4" fontWeight={900} color="text.primary">{t('purchaseRegisterReport.title')}</Typography>
           </Stack>
           <Typography color="text.secondary">
-            Batch-wise supplier tracking — required for drug recall traceability and regulatory audits
+            Batch-wise supplier tracking — required for recall traceability and regulatory audits
           </Typography>
         </Box>
         {data && data.length > 0 && (
@@ -97,7 +97,7 @@ export default function PurchaseRegister() {
       </Stack>
 
       <Alert severity="info" sx={{ mb: 4, borderRadius: 2 }}>
-        The Purchase Register tracks which supplier supplied each batch. This is critical for drug recalls and pharmacy audits.
+        The Purchase Register tracks which supplier supplied each batch. This is critical for recall traceability and supplier audits.
       </Alert>
 
       {/* Date Filter */}

@@ -23,7 +23,7 @@ export default function useItemsLogic() {
   const [apiCategories, setApiCategories] = useState([]);
 
   // ── Industry Context State ──────────────────────────────
-  // Detects shop type (CLOTHING, PHARMACY, etc.) for UI labels
+  // Detects shop type (CLOTHING, ELECTRONICS, etc.) for UI labels
   const [shopCategory, setShopCategory] = useState('CLOTHING');
 
   // ── UI / Loading States ────────────────────────────────
@@ -256,8 +256,6 @@ export default function useItemsLogic() {
       brandName: item.brandName || '',
       attribute1: item.attribute1 || '',
       attribute2: item.attribute2 || '',
-      drugSchedule: item.drugSchedule || '',
-      requiresPrescription: !!item.requiresPrescription,
     });
 
     setVariantList(item.variants.map(v => ({
@@ -329,8 +327,6 @@ export default function useItemsLogic() {
         brandName: item.brandName || '',
         attribute1: item.attribute1 || '',
         attribute2: item.attribute2 || '',
-        drugSchedule: item.drugSchedule || '',
-        requiresPrescription: !!item.requiresPrescription,
       });
       const existingVariants = item.variants.map((v) => ({
         ...v,

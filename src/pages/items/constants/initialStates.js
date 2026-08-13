@@ -15,12 +15,12 @@ export const initialVariantState = {
   lowStockThreshold: '5',
 
   // Dynamic Mapping Fields
-  size: '',   // Maps to: Strength (Pharm) / Weight (Groc) / Storage (Elec) / Size (Cloth)
+  size: '',   // Maps to: Weight (Groc) / Storage (Elec) / Size (Cloth)
   color: '',  // Maps to: Finish (Elec) / Metal Tone (Jewel) / Material (Hard)
   design: '', // Maps to: Model (Elec) / Grade (Hard) / Pattern (Jewel)
-  fit: '',    // Maps to: Connectivity (Elec) / Usage (Pharm) / Assembly (Furn)
+  fit: '',    // Maps to: Connectivity (Elec) / Assembly (Furn)
 
-  // Pharmacy-specific variant fields (ItemVariant entity)
+  // Batch/expiry tracking (FMCG, food perishables)
   batchNumber: '',       // Manufacturer batch/lot number
   manufacturingDate: '', // Date of manufacture (ISO date string yyyy-MM-dd)
   expiryDate: '',        // Expiry date (ISO date string yyyy-MM-dd)
@@ -40,16 +40,11 @@ export const initialItemFormData = {
   description: '',
   categoryId: '',
   brandName: '',
-  
+
   // Generic attributes used for Industry-specific details
   // Examples:
   // CLOTHING:    attr1 = Fabric,         attr2 = Season
-  // PHARMACY:    attr1 = Dosage Form,    attr2 = Storage Condition
   // ELECTRONICS: attr1 = Build Material, attr2 = Warranty Period
-  attribute1: '', 
+  attribute1: '',
   attribute2: '',
-
-  // Pharmacy-specific item fields (Item entity)
-  drugSchedule: '',         // DrugSchedule enum: OTC | NON_SCHEDULED | SCHEDULE_H | SCHEDULE_H1 | SCHEDULE_X
-  requiresPrescription: false, // Whether a prescription is required to sell
 };

@@ -6,11 +6,12 @@ import {
   CardActionArea, Avatar, Stack, Divider, Chip
 } from '@mui/material';
 import {
-  Today, BarChart, RequestPage, ListAlt, 
-  Category, Group, ReceiptLong, Payments, 
-  Assessment, ChevronRight, EventBusy, GppMaybe, LocalShipping,
+  Today, BarChart, RequestPage, ListAlt,
+  Category, Group, ReceiptLong, Payments,
+  Assessment, ChevronRight, LocalShipping,
   Diamond as DiamondIcon, AccountBalance,
   ElectricalServices, DirectionsCar, Checkroom,
+  EmojiEvents, PointOfSale,
 } from '@mui/icons-material';
 import { useShop } from '../../context/ShopContext';
 
@@ -23,13 +24,10 @@ const reportLinks = [
   { title: 'Items Sold', desc: 'Top performing products & volume', icon: <ListAlt />, path: 'items-sold', color: '#ec4899' },
   { title: 'Category Sales', desc: 'Department-wise revenue split', icon: <Category />, path: 'category-sales', color: '#06b6d4' },
   { title: 'Customer Sales', desc: 'Top spending customers & loyalty', icon: <Group />, path: 'customer-sales', color: '#6366f1' },
+  { title: 'Salesperson Leaderboard', desc: 'Ranks users by attributed sales', icon: <EmojiEvents />, path: 'salesperson-leaderboard', color: '#eab308' },
+  { title: 'End-of-Day (Z-Report)', desc: 'Shift close-out + drawer reconciliation', icon: <PointOfSale />, path: 'z-report', color: '#f97316' },
   { title: 'Expenses Summary', desc: 'Operational outflow tracking', icon: <ReceiptLong />, path: 'expenses-summary', color: '#ef4444' },
   { title: 'Payments Summary', desc: 'Cash vs Digital collection split', icon: <Payments />, path: 'payments-summary', color: '#2dd4bf' },
-];
-
-const pharmaReportLinks = [
-  { title: 'Expiry Report', desc: 'Stock expiring in 30, 60, or 90 days', icon: <EventBusy />, path: 'expiry-report', color: '#dc2626' },
-  { title: 'Purchase Register', desc: 'Batch-supplier traceability for recalls', icon: <LocalShipping />, path: 'purchase-register', color: '#0891b2' },
 ];
 
 const jewelleryReportLinks = [
@@ -50,7 +48,6 @@ const clothingReportLinks = [
 ];
 
 const INDUSTRY_SECTION_CONFIG = {
-  PHARMACY: { links: pharmaReportLinks, label: 'Pharmacy & Compliance Reports', color: 'primary' },
   JEWELLERY: { links: jewelleryReportLinks, label: 'Jewellery & Compliance Reports', color: 'secondary' },
   ELECTRONICS: { links: electronicsReportLinks, label: 'Electronics Reports', color: 'info' },
   AUTOMOBILE: { links: automobileReportLinks, label: 'Automobile Parts Reports', color: 'warning' },

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Typography, Button, Chip, Table, TableBody, TableCell, TableHead,
   TableRow, TableContainer, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Grid, MenuItem, Select, FormControl, InputLabel, Stack,
-  CircularProgress, TablePagination, Divider, Alert, Checkbox, FormControlLabel,
+  DialogActions, TextField, Stack, CircularProgress, TablePagination, Alert,
+  InputAdornment, LinearProgress, Divider,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -11,21 +11,19 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import ReactSelect from 'react-select';
-import { useNavigate } from 'react-router-dom';
+import EditIcon from '@mui/icons-material/Edit';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import SearchIcon from '@mui/icons-material/Search';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import {
   listSalesOrders,
-  createSalesOrder,
   approveSalesOrder,
   cancelSalesOrder,
   convertSalesOrderToSale,
   getSalesOrder,
   getSalesOrderSignedUrl,
   downloadReceiptPdf,
-  fetchCustomers,
-  fetchItemVariants,
 } from '../services/api';
 
 const STATUS_COLORS = {
@@ -36,52 +34,36 @@ const STATUS_COLORS = {
   CANCELLED: 'error',
 };
 
-const STATUS_FILTERS = ['ALL', 'DRAFT', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'CANCELLED'];
+const STATUS_LABELS = {
+  DRAFT: 'Draft',
+  APPROVED: 'Approved',
+  PARTIALLY_FULFILLED: 'Partially Fulfilled',
+  FULFILLED: 'Fulfilled',
+  CANCELLED: 'Cancelled',
+};
 
-const emptyItem = () => ({
-  itemVariantId: null,
-  itemName: '',
-  customItemName: '',
-  customHsnSac: '',
-  customUnit: '',
-  qty: 1,
-  unitPrice: 0,
-  discount: 0,
-  gstRate: 0,
-  isCustom: false,
-});
+const STATUS_FILTERS = ['ALL', 'DRAFT', 'APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED', 'CANCELLED'];
+const EDITABLE = new Set(['DRAFT']);
+const CONVERTIBLE = new Set(['APPROVED', 'PARTIALLY_FULFILLED']);
+
+const inr = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const SalesOrders = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [rows, setRows] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const [customers, setCustomers] = useState([]);
-  const [variants, setVariants] = useState([]);
-
-  // Create form state
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({
-    customerId: null,
-    expectedDeliveryDate: '',
-    isGstRequired: true,
-    notes: '',
-    terms: '',
-    invoiceDiscount: 0,
-    shippingCharges: 0,
-    otherCharges: 0,
-    items: [emptyItem()],
-  });
-  const [submitting, setSubmitting] = useState(false);
-
-  // Convert dialog state
-  const [convertTarget, setConvertTarget] = useState(null); // full SO object
-  const [convertLines, setConvertLines] = useState({});     // { salesOrderItemId: qty }
+  // Convert-to-sale dialog (partial fulfillment)
+  const [convertTarget, setConvertTarget] = useState(null);
+  const [convertLines, setConvertLines] = useState({});
+  const [converting, setConverting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -101,31 +83,27 @@ const SalesOrders = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Deep-link support: /sales-orders?convert=<id> opens the convert dialog on load
   useEffect(() => {
-    (async () => {
-      try {
-        const cs = await fetchCustomers();
-        setCustomers(Array.isArray(cs) ? cs : (cs?.data ?? []));
-      } catch { /* ignore */ }
-      try {
-        const vs = await fetchItemVariants();
-        setVariants(Array.isArray(vs) ? vs : (vs?.data ?? []));
-      } catch { /* ignore */ }
-    })();
-  }, []);
+    const params = new URLSearchParams(location.search);
+    const convertId = params.get('convert');
+    if (convertId) {
+      openConvertDialog({ id: Number(convertId) });
+      // Clean the URL so refresh doesn't re-open
+      window.history.replaceState({}, '', '/sales-orders');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
-  const customerOptions = useMemo(
-    () => customers.map((c) => ({ value: c.id, label: `${c.name}${c.phone ? ' — ' + c.phone : ''}`, raw: c })),
-    [customers]
-  );
-  const variantOptions = useMemo(
-    () => variants.map((v) => ({
-      value: v.id,
-      label: `${v.itemName || v.name || 'Item'}${v.sku ? ' [' + v.sku + ']' : ''} — ₹${v.pricePerUnit ?? v.sellingPrice ?? 0}`,
-      raw: v,
-    })),
-    [variants]
-  );
+  const filteredRows = rows.filter((so) => {
+    if (!searchTerm.trim()) return true;
+    const needle = searchTerm.toLowerCase();
+    return (
+      (so.orderNo || '').toLowerCase().includes(needle) ||
+      (so.customer?.name || '').toLowerCase().includes(needle) ||
+      (so.customer?.phone || '').toLowerCase().includes(needle)
+    );
+  });
 
   const guarded = async (fn, msg) => {
     try {
@@ -148,12 +126,10 @@ const SalesOrders = () => {
     }
   };
 
-  // ── Convert helpers ────────────────────────────────────────
   const openConvertDialog = async (row) => {
-    // Fetch full order so we have per-line remaining quantities
     try {
       const res = await getSalesOrder(row.id);
-      const so = res?.data;
+      const so = res?.data?.data || res?.data;
       if (!so) throw new Error('Sales order not found');
       const initialLines = {};
       (so.items || []).forEach((it) => {
@@ -173,14 +149,12 @@ const SalesOrders = () => {
       .filter(([, qty]) => Number(qty) > 0)
       .map(([salesOrderItemId, qty]) => ({ salesOrderItemId: Number(salesOrderItemId), qty: Number(qty) }));
     if (lines.length === 0) {
-      setErrorMsg('Select at least one line to convert');
+      setErrorMsg('Enter a fulfill quantity on at least one line');
       return;
     }
+    setConverting(true);
     try {
       const res = await convertSalesOrderToSale(convertTarget.id, { lines });
-      // Backend returns SalesOrderDto (wrapped in ApiResponse) with createdSaleId
-      // populated after the conversion. Deep-link into the new draft so the user
-      // lands in the cart ready to complete — otherwise fall back to history.
       const newSaleId = res?.data?.data?.createdSaleId ?? res?.data?.createdSaleId ?? null;
       setConvertTarget(null);
       setConvertLines({});
@@ -192,217 +166,177 @@ const SalesOrders = () => {
       }
     } catch (err) {
       setErrorMsg(err?.response?.data?.message || 'Conversion failed');
-    }
-  };
-
-  // ── Form handlers ───────────────────────────────────────────
-  const resetForm = () => setForm({
-    customerId: null,
-    expectedDeliveryDate: '',
-    isGstRequired: true,
-    notes: '',
-    terms: '',
-    invoiceDiscount: 0,
-    shippingCharges: 0,
-    otherCharges: 0,
-    items: [emptyItem()],
-  });
-
-  const handleAddCatalogItem = (index, option) => {
-    const v = option?.raw;
-    if (!v) return;
-    setForm((prev) => {
-      const items = [...prev.items];
-      items[index] = {
-        ...items[index],
-        itemVariantId: v.id,
-        itemName: v.itemName || v.name || '',
-        unitPrice: Number(v.pricePerUnit ?? v.sellingPrice ?? 0),
-        gstRate: Number(v.gstRate ?? 0),
-        isCustom: false,
-      };
-      return { ...prev, items };
-    });
-  };
-
-  const handleToggleCustomItem = (index) => {
-    setForm((prev) => {
-      const items = [...prev.items];
-      items[index] = { ...emptyItem(), isCustom: true };
-      return { ...prev, items };
-    });
-  };
-
-  const handleItemChange = (index, field, value) => {
-    setForm((prev) => {
-      const items = [...prev.items];
-      items[index] = { ...items[index], [field]: value };
-      return { ...prev, items };
-    });
-  };
-
-  const handleAddRow = () => setForm((prev) => ({ ...prev, items: [...prev.items, emptyItem()] }));
-  const handleRemoveRow = (index) => setForm((prev) => ({
-    ...prev,
-    items: prev.items.filter((_, i) => i !== index).length ? prev.items.filter((_, i) => i !== index) : [emptyItem()],
-  }));
-
-  const rowTotal = (it) => {
-    const qty = Number(it.qty) || 0;
-    const price = Number(it.unitPrice) || 0;
-    const discount = Number(it.discount) || 0;
-    const taxable = Math.max(qty * price - discount, 0);
-    const gst = form.isGstRequired ? (taxable * Number(it.gstRate || 0)) / 100 : 0;
-    return taxable + gst;
-  };
-
-  const grandTotal = useMemo(() => {
-    const lines = form.items.reduce((sum, it) => sum + rowTotal(it), 0);
-    return Math.max(
-      lines - Number(form.invoiceDiscount || 0) + Number(form.shippingCharges || 0) + Number(form.otherCharges || 0),
-      0,
-    ).toFixed(2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form]);
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setErrorMsg(null);
-    try {
-      const payload = {
-        customerId: form.customerId,
-        expectedDeliveryDate: form.expectedDeliveryDate || null,
-        isGstRequired: !!form.isGstRequired,
-        notes: form.notes || null,
-        terms: form.terms || null,
-        invoiceDiscount: Number(form.invoiceDiscount || 0),
-        shippingCharges: Number(form.shippingCharges || 0),
-        otherCharges: Number(form.otherCharges || 0),
-        items: form.items
-          .filter((it) => (it.itemVariantId || (it.customItemName || '').trim()) && Number(it.qty) > 0)
-          .map((it) => ({
-            itemVariantId: it.itemVariantId || null,
-            itemName: it.itemName || it.customItemName,
-            qty: Number(it.qty),
-            unitPrice: Number(it.unitPrice),
-            discount: Number(it.discount || 0),
-            gstRate: Number(it.gstRate || 0),
-            customItemName: it.isCustom ? (it.customItemName || null) : null,
-            customHsnSac: it.isCustom ? (it.customHsnSac || null) : null,
-            customUnit: it.isCustom ? (it.customUnit || null) : null,
-          })),
-      };
-      if (payload.items.length === 0) {
-        setErrorMsg('Add at least one line item');
-        setSubmitting(false);
-        return;
-      }
-      await createSalesOrder(payload);
-      setCreateOpen(false);
-      resetForm();
-      await loadData();
-    } catch (err) {
-      setErrorMsg(err?.response?.data?.message || 'Create failed');
     } finally {
-      setSubmitting(false);
+      setConverting(false);
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────
+  const convertTotal = convertTarget
+    ? (convertTarget.items || []).reduce((sum, it) => {
+        const qty = Number(convertLines[it.id] || 0);
+        return sum + qty * Number(it.unitPrice || 0);
+      }, 0)
+    : 0;
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Paper sx={{ p: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>Sales Orders</Typography>
+      <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2} mb={3}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 900 }}>Sales Orders</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Confirmed customer orders. Approve → reserve stock → convert to sale (full or partial).
+            </Typography>
+          </Box>
           <Stack direction="row" spacing={1}>
-            <IconButton onClick={loadData}><RefreshIcon /></IconButton>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+            <Tooltip title="Refresh">
+              <IconButton onClick={loadData}><RefreshIcon /></IconButton>
+            </Tooltip>
+            <Button variant="contained" size="large" startIcon={<AddIcon />}
+              onClick={() => navigate('/sales-orders/new')}
+              sx={{ fontWeight: 700 }}
+            >
               New Sales Order
             </Button>
           </Stack>
         </Stack>
 
-        <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
-          {STATUS_FILTERS.map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              onClick={() => { setStatusFilter(s); setPage(0); }}
-              color={statusFilter === s ? 'primary' : 'default'}
-              variant={statusFilter === s ? 'filled' : 'outlined'}
-              size="small"
-              sx={{ mb: 1 }}
-            />
-          ))}
+        {/* Filters + search */}
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
+          <TextField size="small"
+            placeholder="Search by order number, customer name or phone…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ minWidth: 280, flexGrow: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
+            {STATUS_FILTERS.map((s) => (
+              <Chip key={s}
+                label={s === 'ALL' ? 'ALL' : STATUS_LABELS[s]}
+                onClick={() => { setStatusFilter(s); setPage(0); }}
+                color={statusFilter === s ? 'primary' : 'default'}
+                variant={statusFilter === s ? 'filled' : 'outlined'}
+                size="small"
+                sx={{ fontWeight: 700 }} />
+            ))}
+          </Stack>
         </Stack>
 
         {errorMsg && <Alert severity="error" onClose={() => setErrorMsg(null)} sx={{ mb: 2 }}>{errorMsg}</Alert>}
 
         <TableContainer>
           <Table size="small">
-            <TableHead>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Order No</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Customer</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Expected</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Order No</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Customer</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Expected Delivery</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>Total</TableCell>
+                <TableCell sx={{ fontWeight: 800, minWidth: 180 }}>Status</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={22} /></TableCell></TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                  No sales orders yet. Click <strong>New Sales Order</strong> to create one.
-                </TableCell></TableRow>
-              ) : rows.map((so) => (
-                <TableRow key={so.id} hover>
-                  <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{so.orderNo}</TableCell>
-                  <TableCell>{so.orderDate ? new Date(so.orderDate).toLocaleDateString('en-IN') : '-'}</TableCell>
-                  <TableCell>{so.customer?.name || 'Walk-in'}</TableCell>
-                  <TableCell>{so.expectedDeliveryDate || '—'}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>₹{Number(so.totalAmount || 0).toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={so.status} color={STATUS_COLORS[so.status] || 'default'} />
-                    {so.quotationNo && (
-                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                        from {so.quotationNo}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Download PDF">
-                      <IconButton size="small" onClick={() => handleDownload(so)}>
-                        <DownloadIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {so.status === 'DRAFT' && (
-                      <Tooltip title="Approve (reserves stock)">
-                        <IconButton size="small" color="info" onClick={() => guarded(() => approveSalesOrder(so.id), 'Approve')}>
-                          <CheckCircleIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {(so.status === 'APPROVED' || so.status === 'PARTIALLY_FULFILLED') && (
-                      <Tooltip title="Convert to Sale (partial or full)">
-                        <IconButton size="small" color="primary" onClick={() => openConvertDialog(so)}>
-                          <ArrowForwardIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {so.status !== 'FULFILLED' && so.status !== 'CANCELLED' && (
-                      <Tooltip title="Cancel">
-                        <IconButton size="small" onClick={() => guarded(() => cancelSalesOrder(so.id), 'Cancel')}>
-                          <CancelIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+              ) : filteredRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    {rows.length === 0
+                      ? <>No sales orders yet. Click <strong>New Sales Order</strong> to create one.</>
+                      : 'No orders match your search.'}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredRows.map((so) => {
+                const totalQty = (so.items || []).reduce((s, it) => s + Number(it.qty || 0), 0);
+                const filledQty = (so.items || []).reduce((s, it) => s + Number(it.fulfilledQty || 0), 0);
+                const pct = totalQty > 0 ? (filledQty / totalQty) * 100 : 0;
+                const showProgress = ['APPROVED', 'PARTIALLY_FULFILLED', 'FULFILLED'].includes(so.status);
+
+                return (
+                  <TableRow key={so.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{so.orderNo}</TableCell>
+                    <TableCell>{so.orderDate ? new Date(so.orderDate).toLocaleDateString('en-IN') : '-'}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{so.customer?.name || 'Walk-in'}</Typography>
+                      {so.customer?.phone && <Typography variant="caption" color="text.secondary">{so.customer.phone}</Typography>}
+                    </TableCell>
+                    <TableCell>
+                      {so.expectedDeliveryDate
+                        ? <Typography variant="body2">{new Date(so.expectedDeliveryDate).toLocaleDateString('en-IN')}</Typography>
+                        : <Typography variant="body2" color="text.disabled">—</Typography>}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>{inr(so.totalAmount)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={STATUS_LABELS[so.status] || so.status}
+                        color={STATUS_COLORS[so.status] || 'default'} sx={{ fontWeight: 700, mb: showProgress ? 0.5 : 0 }} />
+                      {showProgress && totalQty > 0 && (
+                        <Box sx={{ mt: 0.5 }}>
+                          <LinearProgress variant="determinate"
+                            value={Math.min(100, pct)}
+                            sx={{ height: 4, borderRadius: 2 }}
+                            color={pct >= 100 ? 'success' : pct > 0 ? 'warning' : 'primary'}
+                          />
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
+                            {filledQty} / {totalQty} fulfilled
+                          </Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      {EDITABLE.has(so.status) ? (
+                        <Tooltip title="Edit">
+                          <IconButton size="small" onClick={() => navigate(`/sales-orders/${so.id}/edit`)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="View">
+                          <IconButton size="small" onClick={() => navigate(`/sales-orders/${so.id}/edit`)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Download PDF">
+                        <IconButton size="small" onClick={() => handleDownload(so)}>
+                          <DownloadIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {so.status === 'DRAFT' && (
+                        <Tooltip title="Approve (reserve stock)">
+                          <IconButton size="small" color="success"
+                            onClick={() => guarded(() => approveSalesOrder(so.id), 'Approve')}>
+                            <CheckCircleIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {CONVERTIBLE.has(so.status) && (
+                        <Tooltip title="Convert to Sale">
+                          <IconButton size="small" color="primary" onClick={() => openConvertDialog(so)}>
+                            <ArrowForwardIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {(so.status === 'DRAFT' || so.status === 'APPROVED' || so.status === 'PARTIALLY_FULFILLED') && (
+                        <Tooltip title="Cancel">
+                          <IconButton size="small" color="error"
+                            onClick={() => guarded(() => cancelSalesOrder(so.id), 'Cancel')}>
+                            <CancelIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -418,198 +352,90 @@ const SalesOrders = () => {
         />
       </Paper>
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onClose={() => !submitting && setCreateOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>New Sales Order</DialogTitle>
+      {/* Convert-to-Sale dialog (partial fulfillment) */}
+      <Dialog open={convertTarget !== null}
+        onClose={() => !converting && setConvertTarget(null)}
+        maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Convert to Sale — {convertTarget?.orderNo}
+        </DialogTitle>
         <DialogContent dividers>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="caption">Customer</Typography>
-              <ReactSelect
-                options={customerOptions}
-                value={customerOptions.find((c) => c.value === form.customerId) || null}
-                onChange={(opt) => setForm((p) => ({ ...p, customerId: opt?.value || null }))}
-                isClearable
-                placeholder="Select customer (optional)"
-                menuPortalTarget={document.body}
-                styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField
-                label="Expected Delivery"
-                type="date"
-                value={form.expectedDeliveryDate}
-                onChange={(e) => setForm((p) => ({ ...p, expectedDeliveryDate: e.target.value }))}
-                fullWidth size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>GST</InputLabel>
-                <Select
-                  value={form.isGstRequired ? 'yes' : 'no'}
-                  onChange={(e) => setForm((p) => ({ ...p, isGstRequired: e.target.value === 'yes' }))}
-                  label="GST"
-                >
-                  <MenuItem value="yes">Apply GST</MenuItem>
-                  <MenuItem value="no">No GST</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}><Divider sx={{ my: 1 }} /><Typography variant="subtitle2">Line Items</Typography></Grid>
-
-            {form.items.map((it, i) => (
-              <React.Fragment key={i}>
-                <Grid item xs={12} md={5}>
-                  {!it.isCustom ? (
-                    <>
-                      <Typography variant="caption">Product</Typography>
-                      <ReactSelect
-                        options={variantOptions}
-                        value={variantOptions.find((v) => v.value === it.itemVariantId) || null}
-                        onChange={(opt) => handleAddCatalogItem(i, opt)}
-                        placeholder="Select product..."
-                        menuPortalTarget={document.body}
-                        styles={{ menuPortal: (b) => ({ ...b, zIndex: 9999 }) }}
-                      />
-                      <Button size="small" onClick={() => handleToggleCustomItem(i)} sx={{ mt: 0.5, textTransform: 'none' }}>
-                        + Custom / service line instead
-                      </Button>
-                    </>
-                  ) : (
-                    <TextField label="Custom item description" value={it.customItemName}
-                      onChange={(e) => handleItemChange(i, 'customItemName', e.target.value)}
-                      fullWidth size="small" required />
-                  )}
-                </Grid>
-                <Grid item xs={4} md={1}>
-                  <TextField label="Qty" type="number" value={it.qty}
-                    onChange={(e) => handleItemChange(i, 'qty', e.target.value)}
-                    inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-                </Grid>
-                <Grid item xs={4} md={2}>
-                  <TextField label="Unit Price" type="number" value={it.unitPrice}
-                    onChange={(e) => handleItemChange(i, 'unitPrice', e.target.value)}
-                    inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-                </Grid>
-                <Grid item xs={4} md={1}>
-                  <TextField label="Disc" type="number" value={it.discount}
-                    onChange={(e) => handleItemChange(i, 'discount', e.target.value)}
-                    inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-                </Grid>
-                <Grid item xs={6} md={1.5}>
-                  <TextField label="GST %" type="number" value={it.gstRate}
-                    onChange={(e) => handleItemChange(i, 'gstRate', e.target.value)}
-                    inputProps={{ min: 0, max: 28, step: 1 }} fullWidth size="small"
-                    disabled={!form.isGstRequired} />
-                </Grid>
-                <Grid item xs={6} md={1.5} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ flex: 1, textAlign: 'right' }}>₹{rowTotal(it).toFixed(2)}</Typography>
-                  <IconButton size="small" onClick={() => handleRemoveRow(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
-                </Grid>
-              </React.Fragment>
-            ))}
-
-            <Grid item xs={12}><Button size="small" startIcon={<AddIcon />} onClick={handleAddRow}>Add line item</Button></Grid>
-            <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-
-            <Grid item xs={12} md={4}>
-              <TextField label="Invoice-level discount" type="number" value={form.invoiceDiscount}
-                onChange={(e) => setForm((p) => ({ ...p, invoiceDiscount: e.target.value }))}
-                inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField label="Shipping" type="number" value={form.shippingCharges}
-                onChange={(e) => setForm((p) => ({ ...p, shippingCharges: e.target.value }))}
-                inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField label="Other charges" type="number" value={form.otherCharges}
-                onChange={(e) => setForm((p) => ({ ...p, otherCharges: e.target.value }))}
-                inputProps={{ min: 0, step: '0.01' }} fullWidth size="small" />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField label="Notes" value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                fullWidth size="small" multiline minRows={2} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField label="Terms & conditions" value={form.terms}
-                onChange={(e) => setForm((p) => ({ ...p, terms: e.target.value }))}
-                fullWidth size="small" multiline minRows={2}
-                helperText="Leave blank to use your shop's default terms" />
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
-                <Typography variant="body1">Total:</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>₹{grandTotal}</Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit} disabled={submitting}
-            startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}>
-            {submitting ? 'Saving...' : 'Create Sales Order'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Convert-to-Sale Dialog with per-line qty */}
-      <Dialog open={convertTarget !== null} onClose={() => setConvertTarget(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Convert to Sale</DialogTitle>
-        <DialogContent dividers>
-          {convertTarget && (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter the quantity you want to invoice for each line. Leaving a qty at 0 skips that line.
-                Partial fulfillment is allowed — remaining qty stays on the order for the next invoice.
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>Item</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>Ordered</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>Already Fulfilled</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>Fulfill Now</TableCell>
+          <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+            Enter the quantity to fulfill on each line. Leave 0 to skip a line for now — you can convert the rest later. A DRAFT sale will be created for the selected quantities.
+          </Alert>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: 'action.hover' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 800 }}>Item</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Ordered</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Already Fulfilled</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Remaining</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800, minWidth: 130 }}>Fulfill Now</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Line Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(convertTarget?.items || []).map((it) => {
+                  const remaining = Math.max(0, Number(it.qty || 0) - Number(it.fulfilledQty || 0));
+                  const qty = Number(convertLines[it.id] || 0);
+                  const value = qty * Number(it.unitPrice || 0);
+                  return (
+                    <TableRow key={it.id}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>{it.itemName}</Typography>
+                        <Typography variant="caption" color="text.secondary">{inr(it.unitPrice)} / unit</Typography>
+                      </TableCell>
+                      <TableCell align="right">{it.qty}</TableCell>
+                      <TableCell align="right">
+                        {Number(it.fulfilledQty || 0) > 0
+                          ? <Chip size="small" label={it.fulfilledQty} color="warning" variant="outlined" />
+                          : '—'}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography fontWeight={700} color={remaining > 0 ? 'text.primary' : 'text.disabled'}>
+                          {remaining}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField size="small" type="number"
+                          value={convertLines[it.id] ?? ''}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const parsed = raw === '' ? 0 : Math.max(0, Math.min(remaining, Number(raw)));
+                            setConvertLines((prev) => ({ ...prev, [it.id]: parsed }));
+                          }}
+                          inputProps={{ min: 0, max: remaining, style: { textAlign: 'right' } }}
+                          disabled={remaining === 0}
+                          sx={{ width: 100 }} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography fontWeight={700} color={value > 0 ? 'primary.main' : 'text.disabled'}>
+                          {inr(value)}
+                        </Typography>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(convertTarget.items || []).map((it) => {
-                      const remaining = Number(it.qty || 0) - Number(it.fulfilledQty || 0);
-                      return (
-                        <TableRow key={it.id}>
-                          <TableCell>{it.itemName}</TableCell>
-                          <TableCell align="right">{Number(it.qty).toFixed(2)}</TableCell>
-                          <TableCell align="right">{Number(it.fulfilledQty || 0).toFixed(2)}</TableCell>
-                          <TableCell align="right">
-                            <TextField
-                              type="number" size="small"
-                              value={convertLines[it.id] ?? 0}
-                              onChange={(e) => setConvertLines((prev) => ({ ...prev, [it.id]: e.target.value }))}
-                              inputProps={{ min: 0, max: remaining, step: '0.01' }}
-                              sx={{ width: 120 }}
-                              disabled={remaining <= 0}
-                              helperText={remaining > 0 ? `max ${remaining.toFixed(2)}` : 'fully fulfilled'}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </>
-          )}
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Divider sx={{ my: 2 }} />
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+            <Typography variant="subtitle1" fontWeight={800}>Draft Sale Value (excl. tax)</Typography>
+            <Typography variant="h6" fontWeight={900} color="primary.main">{inr(convertTotal)}</Typography>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            Tax + discounts + shipping will be recalculated on the resulting sale.
+          </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConvertTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={submitConvert}>Create Sale Draft</Button>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setConvertTarget(null)} disabled={converting}>Cancel</Button>
+          <Button variant="contained" onClick={submitConvert}
+            disabled={converting || convertTotal <= 0}
+            startIcon={converting ? <CircularProgress size={16} color="inherit" /> : <ArrowForwardIcon />}>
+            {converting ? 'Converting…' : 'Create Draft Sale'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

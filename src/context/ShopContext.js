@@ -35,7 +35,6 @@ export const ShopProvider = ({ children }) => {
 
   // Calculate derived state
   const industryType = shop?.industryType || null;
-  const isPharmacy   = industryType === 'PHARMACY';
   const isJewellery  = industryType === 'JEWELLERY';
   const isElectronics = industryType === 'ELECTRONICS';
   const isAutomobile = industryType === 'AUTOMOBILE';
@@ -44,18 +43,16 @@ export const ShopProvider = ({ children }) => {
   const isStationery = industryType === 'STATIONERY';
 
   // Log the state of variables on every render
-  console.log("🔄 ShopProvider Render:", { 
-    shopExists: !!shop, 
-    industryType, 
-    isPharmacy, 
-    shopLoading 
+  console.log("🔄 ShopProvider Render:", {
+    shopExists: !!shop,
+    industryType,
+    shopLoading
   });
 
   return (
     <ShopContext.Provider value={{
       shop, shopLoading,
       industryType,
-      isPharmacy,
       isJewellery,
       isElectronics,
       isAutomobile,
@@ -75,7 +72,7 @@ export const useShop = () => {
     return {
       shop: null, shopLoading: true,
       industryType: null,
-      isPharmacy: false, isJewellery: false, isElectronics: false,
+      isJewellery: false, isElectronics: false,
       isAutomobile: false, isClothing: false, isHardware: false, isStationery: false,
     };
   }

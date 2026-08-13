@@ -48,13 +48,6 @@ export default function ReviewStepContent({
       color: 'Coating',
       fit: 'Mounting'
     },
-    PHARMACY: {
-      attr1: 'Dosage Form',
-      attr2: 'Storage',
-      size: 'Strength',
-      color: 'Visual Ref',
-      fit: 'Usage'
-    },
     GROCERY: {
       attr1: 'Packaging',
       attr2: 'Dietary',
@@ -131,16 +124,6 @@ export default function ReviewStepContent({
               <Divider sx={{ borderColor: 'divider' }} />
               <DetailRow label={labels.attr1} value={itemFormData.attribute1} />
               <DetailRow label={labels.attr2} value={itemFormData.attribute2} />
-              {/* Pharmacy-specific item fields */}
-              {shopCategory === 'PHARMACY' && itemFormData.drugSchedule && (
-                <DetailRow label={t('itemsPage.form.drugSchedule')} value={itemFormData.drugSchedule.replace(/_/g, ' ')} />
-              )}
-              {shopCategory === 'PHARMACY' && (
-                <DetailRow
-                  label={t('itemsPage.form.requiresPrescription')}
-                  value={itemFormData.requiresPrescription ? t('common.yes') : t('common.no')}
-                />
-              )}
             </Stack>
 
             {itemFormData.description && (

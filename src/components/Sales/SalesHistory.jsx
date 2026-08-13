@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Table,
   TableBody,
@@ -32,6 +33,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Tabs,
+  Tab,
   alpha,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -59,15 +62,10 @@ import EInvoiceStatusBadge from '../EInvoice/EInvoiceStatusBadge';
 
 import API, {
   fetchSalesHistory,
-  getSaleById,
-  processSaleReturn,
   cancelSale,
   generateEInvoice,
   cancelEInvoice,
   fetchEWayBillThreshold,
-  findCreditNotesBySale,
-  getCreditNoteSignedUrl,
-  downloadReceiptPdf,
   updateSaleNotes,
   convertProformaToInvoice,
   resumeSale,
@@ -161,6 +159,7 @@ const csvCell = (value) => {
 };
 
 const SalesHistory = ({ onResume, refreshTrigger }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { shop } = useShop();
@@ -197,16 +196,9 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const [exporting, setExporting] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(null); // Track which sale's invoice is loading
 
-  // Modal States
-  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  // Modal States — returns now navigate to /sales/return; only cancel dialog stays inline.
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
-
-  // Return Logic States
-  const [returnItems, setReturnItems] = useState([]);
-  const [returnReason, setReturnReason] = useState('');
-  const [isRefundPayment, setIsRefundPayment] = useState(false);
 
   // Cancel Logic State
   const [cancelReason, setCancelReason] = useState('');
@@ -258,7 +250,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     setEinvoiceLoading(saleId);
     try {
       const resData = await generateEInvoice(saleId);
-      showSnackbar('E-Invoice IRN generated successfully!', 'success');
+      showSnackbar(t('salesFlow.history.eInvoiceGenerated'), 'success');
       setSalesHistory(prev => {
         const updateItem = (s) => ((s.id || s.saleId) === saleId) ? {
           ...s,
@@ -275,7 +267,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       loadData();
     } catch (err) {
       console.error('E-Invoice Error:', err);
-      showSnackbar(err?.response?.data?.message || 'Failed to generate E-Invoice', 'error');
+      showSnackbar(err?.response?.data?.message || t('salesFlow.history.failedEInvoice'), 'error');
     } finally {
       setEinvoiceLoading(null);
     }
@@ -286,7 +278,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     setEinvoiceLoading(saleId);
     try {
       const resData = await cancelEInvoice(saleId, 'Cancelled via portal');
-      showSnackbar('E-Invoice IRN cancelled successfully!', 'success');
+      showSnackbar(t('salesFlow.history.eInvoiceCancelled'), 'success');
       setSalesHistory(prev => {
         const updateItem = (s) => ((s.id || s.saleId) === saleId) ? {
           ...s,
@@ -299,7 +291,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       loadData();
     } catch (err) {
       console.error('Cancel E-Invoice Error:', err);
-      showSnackbar(err?.response?.data?.message || 'Failed to cancel E-Invoice', 'error');
+      showSnackbar(err?.response?.data?.message || t('salesFlow.history.failedCancelEInvoice'), 'error');
     } finally {
       setEinvoiceLoading(null);
     }
@@ -439,7 +431,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
           setTotalElements(0);
         }
       })
-      .catch(() => showSnackbar('Failed to load sales history', 'error'))
+      .catch(() => showSnackbar(t('salesFlow.history.failedLoadHistory'), 'error'))
       .finally(() => setLoading(false));
   }, [page, rowsPerPage, debouncedSearch, statusFilter, startDate, endDate, showSnackbar]);
 
@@ -458,10 +450,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   useEffect(() => {
     setPage(0);
   }, [debouncedSearch, statusFilter, startDate, endDate]);
-
-  const totalReturnValue = useMemo(() => {
-    return returnItems.reduce((acc, item) => acc + item.returnQuantity * item.unitPrice, 0);
-  }, [returnItems]);
 
   // ============ INVOICE HELPERS (FIXED) ============
 
@@ -510,7 +498,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       );
 
       if (!previewWindow || previewWindow.closed) {
-        showSnackbar('Popup blocked. Please allow popups to view the invoice.', 'warning');
+        showSnackbar(t('salesFlow.history.popupBlocked'), 'warning');
         URL.revokeObjectURL(fileURL);
       } else {
         // Revoke URL after 2 minutes
@@ -520,7 +508,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       }
     } catch (err) {
       console.error('Preview Error:', err);
-      showSnackbar('Failed to open invoice preview', 'error');
+      showSnackbar(t('salesFlow.history.failedPreview'), 'error');
     }
   };
 
@@ -563,10 +551,10 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
         URL.revokeObjectURL(fileURL);
       }, 100);
 
-      showSnackbar('Invoice downloaded successfully', 'success');
+      showSnackbar(t('salesFlow.history.downloadedSuccess'), 'success');
     } catch (err) {
       console.error('Download Error:', err);
-      showSnackbar('Failed to download invoice', 'error');
+      showSnackbar(t('salesFlow.history.failedDownload'), 'error');
     }
   };
 
@@ -578,7 +566,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       await openInvoiceBlobPreview(signedPath);
     } catch (err) {
       console.error('Print Invoice Error:', err);
-      showSnackbar('Could not generate PDF', 'error');
+      showSnackbar(t('salesFlow.history.couldNotGeneratePdf'), 'error');
     } finally {
       setInvoiceLoading(null);
     }
@@ -592,7 +580,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
       await downloadInvoiceBlob(signedPath, `invoice_${sale.invoiceNo || saleId}.pdf`);
     } catch (err) {
       console.error('Download Invoice Error:', err);
-      showSnackbar('Failed to download invoice', 'error');
+      showSnackbar(t('salesFlow.history.failedDownload'), 'error');
     } finally {
       setInvoiceLoading(null);
     }
@@ -637,86 +625,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
     } catch (err) {
       console.error('WhatsApp Invoice Error:', err);
       showSnackbar('Could not prepare WhatsApp link', 'error');
-    }
-  };
-
-  // ============ RETURN LOGIC ============
-
-  const handleOpenReturn = async (sale) => {
-    const saleId = sale.id || sale.saleId;
-    setSelectedSale(sale);
-    setReturnDialogOpen(true);
-    setLoadingDetails(true);
-    setReturnReason('');
-    setIsRefundPayment(false);
-
-    try {
-      const res = await getSaleById(saleId);
-      const items = res.data.items || [];
-
-      setReturnItems(
-        items.map((item) => ({
-          // Prefer the real sale-item PK (populated by the mapper as `saleItemId`);
-          // fall back to `item.id` (which is JSON-aliased to `itemVariantId` on the
-          // DTO — legacy path). The backend's return handler resolves either.
-          saleItemId: item.saleItemId ?? item.id,
-          itemName: item.itemName,
-          originalQty: item.qty,
-          returnedQty: item.returnedQty || 0,
-          netQty: item.netQty !== undefined ? item.netQty : item.qty - (item.returnedQty || 0),
-          unitPrice: item.unitPrice,
-          returnQuantity: 0,
-        })),
-      );
-    } catch (err) {
-      showSnackbar('Failed to load items for return', 'error');
-      setReturnDialogOpen(false);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const submitReturn = async () => {
-    const saleId = selectedSale?.id || selectedSale?.saleId;
-    const validItems = returnItems.filter((i) => i.returnQuantity > 0);
-
-    if (validItems.length === 0) {
-      showSnackbar('Please enter a return quantity for at least one item', 'warning');
-      return;
-    }
-
-    const payload = {
-      saleId,
-      reason: returnReason,
-      refundPayment: isRefundPayment,
-      returnItems: validItems.map((i) => ({
-        saleItemId: i.saleItemId,
-        returnQuantity: Number(i.returnQuantity),
-      })),
-    };
-
-    try {
-      await processSaleReturn(saleId, payload);
-      showSnackbar('Return processed successfully — downloading credit note');
-      setReturnDialogOpen(false);
-      loadData();
-      // Best-effort: fetch the credit note that was just issued and trigger a download.
-      // Failure here should not surface as an error — the return itself already succeeded.
-      try {
-        const notes = await findCreditNotesBySale(saleId);
-        if (notes && notes.length > 0) {
-          const latest = notes[0];
-          const signedPath = await getCreditNoteSignedUrl(latest.id);
-          await downloadReceiptPdf(
-            signedPath,
-            `credit_note_${(latest.creditNoteNo || latest.id).toString().replace(/[\/\\]/g, '_')}.pdf`,
-          );
-        }
-      } catch (dlErr) {
-        console.warn('Return succeeded but credit note download failed', dlErr);
-      }
-    } catch (err) {
-      showSnackbar(err.response?.data?.message || 'Return failed', 'error');
     }
   };
 
@@ -832,6 +740,17 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                 </IconButton>
               </span>
             </Tooltip>
+            <Tooltip title="Process a return by invoice number">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AssignmentReturnIcon />}
+                onClick={() => navigate('/sales/return')}
+                sx={{ borderRadius: 2, fontWeight: 600, textTransform: 'none' }}
+              >
+                Process Return
+              </Button>
+            </Tooltip>
             <Button
               variant="outlined"
               size="small"
@@ -844,6 +763,35 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             </Button>
           </Stack>
         </Stack>
+
+        <Tabs
+          value={statusFilter === 'DRAFT' ? 1 : statusFilter === 'HELD' ? 2 : 0}
+          onChange={(_, next) => {
+            const nextFilter = next === 1 ? 'DRAFT' : next === 2 ? 'HELD' : '';
+            setStatusFilter(nextFilter);
+            setPage(0);
+          }}
+          sx={{
+            minHeight: 36,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              minHeight: 36,
+              py: 0.5,
+              px: 2,
+              color: 'text.secondary',
+              '&.Mui-selected': { color: 'text.primary' },
+            },
+            '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 2 },
+          }}
+        >
+          <Tab label={t('salesFlow.history.allTab')} />
+          <Tab label={t('salesFlow.history.draftsTab')} />
+          <Tab label={t('salesFlow.history.heldTab')} />
+        </Tabs>
 
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -1068,7 +1016,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                               <Tooltip title="Return items">
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleOpenReturn(sale)}
+                                  onClick={() => navigate(`/sales/return?invoice=${encodeURIComponent(sale.invoiceNo || '')}`)}
                                   aria-label="Return items"
                                 >
                                   <AssignmentReturnIcon fontSize="small" />
@@ -1531,127 +1479,6 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTimelineDialog({ open: false, sale: null })}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* RETURN DIALOG */}
-      <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, bgcolor: alpha(theme.primary, 0.04), color: theme.textPrimary }}>
-          Process Return: {selectedSale?.invoiceNo}
-        </DialogTitle>
-        <DialogContent dividers>
-          {loadingDetails ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
-              <CircularProgress size={30} sx={{ color: theme.primary }} />
-              <Typography variant="caption" color={theme.textSecondary}>Loading purchased items...</Typography>
-            </Box>
-          ) : (
-            <Stack spacing={3} sx={{ mt: 1 }}>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: alpha(theme.primary, 0.04) }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 800 }}>Item Description</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 800 }}>
-                        Available
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800 }}>
-                        Returning
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {returnItems.map((item, index) => (
-                      <TableRow key={item.saleItemId}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {item.itemName}
-                          </Typography>
-                          <Typography variant="caption" color={theme.textSecondary}>
-                            {formatAmount(item.unitPrice)} / unit
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title={`Original Purchase: ${item.originalQty}`}>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                {item.netQty}
-                              </Typography>
-                              {item.returnedQty > 0 && (
-                                <Typography variant="caption" sx={{ color: theme.danger }}>
-                                  ({item.returnedQty} already ret.)
-                                </Typography>
-                              )}
-                            </Box>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell align="right">
-                          <TextField
-                            type="number"
-                            size="small"
-                            value={item.returnQuantity}
-                            disabled={item.netQty <= 0}
-                            onChange={(e) => {
-                              const val = Math.min(item.netQty, Math.max(0, Number(e.target.value)));
-                              const newItems = [...returnItems];
-                              newItems[index].returnQuantity = val;
-                              setReturnItems(newItems);
-                            }}
-                            sx={{ width: 80 }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-
-                    <TableRow sx={{ bgcolor: alpha(theme.success, 0.05) }}>
-                      <TableCell colSpan={2} align="right">
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          Total Return Value:
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="subtitle2" sx={{ fontWeight: 900, color: theme.success }}>
-                          {formatAmount(totalReturnValue)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <TextField
-                fullWidth
-                label="Reason for return"
-                multiline
-                rows={2}
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
-              />
-
-              <Box sx={{ p: 2, bgcolor: alpha(theme.warning, 0.08), borderRadius: 2, border: `1px solid ${alpha(theme.warning, 0.2)}` }}>
-                <FormControlLabel
-                  control={<Checkbox checked={isRefundPayment} onChange={(e) => setIsRefundPayment(e.target.checked)} />}
-                  label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Issue Refund / Add to Customer Credit?</Typography>}
-                />
-                <Typography variant="caption" display="block" color={theme.textSecondary} sx={{ ml: 4, mt: 0.5 }}>
-                  This will reduce the invoice total and adjust the customer's ledger balance.
-                </Typography>
-              </Box>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: alpha(theme.primary, 0.04) }}>
-          <Button onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={submitReturn}
-            disabled={loadingDetails || totalReturnValue <= 0}
-            startIcon={<AssignmentReturnIcon />}
-            sx={{ textTransform: 'none', fontWeight: 700 }}
-          >
-            Confirm Return {totalReturnValue > 0 && `(${formatAmount(totalReturnValue)})`}
-          </Button>
         </DialogActions>
       </Dialog>
 

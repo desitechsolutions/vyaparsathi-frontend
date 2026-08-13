@@ -23,7 +23,6 @@ import {
 } from '../services/api';
 import StockTransferModal from '../components/stock/StockTransferModal';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import { useShop } from '../context/ShopContext';
 import { useTranslation } from 'react-i18next';
 
 const initialFormState = { itemVariantId: '', quantity: '', batch: '', costPerUnit: '', newRetailPrice: '', reason: '', manufacturingDate: '', expiryDate: '' };
@@ -36,7 +35,6 @@ const formatCurrency = (val) =>
 
 const Stock = () => {
   const { t } = useTranslation();
-  const { isPharmacy } = useShop();
 
   const [stock, setStock] = useState([]);
   const [batchStock, setBatchStock] = useState([]);
@@ -46,10 +44,9 @@ const Stock = () => {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  // 0 = Summary view, 1 = Batch-wise view (pharmacy only)
+  // 0 = Summary view, 1 = Batch-wise view
   const [viewTab, setViewTab] = useState(0);
 
-  // Import state (pharmacy only)
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importResult, setImportResult] = useState(null);
@@ -75,8 +72,7 @@ const Stock = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const promises = [fetchStock(), fetchItemVariants()];
-      if (isPharmacy) promises.push(fetchBatchWiseStock());
+      const promises = [fetchStock(), fetchItemVariants(), fetchBatchWiseStock()];
       const [stockRes, variantsRes, batchRes] = await Promise.all(promises);
       if (Array.isArray(stockRes.data)) {
         setStock(stockRes.data.map((item) => ({ ...item, id: item.itemVariantId })));
@@ -351,11 +347,10 @@ const Stock = () => {
     },
   ];
 
-  // Batch-wise columns for pharmacy
   const batchColumns = [
     {
       field: 'itemName',
-      headerName: 'Medicine / Product',
+      headerName: 'Product',
       flex: 1.5, minWidth: 200,
       renderCell: (params) => (
         <Box sx={{ py: 1 }}>
@@ -464,17 +459,15 @@ const Stock = () => {
             <Button variant="outlined" startIcon={<FileDownload />} onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}>
               {t('stock.actions.export')}
             </Button>
-            {isPharmacy && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<FileUploadIcon />}
-                onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
-                sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}
-              >
-                {t('stock.actions.bulkImport')}
-              </Button>
-            )}
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<FileUploadIcon />}
+              onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
+              sx={{ borderRadius: 2, fontWeight: 700, height: 48 }}
+            >
+              {t('stock.actions.bulkImport')}
+            </Button>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 2, px: 4, fontWeight: 700, height: 48, boxShadow: 3 }}>
               {t('stock.actions.addNewStock')}
             </Button>
@@ -509,18 +502,16 @@ const Stock = () => {
         </Grid>
 
         <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-          {isPharmacy && (
-            <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Tabs
-                value={viewTab}
-                onChange={(_, v) => setViewTab(v)}
-                sx={{ px: 2, '& .MuiTab-root': { fontWeight: 700 } }}
-              >
-                <Tab label={t('stock.tabs.summaryView')} />
-                <Tab label={t('stock.tabs.batchWiseView')} icon={<BatchIcon fontSize="small" />} iconPosition="start" />
-              </Tabs>
-            </Box>
-          )}
+          <Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Tabs
+              value={viewTab}
+              onChange={(_, v) => setViewTab(v)}
+              sx={{ px: 2, '& .MuiTab-root': { fontWeight: 700 } }}
+            >
+              <Tab label={t('stock.tabs.summaryView')} />
+              <Tab label={t('stock.tabs.batchWiseView')} icon={<BatchIcon fontSize="small" />} iconPosition="start" />
+            </Tabs>
+          </Box>
           <Stack direction="row" sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }} spacing={2} justifyContent="space-between">
             <TextField 
               size="small" 
@@ -536,7 +527,7 @@ const Stock = () => {
               {t('stock.actions.analytics')}
             </Button>
           </Stack>
-          {(!isPharmacy || viewTab === 0) && (
+          {viewTab === 0 && (
             <Box sx={{ height: 600, width: '100%' }}>
               <DataGrid 
                 rows={filteredRows} 
@@ -552,7 +543,7 @@ const Stock = () => {
               />
             </Box>
           )}
-          {isPharmacy && viewTab === 1 && (
+          {viewTab === 1 && (
             <Box sx={{ height: 600, width: '100%' }}>
               <DataGrid
                 rows={batchStock.filter(
@@ -574,7 +565,7 @@ const Stock = () => {
         </Paper>
       </Container>
 
-      {/* Bulk Import Dialog (pharmacy only) */}
+      {/* Bulk Import Dialog */}
       <Dialog open={importDialogOpen} onClose={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
         <DialogTitle sx={{ fontWeight: 900, pt: 3 }}>
           <Stack direction="row" spacing={1} alignItems="center">
