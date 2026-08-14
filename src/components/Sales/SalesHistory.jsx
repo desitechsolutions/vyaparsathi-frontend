@@ -53,6 +53,10 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import CloseIcon from '@mui/icons-material/Close';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -110,6 +114,79 @@ const StatusDot = ({ color, label, muted = false }) => (
   </Box>
 );
 
+/**
+ * Compact KPI tile — icon on the left, label + value stacked on the right.
+ * Neutral by default; `emphasis="warning"` tints the value warning-amber for
+ * outstanding-dues style attention without loading a red-alert visual.
+ */
+const KpiTile = ({ icon, label, value, hint, emphasis = 'neutral', theme }) => {
+  const valueColor =
+    emphasis === 'warning'
+      ? (theme?.warning || '#b45309')
+      : 'text.primary';
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        flex: 1,
+        p: 1.5,
+        borderRadius: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Box
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 1.5,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+          color: 'primary.main',
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2, letterSpacing: 0.2 }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            color: valueColor,
+            lineHeight: 1.25,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {value}
+        </Typography>
+        {hint && (
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem', lineHeight: 1.2 }}
+          >
+            {hint}
+          </Typography>
+        )}
+      </Box>
+    </Paper>
+  );
+};
+
 const SALE_STATUS_META = {
   COMPLETED:          { label: 'Completed',           colorKey: 'success' },
   DRAFT:              { label: 'Draft',               colorKey: 'warning' },
@@ -134,6 +211,17 @@ const formatShortDate = (d) => {
 };
 
 const getPaymentStatus = (dueAmount) => (Number(dueAmount) <= 0 ? 'PAID' : 'DUE');
+
+// A sale can accept a fresh payment / a return only while it is committed and
+// not fully reversed — mirrors SaleService.mapDtoActionable (COMPLETED /
+// PARTIALLY_RETURNED). Anything else (DRAFT, HELD, RETURNED, CANCELLED) is
+// either pre-commit or terminal.
+const isFinancialActionable = (status) =>
+  status === 'COMPLETED' || status === 'PARTIALLY_RETURNED';
+
+// DRAFT/HELD rows aren't committed, so ledger/dues/delivery are all N/A —
+// the expanded row switches to a slimmer summary layout for them.
+const isPreCommit = (status) => status === 'DRAFT' || status === 'HELD';
 
 const isToday = (dateString) => {
   const d = new Date(dateString);
@@ -662,6 +750,43 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   // Backend already paginated — render the returned page as-is.
   const paginatedSales = filteredSales;
 
+  // Page-scope aggregates for the KPI strip. Labeled "on this page" in the UI so
+  // the operator knows these totals move with pagination. Cancelled rows are
+  // ignored since they never contributed to revenue. DRAFT/HELD are excluded
+  // from Revenue but included in the count so the count matches `totalElements`.
+  const pageStats = useMemo(() => {
+    const list = Array.isArray(filteredSales) ? filteredSales : [];
+    let revenue = 0;
+    let outstanding = 0;
+    let counted = 0;
+    for (const s of list) {
+      const status = s.status;
+      if (status === 'CANCELLED') continue;
+      if (!isPreCommit(status)) {
+        revenue += Number(s.totalAmount || 0);
+        outstanding += Math.max(0, Number(s.dueAmount || 0));
+      }
+      counted += 1;
+    }
+    return { revenue, outstanding, counted };
+  }, [filteredSales]);
+
+  const hasActiveFilters = Boolean(
+    debouncedSearch || statusFilter || startDate || endDate
+  );
+
+  const handleClearAllFilters = () => {
+    setSearch('');
+    setDebouncedSearch('');
+    setStatusFilter('');
+    setStartDate('');
+    setEndDate('');
+    setPage(0);
+    const p = new URLSearchParams(location.search);
+    p.delete('search');
+    navigate({ search: p.toString() }, { replace: true });
+  };
+
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearch(value);
@@ -764,6 +889,39 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
           </Stack>
         </Stack>
 
+        {/* KPI strip — three tiles summarising the current filter. Count is
+            authoritative (server totalElements across all pages); money tiles
+            are labeled "on this page" because we don't have a server-side
+            aggregate endpoint yet. Explicit label > silently misleading total. */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          sx={{ display: { xs: 'none', sm: 'flex' } }}
+        >
+          <KpiTile
+            icon={<FormatListNumberedIcon fontSize="small" />}
+            label="Sales in filter"
+            value={loading ? '—' : totalElements.toLocaleString('en-IN')}
+            hint={hasActiveFilters ? 'Filtered' : 'All time'}
+            theme={theme}
+          />
+          <KpiTile
+            icon={<TrendingUpIcon fontSize="small" />}
+            label="Revenue on this page"
+            value={loading ? '—' : formatAmount(pageStats.revenue)}
+            hint={`${pageStats.counted} rows shown`}
+            theme={theme}
+          />
+          <KpiTile
+            icon={<AccountBalanceWalletOutlinedIcon fontSize="small" />}
+            label="Outstanding on this page"
+            value={loading ? '—' : formatAmount(pageStats.outstanding)}
+            hint={pageStats.outstanding > 0 ? 'Follow up on dues' : 'All settled'}
+            emphasis={pageStats.outstanding > 0 ? 'warning' : 'neutral'}
+            theme={theme}
+          />
+        </Stack>
+
         <Tabs
           value={statusFilter === 'DRAFT' ? 1 : statusFilter === 'HELD' ? 2 : 0}
           onChange={(_, next) => {
@@ -809,6 +967,18 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                   <SearchIcon fontSize="small" />
                 </InputAdornment>
               ),
+              endAdornment: search ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleSearchChange({ target: { value: '' } })}
+                    edge="end"
+                    aria-label="Clear search"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
             }}
             sx={{ minWidth: { sm: 260 } }}
           />
@@ -849,6 +1019,23 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
             <MenuItem value="RETURNED">Returned</MenuItem>
             <MenuItem value="CANCELLED">Cancelled</MenuItem>
           </TextField>
+
+          {hasActiveFilters && (
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<CloseIcon fontSize="small" />}
+              onClick={handleClearAllFilters}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                color: 'text.secondary',
+                alignSelf: { xs: 'flex-start', sm: 'center' },
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
         </Stack>
       </Stack>
 
@@ -1012,7 +1199,7 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                               </Tooltip>
                             )}
 
-                            {sale.status !== 'DRAFT' && sale.status !== 'CANCELLED' && (
+                            {(sale.canReturn != null ? sale.canReturn : isFinancialActionable(sale.status)) && (
                               <Tooltip title="Return items">
                                 <IconButton
                                   size="small"
@@ -1054,40 +1241,60 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                 flexWrap="wrap"
                                 useFlexGap
                               >
-                                <Box>
-                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
-                                    Total
-                                  </Typography>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatAmount(sale.totalAmount)}
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
-                                    Paid
-                                  </Typography>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatAmount(Number(sale.totalAmount || 0) - Number(sale.dueAmount || 0))}
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
-                                    Due
-                                  </Typography>
-                                  <Typography variant="body2" sx={{
-                                    fontWeight: 600,
-                                    fontVariantNumeric: 'tabular-nums',
-                                    color: Number(sale.dueAmount) > 0 ? theme.danger : 'text.primary',
-                                  }}>
-                                    {formatAmount(sale.dueAmount)}
-                                  </Typography>
-                                </Box>
+                                {isPreCommit(sale.status) ? (
+                                  // DRAFT / HELD: not committed — no ledger, no delivery, no dues.
+                                  // Show the running cart total only, and let the user resume/discard
+                                  // via the row action + overflow menu.
+                                  <Box>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                      {sale.status === 'DRAFT' ? 'Draft total' : 'Held total'}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                      {formatAmount(sale.totalAmount)}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+                                      Not committed — resume to complete or discard.
+                                    </Typography>
+                                  </Box>
+                                ) : (
+                                  <>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                        Total
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                        {formatAmount(sale.totalAmount)}
+                                      </Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                        Paid
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                        {formatAmount(Number(sale.totalAmount || 0) - Number(sale.dueAmount || 0))}
+                                      </Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.72rem' }}>
+                                        Due
+                                      </Typography>
+                                      <Typography variant="body2" sx={{
+                                        fontWeight: 600,
+                                        fontVariantNumeric: 'tabular-nums',
+                                        color: Number(sale.dueAmount) > 0 ? theme.danger : 'text.primary',
+                                      }}>
+                                        {formatAmount(sale.dueAmount)}
+                                      </Typography>
+                                    </Box>
+                                  </>
+                                )}
 
                                 <Box sx={{ flexGrow: 1 }} />
 
-                                {/* Cross-link: open the customer's ledger + dues page. Only shown when
-                                    we actually have a customer id (walk-in sales don't get this). */}
-                                {sale.customerId && (
+                                {/* Customer profile — only for committed sales with a customer.
+                                    DRAFT/HELD may have a customer but the "dues" page is a
+                                    ledger view that doesn't make sense for uncommitted rows. */}
+                                {sale.customerId && !isPreCommit(sale.status) && (
                                   <Button
                                     variant="text"
                                     size="small"
@@ -1098,17 +1305,19 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                   </Button>
                                 )}
 
-                                {/* Cross-link: filter the Delivery Management page to this sale.
-                                    Uses the ?saleId= param the deliveries list already supports. */}
-                                <Button
-                                  variant="text"
-                                  size="small"
-                                  startIcon={<LocalShippingIcon fontSize="small" />}
-                                  onClick={() => navigate(`/delivery?saleId=${sale.saleId}`)}
-                                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-                                >
-                                  Delivery
-                                </Button>
+                                {/* Delivery — only for committed sales. Deliveries can't exist
+                                    for DRAFT/HELD/CANCELLED rows on the server. */}
+                                {!isPreCommit(sale.status) && sale.status !== 'CANCELLED' && (
+                                  <Button
+                                    variant="text"
+                                    size="small"
+                                    startIcon={<LocalShippingIcon fontSize="small" />}
+                                    onClick={() => navigate(`/delivery?saleId=${sale.saleId}`)}
+                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+                                  >
+                                    Delivery
+                                  </Button>
+                                )}
 
                                 {/* Proforma → Invoice conversion. Only shown for PROFORMA rows
                                     that aren't already cancelled/returned. Server enforces
@@ -1130,7 +1339,10 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
                                   </Button>
                                 )}
 
-                                {Number(sale.dueAmount) > 0 && (
+                                {/* Receive Payment — committed sales with an outstanding due only.
+                                    Excludes DRAFT/HELD (no ledger entry yet) and RETURNED/CANCELLED
+                                    (terminal states where the credit note has already zeroed dues). */}
+                                {isFinancialActionable(sale.status) && Number(sale.dueAmount) > 0 && (
                                   <Button
                                     variant="outlined"
                                     size="small"

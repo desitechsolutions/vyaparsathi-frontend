@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Box, Toolbar, Container } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import PremiumStatusBanner from '../../pages/PremiumStatusBanner';
 import SupportChatWidget from '../../pages/SupportChatWidget';
+import ErrorBoundary from '../common/ErrorBoundary';
 import { useAuthContext } from '../../context/AuthContext';
 
 const MainLayout = () => {
   const { user } = useAuthContext();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false); // Mobile menu state
 
   const handleDrawerToggle = () => {
@@ -43,15 +45,21 @@ const MainLayout = () => {
         <Toolbar />
         <PremiumStatusBanner />
 
-        <Container 
-          maxWidth="xl" 
-          sx={{ 
-            py: { xs: 2, md: 3 }, 
-            px: { xs: 1, sm: 2, md: 3 }, 
+        <Container
+          maxWidth="xl"
+          sx={{
+            py: { xs: 2, md: 3 },
+            px: { xs: 1, sm: 2, md: 3 },
             flexGrow: 1,
           }}
         >
-          <Outlet />
+          {/* Per-route error containment — a render crash in the active
+              page shows the fallback INSIDE this container, so the header +
+              sidebar + support widget stay usable. `resetKey` clears the
+              error automatically when the user navigates elsewhere. */}
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </Container>
 
         {!isSuperAdmin && hasShopId && (

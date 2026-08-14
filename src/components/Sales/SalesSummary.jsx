@@ -677,7 +677,7 @@ const SalesSummary = ({
           overflow: 'hidden',
           '&:last-child': { pb: 0 },
         }}>
-          {/* Header */}
+          {/* Header — matches the Customer section pattern (icon + uppercase caption). */}
           <Box sx={{
             px: 1.5,
             py: 1,
@@ -688,15 +688,18 @@ const SalesSummary = ({
             borderColor: 'divider',
             flexShrink: 0,
           }}>
-            <Typography variant="caption" sx={{
-              fontWeight: 600,
-              fontSize: '0.72rem',
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              color: 'text.secondary',
-            }}>
-              {t('salesFlow.summary.cartLabel')}{formData.items.length > 0 && ` · ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <ShoppingCartIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="caption" sx={{
+                fontWeight: 600,
+                fontSize: '0.72rem',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: 'text.secondary',
+              }}>
+                {t('salesFlow.summary.cartLabel')}{formData.items.length > 0 && ` · ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
+              </Typography>
+            </Box>
           </Box>
 
           {/* Table or Empty State */}

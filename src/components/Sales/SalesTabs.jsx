@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Tabs, Tab, Box } from '@mui/material';
 
-const SalesTabs = ({ value, onChange }) => {
+const SalesTabs = ({ value, onChange, rightSlot }) => {
   const handleChange = useMemo(() => (e, newValue) => onChange(newValue), [onChange]);
 
   return (
@@ -10,6 +10,10 @@ const SalesTabs = ({ value, onChange }) => {
       borderColor: 'divider',
       bgcolor: 'background.paper',
       px: { xs: 1, md: 2 },
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 1,
     }}>
       <Tabs
         value={value}
@@ -38,6 +42,11 @@ const SalesTabs = ({ value, onChange }) => {
         <Tab label="Create Sale" />
         <Tab label="Sales History" />
       </Tabs>
+      {rightSlot && (
+        <Box sx={{ display: 'flex', alignItems: 'center', pr: { xs: 0.5, md: 0 } }}>
+          {rightSlot}
+        </Box>
+      )}
     </Box>
   );
 };

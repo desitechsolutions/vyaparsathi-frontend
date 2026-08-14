@@ -5,7 +5,10 @@ import {
   updatePurchaseOrder,
   deletePurchaseOrder,
   getSuppliers,
-  submitPurchaseOrder // <-- Add this import (see note below)
+  submitPurchaseOrder,
+  cancelPurchaseOrder,
+  sendPurchaseOrder,
+  markReceivedPurchaseOrder,
 } from '../services/api';
 
 export const usePurchaseOrders = () => {
@@ -116,6 +119,46 @@ export const usePurchaseOrders = () => {
     }
   };
 
+  // V81 lifecycle actions — cancel requires a reason (BE enforces @NotBlank).
+  const handleCancelPO = async (poId, reason) => {
+    try {
+      await cancelPurchaseOrder(poId, reason);
+      showSnackbar('Purchase order cancelled.', 'success');
+      await fetchAllData();
+      return { success: true };
+    } catch (err) {
+      const errorMessage = err?.response?.data?.message || 'Failed to cancel purchase order.';
+      showSnackbar(errorMessage, 'error');
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const handleSendPO = async (poId) => {
+    try {
+      await sendPurchaseOrder(poId);
+      showSnackbar('Purchase order marked as sent to supplier.', 'success');
+      await fetchAllData();
+      return { success: true };
+    } catch (err) {
+      const errorMessage = err?.response?.data?.message || 'Failed to mark PO as sent.';
+      showSnackbar(errorMessage, 'error');
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const handleMarkReceived = async (poId) => {
+    try {
+      await markReceivedPurchaseOrder(poId);
+      showSnackbar('Purchase order marked as fully received.', 'success');
+      await fetchAllData();
+      return { success: true };
+    } catch (err) {
+      const errorMessage = err?.response?.data?.message || 'Failed to mark PO as received.';
+      showSnackbar(errorMessage, 'error');
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const filteredOrders = orders.filter((po) => {
     const poNumMatch = search.poNumber ? po.poNumber.toLowerCase().includes(search.poNumber.toLowerCase()) : true;
     const suppMatch = search.supplierId ? String(po.supplierId) === String(search.supplierId) : true;
@@ -138,6 +181,9 @@ export const usePurchaseOrders = () => {
     deleteDialog,       // Expose dialog state to UI
     handleCreateOrUpdate,
     handleSubmitPO,     // <-- expose to modal
+    handleCancelPO,
+    handleSendPO,
+    handleMarkReceived,
     handleSnackbarClose,
     refreshData: fetchAllData,
   };

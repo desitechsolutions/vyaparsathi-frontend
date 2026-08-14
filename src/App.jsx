@@ -42,6 +42,31 @@ function ThemedApp() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Global safety nets for async errors that ErrorBoundary can't catch:
+  // - `unhandledrejection` — an awaited/promised call that threw after any
+  //   try/catch, or a fetch chain missing a `.catch`. Without this handler
+  //   the page silently stays in a loading state; with it we at least log
+  //   the failure and can wire in a toast or Sentry later.
+  // - `error` — uncaught synchronous errors from event handlers (which
+  //   also bypass ErrorBoundary). React logs them anyway; we forward to
+  //   the same channel so the log site is one place, not two.
+  useEffect(() => {
+    const onRejection = (e) => {
+      // eslint-disable-next-line no-console
+      console.error('Unhandled promise rejection:', e.reason);
+    };
+    const onError = (e) => {
+      // eslint-disable-next-line no-console
+      console.error('Uncaught error:', e.error || e.message);
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection);
+      window.removeEventListener('error', onError);
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

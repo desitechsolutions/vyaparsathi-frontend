@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
-  Grid, TextField, Button, Typography,
-  Box, Collapse, Tooltip, Paper, Chip,
-  InputAdornment, alpha
+  Grid, TextField, Button, Typography, Box, Collapse, Tooltip, Paper, Chip,
+  InputAdornment, alpha, Autocomplete, Popover, Badge, Stack, Divider,
 } from '@mui/material';
 import Select from 'react-select';
 import TuneIcon from '@mui/icons-material/Tune';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import SearchIcon from '@mui/icons-material/Search';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import AddIcon from '@mui/icons-material/Add';
 import CustomItemDialog from './CustomItemDialog';
@@ -38,7 +36,7 @@ const getCustomSelectStyles = (theme) => {
       boxShadow: state.isFocused ? `0 0 0 1px ${primary}` : 'none',
       color: text,
       '&:hover': { borderColor: primary },
-      minHeight: '45px',
+      minHeight: '42px',
     }),
     menu: (base) => ({
       ...base,
@@ -49,7 +47,7 @@ const getCustomSelectStyles = (theme) => {
     menuList: (base) => ({
       ...base,
       backgroundColor: bg,
-      maxHeight: 200,
+      maxHeight: 220,
       overflowY: 'auto',
     }),
     option: (base, state) => ({
@@ -83,8 +81,8 @@ const INDUSTRY_FILTER_CONFIG = {
     ],
     advanced: [
       { label: 'Design / Print', key: 'design', options: 'uniqueDesigns' },
-      { label: 'Fabric', key: 'fabric', options: 'uniqueFabrics' },
-      { label: 'Season', key: 'season', options: 'uniqueSeasons' },
+      { label: 'Fabric', key: 'attribute1', options: 'uniqueAttribute1' },
+      { label: 'Season', key: 'attribute2', options: 'uniqueAttribute2' },
       { label: 'Fit', key: 'fit', options: 'uniqueFits' },
     ],
   },
@@ -146,96 +144,147 @@ const INDUSTRY_FILTER_CONFIG = {
 };
 
 const INDUSTRY_HEADER = {
-  CLOTHING: 'Clothing & Apparel Search',
-  ELECTRONICS: 'Electronics Search',
+  CLOTHING: 'Clothing & Apparel',
+  ELECTRONICS: 'Electronics',
   HARDWARE: 'Hardware & Building Materials',
-  AUTOMOBILE: 'Auto Parts Search',
-  STATIONERY: 'Stationery Search',
-  JEWELLERY: 'Jewellery Search',
+  AUTOMOBILE: 'Auto Parts',
+  STATIONERY: 'Stationery',
+  JEWELLERY: 'Jewellery',
 };
 
 // ============ SUB-COMPONENTS ============
 
 /**
- * Filter Bar Component
+ * Filters Popover — houses the tiered category/size/color/etc. selects
+ * behind a single trigger, replacing the always-visible filter grid.
  */
-const FilterBar = ({
+const FiltersPopover = ({
+  anchorEl,
+  open,
+  onClose,
   filterConfig,
   searchParams,
   handleChange,
+  optionsMap,
   showAdvanced,
   onToggleAdvanced,
   onReset,
-  optionsMap,
 }) => {
   const theme = useTheme();
   const selectStyles = getCustomSelectStyles(theme);
 
   return (
-    <Box sx={{ mt: 4 }}>
-      <Paper variant="outlined" sx={{
-        p: 2.5,
-        borderRadius: 3,
-        bgcolor: 'action.hover',
-        border: '1px solid',
-        borderColor: 'divider',
-      }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <FilterListIcon fontSize="small" sx={{ color: 'var(--color-teal)' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
-          Refine Results
-        </Typography>
-      </Box>
+    <Popover
+      open={open}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      PaperProps={{
+        sx: {
+          mt: 1,
+          p: 2.5,
+          width: { xs: 320, sm: 460 },
+          maxWidth: '95vw',
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+        },
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Refine results</Typography>
+        <Button
+          onClick={onReset}
+          variant="text"
+          size="small"
+          startIcon={<RestartAltIcon fontSize="small" />}
+          sx={{ textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
+        >
+          Reset
+        </Button>
+      </Stack>
 
-      <Grid container spacing={2}>
-        {filterConfig.main.map((f) => (
-          <Grid item xs={12} sm={4} key={f.key}>
-            <Select
-              isMulti={f.multi}
-              options={optionsMap[f.options]}
-              value={
-                f.multi
-                  ? (Array.isArray(searchParams[f.key]) && searchParams[f.key].length > 0
-                      ? optionsMap[f.options].filter((opt) => searchParams[f.key].includes(opt.value))
-                      : null)
-                  : (optionsMap[f.options].find((opt) => opt.value === searchParams[f.key]) || null)
-              }
-              onChange={(opt) => handleChange(f.key, opt, f.multi)}
-              placeholder={f.label}
-              styles={selectStyles}
-              menuPortalTarget={document.body}
-              isClearable
-            />
-          </Grid>
-        ))}
+      <Grid container spacing={1.5}>
+        {filterConfig.main.map((f) => {
+          // Default to [] when the config references an option-map key that
+          // hasn't been provided — happens when INDUSTRY_FILTER_CONFIG and
+          // the parent's optionsMap drift (see the V76 attribute1/2 rename).
+          const opts = optionsMap[f.options] || [];
+          return (
+            <Grid item xs={12} sm={6} key={f.key}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.72rem', display: 'block', mb: 0.5 }}>
+                {f.label}
+              </Typography>
+              <Select
+                isMulti={f.multi}
+                options={opts}
+                value={
+                  f.multi
+                    ? (Array.isArray(searchParams[f.key]) && searchParams[f.key].length > 0
+                        ? opts.filter((opt) => searchParams[f.key].includes(opt.value))
+                        : null)
+                    : (opts.find((opt) => opt.value === searchParams[f.key]) || null)
+                }
+                onChange={(opt) => handleChange(f.key, opt, f.multi)}
+                placeholder={`Any ${f.label.toLowerCase()}`}
+                styles={selectStyles}
+                menuPortalTarget={document.body}
+                isClearable={false}
+              />
+            </Grid>
+          );
+        })}
       </Grid>
 
-      <Collapse in={showAdvanced}>
-        <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${alpha('#0f766e', 0.08)}` }}>
-          <Grid container spacing={2}>
-            {filterConfig.advanced.map((f) => (
-              <Grid item xs={12} sm={3} key={f.key}>
-                <Select
-                  options={optionsMap[f.options]}
-                  value={optionsMap[f.options].find(opt => opt.value === searchParams[f.key]) || null}
-                  onChange={(opt) => handleChange(f.key, opt, false)}
-                  placeholder={f.label}
-                  styles={selectStyles}
-                  menuPortalTarget={document.body}
-                  isClearable
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      </Collapse>
-    </Paper>
-  </Box>
-);
+      {filterConfig.advanced?.length > 0 && (
+        <>
+          <Divider sx={{ my: 2 }} />
+          <Button
+            onClick={onToggleAdvanced}
+            variant="text"
+            size="small"
+            sx={{ textTransform: 'none', fontWeight: 600, mb: showAdvanced ? 1 : 0 }}
+          >
+            {showAdvanced ? 'Hide advanced' : 'Show advanced'}
+          </Button>
+          <Collapse in={showAdvanced}>
+            <Grid container spacing={1.5}>
+              {filterConfig.advanced.map((f) => {
+                const opts = optionsMap[f.options] || [];
+                return (
+                  <Grid item xs={12} sm={6} key={f.key}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.72rem', display: 'block', mb: 0.5 }}>
+                      {f.label}
+                    </Typography>
+                    <Select
+                      options={opts}
+                      value={opts.find(opt => opt.value === searchParams[f.key]) || null}
+                      onChange={(opt) => handleChange(f.key, opt, false)}
+                      placeholder={`Any ${f.label.toLowerCase()}`}
+                      styles={selectStyles}
+                      menuPortalTarget={document.body}
+                      isClearable={false}
+                    />
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Collapse>
+        </>
+      )}
+
+      <Stack direction="row" justifyContent="flex-end" mt={2}>
+        <Button onClick={onClose} variant="contained" size="small" sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
+          Done
+        </Button>
+      </Stack>
+    </Popover>
+  );
 };
 
 /**
- * Item Details Display
+ * Item Details Display — populated when a variant is selected.
  */
 const ItemDetails = ({
   selectedVariant,
@@ -262,9 +311,9 @@ const ItemDetails = ({
     <Box
       ref={itemDetailsRef}
       sx={{
-        mt: 3,
-        p: 3,
-        borderRadius: 4,
+        mt: 2.5,
+        p: 2.5,
+        borderRadius: 3,
         bgcolor: 'action.hover',
         border: '1px solid',
         borderColor: 'divider',
@@ -352,10 +401,10 @@ const ItemDetails = ({
             onClick={handleAddItem}
             disabled={!selectedVariant || !item.qty}
             sx={{
-              borderRadius: 3,
-              py: 2,
+              borderRadius: 2,
+              py: 1.5,
               textTransform: 'none',
-              fontWeight: 800,
+              fontWeight: 700,
               background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
               boxShadow: `0 4px 12px ${alpha('#0f766e', 0.08)}`,
               '&:hover': {
@@ -379,8 +428,6 @@ const ItemDetails = ({
   );
 };
 
-
-
 /**
  * Substitute Suggestions
  */
@@ -395,7 +442,7 @@ const SubstituteSuggestions = ({ substitutes, onSelectSubstitute, showSubstitute
         color="info"
         variant="outlined"
         onClick={onToggleSubstitutes}
-        sx={{ borderRadius: 2, fontWeight: 700 }}
+        sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
       >
         {substitutes.length} Substitute{substitutes.length > 1 ? 's' : ''}
       </Button>
@@ -448,12 +495,16 @@ const ItemSection = ({
   selectedVariant,
   item,
   setItem,
-  uniqueNames,
-  uniqueSkus,
+  uniqueNames, // preserved for parent API compatibility; no longer surfaced as a separate filter
+  uniqueSkus,  // ditto
   uniqueColors,
   uniqueSizes,
   uniqueDesigns,
   uniqueCategory,
+  // Canonical (V76) prop names — parent passes attribute1/attribute2-derived options.
+  uniqueAttribute1,
+  uniqueAttribute2,
+  // Legacy prop names — kept so any caller not yet migrated still works.
   uniqueFabrics,
   uniqueSeasons,
   uniqueFits,
@@ -467,30 +518,32 @@ const ItemSection = ({
   substitutes,
   onSelectSubstitute,
   industryType,
+  showSnackbar,
 }) => {
   const theme = useTheme();
-  const selectStyles = useMemo(() => getCustomSelectStyles(theme), [theme]);
 
   // ── STATE ──
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showSubstitutes, setShowSubstitutes] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [filtersAnchor, setFiltersAnchor] = useState(null);
+  const [searchInput, setSearchInput] = useState('');
 
   const itemDetailsRef = useRef(null);
-  // Ref to the barcode/EAN input — the natural POS re-entry point after an
+  // Ref to the search input — the natural POS re-entry point after an
   // item is added. Restoring focus here keeps a scan-add-scan workflow entirely
   // hands-free on the keyboard.
-  const barcodeInputRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   /**
    * Wraps the parent's Add-Item handler with a focus-return: after the item
    * is added and React clears the ItemDetails state, we hop back to the
-   * barcode field so the next scan/type continues without clicking.
+   * search field so the next scan/type continues without clicking.
    */
   const handleAddAndRefocus = useCallback((...args) => {
     const result = handleAddItem?.(...args);
     setTimeout(() => {
-      try { barcodeInputRef.current?.focus?.(); } catch (_) { /* ignore */ }
+      try { searchInputRef.current?.focus?.(); } catch (_) { /* ignore */ }
     }, 0);
     return result;
   }, [handleAddItem]);
@@ -498,17 +551,55 @@ const ItemSection = ({
   // ── MEMOIZED VALUES ──
   const industry = industryType || 'GENERAL';
   const filterConfig = useMemo(() => INDUSTRY_FILTER_CONFIG[industry] || INDUSTRY_FILTER_CONFIG.CLOTHING, [industry]);
-  const headerTitle = useMemo(() => INDUSTRY_HEADER[industry] || 'Inventory Search', [industry]);
+  const headerTitle = useMemo(() => INDUSTRY_HEADER[industry] || 'Inventory', [industry]);
+
+  // Resolve the V76 canonical prop first, falling back to the legacy prop
+  // so a caller that still passes `uniqueFabrics`/`uniqueSeasons` keeps
+  // working. Parent Sales.jsx passes the canonical names.
+  const resolvedAttribute1 = uniqueAttribute1 || uniqueFabrics;
+  const resolvedAttribute2 = uniqueAttribute2 || uniqueSeasons;
 
   const optionsMap = useMemo(() => ({
     uniqueCategory,
     uniqueColors,
     uniqueSizes,
     uniqueDesigns,
-    uniqueFabrics,
-    uniqueSeasons,
     uniqueFits,
-  }), [uniqueCategory, uniqueColors, uniqueSizes, uniqueDesigns, uniqueFabrics, uniqueSeasons, uniqueFits]);
+    uniqueAttribute1: resolvedAttribute1,
+    uniqueAttribute2: resolvedAttribute2,
+    // Legacy keys — kept so any consumer still reading them resolves.
+    uniqueFabrics: resolvedAttribute1,
+    uniqueSeasons: resolvedAttribute2,
+  }), [uniqueCategory, uniqueColors, uniqueSizes, uniqueDesigns, uniqueFits, resolvedAttribute1, resolvedAttribute2]);
+
+  // Compute active-filter chip descriptors from searchParams. Only the keys
+  // that appear in the industry filter config surface as chips — this keeps
+  // hidden legacy fields (name/sku) from cluttering the summary row. Multi-value
+  // filters emit one chip per selected value so each can be removed individually.
+  const activeFilterChips = useMemo(() => {
+    const configs = [...filterConfig.main, ...filterConfig.advanced];
+    const chips = [];
+    configs.forEach((f) => {
+      const val = searchParams[f.key];
+      if (Array.isArray(val)) {
+        val.forEach((v) => {
+          chips.push({ key: `${f.key}:${v}`, filterKey: f.key, name: f.label, value: v, isMulti: true });
+        });
+      } else if (val) {
+        chips.push({ key: f.key, filterKey: f.key, name: f.label, value: val, isMulti: false });
+      }
+    });
+    return chips;
+  }, [filterConfig, searchParams]);
+
+  const handleRemoveFilterValue = useCallback((filterKey, value, isMulti) => {
+    if (isMulti) {
+      const current = Array.isArray(searchParams[filterKey]) ? searchParams[filterKey] : [];
+      handleSearchParamChange(filterKey, { value: current.filter((v) => v !== value) });
+    } else {
+      handleSearchParamChange(filterKey, { value: '' });
+    }
+  }, [searchParams, handleSearchParamChange]);
 
   // ── EFFECTS ──
   useEffect(() => {
@@ -537,9 +628,6 @@ const ItemSection = ({
   }, [handleSearchParamChange]);
 
   const handleDiscountChange = useCallback((e) => {
-    // Coerce to a non-negative number; blank input treated as 0 so the cart total
-    // stays deterministic. Larger-than-line-total discounts are floored to line
-    // total at line-total computation time in SalesSummary — no error toast here.
     const raw = e.target.value;
     const num = raw === '' ? 0 : Math.max(0, Number(raw) || 0);
     setItem(prev => ({ ...prev, discount: num }));
@@ -547,221 +635,254 @@ const ItemSection = ({
 
   const handleQtyChange = useCallback((e) => {
     setItem(prev => ({ ...prev, qty: e.target.value }));
+  }, [setItem]);
+
+  // Autocomplete filter: match against name, SKU, barcode, color, size.
+  const filterVariantOptions = useCallback((options, { inputValue }) => {
+    if (!inputValue) return options.slice(0, 100); // cap render list for perf on large catalogs
+    const q = inputValue.toLowerCase();
+    const matches = options.filter((v) =>
+      String(v.itemName || '').toLowerCase().includes(q) ||
+      String(v.sku || '').toLowerCase().includes(q) ||
+      String(v.barcode || '').toLowerCase().includes(q) ||
+      String(v.color || '').toLowerCase().includes(q) ||
+      String(v.size || '').toLowerCase().includes(q)
+    );
+    return matches.slice(0, 100);
   }, []);
+
+  const handleSearchEnter = useCallback(async (e) => {
+    if (e.key !== 'Enter') return;
+    const raw = (e.target.value || '').trim();
+    if (!raw) return;
+
+    // If the typed text matches any known variant, MUI Autocomplete's own
+    // Enter handling picks the highlighted option — skip barcode lookup.
+    const q = raw.toLowerCase();
+    const localMatch = variants.some((v) =>
+      String(v.itemName || '').toLowerCase().includes(q) ||
+      String(v.sku || '').toLowerCase().includes(q) ||
+      String(v.barcode || '').toLowerCase().includes(q)
+    );
+    if (localMatch) return;
+
+    // No local match — treat as a barcode scan and hit the server.
+    try {
+      const found = await lookupByBarcode(raw);
+      if (found) {
+        handleVariantSelect(found);
+        setSearchInput('');
+        showSnackbar?.(`Scanned: ${found.itemName}`, 'success');
+      } else {
+        showSnackbar?.(`No item found for barcode ${raw}`, 'warning');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || `No item found for barcode ${raw}`;
+      showSnackbar?.(msg, 'error');
+    }
+  }, [variants, handleVariantSelect, showSnackbar]);
 
   // ============ RENDER ============
 
   return (
     <Box sx={{ p: { xs: 1.5, md: 2 } }}>
-      {/* HEADER */}
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mb: 2,
-        flexWrap: 'wrap',
-        gap: 1,
-      }}>
-        <Typography variant="subtitle1" sx={{
-          fontWeight: 700,
-          color: 'text.primary',
-        }}>
+      {/* HEADER — title + action buttons */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+        flexWrap="wrap"
+        gap={1}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
           {headerTitle}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {handleAddCustomItem && (
             <Tooltip title="Add a one-off charge or service not in the catalog">
               <Button
                 onClick={() => setCustomDialogOpen(true)}
-                variant="text"
+                variant="outlined"
                 size="small"
                 startIcon={<AddIcon fontSize="small" />}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
+                sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
               >
-                Custom Item
+                Custom item
               </Button>
             </Tooltip>
           )}
-          <Tooltip title="Reset all filters">
+          <Tooltip title="Refine results by category, size, color, and more">
+            <Badge
+              badgeContent={activeFilterChips.length}
+              color="primary"
+              overlap="rectangular"
+              sx={{ '& .MuiBadge-badge': { fontWeight: 700, minWidth: 18, height: 18 } }}
+            >
+              <Button
+                onClick={(e) => setFiltersAnchor(e.currentTarget)}
+                variant="outlined"
+                size="small"
+                startIcon={<TuneIcon fontSize="small" />}
+                sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+              >
+                Filters
+              </Button>
+            </Badge>
+          </Tooltip>
+        </Stack>
+      </Stack>
+
+      {/* MAIN SEARCH BAR — unified search over name/SKU/barcode/color/size */}
+      <Autocomplete
+        options={variants}
+        value={selectedVariant || null}
+        onChange={(_, val) => {
+          if (val) {
+            handleVariantSelect(val);
+            setSearchInput('');
+          } else {
+            handleVariantSelect(null);
+          }
+        }}
+        inputValue={searchInput}
+        onInputChange={(_, val, reason) => {
+          // 'reset' fires after a selection — MUI sets the input to the option label;
+          // we want to clear it instead so scanning stays fluid.
+          if (reason === 'reset') setSearchInput('');
+          else setSearchInput(val);
+        }}
+        filterOptions={filterVariantOptions}
+        getOptionLabel={(o) => (o?.itemName ? String(o.itemName) : '')}
+        isOptionEqualToValue={(a, b) => a?.id === b?.id}
+        noOptionsText="No matches — press Enter to look up barcode"
+        renderOption={(props, opt) => (
+          <Box component="li" {...props} key={opt.id} sx={{ py: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0, pr: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                {opt.itemName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {[opt.sku, opt.color, opt.size].filter(Boolean).join(' · ')}
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
+                ₹{opt.pricePerUnit}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: (opt.currentStock > 0) ? 'success.main' : 'error.main',
+                }}
+              >
+                {opt.currentStock > 0 ? `Stock ${opt.currentStock}` : 'Out of stock'}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            inputRef={searchInputRef}
+            placeholder="Search by name, SKU, color, size, or scan barcode…"
+            onKeyDown={handleSearchEnter}
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: (
+                <>
+                  <InputAdornment position="start" sx={{ ml: 0.5 }}>
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                  {params.InputProps.startAdornment}
+                </>
+              ),
+              sx: {
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+                fontSize: '0.95rem',
+              },
+            }}
+          />
+        )}
+      />
+
+      {/* ACTIVE FILTER CHIPS */}
+      {activeFilterChips.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ mt: 1.25, flexWrap: 'wrap' }}
+          useFlexGap
+          alignItems="center"
+        >
+          {activeFilterChips.map(({ key, filterKey, name, value, isMulti }) => (
+            <Chip
+              key={key}
+              size="small"
+              variant="outlined"
+              label={
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.5 }}>
+                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                    {name}
+                  </Typography>
+                  <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {value}
+                  </Typography>
+                </Box>
+              }
+              onDelete={() => handleRemoveFilterValue(filterKey, value, isMulti)}
+              sx={{ borderRadius: 1.5, borderColor: 'divider', bgcolor: 'background.paper' }}
+            />
+          ))}
+          {activeFilterChips.length >= 2 && (
             <Button
               onClick={handleResetFilters}
               variant="text"
               size="small"
-              startIcon={<RestartAltIcon fontSize="small" />}
               sx={{ textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
             >
-              Reset
+              Clear all
             </Button>
-          </Tooltip>
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            startIcon={<TuneIcon fontSize="small" />}
-            sx={{ textTransform: 'none', fontWeight: 600 }}
-          >
-            {showAdvanced ? 'Basic filters' : 'Advanced filters'}
-          </Button>
-        </Box>
-      </Box>
-
-          {handleAddCustomItem && (
-            <CustomItemDialog
-              open={customDialogOpen}
-              onClose={() => setCustomDialogOpen(false)}
-              onSubmit={handleAddCustomItem}
-            />
           )}
+        </Stack>
+      )}
 
-      {/* PRIMARY SEARCH & BARCODE SCANNER */}
-      <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={4}>
-          <Typography variant="caption" sx={{
-            fontWeight: 600,
-            color: 'text.secondary',
-            fontSize: '0.75rem',
-          }}>
-            Barcode / EAN
-          </Typography>
-              <TextField
-                placeholder="Scan barcode or press Enter..."
-                size="small"
-                fullWidth
-                inputRef={barcodeInputRef}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter' && e.target.value.trim()) {
-                    try {
-                      const found = await lookupByBarcode(e.target.value.trim());
-                      if (found) {
-                        handleVariantSelect(found);
-                        e.target.value = '';
-                      }
-                    } catch (err) {
-                      console.warn('Barcode not found:', err);
-                    }
-                  }
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                  sx: { borderRadius: 2, bgcolor: 'background.paper', height: 45 }
-                }}
-              />
-            </Grid>
-        <Grid item xs={12} md={4}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
-            Product Name
-          </Typography>
-          <Select
-            options={uniqueNames}
-            value={uniqueNames.find(opt => opt.value === searchParams.name) || null}
-            onChange={(opt) => handleChange('name', opt, false)}
-            placeholder="Search by name..."
-            isClearable
-            styles={selectStyles}
-            menuPortalTarget={document.body}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>
-            SKU
-          </Typography>
-          <Select
-            options={uniqueSkus}
-            value={uniqueSkus.find(opt => opt.value === searchParams.sku) || null}
-            onChange={(opt) => handleChange('sku', opt, false)}
-            placeholder="SKU..."
-            isClearable
-            styles={selectStyles}
-            menuPortalTarget={document.body}
-          />
-        </Grid>
-      </Grid>
+      {/* CUSTOM ITEM DIALOG */}
+      {handleAddCustomItem && (
+        <CustomItemDialog
+          open={customDialogOpen}
+          onClose={() => setCustomDialogOpen(false)}
+          onSubmit={handleAddCustomItem}
+        />
+      )}
 
-          {/* FILTER BAR */}
-          <FilterBar
-            filterConfig={filterConfig}
-            searchParams={searchParams}
-            handleChange={handleChange}
-            showAdvanced={showAdvanced}
-            onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
-            onReset={handleResetFilters}
-            optionsMap={optionsMap}
-          />
+      {/* FILTERS POPOVER */}
+      <FiltersPopover
+        anchorEl={filtersAnchor}
+        open={Boolean(filtersAnchor)}
+        onClose={() => setFiltersAnchor(null)}
+        filterConfig={filterConfig}
+        searchParams={searchParams}
+        handleChange={handleChange}
+        optionsMap={optionsMap}
+        showAdvanced={showAdvanced}
+        onToggleAdvanced={() => setShowAdvanced(v => !v)}
+        onReset={handleResetFilters}
+      />
 
-      {/* VARIANT SELECTION */}
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <Typography variant="caption" sx={{
-          fontWeight: 600,
-          color: 'text.secondary',
-          fontSize: '0.75rem',
-          display: 'block',
-          mb: 0.5,
-        }}>
-          Select Variant
-        </Typography>
-            <Select
-              options={variants}
-              onChange={handleVariantSelect}
-              placeholder="Select variant..."
-              value={selectedVariant}
-              isClearable
-              styles={{
-                control: (base, state) => ({
-                  ...base,
-                  borderRadius: '10px',
-                  backgroundColor: theme.palette.background.paper,
-                  color: theme.palette.text.primary,
-                  borderColor: state.isFocused ? theme.palette.primary.main : theme.palette.divider,
-                  boxShadow: state.isFocused ? `0 0 0 1px ${theme.palette.primary.main}` : 'none',
-                  minHeight: '50px',
-                  fontSize: '1.1rem',
-                  '&:hover': { borderColor: theme.palette.primary.main },
-                }),
-                menu: (base) => ({
-                  ...base,
-                  zIndex: 9999,
-                  backgroundColor: theme.palette.background.paper,
-                  border: `1px solid ${theme.palette.divider}`,
-                }),
-                menuList: (base) => ({
-                  ...base,
-                  backgroundColor: theme.palette.background.paper,
-                }),
-                option: (base, state) => ({
-                  ...base,
-                  color: state.isSelected ? '#ffffff' : theme.palette.text.primary,
-                  backgroundColor: state.isSelected
-                    ? theme.palette.primary.main
-                    : state.isFocused
-                    ? theme.palette.action.hover
-                    : theme.palette.background.paper,
-                }),
-                singleValue: (base) => ({ ...base, color: theme.palette.text.primary }),
-                placeholder: (base) => ({ ...base, color: theme.palette.text.secondary }),
-                input: (base) => ({ ...base, color: theme.palette.text.primary }),
-                menuPortal: base => ({ ...base, zIndex: 9999 }),
-              }}
-              menuPortalTarget={document.body}
-            />
-          </Box>
-
-          {/* ITEM DETAILS */}
-          <ItemDetails
-            selectedVariant={selectedVariant}
-            item={item}
-            itemDetailsRef={itemDetailsRef}
-            handleAddItem={handleAddAndRefocus}
-            onQtyChange={handleQtyChange}
-            onDiscountChange={handleDiscountChange}
-            error={error}
-          />
-
-
+      {/* ITEM DETAILS */}
+      <ItemDetails
+        selectedVariant={selectedVariant}
+        item={item}
+        itemDetailsRef={itemDetailsRef}
+        handleAddItem={handleAddAndRefocus}
+        onQtyChange={handleQtyChange}
+        onDiscountChange={handleDiscountChange}
+        error={error}
+      />
 
       {/* SUBSTITUTES */}
       <SubstituteSuggestions

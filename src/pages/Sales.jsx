@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Box, Snackbar, Alert, CircularProgress,
   Typography, Paper, Button, IconButton, Tooltip, Stack, Menu, MenuItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -30,6 +30,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import LockIcon from '@mui/icons-material/Lock';
+import AddIcon from '@mui/icons-material/Add';
 
 // ============ CONSTANTS ============
 const initialItem = {
@@ -55,7 +56,7 @@ const initialFormData = {
 
 const initialSearchParams = {
   name: '', sku: '', color: [], size: [], design: '',
-  category: '', fabric: '', season: '', fit: '',
+  category: '', attribute1: '', attribute2: '', fit: '',
 };
 
 // ============ HELPER FUNCTIONS ============
@@ -172,7 +173,7 @@ const Sales = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isJewellery, industryType, shop } = useShop();
-  const { getStatus, canProcessSale, canStartTrial } = useSubscription();
+  const { getStatus, canProcessSale, canStartTrial, subscription } = useSubscription();
   const { tabValue, setTabValue, resumeId, clearParams } = useURLParams();
 
   const hasBanner = getStatus() === 'PENDING';
@@ -206,7 +207,8 @@ const Sales = () => {
   const [showReviewPage, setShowReviewPage] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [upgradeModalData, setUpgradeModalData] = useState({ open: false, upgradeOptions: null });
+  const [upgradeModalData, setUpgradeModalData] = useState({ open: false, upgradeOptions: null, message: null, feature: null });
+  const [notesExpanded, setNotesExpanded] = useState(false);
 
   // ── MODALS ──
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
@@ -346,7 +348,14 @@ const Sales = () => {
 
   const handleVariantSelect = useCallback((opt) => {
     if (!opt) {
+      // Clear-selection path (Autocomplete's X, Escape, or explicit deselect):
+      // wipe the highlighted variant AND the in-progress Qty/Discount/details
+      // it drives, otherwise the ItemDetails card below the search bar hangs
+      // around with stale data and the X appears to do nothing.
+      setSelectedVariant(null);
+      setItem(initialItem);
       setSubstitutes([]);
+      setItemError('');
       return;
     }
 
@@ -611,7 +620,9 @@ const Sales = () => {
         if (err.response?.status === 402 || err.response?.data?.code === 'FEATURE_RESTRICTED') {
           setUpgradeModalData({
             open: true,
-            upgradeOptions: err.response?.data?.upgradeOptions || { canStartTrial: canStartTrial(), trialDays: 14 }
+            upgradeOptions: err.response?.data?.upgradeOptions || { canStartTrial: canStartTrial(), trialDays: 14 },
+            message: err.response?.data?.message || null,
+            feature: err.response?.data?.feature || null,
           });
         } else {
           showSnackbar(err.response?.data?.message || 'Error processing sale.', 'error');
@@ -624,7 +635,7 @@ const Sales = () => {
   );
 
   const handleCloseUpgradeModal = useCallback((wasTrialActivated) => {
-    setUpgradeModalData({ open: false, upgradeOptions: null });
+    setUpgradeModalData({ open: false, upgradeOptions: null, message: null, feature: null });
     if (wasTrialActivated) {
       showSnackbar('14-Day Free Trial Activated! You can now complete your sale.', 'success');
     }
@@ -656,8 +667,8 @@ const Sales = () => {
     sizes: generateFilterOptions(variants, 'size'),
     designs: generateFilterOptions(variants, 'design'),
     categories: generateFilterOptions(variants, 'categoryName'),
-    fabrics: generateFilterOptions(variants, 'fabric'),
-    seasons: generateFilterOptions(variants, 'season'),
+    attribute1: generateFilterOptions(variants, 'attribute1'),
+    attribute2: generateFilterOptions(variants, 'attribute2'),
     fits: generateFilterOptions(variants, 'fit'),
   }), [variants]);
 
@@ -669,14 +680,22 @@ const Sales = () => {
       if (searchParams.size?.length > 0 && !searchParams.size.includes(v.size)) return false;
       if (searchParams.design && v.design !== searchParams.design) return false;
       if (searchParams.category && v.categoryName !== searchParams.category) return false;
-      if (searchParams.fabric && v.fabric !== searchParams.fabric) return false;
-      if (searchParams.season && v.season !== searchParams.season) return false;
+      if (searchParams.attribute1 && v.attribute1 !== searchParams.attribute1) return false;
+      if (searchParams.attribute2 && v.attribute2 !== searchParams.attribute2) return false;
       if (searchParams.fit && v.fit !== searchParams.fit) return false;
       return true;
     });
   }, [variants, searchParams]);
 
   const isDeliveryOk = useMemo(() => isDeliveryValid(formData), [formData]);
+
+  // Monthly sales quota chip — only renders when a finite cap exists.
+  const usedThisMonth = subscription?.salesUsedThisMonth ?? null;
+  const maxThisMonth = subscription?.maxSalesPerMonth ?? null;
+  const showQuotaChip = usedThisMonth != null && maxThisMonth != null && maxThisMonth > 0;
+  const quotaColor = showQuotaChip
+    ? (usedThisMonth >= maxThisMonth ? 'error' : usedThisMonth >= maxThisMonth * 0.8 ? 'warning' : 'default')
+    : 'default';
 
   // ============ RENDER ============
 
@@ -697,7 +716,7 @@ const Sales = () => {
           action={
             <Stack direction="row" spacing={1} alignItems="center">
               {canStartTrial() && (
-                <Button color="inherit" size="small" variant="contained" onClick={() => setUpgradeModalData({ open: true, upgradeOptions: { canStartTrial: true, trialDays: 14 } })} sx={{ bgcolor: '#f59e0b', color: '#000', fontWeight: 800, textTransform: 'none' }}>
+                <Button color="inherit" size="small" variant="contained" onClick={() => setUpgradeModalData({ open: true, upgradeOptions: { canStartTrial: true, trialDays: 14 }, message: null, feature: 'CAN_PROCESS_SALE' })} sx={{ bgcolor: '#f59e0b', color: '#000', fontWeight: 800, textTransform: 'none' }}>
                   Activate 14-Day Trial
                 </Button>
               )}
@@ -718,6 +737,17 @@ const Sales = () => {
           setTabValue(newValue);
           if (newValue === 1) setHistoryRefreshKey(k => k + 1);
         }}
+        rightSlot={showQuotaChip ? (
+          <Tooltip title={`${usedThisMonth} of ${maxThisMonth} sales used this month`} arrow>
+            <Chip
+              size="small"
+              color={quotaColor}
+              variant={quotaColor === 'default' ? 'outlined' : 'filled'}
+              label={`${usedThisMonth} / ${maxThisMonth} this month`}
+              sx={{ fontWeight: 600, letterSpacing: 0.2 }}
+            />
+          </Tooltip>
+        ) : null}
       />
 
       <SalesTabs.Panel value={tabValue} index={0} noPadding>
@@ -763,8 +793,8 @@ const Sales = () => {
                 uniqueSizes={memoizedFilterOptions.sizes}
                 uniqueDesigns={memoizedFilterOptions.designs}
                 uniqueCategory={memoizedFilterOptions.categories}
-                uniqueFabrics={memoizedFilterOptions.fabrics}
-                uniqueSeasons={memoizedFilterOptions.seasons}
+                uniqueAttribute1={memoizedFilterOptions.attribute1}
+                uniqueAttribute2={memoizedFilterOptions.attribute2}
                 uniqueFits={memoizedFilterOptions.fits}
                 handleResetFilters={() => setSearchParams(initialSearchParams)}
                 searchParams={searchParams}
@@ -777,6 +807,7 @@ const Sales = () => {
                 }
                 handleAddItem={handleAddItem}
                 handleAddCustomItem={handleAddCustomItem}
+                showSnackbar={showSnackbar}
                 error={itemError}
                 editIndex={editIndex}
                 substitutes={substitutes}
@@ -870,19 +901,35 @@ const Sales = () => {
               </Box>
 
               {/* Sale-level notes — free-text metadata, persisted alongside the
-                  sale. Distinct from customer.notes and delivery.deliveryNotes. */}
+                  sale. Distinct from customer.notes and delivery.deliveryNotes.
+                  Collapsed by default; expands to a textarea on click and stays
+                  open while there's content. */}
               <Box sx={{ px: 2, pb: 1 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  minRows={1}
-                  maxRows={3}
-                  placeholder="Notes on this sale (optional)"
-                  value={formData.saleNotes || ''}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, saleNotes: e.target.value }))}
-                  inputProps={{ maxLength: 1000 }}
-                />
+                {(notesExpanded || formData.saleNotes) ? (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={1}
+                    maxRows={3}
+                    placeholder="Notes on this sale (optional)"
+                    value={formData.saleNotes || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, saleNotes: e.target.value }))}
+                    onBlur={() => { if (!formData.saleNotes) setNotesExpanded(false); }}
+                    autoFocus={notesExpanded && !formData.saleNotes}
+                    inputProps={{ maxLength: 1000 }}
+                  />
+                ) : (
+                  <Button
+                    onClick={() => setNotesExpanded(true)}
+                    variant="text"
+                    size="small"
+                    startIcon={<AddIcon fontSize="small" />}
+                    sx={{ textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
+                  >
+                    Add note
+                  </Button>
+                )}
               </Box>
 
               {/* Action bar */}
@@ -911,6 +958,7 @@ const Sales = () => {
               onCancel={() => setShowReviewPage(false)}
               setError={(msg) => showSnackbar(msg, 'error')}
               loading={loading}
+              isJewellery={isJewellery}
             />
           </ErrorBoundary>
         )}
@@ -955,6 +1003,8 @@ const Sales = () => {
         open={upgradeModalData.open}
         onClose={handleCloseUpgradeModal}
         upgradeOptions={upgradeModalData.upgradeOptions}
+        message={upgradeModalData.message}
+        feature={upgradeModalData.feature}
         onSaveDraft={handleSaveDraftFromModal}
       />
     </Box>

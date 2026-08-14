@@ -14,6 +14,13 @@ const endpoints = {
   shop: `${API_BASE}/shop`,
   shopOnboard: `${API_BASE}/shop/onboarding`,
 
+  configIndustries: `${API_BASE}/config/industries`,
+  configIndustryFields: (type) => `${API_BASE}/config/industries/${type}/fields`,
+
+  customAttributes: `${API_BASE}/custom-attributes`,
+  customAttributeById: (id) => `${API_BASE}/custom-attributes/${id}`,
+  customAttributeReorder: `${API_BASE}/custom-attributes/reorder`,
+
   // User Management
   users: `${API_BASE}/admin/users`,
   userById: (id) => `${API_BASE}/admin/users/${id}`,
@@ -35,14 +42,21 @@ const endpoints = {
   purchaseOrders: `${API_BASE}/purchase-orders`,
   purchaseOrderById: (id) => `${API_BASE}/purchase-orders/${id}`,
   pendingPurchaseOrder: `${API_BASE}/purchase-orders/pending`,
+  openPurchaseOrders: `${API_BASE}/purchase-orders/open`,
   receivePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/receive`,
   submitPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/submit`,
+  cancelPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/cancel`,
+  sendPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/send`,
+  markReceivedPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/mark-received`,
 
   items: `${API_BASE}/catalog`,
   getItemById: (id) => `${API_BASE}/catalog/${id}`,
   updateItem: (id) => `${API_BASE}/catalog/${id}`,
   deleteItemVariant: (id) => `${API_BASE}/catalog/${id}`,
+  deleteItemsBulk: `${API_BASE}/catalog/bulk`,
+  searchItems: `${API_BASE}/catalog/search`,
   fetchCategories: `${API_BASE}/categories`,
+  categoryById: (id) => `${API_BASE}/categories/${id}`,
 
   fetchItemVariants: `${API_BASE}/item-variants/filter`,
   createItemVariant: `${API_BASE}/item-variants`,

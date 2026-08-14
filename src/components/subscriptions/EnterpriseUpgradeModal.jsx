@@ -1,28 +1,83 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Typography,
-  Button, Box, Stack, CircularProgress, Alert, Paper, alpha
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Button,
+  Box,
+  Stack,
+  CircularProgress,
+  Alert,
+  Card,
+  Divider,
+  IconButton,
+  LinearProgress,
 } from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import SaveIcon from '@mui/icons-material/Save';
-import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
+import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../../context/SubscriptionContext';
+
+const SectionCaption = ({ icon, label }) => (
+  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
+    {icon}
+    <Typography
+      variant="overline"
+      sx={{ letterSpacing: '0.08em', fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}
+    >
+      {label}
+    </Typography>
+  </Stack>
+);
 
 const EnterpriseUpgradeModal = ({
   open,
   onClose,
   upgradeOptions,
+  message,
+  feature,
   onSaveDraft,
 }) => {
   const navigate = useNavigate();
-  const { initiateTrial, refreshStatus } = useSubscription();
+  const { initiateTrial, refreshStatus, subscription } = useSubscription();
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const canStartTrial = upgradeOptions?.canStartTrial !== false;
   const trialDays = upgradeOptions?.trialDays || 14;
+
+  const isQuotaCase = useMemo(() => {
+    if (feature !== 'CAN_PROCESS_SALE') return false;
+    const m = (message || '').toLowerCase();
+    return m.includes('monthly limit') || m.includes('quota') || m.includes('sales per month');
+  }, [feature, message]);
+
+  const usedThisMonth = subscription?.salesUsedThisMonth ?? null;
+  const maxThisMonth = subscription?.maxSalesPerMonth ?? null;
+  const showUsageBar =
+    isQuotaCase && usedThisMonth != null && maxThisMonth != null && maxThisMonth > 0;
+  const usagePct = showUsageBar
+    ? Math.min(100, Math.round((usedThisMonth / maxThisMonth) * 100))
+    : 0;
+
+  const headline = isQuotaCase
+    ? 'Monthly Sales Limit Reached'
+    : 'Upgrade Required to Continue';
+  const HeaderIcon = isQuotaCase ? ReceiptLongIcon : LockOutlinedIcon;
+  const headerColor = isQuotaCase ? 'warning.main' : 'primary.main';
+
+  const bodyMessage =
+    message ||
+    (isQuotaCase
+      ? 'You have used every sale included in your current plan for this month.'
+      : 'This action is not included in your current plan configuration.');
 
   const handleActivateTrial = async () => {
     setActivatingTrial(true);
@@ -30,10 +85,12 @@ const EnterpriseUpgradeModal = ({
     try {
       await initiateTrial();
       await refreshStatus(false);
-      onClose(true); // pass true indicating trial activated so parent can retry
+      onClose(true);
     } catch (err) {
       console.error('Failed to activate trial:', err);
-      const msg = err.response?.data?.message || 'Failed to activate trial. You may have already used your trial.';
+      const msg =
+        err.response?.data?.message ||
+        'Failed to activate trial. You may have already used your trial.';
       setErrorMsg(msg);
     } finally {
       setActivatingTrial(false);
@@ -59,130 +116,186 @@ const EnterpriseUpgradeModal = ({
       maxWidth="sm"
       fullWidth
       PaperProps={{
+        variant: 'outlined',
         sx: {
-          borderRadius: 4,
-          background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
-          color: '#f8fafc',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 3,
           overflow: 'hidden',
+          bgcolor: 'background.paper',
         },
       }}
     >
-      <Box sx={{ height: 6, background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)' }} />
-
-      <DialogTitle sx={{ pt: 3, pb: 1, px: 3, textAlign: 'center' }}>
-        <Box sx={{ display: 'inline-flex', p: 1.5, borderRadius: '50%', bgcolor: alpha('#6366f1', 0.15), color: '#818cf8', mb: 1.5 }}>
-          <LockIcon sx={{ fontSize: 32 }} />
+      <DialogTitle
+        sx={{
+          px: 3,
+          pt: 2.5,
+          pb: 1.5,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1.5,
+        }}
+      >
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 1.5,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'action.selected'
+                : theme.palette.grey[100],
+            color: headerColor,
+            flexShrink: 0,
+          }}
+        >
+          <HeaderIcon fontSize="small" />
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: '-0.02em', color: '#ffffff' }}>
-          Unlock Full Billing & POS Access
-        </Typography>
+
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+            {headline}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Vyapar Sathi &middot; Plan &amp; usage
+          </Typography>
+        </Box>
+
+        <IconButton size="small" onClick={() => onClose(false)} sx={{ mt: -0.5, mr: -0.5 }}>
+          <CloseRoundedIcon fontSize="small" />
+        </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ px: 3, py: 1 }}>
-        <Stack spacing={2} textAlign="center">
-          <Typography variant="body1" sx={{ color: '#94a3b8', fontSize: '0.975rem' }}>
-            Your current plan configuration does not include direct sale completion.
-          </Typography>
+      <Divider />
 
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2.5,
-              borderRadius: 3,
-              bgcolor: alpha('#334155', 0.4),
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              textAlign: 'left',
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#e2e8f0', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AutoAwesomeIcon sx={{ fontSize: 18, color: '#fbbf24' }} />
-              Enterprise Features Included:
+      <DialogContent sx={{ px: 3, py: 2.5 }}>
+        <Stack spacing={2.5}>
+          <Box>
+            <SectionCaption
+              icon={<AutoAwesomeIcon sx={{ fontSize: 14, color: 'text.secondary' }} />}
+              label={isQuotaCase ? 'Why you’re seeing this' : 'What’s restricted'}
+            />
+            <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.55 }}>
+              {bodyMessage}
             </Typography>
-            <Stack spacing={0.8} sx={{ color: '#cbd5e1', fontSize: '0.875rem' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box component="span" sx={{ color: '#34d399', fontWeight: 900 }}>✓</Box> Direct POS Checkout & Sale Processing
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box component="span" sx={{ color: '#34d399', fontWeight: 900 }}>✓</Box> Unlimited GST Invoices & Payment Tracking
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box component="span" sx={{ color: '#34d399', fontWeight: 900 }}>✓</Box> Full Stock & Inventory Management
-              </Box>
-            </Stack>
-          </Paper>
+          </Box>
+
+          {showUsageBar && (
+            <Card
+              variant="outlined"
+              sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}
+            >
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ mb: 1 }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Sales this month
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {usedThisMonth} / {maxThisMonth}
+                </Typography>
+              </Stack>
+              <LinearProgress
+                variant="determinate"
+                value={usagePct}
+                color={usagePct >= 100 ? 'error' : usagePct >= 80 ? 'warning' : 'primary'}
+                sx={{ height: 8, borderRadius: 999 }}
+              />
+            </Card>
+          )}
+
+          <Box>
+            <SectionCaption
+              icon={
+                <WorkspacePremiumOutlinedIcon
+                  sx={{ fontSize: 14, color: 'text.secondary' }}
+                />
+              }
+              label="What you unlock"
+            />
+            <Card
+              variant="outlined"
+              sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}
+            >
+              <Stack spacing={1}>
+                {[
+                  'Higher monthly sales limits',
+                  'GST invoices, e-way bills &amp; payment tracking',
+                  'Full inventory, batches &amp; multi-user access',
+                ].map((line) => (
+                  <Stack key={line} direction="row" spacing={1} alignItems="flex-start">
+                    <CheckCircleOutlineIcon
+                      fontSize="small"
+                      sx={{ color: 'success.main', mt: '2px' }}
+                    />
+                    <Typography
+                      variant="body2"
+                      sx={{ color: 'text.primary' }}
+                      dangerouslySetInnerHTML={{ __html: line }}
+                    />
+                  </Stack>
+                ))}
+              </Stack>
+            </Card>
+          </Box>
 
           {errorMsg && (
-            <Alert severity="error" sx={{ borderRadius: 2, bgcolor: alpha('#ef4444', 0.1), color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
               {errorMsg}
+            </Alert>
+          )}
+
+          {!canStartTrial && (
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              14-Day Free Trial has already been used on this account.
             </Alert>
           )}
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, flexDirection: 'column', gap: 1.5 }}>
-        {canStartTrial ? (
+      <Divider />
+
+      <DialogActions sx={{ px: 3, py: 2, gap: 1, flexWrap: 'wrap' }}>
+        <Button
+          variant="text"
+          onClick={handleViewPlans}
+          sx={{ fontWeight: 600, mr: 'auto' }}
+        >
+          View Plans
+        </Button>
+
+        {onSaveDraft && (
           <Button
-            fullWidth
+            variant="outlined"
+            onClick={handleSaveDraft}
+            startIcon={<SaveOutlinedIcon />}
+            sx={{ fontWeight: 600, borderRadius: 2 }}
+          >
+            Save as Draft
+          </Button>
+        )}
+
+        {canStartTrial && (
+          <Button
             variant="contained"
             disabled={activatingTrial}
             onClick={handleActivateTrial}
-            startIcon={activatingTrial ? <CircularProgress size={20} color="inherit" /> : <AutoAwesomeIcon />}
-            sx={{
-              py: 1.5,
-              borderRadius: 2.5,
-              fontWeight: 900,
-              fontSize: '1rem',
-              background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
-              color: '#ffffff',
-              boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.39)',
-              '&:hover': {
-                background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%)',
-              },
-            }}
+            startIcon={
+              activatingTrial ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <AutoAwesomeIcon />
+              )
+            }
+            sx={{ fontWeight: 700, borderRadius: 2, px: 2.25 }}
           >
-            {activatingTrial ? 'ACTIVATING TRIAL...' : `Activate ${trialDays}-Day Full Access Trial`}
+            {activatingTrial ? 'Activating…' : `Start ${trialDays}-day trial`}
           </Button>
-        ) : (
-          <Alert severity="info" sx={{ width: '100%', borderRadius: 2, bgcolor: alpha('#3b82f6', 0.1), color: '#93c5fd' }}>
-            14-Day Free Trial has already been used on this account.
-          </Alert>
         )}
-
-        <Button
-          fullWidth
-          variant="outlined"
-          onClick={handleSaveDraft}
-          startIcon={<SaveIcon />}
-          sx={{
-            py: 1.2,
-            borderRadius: 2.5,
-            fontWeight: 800,
-            color: '#38bdf8',
-            borderColor: alpha('#38bdf8', 0.4),
-            '&:hover': {
-              borderColor: '#38bdf8',
-              bgcolor: alpha('#38bdf8', 0.1),
-            },
-          }}
-        >
-          Save Sale as Draft
-        </Button>
-
-        <Button
-          fullWidth
-          variant="text"
-          onClick={handleViewPlans}
-          startIcon={<ShoppingBagIcon />}
-          sx={{
-            fontWeight: 700,
-            color: '#94a3b8',
-            '&:hover': { color: '#ffffff', bgcolor: alpha('#ffffff', 0.05) },
-          }}
-        >
-          View Pricing Plans
-        </Button>
       </DialogActions>
     </Dialog>
   );

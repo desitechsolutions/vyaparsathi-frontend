@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogContentText,
   Button,
-  CircularProgress,
   Stepper,
   Step,
   StepLabel,
@@ -19,13 +18,20 @@ import {
   Tooltip,
   IconButton,
   Container,
-  Grid,
-  Card,
-  CardContent,
   Stack,
-  Divider
+  Divider,
+  TextField,
+  Autocomplete,
+  InputAdornment,
+  Skeleton,
+  Chip,
+  useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import SearchIcon from '@mui/icons-material/Search';
+import TuneIcon from '@mui/icons-material/Tune';
 import { DataGrid } from '@mui/x-data-grid';
+import { useNavigate } from 'react-router-dom';
 import {
   Visibility as VisibilityIcon,
   Settings as SettingsIcon,
@@ -33,6 +39,9 @@ import {
   Category as CategoryIcon,
   WarningAmber as WarningIcon,
   Add as AddIcon,
+  DeleteSweep as DeleteSweepIcon,
+  FileDownloadOutlined as FileDownloadIcon,
+  FilterAltOff as FilterAltOffIcon,
 } from '@mui/icons-material';
 
 import useItemsLogic from './items/hooks/useItemsLogic';
@@ -41,10 +50,18 @@ import VariantDetailDisplay from './items/components/VariantDetailDisplay';
 import ItemDetailsForm from './items/components/ItemDetailsForm';
 import VariantFormFields from './items/components/VariantFormFields';
 import ReviewStepContent from './items/components/ReviewStepContent';
-import ItemsAwaitingVariants from './items/components/ItemsAwaitingVariants';
+import CategoryQuickCreate from './items/components/CategoryQuickCreate';
+
+const STOCK_LEVEL_COLORS = {
+  ok:    'success',
+  low:   'warning',
+  out:   'error',
+  empty: 'default',
+};
 
 export default function ItemsPage() {
   const { t } = useTranslation();
+  const theme = useTheme();
 
   const {
     loading,
@@ -52,7 +69,9 @@ export default function ItemsPage() {
     itemsWithoutVariants,
     stockData,
     apiCategories,
-    shopCategory, // Global shop category detected from root categories
+    loadData,
+    industryType,
+    shopCategory,
     openAddDialog,
     openEditDialog,
     openDeleteConfirm,
@@ -93,25 +112,27 @@ export default function ItemsPage() {
     duplicateWarning,
     handleDuplicateViewUpdate,
     closeDuplicateWarning,
+    selectedItemIds,
+    setSelectedItemIds,
+    openBulkDeleteConfirm,
+    setOpenBulkDeleteConfirm,
+    confirmBulkDelete,
+    paginationModel,
+    setPaginationModel,
+    searchQuery,
+    setSearchQuery,
+    searchCategoryId,
+    setSearchCategoryId,
+    rowCount,
+    stockFilter,
+    setStockFilter,
+    displayItems,
   } = useItemsLogic();
 
-  /**
-   * DYNAMIC INDUSTRY DETECTION (Per Item)
-   * Determines terminology for the specific item currently being added/edited.
-   * If no category is selected, it falls back to the global shop category.
-   */
-  const activeIndustry = useMemo(() => {
-    if (!itemFormData.categoryId || !apiCategories.length) return shopCategory;
-    
-    // Find the selected category and traverse up to find the root industry name
-    const selectedCat = apiCategories.find(c => c.id === itemFormData.categoryId);
-    if (!selectedCat) return shopCategory;
-
-    // Logic: If the category has a parent, we look at the parentName (usually the Industry name)
-    // If it's a root category, its own name is the industry.
-    const industryName = selectedCat.parentName || selectedCat.name;
-    return industryName.toUpperCase();
-  }, [itemFormData.categoryId, apiCategories, shopCategory]);
+  const activeIndustry = industryType || shopCategory || 'GENERAL';
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const navigate = useNavigate();
+  const searchInputRef = useRef(null);
 
   const steps = [
     t('itemsPage.stepper.itemDetails'),
@@ -119,28 +140,131 @@ export default function ItemsPage() {
     t('itemsPage.stepper.reviewAndSave'),
   ];
 
+  const hasFilters = searchQuery !== '' || searchCategoryId !== null || stockFilter !== 'ALL';
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setSearchCategoryId(null);
+    setStockFilter('ALL');
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
+  // Keyboard shortcut: Ctrl/Cmd+K focuses the search box.
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // KPI totals — sourced from the SERVER for accuracy (rowCount is the
+  // total across all pages of the current search filter; apiCategories
+  // and itemsWithoutVariants come from the full initial load).
+  const kpi = useMemo(() => ({
+    totalItems: rowCount,
+    categories: apiCategories.length,
+    awaitingVariants: itemsWithoutVariants.length,
+  }), [rowCount, apiCategories.length, itemsWithoutVariants.length]);
+
+  const exportCsv = () => {
+    const rows = displayItems;
+    if (rows.length === 0) return;
+    const header = ['Name', 'SKU', 'Category', 'Brand', 'Variants', 'Min Price', 'Max Price', 'Stock'];
+    const lines = [header.join(',')];
+    rows.forEach((r) => {
+      const vs = r.variants || [];
+      const skus = vs.map((v) => v.sku).filter(Boolean).join(' | ');
+      const prices = vs.map((v) => Number(v.pricePerUnit || 0));
+      const min = prices.length ? Math.min(...prices) : '';
+      const max = prices.length ? Math.max(...prices) : '';
+      const totalStock = vs.reduce((s, v) => s + Number(v.currentStock || 0), 0);
+      const cells = [r.name, skus, r.categoryName || '', r.brandName || '', vs.length, min, max, totalStock];
+      lines.push(cells.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `items-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const stockChipCountsCurrentPage = useMemo(() => {
+    const counts = { ALL: itemsWithVariants.length, IN_STOCK: 0, LOW: 0, OUT: 0, AWAITING: 0 };
+    itemsWithVariants.forEach((row) => {
+      const vs = row.variants || [];
+      if (vs.length === 0) { counts.AWAITING++; return; }
+      const total = vs.reduce((s, v) => s + Number(v.currentStock || 0), 0);
+      const anyLow = vs.some((v) => {
+        const cur = Number(v.currentStock || 0);
+        const thr = Number(v.lowStockThreshold || 5);
+        return cur > 0 && cur <= thr;
+      });
+      if (total === 0) counts.OUT++;
+      else if (anyLow) counts.LOW++;
+      else counts.IN_STOCK++;
+    });
+    return counts;
+  }, [itemsWithVariants]);
+
   const finalColumns = useMemo(
     () => [
-      ...columns.slice(0, -1),
+      ...columns.slice(0, -3),
       {
-        ...columns[columns.length - 1],
+        ...columns[columns.length - 3], // priceRange
         renderCell: (params) => (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Typography variant="body2" fontWeight={600} color="text.primary">
+            {params.value?.label ?? '—'}
+          </Typography>
+        ),
+      },
+      {
+        ...columns[columns.length - 2], // stockStatus
+        renderCell: (params) => {
+          const status = params.value || { label: '—', level: 'empty', total: 0 };
+          const level = STOCK_LEVEL_COLORS[status.level] || 'default';
+          const paletteColor =
+            level === 'success' ? theme.palette.success.main :
+            level === 'warning' ? theme.palette.warning.main :
+            level === 'error'   ? theme.palette.error.main   :
+            theme.palette.text.disabled;
+          return (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <Box
+                component="span"
+                sx={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  bgcolor: paletteColor,
+                  boxShadow: `0 0 0 2px ${alpha(paletteColor, 0.16)}`,
+                }}
+              />
+              <Typography variant="body2" fontWeight={600} sx={{ color: paletteColor }}>
+                {status.label}
+                {status.total > 0 && (
+                  <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, ml: 0.5 }}>
+                    · {status.total}
+                  </Box>
+                )}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        ...columns[columns.length - 1], // actions
+        renderCell: (params) => (
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title={t('itemsPage.actions.viewVariants')}>
-              <IconButton
-                size="small"
-                sx={{ color: '#6366f1', bgcolor: alpha('#6366f1', 0.1), '&:hover': { bgcolor: alpha('#6366f1', 0.2) } }}
-                onClick={() => handleViewVariants(params.row)}
-              >
+              <IconButton size="small" onClick={() => handleViewVariants(params.row)}>
                 <VisibilityIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title={t('itemsPage.actions.manageItem')}>
-              <IconButton
-                size="small"
-                sx={{ color: 'text.primary', bgcolor: 'background.default', '&:hover': { bgcolor: 'action.selected' } }}
-                onClick={() => handleManageItem(params.row.id)}
-              >
+              <IconButton size="small" onClick={() => handleManageItem(params.row.id)}>
                 <SettingsIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -148,18 +272,19 @@ export default function ItemsPage() {
         ),
       },
     ],
-    [columns, t, handleViewVariants, handleManageItem]
+    [columns, t, handleViewVariants, handleManageItem, theme]
   );
 
   const getStepContent = (currentStep) => {
     switch (currentStep) {
       case 0:
         return (
-          <ItemDetailsForm 
-            itemFormData={itemFormData} 
-            setItemFormData={setItemFormData} 
-            apiCategories={apiCategories} 
+          <ItemDetailsForm
+            itemFormData={itemFormData}
+            setItemFormData={setItemFormData}
+            apiCategories={apiCategories}
             shopCategory={activeIndustry}
+            refreshCategories={loadData}
           />
         );
       case 1:
@@ -181,10 +306,10 @@ export default function ItemsPage() {
         );
       case 2:
         return (
-          <ReviewStepContent 
-            itemFormData={itemFormData} 
-            variantList={variantList} 
-            apiCategories={apiCategories} 
+          <ReviewStepContent
+            itemFormData={itemFormData}
+            variantList={variantList}
+            apiCategories={apiCategories}
             shopCategory={activeIndustry}
           />
         );
@@ -194,122 +319,264 @@ export default function ItemsPage() {
   };
 
   return (
-    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 5 }}>
-      <Container maxWidth="xl" sx={{ pt: 4 }}>
-        
-        {/* Page Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="xl" sx={{ pt: 3 }}>
+
+        {/* ── HEADER ───────────────────────────────────── */}
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2.5}>
           <Box>
-            <Typography variant="h4" fontWeight={900} color="text.primary">
+            <Typography variant="h5" fontWeight={700} color="text.primary" sx={{ letterSpacing: -0.4 }}>
               {t('itemsPage.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {t('itemsPage.subtitle')}
+              {activeIndustry} · {kpi.totalItems} items · {kpi.categories} categories
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAddItemClick}
-            sx={{ borderRadius: 2, px: 3, py: 1.2, fontWeight: 700, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}
-          >
-            {t('itemsPage.actions.addItem')}
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<CategoryIcon />}
+              onClick={() => setCategoryDialogOpen(true)}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}
+            >
+              Categories
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<TuneIcon />}
+              onClick={() => navigate('/settings/custom-fields')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}
+            >
+              Custom Fields
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FileDownloadIcon />}
+              onClick={exportCsv}
+              disabled={displayItems.length === 0}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}
+            >
+              Export CSV
+            </Button>
+            {selectedItemIds.length > 0 && (
+              <Button
+                variant="outlined"
+                size="small"
+                color="error"
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setOpenBulkDeleteConfirm(true)}
+                sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}
+              >
+                Deactivate ({selectedItemIds.length})
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={handleAddItemClick}
+              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}
+            >
+              {t('itemsPage.actions.addItem')}
+            </Button>
+          </Stack>
         </Stack>
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        {/* ── KPI STRIP ────────────────────────────────── */}
+        <Paper
+          elevation={0}
+          sx={{
+            border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2,
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          }}
         >
-          <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%', borderRadius: 2 }} variant="filled">
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+          <KpiCell
+            icon={<InventoryIcon fontSize="small" />}
+            label="TOTAL ITEMS"
+            value={loading ? '—' : kpi.totalItems.toLocaleString('en-IN')}
+            color={theme.palette.primary.main}
+            divider
+          />
+          <KpiCell
+            icon={<CategoryIcon fontSize="small" />}
+            label="CATEGORIES"
+            value={loading ? '—' : kpi.categories}
+            color={theme.palette.success.main}
+            divider
+          />
+          <KpiCell
+            icon={<WarningIcon fontSize="small" />}
+            label="AWAITING VARIANTS"
+            value={loading ? '—' : kpi.awaitingVariants}
+            color={kpi.awaitingVariants > 0 ? theme.palette.warning.main : theme.palette.text.secondary}
+            interactive={kpi.awaitingVariants > 0}
+            onClick={() => kpi.awaitingVariants > 0 && setStockFilter('AWAITING')}
+          />
+        </Paper>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-            <CircularProgress thickness={5} size={50} />
-          </Box>
-        ) : (
-          <>
-            {/* Quick Stats Grid */}
-            <Grid container spacing={3} mb={4}>
-              <Grid item xs={12} sm={4}>
-                <StatCard 
-                  icon={<InventoryIcon sx={{ color: '#6366f1' }} />} 
-                  label={t('itemsPage.stats.totalItems')}
-                  value={itemsWithVariants.length} 
-                  color="#6366f1" 
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatCard 
-                  icon={<CategoryIcon sx={{ color: '#10b981' }} />} 
-                  label={t('itemsPage.stats.categories')}
-                  value={apiCategories.length} 
-                  color="#10b981" 
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatCard 
-                  icon={<WarningIcon sx={{ color: '#f59e0b' }} />} 
-                  label={t('itemsPage.stats.awaitingVariants')}
-                  value={itemsWithoutVariants.length} 
-                  color="#f59e0b" 
-                />
-              </Grid>
-            </Grid>
-
-            {itemsWithoutVariants.length > 0 && (
-              <Box mb={4}>
-                <ItemsAwaitingVariants
-                  itemsWithoutVariants={itemsWithoutVariants}
-                  handleManageItem={handleManageItem}
-                  shopCategory={activeIndustry}
-                />
-              </Box>
-            )}
-
-            <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-              <DataGrid
-                rows={itemsWithVariants}
-                columns={finalColumns}
-                autoHeight
-                getRowId={(row) => row.id}
-                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                pageSizeOptions={[10, 25, 50]}
-                disableRowSelectionOnClick
-                slots={{ toolbar: CustomToolbar }}
-                slotProps={{ toolbar: { onAddItemClick: handleAddItemClick } }}
-                sx={{
-                  border: 0,
-                  '& .MuiDataGrid-columnHeaders': { bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' },
-                  '& .MuiDataGrid-cell': { borderBottom: '1px solid', borderColor: 'divider' },
-                  '& .MuiDataGrid-cell:focus': { outline: 'none' },
+        {/* ── GRID + FILTERS ───────────────────────────── */}
+        <Paper elevation={0} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Stack sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }} spacing={1.5}>
+            {/* Row 1 — search + category */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
+              <TextField
+                inputRef={searchInputRef}
+                placeholder="Search name or brand  ·  ⌘K"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
                 }}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+                  ),
+                }}
+                sx={{ flex: 1 }}
               />
-            </Paper>
-          </>
-        )}
+              <Autocomplete
+                options={apiCategories}
+                getOptionLabel={(o) => o.name || ''}
+                isOptionEqualToValue={(o, v) => o.id === v?.id}
+                value={apiCategories.find((c) => c.id === searchCategoryId) || null}
+                onChange={(_, v) => {
+                  setSearchCategoryId(v ? v.id : null);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }}
+                size="small"
+                sx={{ minWidth: 220 }}
+                renderInput={(p) => <TextField {...p} placeholder="All categories" />}
+              />
+              {hasFilters && (
+                <Button
+                  size="small"
+                  startIcon={<FilterAltOffIcon fontSize="small" />}
+                  onClick={clearAllFilters}
+                  sx={{ textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
+                >
+                  Clear
+                </Button>
+              )}
+            </Stack>
+
+            {/* Row 2 — stock-level tabs */}
+            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+              <StockTab
+                active={stockFilter === 'ALL'}
+                onClick={() => setStockFilter('ALL')}
+                label="All"
+                count={stockChipCountsCurrentPage.ALL}
+              />
+              <StockTab
+                active={stockFilter === 'IN_STOCK'}
+                onClick={() => setStockFilter('IN_STOCK')}
+                label="In stock"
+                count={stockChipCountsCurrentPage.IN_STOCK}
+                color={theme.palette.success.main}
+              />
+              <StockTab
+                active={stockFilter === 'LOW'}
+                onClick={() => setStockFilter('LOW')}
+                label="Low"
+                count={stockChipCountsCurrentPage.LOW}
+                color={theme.palette.warning.main}
+              />
+              <StockTab
+                active={stockFilter === 'OUT'}
+                onClick={() => setStockFilter('OUT')}
+                label="Out"
+                count={stockChipCountsCurrentPage.OUT}
+                color={theme.palette.error.main}
+              />
+              <StockTab
+                active={stockFilter === 'AWAITING'}
+                onClick={() => setStockFilter('AWAITING')}
+                label="Awaiting variants"
+                count={stockChipCountsCurrentPage.AWAITING}
+                color={theme.palette.warning.dark}
+              />
+              <Box sx={{ flex: 1 }} />
+              {stockFilter !== 'ALL' && (
+                <Typography variant="caption" color="text.secondary">
+                  Filter applied to the current page ({displayItems.length} of {itemsWithVariants.length} shown).
+                </Typography>
+              )}
+            </Stack>
+          </Stack>
+
+          {loading ? (
+            <Box sx={{ p: 2 }}>
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} variant="rectangular" height={44} sx={{ mb: 1, borderRadius: 1 }} />
+              ))}
+            </Box>
+          ) : (
+            <DataGrid
+              rows={displayItems}
+              columns={finalColumns}
+              autoHeight
+              getRowId={(row) => row.id}
+              paginationMode="server"
+              rowCount={rowCount}
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+              pageSizeOptions={[10, 25, 50, 100]}
+              checkboxSelection
+              disableRowSelectionOnClick
+              rowSelectionModel={selectedItemIds}
+              onRowSelectionModelChange={(newSelection) => setSelectedItemIds(newSelection)}
+              slots={{ toolbar: CustomToolbar }}
+              slotProps={{ toolbar: { onAddItemClick: handleAddItemClick } }}
+              density="standard"
+              sx={{
+                border: 0,
+                '& .MuiDataGrid-columnHeaders': {
+                  bgcolor: alpha(theme.palette.text.primary, 0.04),
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  fontWeight: 600,
+                },
+                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 },
+                '& .MuiDataGrid-cell': { borderBottom: '1px solid', borderColor: 'divider' },
+                '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': { outline: 'none' },
+                '& .MuiDataGrid-row:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+              }}
+            />
+          )}
+        </Paper>
       </Container>
 
-      {/* Multi-Step Add/Edit Dialog */}
-      <Dialog 
-        open={openAddDialog || openEditDialog} 
-        onClose={handleDialogClose} 
-        fullWidth 
-        maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', backgroundImage: 'none' } }}
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <DialogTitle sx={{ p: 3, fontWeight: 800, fontSize: '1.5rem', color: 'text.primary' }}>
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ borderRadius: 2 }} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Multi-Step Add/Edit Dialog */}
+      <Dialog
+        open={openAddDialog || openEditDialog}
+        onClose={handleDialogClose}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
           {openAddDialog ? t('itemsPage.addDialogTitle') : t('itemsPage.editDialogTitle')}
         </DialogTitle>
-        <Divider sx={{ borderColor: 'divider' }} />
-        
-        <DialogContent sx={{ px: 4, py: 3 }}>
-          <Stepper activeStep={step} sx={{ mb: 4 }}>
+        <Divider />
+
+        <DialogContent sx={{ px: 3, py: 2.5 }}>
+          <Stepper activeStep={step} sx={{ mb: 3 }}>
             {steps.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
@@ -318,22 +585,20 @@ export default function ItemsPage() {
           </Stepper>
 
           {dialogError && (
-            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setDialogError(null)}>
+            <Alert severity="error" sx={{ mb: 2.5, borderRadius: 1.5 }} onClose={() => setDialogError(null)}>
               {dialogError}
             </Alert>
           )}
 
-          <Box sx={{ minHeight: '300px' }}>
-            {getStepContent(step)}
-          </Box>
+          <Box sx={{ minHeight: '300px' }}>{getStepContent(step)}</Box>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider', gap: 1 }}>
-          <Button onClick={handleDialogClose} disabled={isSubmitting} sx={{ fontWeight: 700, color: 'text.secondary' }}>
+        <DialogActions sx={{ p: 2, bgcolor: alpha(theme.palette.text.primary, 0.02), borderTop: '1px solid', borderColor: 'divider', gap: 1 }}>
+          <Button onClick={handleDialogClose} disabled={isSubmitting} sx={{ fontWeight: 600, textTransform: 'none', color: 'text.secondary' }}>
             {t('itemsPage.actions.cancel')}
           </Button>
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="outlined" disabled={step === 0 || isSubmitting} onClick={handleBack} sx={{ fontWeight: 700, borderRadius: 2 }}>
+          <Button variant="outlined" disabled={step === 0 || isSubmitting} onClick={handleBack} sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 1.5 }}>
             {t('itemsPage.actions.back')}
           </Button>
           <Button
@@ -344,28 +609,46 @@ export default function ItemsPage() {
                 : handleNext
             }
             disabled={isSubmitting}
-            sx={{ fontWeight: 700, borderRadius: 2, px: 4 }}
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: 1.5, px: 3, boxShadow: 'none' }}
           >
-            {isSubmitting ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : step === steps.length - 1 ? (
-              openAddDialog ? t('itemsPage.actions.save') : t('itemsPage.actions.update')
-            ) : (
-              t('itemsPage.actions.next')
-            )}
+            {isSubmitting ? '...' : step === steps.length - 1
+              ? (openAddDialog ? t('itemsPage.actions.save') : t('itemsPage.actions.update'))
+              : t('itemsPage.actions.next')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 3, bgcolor: 'background.paper', backgroundImage: 'none' } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
+      {/* Bulk Deactivate Confirmation */}
+      <Dialog open={openBulkDeleteConfirm} onClose={() => setOpenBulkDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Deactivate selected items?</DialogTitle>
         <DialogContent>
-          <DialogContentText>{t('itemsPage.deleteDialogText')}</DialogContentText>
+          <DialogContentText>
+            <strong>{selectedItemIds.length}</strong> item{selectedItemIds.length === 1 ? '' : 's'} will be marked inactive and hidden from the catalog.
+            Historical sales still resolve their variant references, so reports and past invoices are unaffected.
+            <br /><br />
+            Items with stock cannot be deactivated — clear inventory first.
+          </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Button onClick={() => setOpenDeleteConfirm(false)}>{t('itemsPage.actions.cancel')}</Button>
-          <Button onClick={confirmDeleteVariant} color="error" variant="contained" sx={{ borderRadius: 2, fontWeight: 700 }}>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenBulkDeleteConfirm(false)} sx={{ textTransform: 'none' }}>{t('itemsPage.actions.cancel')}</Button>
+          <Button onClick={confirmBulkDelete} color="error" variant="contained" sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}>
+            Deactivate {selectedItemIds.length}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Variant Confirmation */}
+      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            The variant will be marked inactive. Historical sales still resolve their references.
+            Variants with stock cannot be deactivated — clear inventory first.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDeleteConfirm(false)} sx={{ textTransform: 'none' }}>{t('itemsPage.actions.cancel')}</Button>
+          <Button onClick={confirmDeleteVariant} color="error" variant="contained" sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}>
             {t('itemsPage.actions.delete')}
           </Button>
         </DialogActions>
@@ -377,9 +660,9 @@ export default function ItemsPage() {
         onClose={() => setOpenViewVariantsDialog(false)}
         fullWidth
         maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', backgroundImage: 'none' } }}
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider', fontWeight: 800, color: 'text.primary' }}>
+        <DialogTitle sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', fontWeight: 700 }}>
           {t('itemsPage.variant.reviewTitle')} — {variantsToView?.name || ''}
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
@@ -390,12 +673,19 @@ export default function ItemsPage() {
             shopCategory={activeIndustry}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider' }}>
-          <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 700, borderRadius: 2 }}>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button variant="outlined" onClick={() => setOpenViewVariantsDialog(false)} sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 1.5 }}>
             {t('common.close')}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <CategoryQuickCreate
+        open={categoryDialogOpen}
+        onClose={() => setCategoryDialogOpen(false)}
+        categories={apiCategories}
+        onChanged={loadData}
+      />
 
       {/* Duplicate Item Warning Dialog */}
       <Dialog
@@ -403,31 +693,25 @@ export default function ItemsPage() {
         onClose={closeDuplicateWarning}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 4 } }}
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pt: 3 }}>
-          <WarningIcon color="warning" sx={{ fontSize: 28 }} />
-          <Typography variant="h6" fontWeight={800}>Item Already Exists</Typography>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontWeight: 700 }}>
+          <WarningIcon color="warning" sx={{ fontSize: 22 }} />
+          Item Already Exists
         </DialogTitle>
-        <DialogContent sx={{ pb: 1 }}>
-          <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2, borderRadius: 1.5 }}>
             {duplicateWarning.message}
           </Alert>
           {duplicateWarning.existingItem && (
-            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 3, border: '1px solid' }}>
+            <Box sx={{ p: 2, bgcolor: alpha(theme.palette.text.primary, 0.03), borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
               <Stack spacing={0.5}>
-                <Typography variant="subtitle2" fontWeight={800}>
-                  {duplicateWarning.existingItem.name}
-                </Typography>
+                <Typography variant="subtitle2" fontWeight={700}>{duplicateWarning.existingItem.name}</Typography>
                 {duplicateWarning.existingItem.brandName && (
-                  <Typography variant="caption" color="text.secondary">
-                    Brand: {duplicateWarning.existingItem.brandName}
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Brand: {duplicateWarning.existingItem.brandName}</Typography>
                 )}
                 {duplicateWarning.existingItem.categoryName && (
-                  <Typography variant="caption" color="text.secondary">
-                    Category: {duplicateWarning.existingItem.categoryName}
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Category: {duplicateWarning.existingItem.categoryName}</Typography>
                 )}
                 <Typography variant="caption" color="text.secondary">
                   Variants: {duplicateWarning.existingItem.variants?.length || 0}
@@ -436,31 +720,24 @@ export default function ItemsPage() {
             </Box>
           )}
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Would you like to view the existing item or update it with new variants?
+            View the existing item, or update it with new variants?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1, bgcolor: 'background.default' }}>
-          <Button
-            onClick={closeDuplicateWarning}
-            color="inherit"
-            sx={{ fontWeight: 700 }}
-          >
-            Cancel
-          </Button>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={closeDuplicateWarning} sx={{ textTransform: 'none', fontWeight: 600 }}>Cancel</Button>
           <Button
             variant="outlined"
             onClick={() => handleDuplicateViewUpdate('view')}
             disabled={!duplicateWarning.existingItem}
-            sx={{ fontWeight: 700, borderRadius: 2 }}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
           >
             View Item
           </Button>
           <Button
             variant="contained"
-            color="primary"
             onClick={() => handleDuplicateViewUpdate('update')}
             disabled={!duplicateWarning.existingItem}
-            sx={{ fontWeight: 700, borderRadius: 2 }}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, boxShadow: 'none' }}
           >
             Update / Add Variants
           </Button>
@@ -470,25 +747,58 @@ export default function ItemsPage() {
   );
 }
 
-const StatCard = ({ icon, label, value, color }) => (
-  <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid' }}>
-    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, py: '20px !important' }}>
-      <Box sx={{ bgcolor: alpha(color, 0.1), p: 2, borderRadius: 3, display: 'flex' }}>
-        {icon}
-      </Box>
-      <Box>
-        <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-          {label}
-        </Typography>
-        <Typography variant="h5" fontWeight={900}>
-          {value}
-        </Typography>
-      </Box>
-    </CardContent>
-  </Card>
+// ── Small enterprise cells ───────────────────────────────
+
+const KpiCell = ({ icon, label, value, color, divider, interactive, onClick }) => (
+  <Box
+    onClick={interactive ? onClick : undefined}
+    sx={{
+      p: 2, display: 'flex', alignItems: 'center', gap: 1.5,
+      borderRight: divider ? '1px solid' : 'none',
+      borderColor: 'divider',
+      cursor: interactive ? 'pointer' : 'default',
+      transition: 'background-color 0.15s',
+      '&:hover': interactive ? { bgcolor: 'action.hover' } : {},
+    }}
+  >
+    <Box sx={{
+      display: 'inline-flex', p: 1, borderRadius: 1,
+      bgcolor: alpha(color, 0.1), color, alignItems: 'center', justifyContent: 'center',
+    }}>
+      {icon}
+    </Box>
+    <Box>
+      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.6, fontSize: '0.65rem' }}>
+        {label}
+      </Typography>
+      <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.2 }}>
+        {value}
+      </Typography>
+    </Box>
+  </Box>
 );
 
-// Helper for alpha colors without direct import
-function alpha(color, opacity) {
-  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-}
+const StockTab = ({ active, onClick, label, count, color }) => (
+  <Chip
+    label={
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+        {label}
+        <Box component="span" sx={{ opacity: 0.7, fontWeight: 500 }}>{count}</Box>
+      </Box>
+    }
+    size="small"
+    onClick={onClick}
+    clickable
+    variant={active ? 'filled' : 'outlined'}
+    sx={{
+      fontWeight: 600,
+      borderRadius: 1,
+      bgcolor: active ? (color || 'primary.main') : 'transparent',
+      color: active ? 'common.white' : 'text.primary',
+      borderColor: color || 'divider',
+      '&:hover': {
+        bgcolor: active ? (color || 'primary.main') : (color ? alpha(color, 0.08) : 'action.hover'),
+      },
+    }}
+  />
+);

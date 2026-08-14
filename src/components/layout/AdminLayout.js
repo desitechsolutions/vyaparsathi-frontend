@@ -1,36 +1,36 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Box, Toolbar } from '@mui/material';
 import TechAdminHeader from './TechAdminHeader'; // Your new Admin Header
 import TechAdminSidebar from './TechAdminSidebar'; // A simplified Admin Sidebar
+import ErrorBoundary from '../common/ErrorBoundary';
 
-const AdminLayout = () => (
-  <Box sx={{ display: 'flex' }}>
-    {/* Admin Specific Header - No search/subscription logic */}
-    <TechAdminHeader /> 
-    
-    {/* Admin Specific Sidebar - Links like "Verify Payments", "User Management" */}
-    <TechAdminSidebar /> 
+const AdminLayout = () => {
+  const location = useLocation();
+  return (
+    <Box sx={{ display: 'flex' }}>
+      <TechAdminHeader />
+      <TechAdminSidebar />
 
-    <Box 
-      component="main" 
-      sx={{ 
-        flexGrow: 1, 
-        p: 3, 
-        bgcolor: 'background.default', // Darker theme for Admin "God-mode"
-        minHeight: '100vh',
-        color: 'text.primary'
-      }}
-    >
-      <Toolbar />
-      
-      {/* NOTE: We REMOVED <PremiumStatusBanner /> 
-         Admins don't have subscriptions to verify! 
-      */}
-
-      <Outlet />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          bgcolor: 'background.default',
+          minHeight: '100vh',
+          color: 'text.primary'
+        }}
+      >
+        <Toolbar />
+        {/* Same containment pattern as MainLayout — an admin page crash
+            keeps the admin nav shell intact. */}
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 export default AdminLayout;

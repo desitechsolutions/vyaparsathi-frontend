@@ -10,15 +10,11 @@ import {
   Autocomplete,
   TextField,
   Stack,
-  alpha,
   Card,
   Tooltip,
   Divider,
   Chip,
   InputAdornment,
-  Switch,
-  FormControlLabel,
-  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -28,9 +24,6 @@ import {
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
   ContentCopy as DuplicateIcon,
-  Diamond as DiamondIcon,
-  ElectricalServices as ElectronicsIcon,
-  DirectionsCar as AutoIcon,
 } from '@mui/icons-material';
 
 import { styled } from '@mui/material/styles';
@@ -40,11 +33,26 @@ import {
   variantModels,
   variantFits,
   shopUnits,
-  JEWELLERY_METAL_PURITIES,
-  ELECTRONICS_WARRANTY_TERMS,
 } from '../../../ui/constants';
+
+const GST_SLABS = ['0', '5', '12', '18', '28'];
+
+const HSN_DEFAULTS_BY_INDUSTRY = {
+  JEWELLERY:   ['7113', '7114', '7117'],
+  ELECTRONICS: ['8517', '8471', '8528', '8544', '8518'],
+  AUTOMOBILE:  ['8708', '4011', '8511', '8409'],
+  CLOTHING:    ['6105', '6109', '6203', '6204', '6110'],
+  HARDWARE:    ['7318', '8544', '8302', '3925'],
+  STATIONERY:  ['4820', '9608', '9609'],
+  GROCERY:     ['1006', '1701', '1902', '2101', '0401'],
+  FOOTWEAR:    ['6403', '6404', '6405'],
+  FURNITURE:   ['9401', '9403', '9404'],
+  GENERAL:     [],
+};
 import { flattenOptions } from '../utils/flattenOptions';
-import { API_BASE_URL } from '../../../services/api';
+import { API_BASE_URL, getSuppliers } from '../../../services/api';
+import { useShop } from '../../../context/ShopContext';
+import IndustrySlot from './IndustrySlot';
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -58,8 +66,21 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
+const DEFAULT_VARIANT_LABELS = {
+  CLOTHING:   { size: 'Size', color: 'Color', design: 'Design', fit: 'Fit' },
+  ELECTRONICS:{ size: 'Storage', color: 'Finish', design: 'Model', fit: 'Connectivity' },
+  HARDWARE:   { size: 'Dimensions', color: 'Finish', design: 'Grade', fit: 'Mounting' },
+  GROCERY:    { size: 'Weight/Vol', color: 'Origin', design: 'Quality', fit: 'Dietary' },
+  AUTOMOBILE: { size: 'Specs', color: 'Color', design: 'Part No', fit: 'Position' },
+  STATIONERY: { size: 'GSM/Size', color: 'Ink/Color', design: 'Binding', fit: 'Layout' },
+  FOOTWEAR:   { size: 'Size', color: 'Color', design: 'Collection', fit: 'Width' },
+  FURNITURE:  { size: 'Dimensions', color: 'Finish', design: 'Style', fit: 'Assembly' },
+  JEWELLERY:  { size: 'Length/Size', color: 'Tone', design: 'Pattern', fit: 'Clasp' },
+  GENERAL:    { size: 'Size', color: 'Color', design: 'Design', fit: 'Fit' },
+};
+
 export default function VariantFormFields({
-  shopCategory = 'CLOTHING', 
+  shopCategory,
   currentVariant,
   setCurrentVariant,
   variantList,
@@ -72,34 +93,55 @@ export default function VariantFormFields({
   handleDeleteVariantInList,
 }) {
   const { t } = useTranslation();
+  const { industryType, industryConfig, customAttributes } = useShop();
   const isEditing = editingVariantIndex !== null;
 
-  const industryRoot = shopCategory || "GENERAL";
-  console.log("VariantFormFields rendered", shopCategory);
+  // Supplier list for the preferred/backup dropdowns. Fetched once on mount;
+  // silent failure lets the form work in shops that don't use suppliers.
+  const [suppliers, setSuppliers] = React.useState([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    getSuppliers()
+      .then((data) => { if (!cancelled) setSuppliers(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setSuppliers([]); });
+    return () => { cancelled = true; };
+  }, []);
 
-  // --- DYNAMIC INDUSTRY CONFIG ---
-  const industryConfig = {
-    CLOTHING: { labels: { size: t('itemsPage.form.size'), color: t('itemsPage.form.color'), design: t('itemsPage.form.design'), fit: t('itemsPage.form.fit') } },
-    ELECTRONICS: { labels: { size: 'Storage', color: 'Finish', design: 'Model', fit: 'Connectivity' } },
-    HARDWARE: { labels: { size: 'Dimensions', color: 'Finish', design: 'Grade', fit: 'Mounting' } },
-    GROCERY: { labels: { size: 'Weight/Vol', color: 'Origin', design: 'Quality', fit: 'Dietary' } },
-    AUTOMOBILE: { labels: { size: 'Specs', color: 'Color', design: 'Part No', fit: 'Position' } },
-    STATIONERY: { labels: { size: 'GSM/Size', color: 'Ink/Color', design: 'Binding', fit: 'Layout' } },
-    FOOTWEAR: { labels: { size: 'Size', color: 'Color', design: 'Collection', fit: 'Width' } },
-    FURNITURE: { labels: { size: 'Dimensions', color: 'Finish', design: 'Style', fit: 'Assembly' } },
-    JEWELLERY: { labels: { size: 'Length/Size', color: 'Tone', design: 'Pattern', fit: 'Clasp' } }
+  const setSupplier = (key, supplier) => {
+    setCurrentVariant((prev) => ({
+      ...prev,
+      [`${key}Id`]: supplier ? supplier.id : null,
+      [`${key}Name`]: supplier ? supplier.name : null,
+    }));
   };
 
-  const config = industryConfig[industryRoot] || industryConfig.CLOTHING;
+  const industryRoot = (shopCategory || industryType || 'GENERAL').toUpperCase();
+  const variantLabels = DEFAULT_VARIANT_LABELS[industryRoot] || DEFAULT_VARIANT_LABELS.GENERAL;
+  const variantFields = industryConfig?.variant || [];
 
-  const getOptions = (source, root) => flattenOptions(source[root] || []);
+  // Convert ShopCustomAttributeDefDto[] → the FieldSpec shape IndustrySlot renders.
+  const customFieldSpecs = React.useMemo(
+    () =>
+      (customAttributes || [])
+        .filter((c) => c.active !== false)
+        .map((c) => ({
+          key: c.keyName,
+          label: c.label,
+          type: c.fieldType,
+          required: !!c.required,
+          options: c.options || [],
+          helpText: c.helpText || '',
+        })),
+    [customAttributes]
+  );
 
+  const getOptions = (source) => flattenOptions(source[industryRoot] || []);
   const options = {
-    size: getOptions(variantSpecs, industryRoot),
-    color: getOptions(variantColors, industryRoot),
-    design: getOptions(variantModels, industryRoot),
-    fit: getOptions(variantFits, industryRoot),
-    unit: shopUnits[industryRoot] || ['PIECE']
+    size:  getOptions(variantSpecs),
+    color: getOptions(variantColors),
+    design: getOptions(variantModels),
+    fit:   getOptions(variantFits),
+    unit:  shopUnits[industryRoot] || ['PIECE'],
   };
 
   const inputSx = {
@@ -121,10 +163,27 @@ export default function VariantFormFields({
     setCurrentVariant((prev) => ({ ...prev, [field]: newInputValue }));
   };
 
+  const handleSlotChange = (key, value) => {
+    setCurrentVariant((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleDuplicateVariant = (index) => {
     const sourceVariant = variantList[index];
-    setCurrentVariant({ ...sourceVariant }); 
-    setEditingVariantIndex(null); 
+    setCurrentVariant({ ...sourceVariant });
+    setEditingVariantIndex(null);
+  };
+
+  const nonNegative = (e, allowMax) => {
+    const v = parseFloat(e.target.value);
+    if (isNaN(v)) return true;
+    if (v < 0) return false;
+    if (allowMax !== undefined && v > allowMax) return false;
+    return true;
+  };
+
+  const guardedChange = (allowMax) => (e) => {
+    if (!nonNegative(e, allowMax)) return;
+    handleCurrentVariantChange(e);
   };
 
   const getVariantForm = () => (
@@ -142,7 +201,7 @@ export default function VariantFormFields({
             value={currentVariant[field.id] || ''}
             onChange={handleFreeSoloChange(field.id)}
             onInputChange={handleFreeSoloInput(field.id)}
-            renderInput={(params) => <TextField {...params} label={config.labels[field.id]} sx={inputSx} />}
+            renderInput={(params) => <TextField {...params} label={variantLabels[field.id]} sx={inputSx} />}
           />
         </Grid>
       ))}
@@ -175,29 +234,56 @@ export default function VariantFormFields({
           name="pricePerUnit"
           type="number"
           value={currentVariant.pricePerUnit || ''}
-          onChange={(e) => {
-            const value = parseFloat(e.target.value);
-            if (value < 0) return; 
-            handleCurrentVariantChange(e);
-          }}
+          onChange={guardedChange()}
           required fullWidth sx={inputSx}
-          InputProps={{ inputProps: { min: 0 } }} 
+          InputProps={{ inputProps: { min: 0, step: 'any' } }}
         />
       </Grid>
 
       <Grid item xs={12} sm={6}>
-        <TextField
-          label={t('itemsPage.form.gstRate')}
-          name="gstRate"
-          type="number"
-          value={currentVariant.gstRate || ''}
-          onChange={(e) => {
-            const value = parseFloat(e.target.value);
-            if (value < 0) return; 
-            handleCurrentVariantChange(e);
+        <Autocomplete
+          freeSolo
+          options={HSN_DEFAULTS_BY_INDUSTRY[industryRoot] || []}
+          value={currentVariant.hsn || ''}
+          onChange={handleFreeSoloChange('hsn')}
+          onInputChange={handleFreeSoloInput('hsn')}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="HSN Code"
+              placeholder="e.g. 7113"
+              helperText={`Suggested ${industryRoot} codes shown — override as needed`}
+              sx={inputSx}
+            />
+          )}
+        />
+      </Grid>
+
+      <Grid item xs={12} sm={6}>
+        <Autocomplete
+          freeSolo
+          options={GST_SLABS}
+          value={currentVariant.gstRate != null ? String(currentVariant.gstRate) : ''}
+          onChange={(_, v) => {
+            const n = v === '' || v === null ? '' : parseFloat(v);
+            if (n !== '' && (isNaN(n) || n < 0 || n > 28)) return;
+            setCurrentVariant((prev) => ({ ...prev, gstRate: n === '' ? '' : n }));
           }}
-          fullWidth sx={inputSx}
-          InputProps={{ inputProps: { min: 0, max: 100 } }}
+          onInputChange={(_, v) => {
+            const n = v === '' ? '' : parseFloat(v);
+            if (v !== '' && (isNaN(n) || n < 0 || n > 28)) return;
+            setCurrentVariant((prev) => ({ ...prev, gstRate: v === '' ? '' : n }));
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={t('itemsPage.form.gstRate')}
+              sx={inputSx}
+              helperText="Standard slabs: 0, 5, 12, 18, 28 — override if needed"
+              type="number"
+              inputProps={{ ...params.inputProps, min: 0, max: 28, step: 'any' }}
+            />
+          )}
         />
       </Grid>
 
@@ -213,7 +299,6 @@ export default function VariantFormFields({
         />
       </Grid>
 
-      {/* Batch / Expiry / MRP fields (generic retail traceability) */}
       <Grid item xs={12}>
         <Divider sx={{ my: 0.5 }}>
           <Chip
@@ -226,23 +311,21 @@ export default function VariantFormFields({
         </Divider>
       </Grid>
 
-      {/* MRP */}
       <Grid item xs={12} sm={6}>
         <TextField
           label={t('itemsPage.form.mrp')}
           name="mrp"
           type="number"
           value={currentVariant.mrp || ''}
-          onChange={handleCurrentVariantChange}
+          onChange={guardedChange()}
           fullWidth sx={inputSx}
           InputProps={{
             startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-            inputProps: { min: 0 }
+            inputProps: { min: 0, step: 'any' },
           }}
         />
       </Grid>
 
-      {/* Batch Number */}
       <Grid item xs={12} sm={6}>
         <TextField
           label={t('itemsPage.form.batchNumber')}
@@ -253,7 +336,6 @@ export default function VariantFormFields({
         />
       </Grid>
 
-      {/* Manufacturing Date */}
       <Grid item xs={12} sm={6}>
         <TextField
           label={t('itemsPage.form.manufacturingDate')}
@@ -266,7 +348,6 @@ export default function VariantFormFields({
         />
       </Grid>
 
-      {/* Expiry Date */}
       <Grid item xs={12} sm={6}>
         <TextField
           label={t('itemsPage.form.expiryDate')}
@@ -279,315 +360,131 @@ export default function VariantFormFields({
         />
       </Grid>
 
-      {/* ---- JEWELLERY-SPECIFIC VARIANT FIELDS ---- */}
-      {shopCategory === 'JEWELLERY' && (
-        <>
-          <Grid item xs={12}>
-            <Divider sx={{ my: 0.5 }}>
-              <Chip
-                icon={<DiamondIcon fontSize="small" />}
-                label="Jewellery Variant Details"
-                size="small"
-                color="secondary"
-                variant="outlined"
-                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
-              />
-            </Divider>
-          </Grid>
+      {/* ── Reorder rules (V79) ────────────────────────────────────── */}
+      <Grid item xs={12}>
+        <Divider sx={{ my: 0.5 }}>
+          <Chip label="Reorder Rules (Optional)" size="small" variant="outlined"
+            sx={{ fontWeight: 700, fontSize: '0.7rem' }} />
+        </Divider>
+      </Grid>
 
-          {/* Gross Weight */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Gross Weight (grams)"
-              name="weightGrams"
-              type="number"
-              value={currentVariant.weightGrams || ''}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (value < 0) return;
-                handleCurrentVariantChange(e);
-              }}
-              fullWidth sx={inputSx}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">g</InputAdornment>,
-                inputProps: { min: 0, step: 0.01 }
-              }}
-              helperText="Total weight including stones"
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label="Reorder point"
+          name="reorderPoint" type="number"
+          value={currentVariant.reorderPoint ?? ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, step: 'any' } }}
+          helperText="Trigger reorder when stock falls to this level"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label="Fixed reorder quantity"
+          name="reorderQty" type="number"
+          value={currentVariant.reorderQty ?? ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, step: 'any' } }}
+          helperText="Always buy this many — overrides the velocity formula"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label="Safety stock"
+          name="safetyStock" type="number"
+          value={currentVariant.safetyStock ?? ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, step: 'any' } }}
+          helperText="Buffer kept for demand uncertainty"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label="Max stock"
+          name="maxStock" type="number"
+          value={currentVariant.maxStock ?? ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, step: 'any' } }}
+          helperText="Advisory cap on how much to hold"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          label="Lead time (days)"
+          name="leadTimeDays" type="number"
+          value={currentVariant.leadTimeDays ?? ''}
+          onChange={handleCurrentVariantChange}
+          fullWidth sx={inputSx}
+          InputProps={{ inputProps: { min: 0, step: 1 } }}
+          helperText="Days between placing a PO and receiving goods"
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <Autocomplete
+          options={suppliers}
+          getOptionLabel={(s) => s?.name || ''}
+          isOptionEqualToValue={(a, b) => a?.id === b?.id}
+          value={suppliers.find((s) => s.id === currentVariant.preferredSupplierId) || null}
+          onChange={(_, v) => setSupplier('preferredSupplier', v)}
+          renderInput={(params) => (
+            <TextField {...params} label="Preferred supplier" sx={inputSx}
+              helperText="Overrides the last-PO fallback" />
+          )}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <Autocomplete
+          options={suppliers}
+          getOptionLabel={(s) => s?.name || ''}
+          isOptionEqualToValue={(a, b) => a?.id === b?.id}
+          value={suppliers.find((s) => s.id === currentVariant.backupSupplierId) || null}
+          onChange={(_, v) => setSupplier('backupSupplier', v)}
+          renderInput={(params) => (
+            <TextField {...params} label="Backup supplier" sx={inputSx}
+              helperText="Fallback when the preferred one is unavailable" />
+          )}
+        />
+      </Grid>
+
+      {/* Industry-specific variant fields from server config */}
+      {variantFields.length > 0 && (
+        <Grid item xs={12}>
+          <Divider sx={{ my: 0.5 }}>
+            <Chip
+              label={`${industryRoot} — Extra Details`}
+              size="small"
+              color="secondary"
+              variant="outlined"
+              sx={{ fontWeight: 700, fontSize: '0.7rem' }}
             />
-          </Grid>
-
-          {/* Net Weight (gold only) */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Net Metal Weight (grams)"
-              name="netWeightGrams"
-              type="number"
-              value={currentVariant.netWeightGrams || ''}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (value < 0) return;
-                handleCurrentVariantChange(e);
-              }}
-              fullWidth sx={inputSx}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">g</InputAdornment>,
-                inputProps: { min: 0, step: 0.01 }
-              }}
-              helperText="Weight of metal only (excluding stones)"
-            />
-          </Grid>
-
-          {/* Metal Purity */}
-          <Grid item xs={12} sm={6}>
-            <Autocomplete
-              freeSolo
-              options={JEWELLERY_METAL_PURITIES}
-              value={currentVariant.metalPurity || ''}
-              onChange={(_, v) => setCurrentVariant((prev) => ({ ...prev, metalPurity: v || '' }))}
-              onInputChange={(_, v) => setCurrentVariant((prev) => ({ ...prev, metalPurity: v }))}
-              renderInput={(params) => (
-                <TextField {...params} label="Metal Purity" sx={inputSx} />
-              )}
-            />
-          </Grid>
-
-          {/* Hallmark Number */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Hallmark / HUID Number"
-              name="hallmarkNo"
-              value={currentVariant.hallmarkNo || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              placeholder="6-character alphanumeric HUID"
-              helperText="BIS Hallmark Unique ID (mandatory from Apr 2023)"
-            />
-          </Grid>
-
-          {/* Making Charges Section — both ₹/gram and % of metal value */}
-          <Grid item xs={12}>
-            <Box sx={{ p: 2, bgcolor: 'rgba(217, 70, 239, 0.08)', borderRadius: 2, border: '1px solid', borderColor: 'secondary.light' }}>
-              <Typography variant="caption" fontWeight={800} color="secondary.dark" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Making Charges
-              </Typography>
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                {/* Making Charges per gram */}
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Making Charges (₹ per gram)"
-                    name="makingChargesPerGram"
-                    type="number"
-                    value={currentVariant.makingChargesPerGram || ''}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (value < 0) return;
-                      handleCurrentVariantChange(e);
-                    }}
-                    fullWidth sx={inputSx}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                      inputProps: { min: 0, step: 0.01 }
-                    }}
-                    helperText="Flat rate per gram of net metal weight"
-                  />
-                </Grid>
-
-                {/* Making Charges as % of metal value */}
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Making Charges (% of metal value)"
-                    name="makingChargesPct"
-                    type="number"
-                    value={currentVariant.makingChargesPct || ''}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (value < 0 || value > 100) return;
-                      handleCurrentVariantChange(e);
-                    }}
-                    fullWidth sx={inputSx}
-                    InputProps={{
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                      inputProps: { min: 0, max: 100, step: 0.1 }
-                    }}
-                    helperText="% of (metal weight × today's gold rate)"
-                  />
-                </Grid>
-
-                {/* Live preview: calculated making charges when both weight and rate are filled */}
-                {(currentVariant.makingChargesPerGram || currentVariant.makingChargesPct) && currentVariant.netWeightGrams && (
-                  <Grid item xs={12}>
-                    <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 2, border: '1px dashed #c084fc' }}>
-                      <Typography variant="caption" fontWeight={700} color="secondary.dark">
-                        💡 Making Charges Preview (based on net weight {currentVariant.netWeightGrams}g)
-                      </Typography>
-                      {currentVariant.makingChargesPerGram && (
-                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                          Flat: ₹{(parseFloat(currentVariant.makingChargesPerGram) * parseFloat(currentVariant.netWeightGrams)).toFixed(2)}
-                          {' '}(₹{currentVariant.makingChargesPerGram}/g × {currentVariant.netWeightGrams}g)
-                        </Typography>
-                      )}
-                      {currentVariant.makingChargesPct && (
-                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                          % rate: {currentVariant.makingChargesPct}% of metal value — applied at billing using live gold rate
-                        </Typography>
-                      )}
-                    </Box>
-                  </Grid>
-                )}
-              </Grid>
-            </Box>
-          </Grid>
-
-          {/* Stone Weight */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Stone Weight (carats)"
-              name="stoneWeightCarats"
-              type="number"
-              value={currentVariant.stoneWeightCarats || ''}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (value < 0) return;
-                handleCurrentVariantChange(e);
-              }}
-              fullWidth sx={inputSx}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">ct</InputAdornment>,
-                inputProps: { min: 0, step: 0.01 }
-              }}
-              helperText="Leave blank if no stones"
-            />
-          </Grid>
-        </>
+          </Divider>
+        </Grid>
       )}
+      <IndustrySlot fields={variantFields} values={currentVariant} onChange={handleSlotChange} />
 
-      {/* ---- ELECTRONICS-SPECIFIC VARIANT FIELDS ---- */}
-      {shopCategory === 'ELECTRONICS' && (
-        <>
-          <Grid item xs={12}>
-            <Divider sx={{ my: 0.5 }}>
-              <Chip
-                icon={<ElectronicsIcon fontSize="small" />}
-                label="Electronics Variant Details"
-                size="small"
-                color="info"
-                variant="outlined"
-                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
-              />
-            </Divider>
-          </Grid>
-
-          {/* IMEI / Serial Number */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="IMEI / Serial Number"
-              name="serialNumber"
-              value={currentVariant.serialNumber || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              placeholder="For individual unit tracking"
-              helperText="Optional — for high-value tracking"
+      {/* Per-shop custom attributes — stored under variant.customAttributes JSON map. */}
+      {customFieldSpecs.length > 0 && (
+        <Grid item xs={12}>
+          <Divider sx={{ my: 0.5 }}>
+            <Chip
+              label="Custom Fields"
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 700, fontSize: '0.7rem' }}
             />
-          </Grid>
-
-          {/* Warranty Period */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              select
-              label="Warranty Period"
-              name="warrantyMonths"
-              value={currentVariant.warrantyMonths || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-            >
-              <MenuItem value=""><em>Not Specified</em></MenuItem>
-              {ELECTRONICS_WARRANTY_TERMS.map((w) => (
-                <MenuItem key={w.value} value={w.value}>{w.label}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          {/* MRP */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="MRP (Max Retail Price)"
-              name="mrp"
-              type="number"
-              value={currentVariant.mrp || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                inputProps: { min: 0 }
-              }}
-            />
-          </Grid>
-        </>
+          </Divider>
+        </Grid>
       )}
-
-      {/* ---- AUTOMOBILE-SPECIFIC VARIANT FIELDS ---- */}
-      {shopCategory === 'AUTOMOBILE' && (
-        <>
-          <Grid item xs={12}>
-            <Divider sx={{ my: 0.5 }}>
-              <Chip
-                icon={<AutoIcon fontSize="small" />}
-                label="Automobile Part Details"
-                size="small"
-                color="warning"
-                variant="outlined"
-                sx={{ fontWeight: 700, fontSize: '0.7rem' }}
-              />
-            </Divider>
-          </Grid>
-
-          {/* Part Number */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Variant Part Number"
-              name="partNumber"
-              value={currentVariant.partNumber || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              placeholder="e.g., SWF-SX16-07"
-              helperText="SKU or OEM part reference for this variant"
-            />
-          </Grid>
-
-          {/* OEM / Aftermarket */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              select
-              label="Part Origin"
-              name="partOrigin"
-              value={currentVariant.partOrigin || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-            >
-              <MenuItem value=""><em>Not Specified</em></MenuItem>
-              <MenuItem value="GENUINE">Genuine OEM</MenuItem>
-              <MenuItem value="AFTERMARKET">Aftermarket</MenuItem>
-              <MenuItem value="RECONDITIONED">Reconditioned</MenuItem>
-            </TextField>
-          </Grid>
-
-          {/* MRP */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="MRP (Max Retail Price)"
-              name="mrp"
-              type="number"
-              value={currentVariant.mrp || ''}
-              onChange={handleCurrentVariantChange}
-              fullWidth sx={inputSx}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                inputProps: { min: 0 }
-              }}
-            />
-          </Grid>
-        </>
-      )}
+      <IndustrySlot
+        fields={customFieldSpecs}
+        values={currentVariant}
+        onChange={handleSlotChange}
+        valueContainerKey="customAttributes"
+      />
 
       <Grid item xs={12}>
         <Button
@@ -617,9 +514,11 @@ export default function VariantFormFields({
   return (
     <Grid container spacing={4}>
       <Grid item xs={12} md={6}>
-        <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '2px solid', 
+        <Paper elevation={0} sx={{
+          p: 3, borderRadius: 4, border: '2px solid',
           borderColor: isEditing ? 'success.main' : 'divider',
-          bgcolor: isEditing ? 'action.selected' : 'background.paper' }}>
+          bgcolor: isEditing ? 'action.selected' : 'background.paper',
+        }}>
           <Stack direction="row" alignItems="center" spacing={1} mb={2}>
             {isEditing ? <EditIcon color="success" /> : <AddIcon color="primary" />}
             <Typography variant="h6" fontWeight={900} color="text.primary">
@@ -648,15 +547,18 @@ export default function VariantFormFields({
           {variantList.length > 0 ? (
             <Stack spacing={2}>
               {variantList.map((variant, index) => (
-                <Card key={index} elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid',
+                <Card key={index} elevation={0} sx={{
+                  p: 2, borderRadius: 3, border: '1px solid',
                   borderColor: editingVariantIndex === index ? 'primary.main' : 'divider',
-                  bgcolor: editingVariantIndex === index ? 'action.selected' : 'background.paper' }}>
+                  bgcolor: editingVariantIndex === index ? 'action.selected' : 'background.paper',
+                }}>
                   <Grid container alignItems="center">
                     <Grid item xs>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                         <Box>
                           <Typography variant="subtitle2" fontWeight={900} color="text.primary">
-                            ₹{variant.pricePerUnit} <small style={{ fontWeight: 400, color: 'text.secondary' }}>/ {variant.unit}</small>
+                            ₹{variant.pricePerUnit}{' '}
+                            <small style={{ fontWeight: 400, color: 'text.secondary' }}>/ {variant.unit}</small>
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {[variant.size, variant.color, variant.design, variant.fit].filter(Boolean).join(' • ') || 'Standard'}

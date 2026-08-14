@@ -5,82 +5,42 @@ import {
   GridToolbarColumnsButton,
   GridToolbarFilterButton,
   GridToolbarDensitySelector,
-  GridToolbarQuickFilter,
 } from '@mui/x-data-grid';
-import { Button, Box, Divider } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Box } from '@mui/material';
 
-export default function CustomToolbar({ onAddItemClick }) {
+/**
+ * Grid-native toolbar that only exposes the built-in view controls
+ * (columns / filter / density). Search + Add live on the parent page
+ * toolbar so this row stays compact and doesn't duplicate affordances.
+ */
+export default function CustomToolbar() {
   const { t } = useTranslation();
 
   return (
-    <GridToolbarContainer 
-      sx={{ 
-        p: 2, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+    <GridToolbarContainer
+      sx={{
+        px: 1.5, py: 1,
+        display: 'flex',
         alignItems: 'center',
+        gap: 0.5,
         bgcolor: 'background.paper',
-        borderBottom: '1px solid'
+        borderBottom: '1px solid',
+        borderColor: 'divider',
       }}
     >
-      {/* Left side: View Controls */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-        <GridToolbarFilterButton 
-          // Passing custom label from i18n
-          label={t('itemsPage.toolbar.filter')}
-          sx={{ fontWeight: 700, color: 'text.secondary', '& .MuiButton-startIcon': { mr: 0.5 } }} 
-        />
-        <GridToolbarColumnsButton 
-          // Passing custom label from i18n
-          label={t('itemsPage.toolbar.columns')}
-          sx={{ fontWeight: 700, color: 'text.secondary' }} 
-        />
-        <GridToolbarDensitySelector 
-          // Passing custom label from i18n
-          label={t('itemsPage.toolbar.density')}
-          sx={{ fontWeight: 700, color: 'text.secondary' }} 
-        />
-      </Box>
-
-      {/* Right side: Search and Actions */}
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        <GridToolbarQuickFilter
-          variant="outlined"
-          size="small"
-          placeholder={t('itemsPage.searchPlaceholder')}
-          debounceMs={300}
-          sx={{
-            '& .MuiInputBase-root': {
-              borderRadius: 2,
-              bgcolor: 'background.default',
-              fontSize: '0.875rem',
-              width: { xs: '150px', sm: '250px' },
-              '& fieldset': { borderColor: 'divider' },
-              '&:hover fieldset': { borderColor: 'divider' },
-            }
-          }}
-        />
-
-        <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: 'center' }} />
-
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={onAddItemClick}
-          sx={{ 
-            borderRadius: 2, 
-            px: 2, 
-            fontWeight: 800,
-            textTransform: 'none',
-            boxShadow: 'none',
-            '&:hover': { boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }
-          }}
-        >
-          {t('itemsPage.addItem')}
-        </Button>
-      </Box>
+      <GridToolbarFilterButton
+        label={t('itemsPage.toolbar.filter')}
+        sx={{ fontWeight: 600, textTransform: 'none', color: 'text.secondary' }}
+      />
+      <GridToolbarColumnsButton
+        label={t('itemsPage.toolbar.columns')}
+        sx={{ fontWeight: 600, textTransform: 'none', color: 'text.secondary' }}
+      />
+      <GridToolbarDensitySelector
+        label={t('itemsPage.toolbar.density')}
+        sx={{ fontWeight: 600, textTransform: 'none', color: 'text.secondary' }}
+      />
+      <Box sx={{ flex: 1 }} />
     </GridToolbarContainer>
   );
 }

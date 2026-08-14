@@ -303,6 +303,39 @@ const CustomerSection = ({
           </Tooltip>
         </Box>
 
+        {/* Customer identity strip — phone · GSTIN · outstanding balance.
+            Visible once a customer is selected so the seller can confirm at a
+            glance who they're billing without opening the customer dialog. */}
+        {selectedCustomer && (
+          <Stack direction="row" spacing={0.75} sx={{ mb: 1, flexWrap: 'wrap' }} useFlexGap>
+            {selectedCustomer.phone && (
+              <Chip
+                label={selectedCustomer.phone}
+                size="small"
+                variant="outlined"
+                sx={{ borderRadius: 1.5, fontWeight: 600, fontSize: '0.72rem', height: 22, borderColor: 'divider' }}
+              />
+            )}
+            {selectedCustomer.gstNumber && (
+              <Chip
+                label={`GSTIN ${selectedCustomer.gstNumber}`}
+                size="small"
+                variant="outlined"
+                sx={{ borderRadius: 1.5, fontWeight: 600, fontSize: '0.72rem', height: 22, borderColor: 'divider' }}
+              />
+            )}
+            {Number(selectedCustomer.creditBalance || 0) > 0 && (
+              <Chip
+                label={`Due ₹${Number(selectedCustomer.creditBalance).toFixed(2)}`}
+                size="small"
+                color="warning"
+                variant="outlined"
+                sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.72rem', height: 22 }}
+              />
+            )}
+          </Stack>
+        )}
+
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
             <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>{t('salesFlow.customer.retailLabel')}</Typography>} sx={{ mr: 1 }} />

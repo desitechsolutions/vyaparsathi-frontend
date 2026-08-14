@@ -4,6 +4,7 @@ import PrivateRoute from './PrivateRoute';
 import MainLayout from '../components/layout/MainLayout'; // Updated to use your responsive layout
 import Dashboard from '../pages/Dashboard';
 import ItemsPage from '../pages/ItemsPage';
+import CustomFieldsPage from '../pages/CustomFieldsPage';
 import Stock from '../pages/Stock';
 import Customers from '../pages/Customers';
 import Sales from '../pages/Sales';
@@ -198,6 +199,7 @@ function AppRoutes() {
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="items" element={<ItemsPage />} />
+            <Route path="settings/custom-fields" element={<CustomFieldsPage />} />
             <Route path="stock" element={<Stock />} />
             <Route path="customers" element={<Customers />} />
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />

@@ -104,6 +104,25 @@ export const searchGlobalData = (query) => {
   });
 };
 
+export const fetchIndustryConfig = (industryType) => {
+  const type = (industryType || 'GENERAL').toUpperCase();
+  return API.get(endpoints.configIndustryFields(type));
+};
+
+// Per-shop custom attribute definitions (Phase 4)
+export const fetchCustomAttributes = () => API.get(endpoints.customAttributes);
+export const createCustomAttribute = (payload) => API.post(endpoints.customAttributes, payload);
+export const updateCustomAttribute = (id, payload) => API.put(endpoints.customAttributeById(id), payload);
+export const deleteCustomAttribute = (id) => API.delete(endpoints.customAttributeById(id));
+export const reorderCustomAttributes = (ids) => API.post(endpoints.customAttributeReorder, { ids });
+
+/**
+ * Applies a partial patch (threshold, reorder rules, preferred supplier)
+ * to every variant in `ids`. Used by the LowStockAlerts "Bulk edit" flow.
+ */
+export const bulkPatchItemVariants = (payload) =>
+  API.post('/api/item-variants/bulk-patch', payload);
+
 export const fetchShop = async () => {
   try {
     const res = await API.get(endpoints.shop);
@@ -163,6 +182,22 @@ export const receivePurchaseOrder = (id) =>
 export const submitPurchaseOrder = (id) =>
   API.post(endpoints.submitPurchaseOrder(id)).then((r) => r.data);
 
+// V81 state-machine actions — new endpoints backed by PurchaseOrderService.
+// cancelPurchaseOrder requires a written reason (server-side @NotBlank, 500-char cap).
+export const cancelPurchaseOrder = (id, reason) =>
+  API.post(endpoints.cancelPurchaseOrder(id), { reason }).then((r) => r.data);
+
+export const sendPurchaseOrder = (id) =>
+  API.post(endpoints.sendPurchaseOrder(id)).then((r) => r.data);
+
+export const markReceivedPurchaseOrder = (id) =>
+  API.post(endpoints.markReceivedPurchaseOrder(id)).then((r) => r.data);
+
+// New "open" alias — /pending stays for backward compat but /open is the
+// canonical Zoho-parity name and only returns SUBMITTED + PARTIALLY_RECEIVED.
+export const getOpenPurchaseOrders = () =>
+  API.get(endpoints.openPurchaseOrders).then((r) => r.data);
+
 // --- SUPPLIERS ---
 
 export const getSuppliers = () =>
@@ -201,10 +236,15 @@ export const fetchItems = () => API.get(endpoints.items);
 export const getItemById = (id) => API.get(endpoints.getItemById(id));
 export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
 export const fetchCategories = () => API.get(endpoints.fetchCategories);
+export const createCategory = (payload) => API.post(endpoints.fetchCategories, payload);
+export const updateCategory = (id, payload) => API.put(endpoints.categoryById(id), payload);
+export const deleteCategory = (id) => API.delete(endpoints.categoryById(id));
 export const fetchItemSubstitutes = (itemId) => API.get(`${endpoints.items}/${itemId}/substitutes`);
 
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
+export const deleteItemsBulk = (ids) => API.delete(endpoints.deleteItemsBulk, { data: { ids } });
+export const searchItemsPage = (params) => API.get(endpoints.searchItems, { params });
 export const updateItemVariant = (id, data) => API.put(endpoints.itemVariantById(id), data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });

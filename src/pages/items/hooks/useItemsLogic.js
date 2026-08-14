@@ -6,14 +6,22 @@ import {
   createItem,
   updateItem,
   deleteItemVariant,
+  deleteItemsBulk,
   fetchStock,
   fetchCategories,
+  searchItemsPage,
 } from '../../../services/api';
+import { useShop } from '../../../context/ShopContext';
 
 import { initialVariantState, initialItemFormData } from '../constants/initialStates';
+import { itemSchemaFor, variantSchemaFor, validate } from '../validation/itemSchema';
 
 export default function useItemsLogic() {
   const { t } = useTranslation();
+
+  // Industry context comes from ShopContext — a single source of truth for the whole app.
+  const { industryType, industryConfig } = useShop();
+  const shopCategory = industryType || 'GENERAL';
 
   // ── Data States ────────────────────────────────────────
   const [allItems, setAllItems] = useState([]);
@@ -21,10 +29,6 @@ export default function useItemsLogic() {
   const [itemsWithoutVariants, setItemsWithoutVariants] = useState([]);
   const [stockData, setStockData] = useState([]);
   const [apiCategories, setApiCategories] = useState([]);
-
-  // ── Industry Context State ──────────────────────────────
-  // Detects shop type (CLOTHING, ELECTRONICS, etc.) for UI labels
-  const [shopCategory, setShopCategory] = useState('CLOTHING');
 
   // ── UI / Loading States ────────────────────────────────
   const [loading, setLoading] = useState(true);
@@ -39,6 +43,20 @@ export default function useItemsLogic() {
   const [openViewVariantsDialog, setOpenViewVariantsDialog] = useState(false);
   const [variantsToView, setVariantsToView] = useState({ name: '', variants: [] });
   const [selectedVariantId, setSelectedVariantId] = useState(null);
+
+  // ── Bulk Selection ─────────────────────────────────────
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [openBulkDeleteConfirm, setOpenBulkDeleteConfirm] = useState(false);
+
+  // ── Server-side pagination / search ────────────────────
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchCategoryId, setSearchCategoryId] = useState(null);
+  const [rowCount, setRowCount] = useState(0);
+
+  // ── Client-side stock filter (over current page) ───────
+  // 'ALL' | 'IN_STOCK' | 'LOW' | 'OUT' | 'AWAITING'
+  const [stockFilter, setStockFilter] = useState('ALL');
 
   // ── Duplicate Item Warning Dialog ──────────────────────
   const [duplicateWarning, setDuplicateWarning] = useState({
@@ -85,14 +103,6 @@ export default function useItemsLogic() {
       const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
       setApiCategories(categories);
 
-      // Detect Industry from Categories: Find the root industry category
-      if (categories.length > 0) {
-        const rootCat = categories.find(c => !c.parentId || c.parentName === null);
-        if (rootCat) {
-          setShopCategory(rootCat.name.toUpperCase());
-        }
-      }
-
     } catch (err) {
       console.error('Data fetch error:', err);
       showSnackbar('Failed to load data. Please check API service.', 'error');
@@ -104,6 +114,28 @@ export default function useItemsLogic() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadPage = useCallback(async () => {
+    try {
+      const res = await searchItemsPage({
+        q: searchQuery || '',
+        categoryId: searchCategoryId || undefined,
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
+      });
+      const data = res?.data || {};
+      const rows = Array.isArray(data.content) ? data.content : [];
+      setItemsWithVariants(rows);
+      setRowCount(typeof data.totalElements === 'number' ? data.totalElements : rows.length);
+    } catch (err) {
+      console.error('Server search failed:', err);
+    }
+  }, [searchQuery, searchCategoryId, paginationModel.page, paginationModel.pageSize]);
+
+  useEffect(() => {
+    const t = setTimeout(() => { loadPage(); }, 250);
+    return () => clearTimeout(t);
+  }, [loadPage]);
 
   // Cleanup Preview URLs to prevent memory leaks
   useEffect(() => {
@@ -192,13 +224,32 @@ export default function useItemsLogic() {
     return formData;
   };
 
+  const validatePayload = async () => {
+    const itemErr = await validate(itemSchemaFor(industryConfig), itemFormData);
+    if (itemErr) {
+      setDialogError(itemErr.message);
+      return false;
+    }
+    const vSchema = variantSchemaFor(industryConfig);
+    for (let i = 0; i < variantList.length; i++) {
+      const vErr = await validate(vSchema, variantList[i]);
+      if (vErr) {
+        setDialogError(`Variant ${i + 1}: ${vErr.message}`);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleMultiStepSubmit = async () => {
+    if (!(await validatePayload())) return;
     setIsSubmitting(true);
     try {
       await createItem(prepareFormData(false));
       showSnackbar('Item created successfully!', 'success');
       handleDialogClose();
       loadData();
+      loadPage();
     } catch (err) {
       const serverMessage = err.response?.data?.message || '';
       // Check if backend says item with this brand already exists
@@ -226,12 +277,14 @@ export default function useItemsLogic() {
   };
 
   const handleMultiStepUpdate = async () => {
+    if (!(await validatePayload())) return;
     setIsSubmitting(true);
     try {
       await updateItem(selectedItemId, prepareFormData(true));
       showSnackbar('Item updated successfully!', 'success');
       handleDialogClose();
       loadData();
+      loadPage();
     } catch (err) {
       setDialogError('Failed to update item.');
     } finally {
@@ -282,6 +335,25 @@ export default function useItemsLogic() {
     setOpenDeleteConfirm(true);
   };
 
+  const confirmBulkDelete = async () => {
+    if (!selectedItemIds.length) {
+      setOpenBulkDeleteConfirm(false);
+      return;
+    }
+    try {
+      const res = await deleteItemsBulk(selectedItemIds);
+      const deleted = res?.data?.deleted ?? selectedItemIds.length;
+      showSnackbar(`Deleted ${deleted} item${deleted === 1 ? '' : 's'}.`, 'success');
+      setSelectedItemIds([]);
+      setOpenBulkDeleteConfirm(false);
+      loadData();
+      loadPage();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to delete selected items.';
+      showSnackbar(msg, 'error');
+    }
+  };
+
   const confirmDeleteVariant = async () => {
     try {
       await deleteItemVariant(selectedVariantId);
@@ -289,8 +361,10 @@ export default function useItemsLogic() {
       setOpenDeleteConfirm(false);
       setOpenViewVariantsDialog(false);
       loadData();
+      loadPage();
     } catch (err) {
-      showSnackbar('Failed to delete variant.', 'error');
+      const msg = err?.response?.data?.message || 'Failed to delete variant.';
+      showSnackbar(msg, 'error');
     }
   };
 
@@ -368,21 +442,106 @@ export default function useItemsLogic() {
   const handleBack = () => setStep((prev) => prev - 1);
 
   const columns = useMemo(() => [
-    { field: 'name', headerName: t('itemsPage.columns.name'), flex: 1.5 },
-    { field: 'categoryName', headerName: t('itemsPage.columns.category'), flex: 1 },
-    { field: 'brandName', headerName: t('itemsPage.columns.brand'), flex: 1 },
+    { field: 'name', headerName: t('itemsPage.columns.name'), flex: 1.4, minWidth: 180 },
+    {
+      field: 'sku',
+      headerName: 'SKU',
+      flex: 0.9,
+      minWidth: 130,
+      sortable: false,
+      valueGetter: (params) => {
+        const vs = params?.row?.variants || [];
+        if (vs.length === 0) return '—';
+        if (vs.length === 1) return vs[0].sku || '—';
+        return `${vs[0].sku} +${vs.length - 1}`;
+      },
+    },
+    { field: 'categoryName', headerName: t('itemsPage.columns.category'), flex: 1, minWidth: 130 },
+    { field: 'brandName', headerName: t('itemsPage.columns.brand'), flex: 0.9, minWidth: 120 },
     {
       field: 'variants',
-      headerName: t('itemsPage.columns.variants'),
-      width: 110,
-      renderCell: (params) => params.row.variants?.length || 0,
+      headerName: 'Variants',
+      width: 90,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (params) => params?.row?.variants?.length || 0,
     },
-    { field: 'actions', headerName: t('itemsPage.columns.actions'), width: 140, sortable: false },
+    {
+      field: 'priceRange',
+      headerName: 'Price',
+      width: 130,
+      sortable: false,
+      valueGetter: (params) => {
+        const vs = params?.row?.variants || [];
+        if (vs.length === 0) return { min: null, max: null, label: '—' };
+        const prices = vs.map((v) => Number(v.pricePerUnit || 0)).filter((n) => !isNaN(n));
+        if (prices.length === 0) return { min: null, max: null, label: '—' };
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const fmt = (n) => `₹${n.toLocaleString('en-IN')}`;
+        return { min, max, label: min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}` };
+      },
+    },
+    {
+      field: 'stockStatus',
+      headerName: 'Stock',
+      width: 130,
+      sortable: false,
+      valueGetter: (params) => {
+        const variants = params?.row?.variants || [];
+        if (variants.length === 0) return { label: 'No variants', level: 'empty', total: 0 };
+        const total = variants.reduce((s, v) => s + Number(v.currentStock || 0), 0);
+        const anyLow = variants.some((v) => {
+          const cur = Number(v.currentStock || 0);
+          const thr = Number(v.lowStockThreshold || 5);
+          return cur > 0 && cur <= thr;
+        });
+        if (total === 0) return { label: 'Out', level: 'out', total };
+        if (anyLow)     return { label: 'Low', level: 'low', total };
+        return { label: 'In stock', level: 'ok', total };
+      },
+    },
+    { field: 'actions', headerName: '', width: 100, sortable: false, filterable: false, disableColumnMenu: true },
   ], [t]);
+
+  // Client-side stock filter applied over the current server page.
+  // Server-side filter is a follow-up; for now the chips filter what's
+  // already loaded, which is fine for the typical page size.
+  const displayItems = useMemo(() => {
+    if (stockFilter === 'ALL') return itemsWithVariants;
+    return itemsWithVariants.filter((row) => {
+      const variants = row.variants || [];
+      if (stockFilter === 'AWAITING') return variants.length === 0;
+      if (variants.length === 0) return false;
+      const total = variants.reduce((s, v) => s + Number(v.currentStock || 0), 0);
+      const anyLow = variants.some((v) => {
+        const cur = Number(v.currentStock || 0);
+        const thr = Number(v.lowStockThreshold || 5);
+        return cur > 0 && cur <= thr;
+      });
+      if (stockFilter === 'OUT')      return total === 0;
+      if (stockFilter === 'LOW')      return anyLow;
+      if (stockFilter === 'IN_STOCK') return total > 0 && !anyLow;
+      return true;
+    });
+  }, [itemsWithVariants, stockFilter]);
 
   return {
     // Data States
-    loading, itemsWithVariants, itemsWithoutVariants, stockData, apiCategories, shopCategory,
+    loading, itemsWithVariants, itemsWithoutVariants, stockData, apiCategories, loadData,
+    // Industry context (sourced from ShopContext)
+    industryType, industryConfig, shopCategory,
+    // Bulk selection
+    selectedItemIds, setSelectedItemIds,
+    openBulkDeleteConfirm, setOpenBulkDeleteConfirm, confirmBulkDelete,
+    // Server-side pagination / search
+    paginationModel, setPaginationModel,
+    searchQuery, setSearchQuery,
+    searchCategoryId, setSearchCategoryId,
+    rowCount,
+    loadPage,
+    // Client-side stock filter over current page
+    stockFilter, setStockFilter, displayItems,
     // Dialog States
     openAddDialog, setOpenAddDialog, openEditDialog, setOpenEditDialog,
     openDeleteConfirm, setOpenDeleteConfirm, openViewVariantsDialog, setOpenViewVariantsDialog,

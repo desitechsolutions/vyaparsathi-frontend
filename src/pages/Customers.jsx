@@ -51,7 +51,10 @@ const Customers = () => {
     setLoading(true);
     try {
       const res = await fetchCustomers();
-      setCustomers(res.data.map(c => ({ ...c, outstanding: c.creditBalance || 0 })));
+      // Guard against 204 / null / unexpected object — `.map` on non-array
+      // becomes a silent unhandled rejection and the page stays blank.
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      setCustomers(rows.map(c => ({ ...c, outstanding: c.creditBalance || 0 })));
     } catch (err) {
       setSnackbar({ open: true, message: t('customersPage.errorFetch'), severity: 'error' });
     } finally {
