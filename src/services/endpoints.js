@@ -48,6 +48,8 @@ const endpoints = {
   cancelPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/cancel`,
   sendPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/send`,
   markReceivedPurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/mark-received`,
+  duplicatePurchaseOrder: (id) => `${API_BASE}/purchase-orders/${id}/duplicate`,
+  purchaseOrderSignedUrl: (id) => `${API_BASE}/purchase-orders/${id}/signed-url`,
 
   items: `${API_BASE}/catalog`,
   getItemById: (id) => `${API_BASE}/catalog/${id}`,

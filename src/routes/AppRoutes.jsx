@@ -32,6 +32,8 @@ import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
+import PurchaseOrderEditor from '../pages/purchases/PurchaseOrderEditor';
+import PurchaseOrderDetail from '../pages/purchases/PurchaseOrderDetail';
 import Quotations from '../pages/Quotations';
 import QuotationEditor from '../pages/QuotationEditor';
 import SalesOrders from '../pages/SalesOrders';
@@ -42,15 +44,15 @@ import Suppliers from '../pages/Suppliers';
 import LandingLayout from '../components/layout/LandingLayout';
 import AuthLayout from '../components/layout/AuthLayout';
 import LandingPage from '../pages/LandingPage';
-import ReceivingPage from '../pages/ReceivingPage';
+import Receiving from '../pages/Receiving'; // canonical Receiving page (list + create dialog)
 import DeliveryManagement from '../pages/DeliveryManagement';
 import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
 import UserManagementPage from '../pages/UserManagementPage';
 import Notifications from '../pages/Notifications';
-import Receiving from '../pages/Receiving';
 import ShopGuard from '../components/guards/ShopGuard';
 import TierGuard from '../components/guards/TierGuard'; // Added TierGuard
+import ErrorBoundary from '../components/common/ErrorBoundary'; // route-level fallback keeps sidebar/header alive on page crash
 import HsnSummary from '../pages/reports/HsnSummary';
 import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
@@ -235,10 +237,15 @@ function AppRoutes() {
 
             {/* PRO TIER & ABOVE */}
             <Route path="analytics" element={<TierGuard requiredTier="PRO"><AnalyticsDashboard /></TierGuard>} />
-            <Route path="purchase-orders" element={<TierGuard requiredTier="PRO"><PurchaseOrders /></TierGuard>} />
+            {/* PO routes wrapped in ErrorBoundary so a page-render crash keeps
+                the sidebar + header alive — user can still navigate away.
+                resetKey=path clears the fallback when they switch pages. */}
+            <Route path="purchase-orders" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders"><PurchaseOrders /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-orders/new" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/new"><PurchaseOrderEditor /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-orders/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/:id"><PurchaseOrderDetail /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-orders/:id/edit" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/:id/edit"><PurchaseOrderEditor /></ErrorBoundary></TierGuard>} />
             <Route path="receivings" element={<TierGuard requiredTier="PRO"><Receiving /></TierGuard>} />
             <Route path="receivings/:id/print" element={<TierGuard requiredTier="PRO"><PrintGRNPage /></TierGuard>} />
-            <Route path="receiving/:poId" element={<TierGuard requiredTier="PRO"><ReceivingPage /></TierGuard>} />
             <Route path="supplier-payments" element={<TierGuard requiredTier="PRO"><SupplierPaymentPage /></TierGuard>} />
             <Route path="purchase-returns" element={<TierGuard requiredTier="PRO"><PurchaseReturns /></TierGuard>} />
             <Route path="purchase-returns/:id/print" element={<TierGuard requiredTier="PRO"><PrintPurchaseReturnPage /></TierGuard>} />

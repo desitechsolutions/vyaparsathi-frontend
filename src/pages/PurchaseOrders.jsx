@@ -24,11 +24,15 @@ import {
   MoreVert as MoreIcon,
   DoneAll as MarkReceivedIcon,
   FilterAltOff as FilterClearIcon,
+  Print as PrintIcon,
+  WhatsApp as WhatsAppIcon,
+  Email as EmailIcon,
+  ContentCopy as DuplicateIcon,
 } from '@mui/icons-material';
 
 import { usePurchaseOrders } from '../hooks/usePurchaseOrders';
-import PurchaseOrderModal from '../components/po/PurchaseOrderModal';
 import CustomToolbar from './items/components/CustomToolbar';
+import { duplicatePurchaseOrder, getPurchaseOrderSignedUrl } from '../services/api';
 
 // ── Formatting helpers ────────────────────────────────────────────────
 const formatInr = (val) =>
@@ -156,7 +160,7 @@ const PurchaseOrders = () => {
   const { t } = useTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const {
     isLoading,
@@ -164,7 +168,6 @@ const PurchaseOrders = () => {
     allSuppliers,
     snackbar,
     handleDelete,
-    handleCreateOrUpdate,
     handleSubmitPO,
     handleCancelPO,
     handleSendPO,
@@ -183,12 +186,7 @@ const PurchaseOrders = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  // ── Modal state (Phase 1 still uses the modal; Phase 2 replaces with a route) ──
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('view');
-  const [selectedPo, setSelectedPo] = useState(null);
-
-  // ── Confirm dialogs ─────────────────────────────────────────────────
+  // ── Confirm dialogs (kept on the list page for row-level bulk actions) ──
   const [submitDialog, setSubmitDialog] = useState({ open: false, po: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, po: null, reason: '' });
   const [sendDialog, setSendDialog] = useState({ open: false, po: null });
@@ -200,11 +198,83 @@ const PurchaseOrders = () => {
   const openRowMenu = (event, po) => setRowMenu({ anchor: event.currentTarget, po });
   const closeRowMenu = () => setRowMenu({ anchor: null, po: null });
 
+  // Duplicate PO state (BE builds the copy; FE navigates to the new edit route).
+  const [duplicating, setDuplicating] = useState(false);
+  const handleDuplicatePO = async (po) => {
+    if (!po?.id || duplicating) return;
+    setDuplicating(true);
+    try {
+      const copy = await duplicatePurchaseOrder(po.id);
+      if (copy?.id) {
+        navigate(`/purchase-orders/${copy.id}/edit`);
+      }
+    } catch (err) {
+      // hook's snackbar isn't wired for this action; refreshData will pick up
+      // any partial state on next visit. Log for now — a dedicated snackbar
+      // hook slot would be a nice cleanup but doesn't block the flow.
+      console.error('Duplicate PO failed:', err);
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  // ── Print / Share handoffs ────────────────────────────────────────
+  // Print + share both flow through the server-rendered PDF. The signed
+  // URL is short-lived (invoice-token expiry) so a shared link can't leak
+  // beyond a few minutes. Printing opens the inline PDF and lets the
+  // browser's print dialog produce a "Save as PDF" the shop actually keeps.
+  const openSignedPdf = async (po) => {
+    if (!po?.id) return null;
+    try {
+      const signedPath = await getPurchaseOrderSignedUrl(po.id);
+      // signedPath is a server-relative path like "/api/purchase-orders/signed?token=…"
+      // Combine with the API base so it works in dev + prod (env may proxy).
+      return signedPath;
+    } catch (err) {
+      console.error('Failed to get PO PDF signed URL', err);
+      return null;
+    }
+  };
+
+  const handlePrintPO = async (po) => {
+    const path = await openSignedPdf(po);
+    if (path) window.open(path, '_blank', 'noopener,noreferrer');
+  };
+
+  const buildShareText = (po, signedUrl) => {
+    // Full absolute URL for shares so the link is clickable from any device.
+    const absUrl = signedUrl
+      ? (signedUrl.startsWith('http') ? signedUrl : `${window.location.origin}${signedUrl}`)
+      : null;
+    const lines = [
+      `Purchase Order ${po.poNumber || ''}`,
+      `Supplier: ${po.supplier?.name || '—'}`,
+      `Order date: ${formatDate(po.orderDate)}`,
+      po.expectedDeliveryDate ? `Expected delivery: ${formatDate(po.expectedDeliveryDate)}` : null,
+      `Total: ₹${formatInr(po.totalAmount)}`,
+      absUrl ? `\nPDF: ${absUrl}` : null,
+    ].filter(Boolean);
+    return lines.join('\n');
+  };
+
+  const handleShareWhatsApp = async (po) => {
+    const path = await openSignedPdf(po);
+    const text = encodeURIComponent(buildShareText(po, path));
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleShareEmail = async (po) => {
+    const path = await openSignedPdf(po);
+    const subject = encodeURIComponent(`Purchase Order ${po.poNumber || ''}`);
+    const body = encodeURIComponent(buildShareText(po, path));
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
   // ── URL pre-fill contract (LowStockAlerts + SupplierPaymentPage) ────
-  // Preserve ?variantId, ?qty, ?supplierId, ?ids so external callers keep
-  // working. When Phase 2 lands a dedicated /purchase-orders/new route,
-  // this block hands off to that route instead. For now, keep opening the
-  // existing modal — the plan explicitly allows the modal path here.
+  // Phase 2: preserve ?variantId, ?qty, ?supplierId — forward to the new
+  // /purchase-orders/new route which knows how to pre-fill. The ?ids= bulk
+  // case still lands here as a fallback (Phase 6 wires proper multi-line
+  // pre-fill via the same route).
   useEffect(() => {
     const variantId = searchParams.get('variantId');
     const qty = searchParams.get('qty');
@@ -212,34 +282,27 @@ const PurchaseOrders = () => {
     const ids = searchParams.get('ids');
 
     if (variantId || ids || supplierId) {
-      setSelectedPo({
-        initialVariantId: variantId || null,
-        initialQty: qty || null,
-        initialSupplierId: supplierId || null,
-        initialVariantIds: ids ? ids.split(',').map((s) => s.trim()).filter(Boolean) : null,
-      });
-      setModalMode('create');
-      setModalOpen(true);
-
-      // Strip the params so a refresh doesn't re-open the modal.
-      ['variantId', 'qty', 'supplierId', 'ids'].forEach((k) => searchParams.delete(k));
-      setSearchParams(searchParams, { replace: true });
+      const params = new URLSearchParams();
+      if (variantId) params.set('variantId', variantId);
+      if (qty) params.set('qty', qty);
+      if (supplierId) params.set('supplierId', supplierId);
+      if (ids) params.set('ids', ids);
+      navigate(`/purchase-orders/new?${params.toString()}`, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleOpenModal = (mode, po = null) => {
-    setModalMode(mode);
-    setSelectedPo(po);
-    setModalOpen(true);
-  };
+  // Phase 2: navigate to dedicated routes instead of opening a modal.
+  const openCreate = () => navigate('/purchase-orders/new');
+  const openView = (po) => navigate(`/purchase-orders/${po.id}`);
+  const openEdit = (po) => navigate(`/purchase-orders/${po.id}/edit`);
 
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setSelectedPo(null);
-  };
-
-  const handleGoToReceiving = (poId) => navigate(`/receiving/${poId}`);
+  // /receiving/:poId route was retired with ReceivingPage.jsx. Pass poId as
+  // a query param so Receiving.jsx (once redesigned) can pre-select the PO
+  // and open its create-receipt flow. Today Receiving.jsx ignores the param —
+  // shop still lands on the general list — but the URL contract is preserved
+  // for that future enhancement.
+  const handleGoToReceiving = (poId) => navigate(`/receivings?poId=${poId}`);
 
   // ── Filter + KPI derivations ────────────────────────────────────────
   const filteredOrders = useMemo(() => {
@@ -350,24 +413,39 @@ const PurchaseOrders = () => {
   const filtersActive = !!(searchText || supplierFilter || statusFilter !== 'ALL' || dateFrom || dateTo);
 
   // ── Grid columns ────────────────────────────────────────────────────
+  // Trimmed to the 7 columns that fit standard screen widths without
+  // horizontal scroll: PO # / Supplier / Order Date / Status / Payment /
+  // Value / Actions. Lines + Expected Delivery moved to the detail page.
   const columns = useMemo(() => [
     {
       field: 'poNumber',
       headerName: 'PO #',
-      flex: 1.1, minWidth: 200,
+      flex: 1, minWidth: 160,
       renderCell: (params) => (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.5, minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={700} noWrap sx={{ fontFamily: 'monospace' }}>
+        <Box
+          onClick={(e) => { e.stopPropagation(); openView(params.row); }}
+          sx={{
+            display: 'flex', alignItems: 'center',
+            cursor: 'pointer',
+            '&:hover .po-num-link': { textDecoration: 'underline' },
+          }}
+        >
+          <Typography
+            variant="body2"
+            fontWeight={700}
+            noWrap
+            className="po-num-link"
+            sx={{ fontFamily: 'monospace', color: 'primary.main' }}
+          >
             {params.value}
           </Typography>
-          <StatusPill status={params.row.status} />
-        </Stack>
+        </Box>
       ),
     },
     {
       field: 'supplierName',
       headerName: 'Supplier',
-      flex: 1.2, minWidth: 180,
+      flex: 1.2, minWidth: 160,
       valueGetter: (params) => params?.row?.supplier?.name || '—',
       renderCell: (params) => (
         <Typography variant="body2" fontWeight={500} noWrap>{params.value}</Typography>
@@ -375,56 +453,22 @@ const PurchaseOrders = () => {
     },
     {
       field: 'orderDate',
-      headerName: 'Order date',
-      flex: 0.9, minWidth: 140,
+      headerName: 'Order Date',
+      flex: 0.7, minWidth: 120,
       renderCell: (params) => (
         <Typography variant="body2" color="text.secondary">{formatDate(params.value)}</Typography>
       ),
     },
     {
-      field: 'expectedDeliveryDate',
-      headerName: 'Expected delivery',
-      flex: 1, minWidth: 180,
-      renderCell: (params) => {
-        const overdue = isOverdue(params.row);
-        return (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color={overdue ? 'error.main' : 'text.secondary'}
-              fontWeight={overdue ? 700 : 500}>
-              {formatDate(params.value)}
-            </Typography>
-            {overdue && (
-              <Chip label="Overdue" size="small" color="error"
-                sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, borderRadius: 0.75 }} />
-            )}
-          </Stack>
-        );
-      },
-    },
-    {
-      field: 'lineCount',
-      headerName: 'Lines',
-      flex: 0.5, minWidth: 80,
-      valueGetter: (params) => params?.row?.items?.length || 0,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600}>{params.value}</Typography>
-      ),
-    },
-    {
-      field: 'totalAmount',
-      headerName: 'Value',
-      flex: 0.9, minWidth: 140,
-      align: 'right', headerAlign: 'right',
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={700}>
-          ₹{formatInr(params.value)}
-        </Typography>
-      ),
+      field: 'status',
+      headerName: 'Status',
+      flex: 0.8, minWidth: 130,
+      renderCell: (params) => <StatusPill status={params.value} />,
     },
     {
       field: 'paymentStatus',
       headerName: 'Payment',
-      flex: 0.7, minWidth: 110,
+      flex: 0.6, minWidth: 100,
       renderCell: (params) => {
         const raw = params.value || 'PENDING';
         const tone = raw === 'PAID' ? 'success' : raw === 'PARTIAL' ? 'warning' : 'default';
@@ -440,43 +484,30 @@ const PurchaseOrders = () => {
       },
     },
     {
+      field: 'totalAmount',
+      headerName: 'Value',
+      flex: 0.7, minWidth: 110,
+      align: 'right', headerAlign: 'right',
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={700}>
+          ₹{formatInr(params.value)}
+        </Typography>
+      ),
+    },
+    {
       field: 'actions',
-      headerName: 'Actions',
-      flex: 0.8, minWidth: 180,
+      headerName: '',
+      width: 60,
       sortable: false, filterable: false, disableColumnMenu: true,
       align: 'right', headerAlign: 'right',
-      renderCell: (params) => {
-        const po = params.row;
-        const canReceive = isOpen(po.status);
-        return (
-          <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
-            <Tooltip title="View" arrow>
-              <IconButton size="small" onClick={() => handleOpenModal('view', po)}>
-                <ViewIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {po.status === 'DRAFT' && (
-              <Tooltip title="Edit" arrow>
-                <IconButton size="small" onClick={() => handleOpenModal('edit', po)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {canReceive && (
-              <Tooltip title="Receive goods" arrow>
-                <IconButton size="small" onClick={() => handleGoToReceiving(po.id)}>
-                  <ReceiveIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Tooltip title="More" arrow>
-              <IconButton size="small" onClick={(e) => openRowMenu(e, po)}>
-                <MoreIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        );
-      },
+      renderCell: (params) => (
+        <IconButton
+          size="small"
+          onClick={(e) => { e.stopPropagation(); openRowMenu(e, params.row); }}
+        >
+          <MoreIcon fontSize="small" />
+        </IconButton>
+      ),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []);
@@ -510,7 +541,7 @@ const PurchaseOrders = () => {
             variant="contained"
             size="small"
             startIcon={<AddIcon />}
-            onClick={() => handleOpenModal('create')}
+            onClick={openCreate}
             sx={{
               borderRadius: 1.5,
               fontWeight: 700,
@@ -647,7 +678,8 @@ const PurchaseOrders = () => {
               columns={columns}
               getRowId={(row) => row.id}
               disableRowSelectionOnClick
-              rowHeight={58}
+              rowHeight={54}
+              onRowClick={(params) => openView(params.row)}
               initialState={{
                 pagination: { paginationModel: { pageSize: 25 } },
                 sorting: { sortModel: [{ field: 'orderDate', sort: 'desc' }] },
@@ -669,6 +701,7 @@ const PurchaseOrders = () => {
                   color: 'text.secondary',
                   fontWeight: 700,
                 },
+                '& .MuiDataGrid-row': { cursor: 'pointer' },
                 '& .MuiDataGrid-row:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.04),
                 },
@@ -681,21 +714,10 @@ const PurchaseOrders = () => {
           )}
         </Paper>
 
-        {/* PO editor modal (Phase 1 — replaced by /purchase-orders/new route in Phase 2) */}
-        {modalOpen && (
-          <PurchaseOrderModal
-            open={modalOpen}
-            onClose={handleCloseModal}
-            mode={modalMode}
-            selectedPo={selectedPo}
-            onSubmit={handleCreateOrUpdate}
-            allSuppliers={allSuppliers}
-            showSnackbar={handleSnackbarClose}
-            onSubmitPO={handleSubmitPO}
-          />
-        )}
-
-        {/* Row action menu — the "MoreVert" jump-off */}
+        {/* Row action menu — three-dot jump-off. Common actions live here so
+            the row itself stays clickable-to-detail. Print, WhatsApp, Email
+            all render server-agnostic client-side handoffs (window.print +
+            wa.me + mailto: URLs); a formal PO PDF endpoint is a later phase. */}
         <Menu
           anchorEl={rowMenu.anchor}
           open={Boolean(rowMenu.anchor)}
@@ -703,9 +725,23 @@ const PurchaseOrders = () => {
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
+          <MenuItem onClick={() => { openView(rowMenu.po); closeRowMenu(); }}>
+            <ViewIcon fontSize="small" sx={{ mr: 1 }} /> View Details
+          </MenuItem>
+          {rowMenu.po?.status === 'DRAFT' && (
+            <MenuItem onClick={() => { openEdit(rowMenu.po); closeRowMenu(); }}>
+              <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+            </MenuItem>
+          )}
+          <Divider />
           {rowMenu.po?.status === 'DRAFT' && (
             <MenuItem onClick={() => { setSubmitDialog({ open: true, po: rowMenu.po }); closeRowMenu(); }}>
               <SendIcon fontSize="small" sx={{ mr: 1 }} /> Submit
+            </MenuItem>
+          )}
+          {(rowMenu.po?.status === 'SUBMITTED' || rowMenu.po?.status === 'PARTIALLY_RECEIVED') && (
+            <MenuItem onClick={() => { handleGoToReceiving(rowMenu.po.id); closeRowMenu(); }}>
+              <ReceiveIcon fontSize="small" sx={{ mr: 1 }} /> Receive Items
             </MenuItem>
           )}
           {(rowMenu.po?.status === 'SUBMITTED' || rowMenu.po?.status === 'PARTIALLY_RECEIVED') && (
@@ -718,12 +754,30 @@ const PurchaseOrders = () => {
               <MarkReceivedIcon fontSize="small" sx={{ mr: 1 }} /> Mark fully received
             </MenuItem>
           )}
+          <Divider />
+          <MenuItem onClick={() => { handlePrintPO(rowMenu.po); closeRowMenu(); }}>
+            <PrintIcon fontSize="small" sx={{ mr: 1 }} /> Print / Save as PDF
+          </MenuItem>
+          <MenuItem onClick={() => { handleShareWhatsApp(rowMenu.po); closeRowMenu(); }}>
+            <WhatsAppIcon fontSize="small" sx={{ mr: 1, color: 'success.main' }} /> Share via WhatsApp
+          </MenuItem>
+          <MenuItem onClick={() => { handleShareEmail(rowMenu.po); closeRowMenu(); }}>
+            <EmailIcon fontSize="small" sx={{ mr: 1 }} /> Share via Email
+          </MenuItem>
+          <MenuItem onClick={() => { handleDuplicatePO(rowMenu.po); closeRowMenu(); }}
+            disabled={duplicating}>
+            <DuplicateIcon fontSize="small" sx={{ mr: 1 }} /> Duplicate PO
+          </MenuItem>
           {rowMenu.po?.status === 'DRAFT' && (
-            <MenuItem onClick={() => { handleDelete(rowMenu.po.id); closeRowMenu(); }}>
-              <CancelIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} /> Delete draft
-            </MenuItem>
+            <>
+              <Divider />
+              <MenuItem onClick={() => { handleDelete(rowMenu.po.id); closeRowMenu(); }}>
+                <CancelIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} /> Delete draft
+              </MenuItem>
+            </>
           )}
-          {rowMenu.po?.status && rowMenu.po.status !== 'DRAFT' && rowMenu.po.status !== 'RECEIVED' && rowMenu.po.status !== 'CANCELLED' && (
+          {rowMenu.po?.status && rowMenu.po.status !== 'DRAFT'
+            && rowMenu.po.status !== 'RECEIVED' && rowMenu.po.status !== 'CANCELLED' && (
             <>
               <Divider />
               <MenuItem onClick={() => { setCancelDialog({ open: true, po: rowMenu.po, reason: '' }); closeRowMenu(); }}>

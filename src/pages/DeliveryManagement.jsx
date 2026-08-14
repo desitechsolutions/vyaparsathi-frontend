@@ -27,6 +27,9 @@ import {
   uploadPodSignature, uploadPodPhoto, bulkAssignDeliveries,
 } from '../services/api';
 import PrintableDelivery from '../components/PrintableDelivery';
+import { useAuthContext } from '../context/AuthContext';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -991,28 +994,84 @@ const BulkAssignDialog = ({ open, deliveryIds, persons, onClose, onDone, onError
 };
 
 const CodSection = ({ delivery, onSave, onSavePod, isSubmitting }) => {
+  const { user } = useAuthContext();
+  const isPrivileged = user?.role === 'OWNER' || user?.role === 'ADMIN';
+  const isLocked = !!delivery.codCollected; // locked once COD is marked collected
+
   const [amount, setAmount] = useState(delivery.codAmount ?? '');
   const [collected, setCollected] = useState(!!delivery.codCollected);
+
+  // Override-confirmation dialog state (ADMIN/OWNER only)
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [pendingAmount, setPendingAmount] = useState(null);
 
   useEffect(() => {
     setAmount(delivery.codAmount ?? '');
     setCollected(!!delivery.codCollected);
   }, [delivery.deliveryId, delivery.codAmount, delivery.codCollected]);
 
-  const saveAmount = () => onSave({ codAmount: amount === '' ? null : Number(amount) });
+  const handleSaveAmount = () => {
+    const newAmount = amount === '' ? null : Number(amount);
+    if (isLocked && isPrivileged) {
+      // Open confirmation dialog before overriding a collected amount
+      setPendingAmount(newAmount);
+      setOverrideReason('');
+      setOverrideOpen(true);
+    } else {
+      onSave({ codAmount: newAmount });
+    }
+  };
+
+  const confirmOverride = () => {
+    // Pass reason as a note via the patch — backend will log it
+    onSave({ codAmount: pendingAmount, codAmountChangeReason: overrideReason });
+    setOverrideOpen(false);
+  };
+
   const markCollected = () => onSavePod({ codCollected: true });
 
   return (
     <Section title="Cash on delivery" icon={<Payments color="primary" fontSize="small" />} defaultExpanded={false}>
       <Stack spacing={1.5}>
-        <TextField
-          label="COD amount" size="small" type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><LocalAtm fontSize="small" /></InputAdornment> }}
-        />
+        {/* ── Amount field — locked for STAFF once collected ───────────── */}
+        {isLocked && !isPrivileged ? (
+          // STAFF: fully read-only view
+          <Stack direction="row" spacing={1} alignItems="center"
+                 sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+            <LockOutlinedIcon fontSize="small" color="disabled" />
+            <Box>
+              <Typography variant="caption" color="text.secondary">COD Amount (locked)</Typography>
+              <Typography variant="body2" fontWeight={700}>
+                {delivery.codAmount != null ? `₹${Number(delivery.codAmount).toLocaleString('en-IN')}` : '—'}
+              </Typography>
+            </Box>
+            <MuiTooltip title="COD has been collected and the amount is locked. Contact your Admin to make corrections.">
+              <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto', cursor: 'help', textDecoration: 'underline dotted' }}>
+                Why is this locked?
+              </Typography>
+            </MuiTooltip>
+          </Stack>
+        ) : (
+          // ADMIN / OWNER (or not yet collected): editable
+          <TextField
+            label={isLocked ? 'COD amount (admin override)' : 'COD amount'}
+            size="small" type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><LocalAtm fontSize="small" /></InputAdornment>,
+              endAdornment: isLocked
+                ? <InputAdornment position="end"><LockOutlinedIcon fontSize="small" color="warning" /></InputAdornment>
+                : null,
+            }}
+            helperText={isLocked ? 'COD already collected — saving will create an audit log entry.' : ''}
+            FormHelperTextProps={{ sx: { color: 'warning.main' } }}
+          />
+        )}
+
         <FormControlLabel
-          control={<Checkbox checked={collected} onChange={(e) => setCollected(e.target.checked)} />}
+          control={<Checkbox checked={collected} onChange={(e) => setCollected(e.target.checked)} disabled={isLocked} />}
           label="Cash collected from recipient"
         />
         {delivery.codCollectedAt && (
@@ -1020,9 +1079,15 @@ const CodSection = ({ delivery, onSave, onSavePod, isSubmitting }) => {
             Collected on {dayjs(delivery.codCollectedAt).format('DD MMM YYYY, hh:mm A')} — a payment record was created.
           </Alert>
         )}
+
+        {/* ── Action buttons ──────────────────────────────────────────── */}
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" size="small" onClick={saveAmount}
-                  disabled={isSubmitting || (amount === (delivery.codAmount ?? ''))}>Save amount</Button>
+          {(!isLocked || isPrivileged) && (
+            <Button variant="outlined" size="small" onClick={handleSaveAmount}
+                    disabled={isSubmitting || (String(amount) === String(delivery.codAmount ?? ''))}>
+              {isLocked ? 'Override amount' : 'Save amount'}
+            </Button>
+          )}
           <Button variant="contained" size="small" onClick={markCollected}
                   disabled={isSubmitting || !collected || delivery.codCollected}>Mark collected</Button>
         </Stack>
@@ -1030,6 +1095,39 @@ const CodSection = ({ delivery, onSave, onSavePod, isSubmitting }) => {
           Marking COD collected and moving the delivery to DELIVERED will auto-create a Payment against this sale.
         </Typography>
       </Stack>
+
+      {/* ── Admin override confirmation dialog ───────────────────────── */}
+      <Dialog open={overrideOpen} onClose={() => setOverrideOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmberIcon color="warning" /> Override collected COD amount
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              This delivery's COD has already been collected (₹{delivery.codAmount ?? 0}). Changing the amount will
+              update the metrics and create an audit log entry.
+            </Alert>
+            <TextField
+              label="Reason for change *"
+              size="small"
+              multiline
+              rows={2}
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              placeholder="e.g. Incorrect amount entered during collection"
+              helperText="Required — will be saved in the audit trail."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOverrideOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning"
+                  disabled={!overrideReason.trim() || isSubmitting}
+                  onClick={confirmOverride}>
+            Confirm override
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Section>
   );
 };

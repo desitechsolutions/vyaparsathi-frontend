@@ -193,6 +193,16 @@ export const sendPurchaseOrder = (id) =>
 export const markReceivedPurchaseOrder = (id) =>
   API.post(endpoints.markReceivedPurchaseOrder(id)).then((r) => r.data);
 
+// Clone an existing PO into a fresh DRAFT (Phase 2 UX add). BE assigns a new
+// PO number, resets lifecycle stamps, and carries over supplier + line items.
+export const duplicatePurchaseOrder = (id) =>
+  API.post(endpoints.duplicatePurchaseOrder(id)).then((r) => r.data);
+
+// Returns a signed URL (e.g. "/api/purchase-orders/signed?token=…") that
+// serves the PO PDF for ~30 minutes. Follows the invoice / quotation pattern.
+export const getPurchaseOrderSignedUrl = (id) =>
+  API.get(endpoints.purchaseOrderSignedUrl(id)).then((r) => r.data);
+
 // New "open" alias — /pending stays for backward compat but /open is the
 // canonical Zoho-parity name and only returns SUBMITTED + PARTIALLY_RECEIVED.
 export const getOpenPurchaseOrders = () =>
