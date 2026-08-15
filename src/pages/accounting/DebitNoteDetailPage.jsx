@@ -25,6 +25,7 @@ import {
   reverseDebitNoteApplication, cancelDebitNote,
   getDebitNoteSignedUrl, downloadReceiptPdf,
 } from '../../services/api';
+import EInvoiceActionBar from '../../components/enterprise/EInvoiceActionBar';
 
 const formatInr = (v) =>
   Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
@@ -254,6 +255,14 @@ const DebitNoteDetailPage = () => {
             </Stack>
           </Stack>
         </Paper>
+
+        <Box sx={{ mb: 3 }}>
+          <EInvoiceActionBar
+            documentType="DEBIT_NOTE"
+            documentId={dn.id}
+            documentNumber={dn.debitNoteNo}
+          />
+        </Box>
 
         <Paper elevation={0} sx={{
           mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden',

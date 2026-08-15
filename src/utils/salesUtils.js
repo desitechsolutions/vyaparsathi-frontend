@@ -59,6 +59,15 @@ export const buildSalePayload = (formData, selectedCustomer, paymentMethods, sta
     // Sale-level notes (metadata only, no ledger/stock impact). Backend field: notes.
     notes: (formData.saleNotes && formData.saleNotes.trim()) || null,
 
+    // Statutory GST fields. All optional — the backend falls back to
+    // customer / shop defaults for PoS + derives supplyType when null.
+    placeOfSupply:    formData.placeOfSupply    || null,
+    supplyType:       formData.supplyType       || null,
+    reverseCharge:    !!formData.reverseCharge,
+    billToAddress:    formData.billToAddress    || null,
+    shipToAddress:    formData.shipToAddress    || null,
+    consigneeAddress: formData.consigneeAddress || null,
+
     delivery: formData.deliveryRequired
       ? {
           deliveryAddress: formData.deliveryAddress,

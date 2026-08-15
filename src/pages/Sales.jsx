@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
+import StatutoryFieldset from '../components/StatutoryFieldset';
 import ItemSection from '../components/Sales/ItemSection';
 import SalesSummary from '../components/Sales/SalesSummary';
 import InvoiceModal from '../components/Sales/InvoiceModal';
@@ -52,6 +53,13 @@ const initialFormData = {
   deliveryAddress: '', deliveryCharge: 0, deliveryPaidBy: null,
   deliveryNotes: '', deliveryStatus: 'PACKED',
   saleNotes: '',
+  // Statutory GST — all optional, backend derives sensible defaults when blank.
+  placeOfSupply: '',
+  supplyType: '',
+  reverseCharge: false,
+  billToAddress: '',
+  shipToAddress: '',
+  consigneeAddress: '',
 };
 
 const initialSearchParams = {
@@ -873,6 +881,41 @@ const Sales = () => {
                   setOpenCustomerModal={setOpenCustomerModal}
                     isJewellery={isJewellery}
                 />
+              </Box>
+
+              {/* Statutory / GST fieldset — collapsed by default so POS-style
+                  sales stay fast; unfold to set PoS / reverse charge /
+                  supply type / bill-to / ship-to addresses. */}
+              <Box sx={{ p: 1.5, borderBottom: '1px solid', borderBottomColor: 'divider', flexShrink: 0 }}>
+                <details style={{ cursor: 'pointer' }}>
+                  <summary style={{
+                    listStyle: 'none',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    color: 'rgba(0,0,0,0.6)',
+                    padding: '4px 0',
+                  }}>
+                    ▸ Statutory / GST (optional)
+                    {(formData.placeOfSupply || formData.supplyType || formData.reverseCharge) && (
+                      <span style={{ marginLeft: 8, color: '#2e7d32' }}>• set</span>
+                    )}
+                  </summary>
+                  <StatutoryFieldset
+                    title=""
+                    value={{
+                      placeOfSupply: formData.placeOfSupply,
+                      supplyType: formData.supplyType,
+                      reverseCharge: formData.reverseCharge,
+                      billToAddress: formData.billToAddress,
+                      shipToAddress: formData.shipToAddress,
+                      consigneeAddress: formData.consigneeAddress,
+                    }}
+                    onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+                    showConsignee
+                  />
+                </details>
               </Box>
 
               {/* Cart section */}

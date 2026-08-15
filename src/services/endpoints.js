@@ -13,6 +13,9 @@ const endpoints = {
   },
   shop: `${API_BASE}/shop`,
   shopOnboard: `${API_BASE}/shop/onboarding`,
+  shopBankAccounts: `${API_BASE}/shop/bank-accounts`,
+  shopBankAccountById: (id) => `${API_BASE}/shop/bank-accounts/${id}`,
+  shopBankAccountDefault: (id) => `${API_BASE}/shop/bank-accounts/${id}/default`,
 
   configIndustries: `${API_BASE}/config/industries`,
   configIndustryFields: (type) => `${API_BASE}/config/industries/${type}/fields`,
@@ -207,6 +210,20 @@ debitNoteReportAging: `${API_BASE}/v1/debit-notes/reports/aging`,
 debitNoteReportSupplierSummary: `${API_BASE}/v1/debit-notes/reports/supplier-summary`,
 debitNoteReportExportCsv: `${API_BASE}/v1/debit-notes/reports/export.csv`,
 debitNoteReportExportXlsx: `${API_BASE}/v1/debit-notes/reports/export.xlsx`,
+
+// ─── Compliance monitoring ───────────────────────────────────────
+complianceSequenceGaps:  `${API_BASE}/v1/reports/compliance/sequence-gaps`,
+compliancePrintAudit:    `${API_BASE}/v1/reports/compliance/print-audit`,
+complianceEInvoiceCov:   `${API_BASE}/v1/reports/compliance/einvoice-coverage`,
+complianceEwayCov:       `${API_BASE}/v1/reports/compliance/eway-coverage`,
+
+// ─── E-Invoice + E-Way Bill ──────────────────────────────────────
+einvoiceGenerate:        `${API_BASE}/v1/einvoice/generate`,
+einvoiceCancel:          `${API_BASE}/v1/einvoice/cancel`,
+einvoiceForDoc:          (type, id) => `${API_BASE}/v1/einvoice/document/${type}/${id}`,
+ewayGenerate:            `${API_BASE}/v1/einvoice/eway/generate`,
+ewayCancel:              `${API_BASE}/v1/einvoice/eway/cancel`,
+ewayForDoc:              (type, id) => `${API_BASE}/v1/einvoice/eway/document/${type}/${id}`,
 purchaseOrderHistory: (id) => `${API_BASE}/purchase-orders/${id}/history`,
 purchaseOrderApprovals: (id) => `${API_BASE}/purchase-orders/${id}/approvals`,
 purchaseOrderApprovalStep: (approvalId) => `${API_BASE}/purchase-orders/approvals/${approvalId}/approve`,

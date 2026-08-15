@@ -107,6 +107,7 @@ import PaymentFailurePage from '../pages/billing/PaymentFailurePage';
 import AccountingDashboard from '../pages/reports/AccountingDashboard';
 
 import PurchaseRegister from '../pages/reports/PurchaseRegister';
+import ComplianceDashboard from '../pages/reports/ComplianceDashboard';
 import PurchaseReturns from '../pages/purchases/PurchaseReturns';
 import PrintGRNPage from '../pages/purchases/PrintGRNPage';
 import PrintPurchaseReturnPage from '../pages/purchases/PrintPurchaseReturnPage';
@@ -312,6 +313,7 @@ function AppRoutes() {
             {/* Retail Reports (PRO Tier) */}
             <Route path="reports/expiry-report" element={<TierGuard requiredTier="PRO"><ExpiryReport /></TierGuard>} />
             <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><PurchaseRegister /></TierGuard>} />
+            <Route path="reports/compliance" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="reports/compliance"><ComplianceDashboard /></ErrorBoundary></TierGuard>} />
 
             {/* ENTERPRISE TIER ONLY */}
             <Route path="admin/payroll" element={<TierGuard requiredTier="ENTERPRISE"><PayrollDashboard /></TierGuard>} />

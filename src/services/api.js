@@ -142,6 +142,25 @@ export const fetchShop = async () => {
   }
 };
 
+// --- SHOP BANK ACCOUNTS ---
+// Structured replacement for the legacy free-text `bank_details` blob.
+// One default per currency; the default flows into invoice PDFs.
+
+export const listShopBankAccounts = () =>
+  API.get(endpoints.shopBankAccounts).then((r) => r.data);
+
+export const createShopBankAccount = (data) =>
+  API.post(endpoints.shopBankAccounts, data).then((r) => r.data);
+
+export const updateShopBankAccount = (id, data) =>
+  API.put(endpoints.shopBankAccountById(id), data).then((r) => r.data);
+
+export const deleteShopBankAccount = (id) =>
+  API.delete(endpoints.shopBankAccountById(id));
+
+export const setDefaultShopBankAccount = (id) =>
+  API.post(endpoints.shopBankAccountDefault(id)).then((r) => r.data);
+
 // --- PURCHASE ORDERS ---
 
 export const getPurchaseOrders = () =>
@@ -1273,6 +1292,42 @@ export const downloadDebitNoteCsv = () =>
   API.get(endpoints.debitNoteReportExportCsv, { responseType: 'blob' }).then(r => r.data);
 export const downloadDebitNoteXlsx = () =>
   API.get(endpoints.debitNoteReportExportXlsx, { responseType: 'blob' }).then(r => r.data);
+
+// ─── COMPLIANCE MONITORING (V99 enterprise doc suite) ──────────────
+export const fetchSequenceGaps = (table, numberCol = 'invoice_no', fiscalYear) =>
+  API.get(endpoints.complianceSequenceGaps, {
+    params: { table, numberCol, fiscalYear },
+  }).then(r => r.data ?? []);
+
+export const fetchPrintAudit = (minPrints = 2) =>
+  API.get(endpoints.compliancePrintAudit, { params: { minPrints } }).then(r => r.data ?? []);
+
+export const fetchEInvoiceCoverage = () =>
+  API.get(endpoints.complianceEInvoiceCov).then(r => r.data ?? {});
+
+export const fetchEwayCoverage = () =>
+  API.get(endpoints.complianceEwayCov).then(r => r.data ?? {});
+
+// ─── ENTERPRISE E-INVOICE + E-WAY BILL API (new module) ────────────
+export const generateIrn = (documentType, documentId, documentNumber, extra = {}) =>
+  API.post(endpoints.einvoiceGenerate, { documentType, documentId, documentNumber, ...extra })
+    .then(r => r.data);
+export const cancelIrn = (irn, reason) =>
+  API.post(endpoints.einvoiceCancel, { irn, reason }).then(r => r.data);
+export const getIrnForDoc = (documentType, documentId) =>
+  API.get(endpoints.einvoiceForDoc(documentType, documentId))
+    .then(r => (r.status === 204 ? null : r.data))
+    .catch(() => null);
+
+export const generateEwbNew = (documentType, documentId, documentNumber, extra = {}) =>
+  API.post(endpoints.ewayGenerate, { documentType, documentId, documentNumber, ...extra })
+    .then(r => r.data);
+export const cancelEwbNew = (ewbNumber, reason) =>
+  API.post(endpoints.ewayCancel, { ewbNumber, reason }).then(r => r.data);
+export const getEwbForDoc = (documentType, documentId) =>
+  API.get(endpoints.ewayForDoc(documentType, documentId))
+    .then(r => (r.status === 204 ? null : r.data))
+    .catch(() => null);
 
 export const fetchSupplierStatement = (supplierId, startDate, endDate) => {
   const params = { supplierId };

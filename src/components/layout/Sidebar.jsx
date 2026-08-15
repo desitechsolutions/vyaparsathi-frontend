@@ -170,6 +170,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     { text: t('expiryReport.title'), icon: <EventBusyIcon />, path: '/reports/expiry-report', requiredTier: 'PRO' },
     { text: t('purchaseRegisterReport.title'), icon: <ReceiptLongIcon />, path: '/reports/purchase-register', requiredTier: 'PRO' },
     { text: t('sidebar.analytics', 'Analytics'), icon: <TrendingUpOutlinedIcon />, path: '/analytics', requiredTier: 'PRO' },
+    { text: t('sidebar.complianceDashboard', 'Compliance Dashboard'), icon: <VerifiedUser />, path: '/reports/compliance', requiredTier: 'PRO' },
     { text: t('taxComplianceHub.title'), icon: <VerifiedUser />, path: '/reports/tax-compliance', requiredTier: 'ENTERPRISE' },
   ];
 
