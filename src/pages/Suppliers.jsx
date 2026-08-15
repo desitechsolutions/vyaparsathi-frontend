@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Typography, Box, Stack, Button, TextField, Modal, IconButton, Snackbar,
@@ -57,6 +58,7 @@ const initialForm = { name: "", contactPerson: "", phone: "", email: "", address
 
 const Suppliers = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -198,7 +200,15 @@ const Suppliers = () => {
                   filteredSuppliers.map((s) => (
                     <TableRow key={s.id} hover sx={{ '&:hover': { bgcolor: 'action.hover !important' } }}>
                       <TableCell sx={{ py: 2.5 }}>
-                        <Typography variant="body1" fontWeight={800} color="text.primary">{s.name}</Typography>
+                        <Typography
+                          variant="body1"
+                          fontWeight={800}
+                          color="primary.main"
+                          onClick={() => navigate(`/suppliers/${s.id}`)}
+                          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                        >
+                          {s.name}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                           <LocationOnIcon sx={{ fontSize: 13 }} /> {s.address || "No address provided"}
                         </Typography>

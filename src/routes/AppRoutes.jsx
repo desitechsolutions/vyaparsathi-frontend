@@ -34,6 +34,7 @@ import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import PurchaseOrderEditor from '../pages/purchases/PurchaseOrderEditor';
 import PurchaseOrderDetail from '../pages/purchases/PurchaseOrderDetail';
+import PurchaseOrderApprovals from '../pages/purchases/PurchaseOrderApprovals';
 import Quotations from '../pages/Quotations';
 import QuotationEditor from '../pages/QuotationEditor';
 import SalesOrders from '../pages/SalesOrders';
@@ -44,7 +45,28 @@ import Suppliers from '../pages/Suppliers';
 import LandingLayout from '../components/layout/LandingLayout';
 import AuthLayout from '../components/layout/AuthLayout';
 import LandingPage from '../pages/LandingPage';
-import Receiving from '../pages/Receiving'; // canonical Receiving page (list + create dialog)
+import Receiving from '../pages/Receiving'; // legacy Receiving page — kept for backwards compat
+import ReceivingListPage from '../pages/receivings/ReceivingListPage';
+import GrnCreatePage from '../pages/receivings/GrnCreatePage';
+import GrnDetailPage from '../pages/receivings/GrnDetailPage';
+import GrnEditPage from '../pages/receivings/GrnEditPage';
+import ReceivingReportsPage from '../pages/receivings/ReceivingReportsPage';
+import PurchaseOrderReportsPage from '../pages/purchases/PurchaseOrderReportsPage';
+import InventoryReportsPage from '../pages/inventory/InventoryReportsPage';
+import CycleCountsPage from '../pages/inventory/CycleCountsPage';
+import BatchRecallsPage from '../pages/inventory/BatchRecallsPage';
+import AdjustmentApprovalsPage from '../pages/inventory/AdjustmentApprovalsPage';
+import ProductBundlesPage from '../pages/inventory/ProductBundlesPage';
+import UomSettingsPage from '../pages/inventory/UomSettingsPage';
+import BarcodeLabelsPage from '../pages/inventory/BarcodeLabelsPage';
+import PurchaseReturnsListPage from '../pages/returns/PurchaseReturnsListPage';
+import PurchaseReturnCreatePage from '../pages/returns/PurchaseReturnCreatePage';
+import PurchaseReturnDetailPage from '../pages/returns/PurchaseReturnDetailPage';
+import DebitNotesListPage from '../pages/accounting/DebitNotesListPage';
+import DebitNoteDetailPage from '../pages/accounting/DebitNoteDetailPage';
+import DebitNoteReportsPage from '../pages/accounting/DebitNoteReportsPage';
+import ReceivingTicketsListPage from '../pages/receivings/ReceivingTicketsListPage';
+import SupplierDetailPage from '../pages/suppliers/SupplierDetailPage';
 import DeliveryManagement from '../pages/DeliveryManagement';
 import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
@@ -203,6 +225,13 @@ function AppRoutes() {
             <Route path="items" element={<ItemsPage />} />
             <Route path="settings/custom-fields" element={<CustomFieldsPage />} />
             <Route path="stock" element={<Stock />} />
+            <Route path="stock/reports" element={<ErrorBoundary resetKey="stock/reports"><InventoryReportsPage /></ErrorBoundary>} />
+            <Route path="stock/cycle-counts" element={<ErrorBoundary resetKey="stock/cycle-counts"><CycleCountsPage /></ErrorBoundary>} />
+            <Route path="stock/recalls" element={<ErrorBoundary resetKey="stock/recalls"><BatchRecallsPage /></ErrorBoundary>} />
+            <Route path="stock/adjustment-approvals" element={<ErrorBoundary resetKey="stock/adjustment-approvals"><AdjustmentApprovalsPage /></ErrorBoundary>} />
+            <Route path="stock/bundles" element={<ErrorBoundary resetKey="stock/bundles"><ProductBundlesPage /></ErrorBoundary>} />
+            <Route path="stock/uom" element={<ErrorBoundary resetKey="stock/uom"><UomSettingsPage /></ErrorBoundary>} />
+            <Route path="stock/labels" element={<ErrorBoundary resetKey="stock/labels"><BarcodeLabelsPage /></ErrorBoundary>} />
             <Route path="customers" element={<Customers />} />
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
             <Route path="sales" element={<Sales />} />
@@ -227,7 +256,10 @@ function AppRoutes() {
             {/* CREDIT NOTES — customer-facing returns / adjustments */}
             <Route path="credit-notes" element={<CreditNotes />} />
             {/* DEBIT NOTES — supplier-facing returns / adjustments */}
-            <Route path="debit-notes" element={<TierGuard requiredTier="PRO"><DebitNotes /></TierGuard>} />
+            <Route path="debit-notes" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="debit-notes"><DebitNotesListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="debit-notes/reports" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="debit-notes/reports"><DebitNoteReportsPage /></ErrorBoundary></TierGuard>} />
+            <Route path="debit-notes/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="debit-notes/:id"><DebitNoteDetailPage /></ErrorBoundary></TierGuard>} />
+            <Route path="debit-notes/legacy" element={<TierGuard requiredTier="PRO"><DebitNotes /></TierGuard>} />
 
             {/* STARTER TIER & ABOVE */}
             <Route path="delivery" element={<TierGuard requiredTier="STARTER"><DeliveryManagement /></TierGuard>} />
@@ -242,13 +274,25 @@ function AppRoutes() {
                 resetKey=path clears the fallback when they switch pages. */}
             <Route path="purchase-orders" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders"><PurchaseOrders /></ErrorBoundary></TierGuard>} />
             <Route path="purchase-orders/new" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/new"><PurchaseOrderEditor /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-orders/approvals" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/approvals"><PurchaseOrderApprovals /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-orders/reports" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/reports"><PurchaseOrderReportsPage /></ErrorBoundary></TierGuard>} />
             <Route path="purchase-orders/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/:id"><PurchaseOrderDetail /></ErrorBoundary></TierGuard>} />
             <Route path="purchase-orders/:id/edit" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-orders/:id/edit"><PurchaseOrderEditor /></ErrorBoundary></TierGuard>} />
-            <Route path="receivings" element={<TierGuard requiredTier="PRO"><Receiving /></TierGuard>} />
+            <Route path="receivings" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings"><ReceivingListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="receivings/new" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings/new"><GrnCreatePage /></ErrorBoundary></TierGuard>} />
+            <Route path="receivings/tickets" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings/tickets"><ReceivingTicketsListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="receivings/reports" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings/reports"><ReceivingReportsPage /></ErrorBoundary></TierGuard>} />
+            <Route path="receivings/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings/:id"><GrnDetailPage /></ErrorBoundary></TierGuard>} />
+            <Route path="receivings/:id/edit" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="receivings/:id/edit"><GrnEditPage /></ErrorBoundary></TierGuard>} />
             <Route path="receivings/:id/print" element={<TierGuard requiredTier="PRO"><PrintGRNPage /></TierGuard>} />
+            <Route path="receivings/legacy" element={<TierGuard requiredTier="PRO"><Receiving /></TierGuard>} />
+            <Route path="suppliers/:id" element={<TierGuard requiredTier="STARTER"><ErrorBoundary resetKey="suppliers/:id"><SupplierDetailPage /></ErrorBoundary></TierGuard>} />
             <Route path="supplier-payments" element={<TierGuard requiredTier="PRO"><SupplierPaymentPage /></TierGuard>} />
-            <Route path="purchase-returns" element={<TierGuard requiredTier="PRO"><PurchaseReturns /></TierGuard>} />
+            <Route path="purchase-returns" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-returns"><PurchaseReturnsListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-returns/new" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-returns/new"><PurchaseReturnCreatePage /></ErrorBoundary></TierGuard>} />
+            <Route path="purchase-returns/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="purchase-returns/:id"><PurchaseReturnDetailPage /></ErrorBoundary></TierGuard>} />
             <Route path="purchase-returns/:id/print" element={<TierGuard requiredTier="PRO"><PrintPurchaseReturnPage /></TierGuard>} />
+            <Route path="purchase-returns/legacy" element={<TierGuard requiredTier="PRO"><PurchaseReturns /></TierGuard>} />
             <Route path="backup" element={<TierGuard requiredTier="PRO"><Backup /></TierGuard>} />
 
             {/* Reports Group (PRO Tier) */}

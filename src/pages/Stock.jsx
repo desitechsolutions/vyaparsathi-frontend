@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme, alpha } from '@mui/material/styles';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -211,6 +212,7 @@ const ExpiryPill = ({ expiry, muted }) => {
 const Stock = () => {
   const { t } = useTranslation();
   const theme = useTheme();
+  const navigate = useNavigate();
   const { industryType } = useShop();
 
   const [stock, setStock] = useState([]);
@@ -859,6 +861,34 @@ const Stock = () => {
               onClick={() => { setImportResult(null); setImportDialogOpen(true); }}
               sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
               {t('stock.actions.bulkImport')}
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/reports')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Reports
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/cycle-counts')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Stocktake
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/recalls')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Recalls
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/adjustment-approvals')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Approvals
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/labels')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Labels
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/bundles')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              Bundles
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate('/stock/uom')}
+              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none' }}>
+              UOM
             </Button>
             <Button variant="outlined" size="small" startIcon={<ShowChart />}
               onClick={() => setAnalyticsOpen(true)}

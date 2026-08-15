@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Box, Paper, Typography, Button, Chip, IconButton, TextField, Grid,
   MenuItem, Select, FormControl, Stack, CircularProgress, Divider, Alert,
@@ -122,8 +122,67 @@ const computeTotals = (items, freight, intraState) => {
 // stricter is a Phase 5 permission-refinement concern.
 const CATALOG_CREATE_ROLES = new Set(['OWNER', 'ADMIN', 'ROLE_OWNER', 'ROLE_ADMIN']);
 
+/**
+ * Groups the shop's fine-grained industryType into one of four verticals the
+ * quick-create dialog specialises for. Pharma is intentionally NOT supported
+ * — reference project_pharmacy_removed memory. Any unrecognised value maps to
+ * GENERAL so the shop still gets a functional form.
+ */
+const industryVertical = (industryType) => {
+  const t = (industryType || '').toUpperCase();
+  if (t === 'CLOTHING' || t === 'APPAREL' || t === 'FOOTWEAR') return 'APPAREL';
+  if (t === 'GROCERY' || t === 'FMCG') return 'FMCG';
+  if (t === 'ELECTRONICS' || t === 'AUTOMOBILE') return 'ELECTRONICS';
+  return 'GENERAL';
+};
+
+/**
+ * Builds a human-readable SKU per the vertical's naming convention. Empty
+ * inputs collapse gracefully — the shop can always type over the suggestion
+ * (barcode scan, manual override). "Slug" strips whitespace + special chars
+ * and upper-cases so the SKU is filesystem/URL safe.
+ */
+const slug = (s, maxLen = 8) => {
+  if (!s) return '';
+  return String(s).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, maxLen);
+};
+
+const buildSku = (vertical, itemForm, autoSeq) => {
+  switch (vertical) {
+    case 'APPAREL': {
+      const parts = [slug(itemForm.brand, 4), slug(itemForm.name, 6),
+                     slug(itemForm.size, 4), slug(itemForm.color, 4)].filter(Boolean);
+      return parts.join('-') || '';
+    }
+    case 'FMCG': {
+      const parts = [slug(itemForm.brand, 6), slug(itemForm.name, 6),
+                     slug(itemForm.packSize || itemForm.unit, 6)].filter(Boolean);
+      return parts.join('-') || '';
+    }
+    case 'ELECTRONICS': {
+      const parts = [slug(itemForm.brand, 4), slug(itemForm.model || itemForm.name, 8),
+                     slug(itemForm.spec, 6)].filter(Boolean);
+      return parts.join('-') || '';
+    }
+    case 'GENERAL':
+    default: {
+      // Category-prefixed auto number — falls back to "GEN-" when the shop
+      // hasn't picked a category yet. autoSeq is a client-only monotonic
+      // hint; BE always re-validates uniqueness on save.
+      const catPrefix = slug(itemForm.categoryLabel || '', 4) || 'GEN';
+      return `${catPrefix}-${String(autoSeq).padStart(5, '0')}`;
+    }
+  }
+};
+
 export default function PurchaseOrderEditor() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Signal from PO detail's Revise CTA — the request already flipped the row
+  // REJECTED → DRAFT server-side. We surface a banner + relabel Submit to
+  // "Resubmit for Approval". Falls back to detecting rejectionReason on the
+  // loaded PO in case the user landed directly on the edit URL.
+  const revisedFromReject = location?.state?.revisedFromReject === true;
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
@@ -133,6 +192,15 @@ export default function PurchaseOrderEditor() {
 
   // RBAC: only OWNER/ADMIN can inline-create catalog items.
   const canCreateCatalogItem = !!user?.role && CATALOG_CREATE_ROLES.has(user.role);
+
+  // Vertical for the quick-create form. Falls back to GENERAL when the shop
+  // hasn't picked an industry yet or the value doesn't map to one of the
+  // supported buckets. Kept in a memo so field renders + SKU rebuild are stable.
+  const vertical = useMemo(() => industryVertical(shop?.industryType), [shop]);
+  // Category-prefix auto-number for GENERAL SKUs — session-scoped counter so
+  // repeated clicks generate distinct values. BE re-validates uniqueness on
+  // save, so a clash still fails safely.
+  const generalSeqRef = React.useRef(Date.now() % 100000);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -155,6 +223,11 @@ export default function PurchaseOrderEditor() {
   // generated via ItemService.assignHsnAndSkuCodes (we send a placeholder that
   // BE overwrites), so the shop never types it. purchasePrice is optional —
   // it's the buy-side cost that becomes the PO line's unit_cost default.
+  // Industry-aware form shape — extra fields (brand / size / color / packSize /
+  // model / spec) render per shop.industryType so the shop only sees what
+  // matters for their vertical. Deep catalog attributes (fabric, warranty,
+  // photos) stay on the full Items page; this dialog is a "get me back into
+  // the PO flow fast" affordance.
   const [itemDialog, setItemDialog] = useState({ open: false, lineIndex: null });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -164,6 +237,15 @@ export default function PurchaseOrderEditor() {
     purchasePrice: '',     // optional; used to seed the PO line's unit cost
     gstRate: '18',
     hsn: '',
+    sku: '',               // pre-filled via the SKU builder; editable so
+                           //  the shop can paste a manufacturer barcode
+    // Industry-specific — populated only when the shop's industryType uses them.
+    brand: '',
+    size: '',
+    color: '',
+    packSize: '',          // FMCG / GROCERY
+    model: '',             // ELECTRONICS
+    spec: '',              // ELECTRONICS storage/RAM/etc.
   });
   const [creatingItem, setCreatingItem] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -174,6 +256,12 @@ export default function PurchaseOrderEditor() {
     expectedDeliveryDate: dayjs().add(7, 'day').format('YYYY-MM-DD'),
     notes: '',
     freightCharges: 0,
+    landedCostEnabled: false,
+    currencyCode: 'INR',
+    exchangeRate: 1,
+    recurringEnabled: false,
+    recurringFrequency: 'MONTHLY',
+    recurringNextAt: '',
     items: [emptyLine()],
   });
 
@@ -237,6 +325,12 @@ export default function PurchaseOrderEditor() {
             : '',
           notes: po.notes || '',
           freightCharges: Number(po.freightCharges) || 0,
+          landedCostEnabled: !!po.landedCostEnabled,
+          currencyCode: po.currencyCode || 'INR',
+          exchangeRate: Number(po.exchangeRate) || 1,
+          recurringEnabled: !!po.recurringEnabled,
+          recurringFrequency: po.recurringFrequency || 'MONTHLY',
+          recurringNextAt: po.recurringNextAt ? po.recurringNextAt.split('.')[0] : '',
           items: (po.items || []).length > 0
             ? po.items.map((it) => ({
                 id: it.id,
@@ -346,20 +440,24 @@ export default function PurchaseOrderEditor() {
   // with sku / unit / purchasePrice / gstRate / hsn) as multipart form-data
   // — matches the /api/catalog contract. On success, the new variant is
   // appended to the picker's option list and bound to the target PO line.
+  // Track whether the shop has typed over the auto-suggested SKU so we don't
+  // clobber their scan / manual value on subsequent field edits.
+  const [skuTouched, setSkuTouched] = useState(false);
+
   const openItemDialog = async (lineIndex) => {
     if (!canCreateCatalogItem) {
       setSnackbar({ open: true, msg: 'Only owners and admins can add new catalog items.', severity: 'warning' });
       return;
     }
+    setSkuTouched(false);
     setItemDialog({ open: true, lineIndex });
     setItemForm({
-      name: '',
-      categoryId: '',
+      name: '', categoryId: '', categoryLabel: '',
       unit: 'pcs',
-      pricePerUnit: '',
-      purchasePrice: '',
-      gstRate: '18',
-      hsn: '',
+      pricePerUnit: '', purchasePrice: '',
+      gstRate: '18', hsn: '', sku: '',
+      brand: '', size: '', color: '',
+      packSize: '', model: '', spec: '',
     });
     // Fetch categories only once per dialog open — they rarely change during a
     // single session and the dropdown needs them synchronously.
@@ -372,10 +470,20 @@ export default function PurchaseOrderEditor() {
     }
   };
 
-  // Client-side placeholder SKU. BE's ItemService.assignHsnAndSkuCodes runs on
-  // createItem and overrides this with a canonical shop-scoped identifier, so
-  // the shop never types or sees this value on the created variant.
-  const placeholderSku = () => `AUTO-${Date.now().toString(36).toUpperCase()}`;
+  // Rebuild the SKU whenever fields the current vertical cares about change,
+  // unless the shop has typed their own SKU (barcode scan, external code).
+  useEffect(() => {
+    if (!itemDialog.open || skuTouched) return;
+    const suggested = buildSku(vertical, itemForm, generalSeqRef.current);
+    if (suggested && suggested !== itemForm.sku) {
+      setItemForm((p) => ({ ...p, sku: suggested }));
+    }
+    // Only inputs the SKU builder reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemDialog.open, vertical, skuTouched,
+      itemForm.name, itemForm.brand, itemForm.size, itemForm.color,
+      itemForm.packSize, itemForm.unit, itemForm.model, itemForm.spec,
+      itemForm.categoryLabel]);
 
   const handleCreateItem = async () => {
     const err = validateItemForm(itemForm);
@@ -397,16 +505,42 @@ export default function PurchaseOrderEditor() {
         categoryId = Number(categoryId);
       }
 
+      // Industry-aware payload. Core fields go on ItemDto / first variant;
+      // extras live on brandName (Item), color/size/design (variant), and
+      // customAttributes JSON (variant) for anything without a first-class
+      // column. BE's ItemService.assignHsnAndSkuCodes auto-generates the SKU
+      // only if the DTO doesn't carry one — the shop's chosen SKU wins.
+      const customAttrs = {};
+      if (vertical === 'FMCG' && itemForm.packSize) customAttrs.packSize = itemForm.packSize;
+      if (vertical === 'ELECTRONICS' && itemForm.spec) customAttrs.spec = itemForm.spec;
+
+      const variantPayload = {
+        sku: itemForm.sku && itemForm.sku.trim() ? itemForm.sku.trim() : null,
+        unit: itemForm.unit || 'pcs',
+        pricePerUnit: Number(itemForm.pricePerUnit),
+        gstRate: itemForm.gstRate === '' ? 0 : Number(itemForm.gstRate),
+        hsn: itemForm.hsn || null,
+      };
+      // Map industry fields onto the variant's dedicated columns where they exist.
+      if (vertical === 'APPAREL') {
+        if (itemForm.size) variantPayload.size = itemForm.size.trim();
+        if (itemForm.color) variantPayload.color = itemForm.color.trim();
+      }
+      if (vertical === 'ELECTRONICS' && itemForm.model) {
+        variantPayload.design = itemForm.model.trim(); // model → variant.design
+      }
+      if (Object.keys(customAttrs).length > 0) {
+        variantPayload.customAttributes = customAttrs;
+      }
+      // Session ratchet — next GENERAL suggestion increments the counter so
+      // a re-open doesn't reuse the same auto number.
+      if (vertical === 'GENERAL') generalSeqRef.current += 1;
+
       const itemDto = {
         name: itemForm.name.trim(),
         categoryId,
-        variants: [{
-          sku: placeholderSku(),
-          unit: itemForm.unit || 'pcs',
-          pricePerUnit: Number(itemForm.pricePerUnit),
-          gstRate: itemForm.gstRate === '' ? 0 : Number(itemForm.gstRate),
-          hsn: itemForm.hsn || null,
-        }],
+        brandName: itemForm.brand ? itemForm.brand.trim() : null,
+        variants: [variantPayload],
       };
       const fd = new FormData();
       fd.append('itemDto', new Blob([JSON.stringify(itemDto)], { type: 'application/json' }));
@@ -444,6 +578,12 @@ export default function PurchaseOrderEditor() {
       expectedDeliveryDate: form.expectedDeliveryDate || null,
       notes: form.notes || null,
       freightCharges: Number(form.freightCharges) || 0,
+      landedCostEnabled: !!form.landedCostEnabled,
+      currencyCode: form.currencyCode || 'INR',
+      exchangeRate: Number(form.exchangeRate) || 1,
+      recurringEnabled: !!form.recurringEnabled,
+      recurringFrequency: form.recurringEnabled ? form.recurringFrequency : null,
+      recurringNextAt: form.recurringEnabled && form.recurringNextAt ? form.recurringNextAt : null,
       // Server-authoritative on total: FE preview matches BE math but final
       // wins on save.
       totalAmount: totals.grand,
@@ -612,11 +752,37 @@ export default function PurchaseOrderEditor() {
                 disabled={saving || submittingPO}
                 sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}
               >
-                Save &amp; Submit
+                {/* Relabel when the requester is revising a rejected PO.
+                    revisedFromReject wins if set (fresh nav); otherwise infer
+                    from the loaded PO carrying a rejection reason. */}
+                {(revisedFromReject || existing?.rejectionReason)
+                  ? 'Resubmit for Approval'
+                  : 'Save & Submit'}
               </Button>
             </Stack>
           )}
         </Stack>
+
+        {/* Rejection banner kept visible during revision — matches the ERP
+            pattern where the approver's comment stays in front of the
+            requester until they hit Resubmit. The banner ties the approver's
+            ask directly to the fields the requester is editing. */}
+        {existing?.rejectionReason && (
+          <Alert severity="warning" variant="outlined"
+            sx={{ mb: 2, borderRadius: 2, alignItems: 'flex-start' }}>
+            <Typography variant="body2" fontWeight={800} sx={{ mb: 0.5 }}>
+              Revising rejected PO
+            </Typography>
+            <Typography variant="body2">
+              This PO was rejected
+              {existing.rejectedByName ? <> by <strong>{existing.rejectedByName}</strong></> : null}
+              . Address the reason below and click <strong>Resubmit for Approval</strong>.
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+              <strong>Reason:</strong> {existing.rejectionReason}
+            </Typography>
+          </Alert>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -938,6 +1104,72 @@ export default function PurchaseOrderEditor() {
                       helperText="Added to the grand total."
                     />
                   </Grid>
+                  <Grid item xs={12} md={6}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: editable ? 'pointer' : 'default' }}>
+                      <input type="checkbox"
+                        checked={!!form.landedCostEnabled}
+                        onChange={(e) => setField({ landedCostEnabled: e.target.checked })}
+                        disabled={!editable} />
+                      <Typography variant="body2" fontWeight={600}>
+                        Allocate freight to line unit cost (landed cost)
+                      </Typography>
+                    </label>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      When on, freight is distributed pro-rata across lines so inventory valuation reflects the real landed cost.
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField select label="Currency" size="small" fullWidth
+                      value={form.currencyCode}
+                      onChange={(e) => setField({ currencyCode: e.target.value })}
+                      disabled={!editable}
+                      SelectProps={{ native: true }}>
+                      {['INR','USD','EUR','GBP','AED','SGD','AUD','CAD','JPY','CNY'].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField label="Exchange rate → INR" size="small" fullWidth type="number"
+                      value={form.exchangeRate}
+                      onChange={(e) => setField({ exchangeRate: e.target.value })}
+                      disabled={!editable || form.currencyCode === 'INR'}
+                      helperText={form.currencyCode === 'INR' ? '' : `1 ${form.currencyCode} = ₹${Number(form.exchangeRate || 1)}`} />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: editable ? 'pointer' : 'default' }}>
+                        <input type="checkbox"
+                          checked={!!form.recurringEnabled}
+                          onChange={(e) => setField({ recurringEnabled: e.target.checked })}
+                          disabled={!editable} />
+                        <Typography variant="body2" fontWeight={700}>
+                          Recurring / blanket order
+                        </Typography>
+                      </label>
+                      {form.recurringEnabled && (
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }}>
+                          <TextField select label="Frequency" size="small" fullWidth
+                            value={form.recurringFrequency}
+                            onChange={(e) => setField({ recurringFrequency: e.target.value })}
+                            disabled={!editable}
+                            SelectProps={{ native: true }}>
+                            {['DAILY','WEEKLY','BIWEEKLY','MONTHLY','QUARTERLY','YEARLY'].map((f) => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </TextField>
+                          <TextField label="Next fire at" size="small" fullWidth type="datetime-local"
+                            InputLabelProps={{ shrink: true }}
+                            value={form.recurringNextAt}
+                            onChange={(e) => setField({ recurringNextAt: e.target.value })}
+                            disabled={!editable} />
+                        </Stack>
+                      )}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        A recurring PO auto-duplicates on its cadence, keeping the same lines. The child DRAFT still needs a review + submit.
+                      </Typography>
+                    </Paper>
+                  </Grid>
                   <Grid item xs={12}>
                     <TextField
                       label="Notes"
@@ -1135,12 +1367,24 @@ export default function PurchaseOrderEditor() {
       >
         <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
           <AddIcon color="primary" />
-          Add New Item to Catalog
+          Add New Item
+          {vertical !== 'GENERAL' && (
+            <Chip
+              label={vertical.toLowerCase()}
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{ fontWeight: 700, borderRadius: 1, letterSpacing: 0.3 }}
+            />
+          )}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Adds a catalog item with a single variant. SKU is auto-generated by the server — you
-            don't need to enter one. Photos and extra variants can be added later from the Items page.
+            {vertical === 'APPAREL' && 'Quick-add a garment. Brand + size + colour build a readable SKU like LP-TSH-38-BEI.'}
+            {vertical === 'FMCG' && 'Quick-add an FMCG line. Brand + pack size build a SKU like AMUL-BUT-500G.'}
+            {vertical === 'ELECTRONICS' && 'Quick-add an electronics line. Brand + model + spec build a SKU like SAM-S24-256GB.'}
+            {vertical === 'GENERAL' && 'Adds a catalog item with a single variant. SKU is auto-numbered by category.'}
+            {' '}Deep attributes (photos, warranties, extra variants) live on the full Items page.
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {/* Row 1 — Name spans wide, Category picks from existing or accepts a new name */}
@@ -1165,12 +1409,12 @@ export default function PurchaseOrderEditor() {
                     : null
                 }
                 onChange={(_, v) => {
-                  if (!v) setItemForm((p) => ({ ...p, categoryId: '' }));
-                  else if (typeof v === 'string') setItemForm((p) => ({ ...p, categoryId: v.trim() })); // new name
-                  else setItemForm((p) => ({ ...p, categoryId: v.id })); // existing
+                  if (!v) setItemForm((p) => ({ ...p, categoryId: '', categoryLabel: '' }));
+                  else if (typeof v === 'string') setItemForm((p) => ({ ...p, categoryId: v.trim(), categoryLabel: v.trim() })); // new name
+                  else setItemForm((p) => ({ ...p, categoryId: v.id, categoryLabel: v.name || '' })); // existing
                 }}
                 onInputChange={(_, v, reason) => {
-                  if (reason === 'input') setItemForm((p) => ({ ...p, categoryId: v }));
+                  if (reason === 'input') setItemForm((p) => ({ ...p, categoryId: v, categoryLabel: v }));
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label="Category" required
@@ -1178,6 +1422,71 @@ export default function PurchaseOrderEditor() {
                 )}
               />
             </Grid>
+
+            {/* Row 1.5 — Industry-specific fields. Rendered conditionally so
+                the shop only sees what matters for their vertical. Extras
+                land on brand / size / color / customAttributes at save. */}
+            {vertical === 'APPAREL' && (
+              <>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth size="small" label="Brand"
+                    value={itemForm.brand}
+                    onChange={(e) => setItemForm((p) => ({ ...p, brand: e.target.value }))}
+                    placeholder="e.g. Louis Philippe" />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField fullWidth size="small" label="Size"
+                    value={itemForm.size}
+                    onChange={(e) => setItemForm((p) => ({ ...p, size: e.target.value }))}
+                    placeholder="e.g. 38, M, XL" />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField fullWidth size="small" label="Color"
+                    value={itemForm.color}
+                    onChange={(e) => setItemForm((p) => ({ ...p, color: e.target.value }))}
+                    placeholder="e.g. Beige, Navy" />
+                </Grid>
+              </>
+            )}
+            {vertical === 'FMCG' && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" label="Brand"
+                    value={itemForm.brand}
+                    onChange={(e) => setItemForm((p) => ({ ...p, brand: e.target.value }))}
+                    placeholder="e.g. Amul, Nestle" />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" label="Pack Size / Weight"
+                    value={itemForm.packSize}
+                    onChange={(e) => setItemForm((p) => ({ ...p, packSize: e.target.value }))}
+                    placeholder="e.g. 500g, 1L, 12x100g"
+                    helperText="Persisted as a variant attribute" />
+                </Grid>
+              </>
+            )}
+            {vertical === 'ELECTRONICS' && (
+              <>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth size="small" label="Brand"
+                    value={itemForm.brand}
+                    onChange={(e) => setItemForm((p) => ({ ...p, brand: e.target.value }))}
+                    placeholder="e.g. Samsung, Apple" />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField fullWidth size="small" label="Model"
+                    value={itemForm.model}
+                    onChange={(e) => setItemForm((p) => ({ ...p, model: e.target.value }))}
+                    placeholder="e.g. Galaxy S24" />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField fullWidth size="small" label="Spec"
+                    value={itemForm.spec}
+                    onChange={(e) => setItemForm((p) => ({ ...p, spec: e.target.value }))}
+                    placeholder="e.g. 256GB, 8GB RAM" />
+                </Grid>
+              </>
+            )}
 
             {/* Row 2 — Unit + Selling price (required) + Purchase price (optional seeds PO line cost) */}
             <Grid item xs={12} sm={4}>
@@ -1229,6 +1538,43 @@ export default function PurchaseOrderEditor() {
                 onChange={(e) => setItemForm((p) => ({ ...p, hsn: e.target.value }))}
                 inputProps={{ maxLength: 20 }}
                 helperText="Server generates one if you skip"
+              />
+            </Grid>
+
+            {/* Row 4 — SKU. Auto-suggested per vertical from the fields above;
+                editable so the shop can paste a scanned barcode. Server
+                accepts whatever value is submitted (unique per shop). */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth size="small"
+                label={`SKU${vertical === 'GENERAL' ? '' : ` (${vertical.toLowerCase()} pattern)`}`}
+                value={itemForm.sku}
+                onChange={(e) => {
+                  setItemForm((p) => ({ ...p, sku: e.target.value }));
+                  setSkuTouched(true);
+                }}
+                placeholder={
+                  vertical === 'APPAREL' ? 'BRAND-NAME-SIZE-COLOR (auto)' :
+                  vertical === 'FMCG' ? 'BRAND-NAME-PACK (auto)' :
+                  vertical === 'ELECTRONICS' ? 'BRAND-MODEL-SPEC (auto)' :
+                  'CATEGORY-00001 (auto)'
+                }
+                helperText={
+                  skuTouched
+                    ? 'Custom SKU — auto-suggest disabled until you clear the field.'
+                    : 'Auto-builds from the fields above. Edit or paste a scanned barcode to override.'
+                }
+                InputProps={{
+                  endAdornment: itemForm.sku ? (
+                    <Button
+                      size="small"
+                      onClick={() => { setItemForm((p) => ({ ...p, sku: '' })); setSkuTouched(false); }}
+                      sx={{ textTransform: 'none', fontWeight: 600, minWidth: 'auto' }}
+                    >
+                      Reset
+                    </Button>
+                  ) : null,
+                }}
               />
             </Grid>
           </Grid>

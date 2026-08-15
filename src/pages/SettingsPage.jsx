@@ -94,6 +94,11 @@ const SettingsPage = () => {
     invoiceDueDays: 30,
     lowStockAlertsEnabled: false,
     lowStockSmsAlertsEnabled: false,
+    // V85 Phase 3: purchase-order approval policy. When required is true,
+    // any PO whose total ≥ threshold routes into PENDING_APPROVAL on submit.
+    // Threshold of 0 means "every PO regardless of amount".
+    poApprovalRequired: false,
+    poApprovalThresholdAmount: 0,
   });
 
   const [errors, setErrors] = useState({});
@@ -160,6 +165,8 @@ const SettingsPage = () => {
           invoiceDueDays: res.data.invoiceDueDays ?? 30,
           lowStockAlertsEnabled: !!res.data.lowStockAlertsEnabled,
           lowStockSmsAlertsEnabled: !!res.data.lowStockSmsAlertsEnabled,
+          poApprovalRequired: !!res.data.poApprovalRequired,
+          poApprovalThresholdAmount: Number(res.data.poApprovalThresholdAmount) || 0,
         };
         setShopData(data);
         initialDataRef.current = data;
@@ -471,6 +478,37 @@ const SettingsPage = () => {
         Alerts trigger only for <strong>CRITICAL</strong> variants (on-hand ≤ 0 or below the configured reorder point).
         Each variant is only re-emailed once per 24 hours to prevent inbox fatigue.
       </Alert>
+
+      {/* V85 Phase 3: purchase-order approval policy. Toggle + threshold live
+          under Notifications for now since they share the "alert-vs-permit"
+          mental model; a dedicated Procurement tab is a Phase 6 concern. */}
+      <SectionHeader
+        title="Purchase order approvals"
+        subtitle="Route high-value POs to an OWNER/ADMIN before they commit to the supplier."
+      />
+      <NotificationToggle
+        icon={<NotificationsIcon />}
+        color={theme.palette.warning.main}
+        title="Require approval for purchase orders"
+        subtitle="When ON, submitting a PO at or above the threshold routes it into PENDING APPROVAL. Below the threshold, submit works as usual."
+        checked={!!shopData.poApprovalRequired}
+        onChange={handleBooleanChange('poApprovalRequired')}
+        theme={theme}
+      />
+      {shopData.poApprovalRequired && (
+        <Box sx={{ pl: { xs: 0, sm: 5 } }}>
+          <TextField
+            fullWidth size="small" type="number"
+            label="Approval threshold amount (₹)"
+            name="poApprovalThresholdAmount"
+            value={shopData.poApprovalThresholdAmount}
+            onChange={handleTextChange}
+            inputProps={{ min: 0, step: 0.01 }}
+            helperText="POs at or above this amount need approval. Set 0 to require approval on every PO."
+            sx={inputSx}
+          />
+        </Box>
+      )}
     </Stack>
   );
 

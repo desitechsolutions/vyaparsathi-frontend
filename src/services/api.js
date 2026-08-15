@@ -187,8 +187,26 @@ export const submitPurchaseOrder = (id) =>
 export const cancelPurchaseOrder = (id, reason) =>
   API.post(endpoints.cancelPurchaseOrder(id), { reason }).then((r) => r.data);
 
-export const sendPurchaseOrder = (id) =>
-  API.post(endpoints.sendPurchaseOrder(id)).then((r) => r.data);
+// V86 (Phase 5): body is optional — omitting it uses server defaults
+// (supplier.email, generated subject + body, PDF attached).
+// Supply { to, subject, body, attachPdf } to override any of those.
+export const sendPurchaseOrder = (id, body = null) =>
+  API.post(endpoints.sendPurchaseOrder(id), body || undefined).then((r) => r.data);
+
+// V86 attachments — file bytes go through the backend's FileStorageService.
+export const listPurchaseOrderAttachments = (id) =>
+  API.get(endpoints.purchaseOrderAttachments(id)).then((r) => r.data);
+
+export const uploadPurchaseOrderAttachment = (id, file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return API.post(endpoints.purchaseOrderAttachments(id), fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data);
+};
+
+export const deletePurchaseOrderAttachment = (poId, attachmentId) =>
+  API.delete(endpoints.purchaseOrderAttachmentById(poId, attachmentId)).then((r) => r.data);
 
 export const markReceivedPurchaseOrder = (id) =>
   API.post(endpoints.markReceivedPurchaseOrder(id)).then((r) => r.data);
@@ -202,6 +220,24 @@ export const duplicatePurchaseOrder = (id) =>
 // serves the PO PDF for ~30 minutes. Follows the invoice / quotation pattern.
 export const getPurchaseOrderSignedUrl = (id) =>
   API.get(endpoints.purchaseOrderSignedUrl(id)).then((r) => r.data);
+
+// V85 approval workflow — powers the /purchase-orders/approvals queue and the
+// Approve / Reject buttons on the PO detail page. Reject requires a reason;
+// server @NotBlank / @Size(500) validation.
+export const getPendingApprovalPurchaseOrders = () =>
+  API.get(endpoints.pendingApprovalPurchaseOrders).then((r) => r.data);
+
+export const approvePurchaseOrder = (id) =>
+  API.post(endpoints.approvePurchaseOrder(id)).then((r) => r.data);
+
+export const rejectPurchaseOrder = (id, reason) =>
+  API.post(endpoints.rejectPurchaseOrder(id), { reason }).then((r) => r.data);
+
+// Refactor: REJECTED → DRAFT so the requester can edit + resubmit. Server
+// preserves rejectionReason on the row so the FE keeps the reference banner
+// visible during revision.
+export const revisePurchaseOrder = (id) =>
+  API.post(endpoints.revisePurchaseOrder(id)).then((r) => r.data);
 
 // New "open" alias — /pending stays for backward compat but /open is the
 // canonical Zoho-parity name and only returns SUBMITTED + PARTIALLY_RECEIVED.
@@ -849,12 +885,212 @@ export const fetchAllTickets = () =>
   API.get(endpoints.fetchAllTicket).then(r => r.data);
 export const initiateReceivingFromPO = (data) =>
   API.post(endpoints.receiveGoods, data).then(r => r.data);
-export const addAttachmentToTicket = (data) =>
-  API.post(`/api/tickets/${data.id}/attachments`);
+export const addAttachmentToTicket = (data) => {
+  const form = new FormData();
+  form.append('file', data.file);
+  return API.post(`${endpoints.receivingTicketById(data.id)}/attachments`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
 export const updateReceivingTicket = (data) =>
-  API.put(`/api/tickets/${data.id}`);
+  API.put(endpoints.receivingTicketById(data.id), data).then(r => r.data);
 export const deleteReceivingTicket = (id) =>
-  API.delete(`/api/tickets/${id}`);
+  API.delete(endpoints.receivingTicketById(id)).then(r => r.data);
+
+export const fetchAllReceivingTickets = () =>
+  API.get(endpoints.fetchAllTicket).then(r => r.data);
+export const confirmReceiving = (id, note) =>
+  API.post(endpoints.receivingConfirm(id), { note: note ?? null }).then(r => r.data);
+export const approveReceiving = (id, note) =>
+  API.post(endpoints.receivingApprove(id), { note: note ?? null }).then(r => r.data);
+export const cancelReceiving = (id, reason) =>
+  API.post(endpoints.receivingCancel(id), { note: reason }).then(r => r.data);
+export const getReceivingStatusHistory = (id) =>
+  API.get(endpoints.receivingStatusHistory(id)).then(r => r.data);
+export const getReceivingThreeWayMatch = (id) =>
+  API.get(endpoints.receivingThreeWayMatch(id)).then(r => r.data);
+export const getReceivingApprovals = (id) =>
+  API.get(endpoints.receivingApprovals(id)).then(r => r.data);
+export const approveReceivingStep = (approvalId, note) =>
+  API.post(endpoints.receivingApprovalStep(approvalId), { note: note ?? null }).then(r => r.data);
+export const listReceivingBins = (itemId) =>
+  API.get(endpoints.receivingItemBins(itemId)).then(r => r.data);
+export const assignReceivingBin = (itemId, binCode, quantity) =>
+  API.post(endpoints.receivingItemBins(itemId), { binCode, quantity }).then(r => r.data);
+export const removeReceivingBin = (assignmentId) =>
+  API.delete(endpoints.receivingBinById(assignmentId)).then(r => r.data);
+export const bulkImportReceiving = (id, file) => {
+  const form = new FormData();
+  form.append('file', file);
+  return API.post(endpoints.receivingBulkImport(id), form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+export const debitNoteFromTicket = (ticketId, note) =>
+  API.post(endpoints.receivingTicketDebitNote(ticketId), { note: note ?? null }).then(r => r.data);
+export const getReceivingNotifications = (id) =>
+  API.get(endpoints.receivingNotifications(id)).then(r => r.data);
+export const createApInvoice = (payload) =>
+  API.post(endpoints.receivingApInvoices, payload).then(r => r.data);
+export const getApInvoiceByReceiving = (id) =>
+  API.get(endpoints.receivingApInvoiceByReceiving(id)).then(r => r.data);
+
+// Reports
+export const fetchReceivingPending = () =>
+  API.get(endpoints.receivingReportPending).then(r => r.data);
+export const fetchReceivingDiscrepancy = (from, to) =>
+  API.get(endpoints.receivingReportDiscrepancy, { params: { from, to } }).then(r => r.data);
+export const fetchReceivingAging = (days = 7) =>
+  API.get(endpoints.receivingReportAging, { params: { days } }).then(r => r.data);
+export const fetchReceivingAgingTickets = (hours = 24) =>
+  API.get(endpoints.receivingReportAgingTickets, { params: { hours } }).then(r => r.data);
+export const fetchReceivingExpiry = (windowDays = 30) =>
+  API.get(endpoints.receivingReportExpiry, { params: { windowDays } }).then(r => r.data);
+export const fetchReceivingSupplierPerformance = () =>
+  API.get(endpoints.receivingReportSupplierPerformance).then(r => r.data);
+export const downloadReceivingCsv = (from, to) =>
+  API.get(endpoints.receivingReportExportCsv, { params: { from, to }, responseType: 'blob' })
+    .then(r => r.data);
+export const downloadReceivingXlsx = (from, to) =>
+  API.get(endpoints.receivingReportExportXlsx, { params: { from, to }, responseType: 'blob' })
+    .then(r => r.data);
+export const createReturnFromReceiving = (id, note) =>
+  API.post(endpoints.receivingReturn(id), { note: note ?? null }).then(r => r.data);
+export const createAsn = (payload) =>
+  API.post(endpoints.receivingAsn, payload).then(r => r.data);
+export const listAsnByPo = (poId) =>
+  API.get(endpoints.receivingAsnByPo(poId)).then(r => r.data);
+export const consumeAsn = (asnId, receivingId) =>
+  API.post(endpoints.receivingAsnConsume(asnId), null, { params: { receivingId } }).then(r => r.data);
+
+export const forceClosePurchaseOrder = (id, reason) =>
+  API.post(endpoints.purchaseOrderForceClose(id), { reason }).then(r => r.data);
+export const getPurchaseOrderHistory = (id) =>
+  API.get(endpoints.purchaseOrderHistory(id)).then(r => r.data);
+export const getPurchaseOrderApprovals = (id) =>
+  API.get(endpoints.purchaseOrderApprovals(id)).then(r => r.data);
+export const approvePurchaseOrderStep = (approvalId, note) =>
+  API.post(endpoints.purchaseOrderApprovalStep(approvalId), { note: note ?? null }).then(r => r.data);
+export const fetchPoAging = (days = 7) =>
+  API.get(endpoints.purchaseOrderReportAging, { params: { days } }).then(r => r.data);
+export const fetchPoSupplierSpend = (from, to) =>
+  API.get(endpoints.purchaseOrderReportSpend, { params: { from, to } }).then(r => r.data);
+export const fetchPoFulfillment = () =>
+  API.get(endpoints.purchaseOrderReportFulfillment).then(r => r.data);
+export const fetchPoBudgetVsActual = (budget) =>
+  API.get(endpoints.purchaseOrderReportBudget, { params: { budget } }).then(r => r.data);
+export const downloadPoCsv = (from, to) =>
+  API.get(endpoints.purchaseOrderReportExport, { params: { from, to }, responseType: 'blob' })
+    .then(r => r.data);
+export const fetchPoSuggestFromLowStock = () =>
+  API.get(endpoints.purchaseOrderSuggestFromLowStock).then(r => r.data);
+
+// Inventory reports
+export const fetchStockValuation = () =>
+  API.get(endpoints.stockReportValuation).then(r => r.data);
+export const downloadStockValuationXlsx = () =>
+  API.get(endpoints.stockReportValuationXlsx, { responseType: 'blob' }).then(r => r.data);
+export const fetchStockDeadReport = (days = 90) =>
+  API.get(endpoints.stockReportDeadStock, { params: { days } }).then(r => r.data);
+export const fetchStockShrinkage = (from, to) =>
+  API.get(endpoints.stockReportShrinkage, { params: { from, to } }).then(r => r.data);
+export const fetchStockAgeing = () =>
+  API.get(endpoints.stockReportAgeing).then(r => r.data);
+export const fetchStockTurnover = (days = 30) =>
+  API.get(endpoints.stockReportTurnover, { params: { days } }).then(r => r.data);
+
+// Reservations
+export const createStockReservation = (payload) =>
+  API.post(endpoints.stockReservations, payload).then(r => r.data);
+export const consumeStockReservation = (id) =>
+  API.post(`${endpoints.stockReservationById(id)}/consume`).then(r => r.data);
+export const releaseStockReservation = (id) =>
+  API.post(`${endpoints.stockReservationById(id)}/release`).then(r => r.data);
+
+// Adjustment approvals
+export const fetchAdjustmentApprovals = () =>
+  API.get(endpoints.stockAdjustmentApprovals).then(r => r.data);
+export const approveAdjustment = (id, note) =>
+  API.post(endpoints.stockAdjustmentApprove(id), { note: note ?? null }).then(r => r.data);
+export const rejectAdjustment = (id, note) =>
+  API.post(endpoints.stockAdjustmentReject(id), { note: note ?? null }).then(r => r.data);
+
+// Cycle counts
+export const planCycleCount = (payload) =>
+  API.post(endpoints.stockCycleCounts, payload).then(r => r.data);
+export const listCycleCounts = () =>
+  API.get(endpoints.stockCycleCounts).then(r => r.data);
+export const getCycleCount = (id) =>
+  API.get(endpoints.stockCycleCountById(id)).then(r => r.data);
+export const recordCycleCountLine = (id, lineId, countedQty, reason) =>
+  API.post(endpoints.stockCycleCountLineCount(id, lineId), { countedQty, reason }).then(r => r.data);
+export const commitCycleCount = (id) =>
+  API.post(endpoints.stockCycleCountCommit(id)).then(r => r.data);
+export const cancelCycleCount = (id, reason) =>
+  API.post(endpoints.stockCycleCountCancel(id), { reason }).then(r => r.data);
+
+// Batch recalls
+export const openBatchRecall = (payload) =>
+  API.post(endpoints.stockRecalls, payload).then(r => r.data);
+export const listBatchRecalls = () =>
+  API.get(endpoints.stockRecalls).then(r => r.data);
+export const closeBatchRecall = (id, note) =>
+  API.post(endpoints.stockRecallClose(id), { note }).then(r => r.data);
+
+// Transfer approvals
+export const approveStockTransfer = (id, note) =>
+  API.post(endpoints.stockTransferApprove(id), { note }).then(r => r.data);
+export const dispatchStockTransfer = (id) =>
+  API.post(endpoints.stockTransferDispatch(id)).then(r => r.data);
+export const receiveStockTransfer = (id) =>
+  API.post(endpoints.stockTransferReceive(id)).then(r => r.data);
+
+// Bundles / UOM / rate card / snooze / saved views / labels
+export const listProductBundles = () =>
+  API.get(endpoints.inventoryBundles).then(r => r.data);
+export const createProductBundle = (payload) =>
+  API.post(endpoints.inventoryBundles, payload).then(r => r.data);
+export const deactivateProductBundle = (id) =>
+  API.post(endpoints.inventoryBundleDeactivate(id)).then(r => r.data);
+export const listUomConversions = () =>
+  API.get(endpoints.inventoryUom).then(r => r.data);
+export const saveUomConversion = (payload) =>
+  API.post(endpoints.inventoryUom, payload).then(r => r.data);
+export const convertUom = (qty, from, to) =>
+  API.get(endpoints.inventoryUomConvert, { params: { qty, from, to } }).then(r => r.data);
+export const listSupplierRateCards = (supplierId) =>
+  API.get(endpoints.inventoryRateCardBySupplier(supplierId)).then(r => r.data);
+export const saveSupplierRateCard = (payload) =>
+  API.post(endpoints.inventoryRateCard, payload).then(r => r.data);
+export const snoozeAlert = (payload) =>
+  API.post(endpoints.inventorySnooze, payload).then(r => r.data);
+export const listActiveSnoozes = (alertType) =>
+  API.get(endpoints.inventorySnooze, { params: { alertType } }).then(r => r.data);
+export const listSavedViews = (surface) =>
+  API.get(endpoints.inventorySavedViews, { params: { surface } }).then(r => r.data);
+export const saveSavedView = (payload) =>
+  API.post(endpoints.inventorySavedViews, payload).then(r => r.data);
+export const deleteSavedView = (id) =>
+  API.delete(endpoints.inventorySavedViewById(id)).then(r => r.data);
+export const printBarcodeLabels = (variantIds, copies = 1) =>
+  API.post(endpoints.inventoryLabelsPrint, { variantIds, copies }, { responseType: 'blob' })
+    .then(r => r.data);
+
+// QC + temperature
+export const recordQcSample = (payload) =>
+  API.post(endpoints.receivingQcSamples, payload).then(r => r.data);
+export const listQcSamples = (receivingId) =>
+  API.get(endpoints.receivingQcByReceiving(receivingId)).then(r => r.data);
+export const recordTemperature = (payload) =>
+  API.post(endpoints.receivingTempLogs, payload).then(r => r.data);
+export const listTemperatureLogs = (receivingId) =>
+  API.get(endpoints.receivingTempByReceiving(receivingId)).then(r => r.data);
+export const disputeReceiving = (id, note) =>
+  API.post(endpoints.receivingDispute(id), { note: note ?? null }).then(r => r.data);
+export const resolveReceivingTicket = (id, note) =>
+  API.post(endpoints.receivingTicketResolve(id), { note: note ?? null }).then(r => r.data);
+export const getReceivingSignedUrl = (id) =>
+  API.get(endpoints.receivingSignedUrl(id)).then(r => r.data);
 
 // --- STAFF & PAYROLL ---
 
@@ -1011,6 +1247,32 @@ export const approvePurchaseReturn = (id) =>
 
 export const cancelPurchaseReturn = (id) =>
   API.post(`/api/purchase-returns/${id}/cancel`).then(r => r.data);
+
+export const getPurchaseReturnSignedUrl = (id) =>
+  API.get(endpoints.purchaseReturnSignedUrl(id)).then(r => r.data);
+
+// Debit notes
+export const getDebitNote = (id) =>
+  API.get(endpoints.debitNoteById(id)).then(r => r.data?.data ?? r.data);
+export const createDebitNoteManual = (payload) =>
+  API.post(endpoints.debitNotes, payload).then(r => r.data?.data ?? r.data);
+export const applyDebitNote = (id, payload) =>
+  API.post(endpoints.debitNoteApply(id), payload).then(r => r.data?.data ?? r.data);
+export const listDebitNoteApplications = (id) =>
+  API.get(endpoints.debitNoteApplications(id)).then(r => r.data?.data ?? []);
+export const reverseDebitNoteApplication = (appId, note) =>
+  API.post(endpoints.debitNoteApplicationReverse(appId), { note: note ?? null })
+    .then(r => r.data?.data ?? r.data);
+export const cancelDebitNote = (id, note) =>
+  API.post(endpoints.debitNoteCancel(id), { note: note ?? null }).then(r => r.data?.data ?? r.data);
+export const fetchDebitNoteAging = () =>
+  API.get(endpoints.debitNoteReportAging).then(r => r.data?.data ?? []);
+export const fetchDebitNoteSupplierSummary = () =>
+  API.get(endpoints.debitNoteReportSupplierSummary).then(r => r.data?.data ?? []);
+export const downloadDebitNoteCsv = () =>
+  API.get(endpoints.debitNoteReportExportCsv, { responseType: 'blob' }).then(r => r.data);
+export const downloadDebitNoteXlsx = () =>
+  API.get(endpoints.debitNoteReportExportXlsx, { responseType: 'blob' }).then(r => r.data);
 
 export const fetchSupplierStatement = (supplierId, startDate, endDate) => {
   const params = { supplierId };

@@ -58,6 +58,8 @@ const formatDate = (val) => {
 // second surface needs the same styling, extract to components/po/.
 const STATUS_META = {
   DRAFT:              { label: 'Draft',              color: 'text.secondary',    tone: 'default' },
+  PENDING_APPROVAL:   { label: 'Pending approval',   color: 'warning.main',      tone: 'warning' },
+  REJECTED:           { label: 'Rejected',           color: 'error.main',        tone: 'error' },
   SUBMITTED:          { label: 'Submitted',          color: 'info.main',         tone: 'info' },
   PARTIALLY_RECEIVED: { label: 'Partially received', color: 'warning.main',      tone: 'warning' },
   RECEIVED:           { label: 'Received',           color: 'success.main',      tone: 'success' },
@@ -68,7 +70,7 @@ const STATUS_META = {
   IN_PROGRESS:        { label: 'Partially received', color: 'warning.main',      tone: 'warning' },
 };
 
-const STATUS_ORDER = ['DRAFT', 'SUBMITTED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'];
+const STATUS_ORDER = ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'SUBMITTED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'];
 
 // KPI cell — same convention inlined on Stock / LowStockAlerts / Items.
 // Kept local per project pattern; extraction waits for a fourth consumer.
@@ -537,21 +539,47 @@ const PurchaseOrders = () => {
               Track every order from draft to receipt. Cancel or send to supplier with a full audit trail.
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={openCreate}
-            sx={{
-              borderRadius: 1.5,
-              fontWeight: 700,
-              textTransform: 'none',
-              boxShadow: 'none',
-              '&:hover': { boxShadow: 'none' },
-            }}
-          >
-            New PO
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/purchase-orders/approvals')}
+              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', mr: 1 }}
+            >
+              Approvals
+              {statusCounts.PENDING_APPROVAL > 0 && (
+                <Chip
+                  label={statusCounts.PENDING_APPROVAL}
+                  size="small"
+                  color="warning"
+                  sx={{ ml: 1, height: 20, fontWeight: 700, fontSize: '0.65rem', borderRadius: 0.75 }}
+                />
+              )}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/purchase-orders/reports')}
+              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none' }}
+            >
+              Reports
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              sx={{
+                borderRadius: 1.5,
+                fontWeight: 700,
+                textTransform: 'none',
+                boxShadow: 'none',
+                '&:hover': { boxShadow: 'none' },
+              }}
+            >
+              New PO
+            </Button>
+          </Stack>
         </Stack>
 
         {/* KPI strip ──────────────────────────────────────────────── */}

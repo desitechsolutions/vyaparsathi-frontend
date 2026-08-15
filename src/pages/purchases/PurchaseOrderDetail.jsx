@@ -24,6 +24,7 @@ import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import BlockIcon from '@mui/icons-material/Block';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 
 import PrintIcon from '@mui/icons-material/Print';
@@ -32,17 +33,33 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailIcon from '@mui/icons-material/Email';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+
 import {
   getPurchaseOrderById,
+  getPurchaseOrderHistory,
+  getPurchaseOrderApprovals,
+  approvePurchaseOrderStep,
+  forceClosePurchaseOrder,
   cancelPurchaseOrder,
   sendPurchaseOrder,
   markReceivedPurchaseOrder,
   getPurchaseOrderSignedUrl,
   duplicatePurchaseOrder,
+  approvePurchaseOrder,
+  rejectPurchaseOrder,
+  revisePurchaseOrder,
+  listPurchaseOrderAttachments,
+  uploadPurchaseOrderAttachment,
+  deletePurchaseOrderAttachment,
 } from '../../services/api';
 
 const STATUS_META = {
   DRAFT:              { label: 'DRAFT', tone: 'default' },
+  PENDING_APPROVAL:   { label: 'PENDING APPROVAL', tone: 'warning' },
+  REJECTED:           { label: 'REJECTED', tone: 'error' },
   SUBMITTED:          { label: 'SUBMITTED', tone: 'info' },
   AWAITING_RECEIPT:   { label: 'AWAITING RECEIPT', tone: 'info' },
   PARTIALLY_RECEIVED: { label: 'PARTIALLY RECEIVED', tone: 'warning' },
@@ -59,7 +76,11 @@ const STATUS_META = {
 const derivedStatus = (po) => {
   if (!po?.status) return null;
   const s = po.status;
-  if (s === 'DRAFT' || s === 'CANCELLED' || s === 'RECEIVED') return s;
+  // Terminal / pre-receipt states pass through unchanged. PENDING_APPROVAL
+  // has zero received quantity by definition — don't let the receipt-math
+  // block below misclassify it as AWAITING_RECEIPT.
+  if (s === 'DRAFT' || s === 'CANCELLED' || s === 'RECEIVED'
+      || s === 'PENDING_APPROVAL' || s === 'REJECTED') return s;
   const items = po.items || [];
   const totalOrdered = items.reduce((a, i) => a + Number(i.quantity || 0), 0);
   const totalReceived = items.reduce((a, i) => a + Number(i.receivedQuantity || 0), 0);
@@ -136,14 +157,35 @@ export default function PurchaseOrderDetail() {
   const [actionMenu, setActionMenu] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [cancelDialog, setCancelDialog] = useState({ open: false, reason: '' });
-  const [sendDialog, setSendDialog] = useState(false);
+  // V86 preview-then-send dialog. Fields default to server-generated values
+  // and pre-fill from supplier.email on open; user can override any of them.
+  const [sendDialog, setSendDialog] = useState({
+    open: false, to: '', subject: '', body: '', attachPdf: true,
+  });
   const [receivedDialog, setReceivedDialog] = useState(false);
+  // V85 approval workflow — reject requires a reason (BE @NotBlank / @Size(500)).
+  const [rejectDialog, setRejectDialog] = useState({ open: false, reason: '' });
+
+  // V86 attachments — list is loaded lazily after the PO loads.
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  // V92 additions — status history + approval steps.
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [approvals, setApprovals] = useState([]);
+  const [forceCloseDialog, setForceCloseDialog] = useState({ open: false, reason: '' });
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getPurchaseOrderById(id);
+      const [data, hist, appr] = await Promise.all([
+        getPurchaseOrderById(id),
+        getPurchaseOrderHistory(id).catch(() => []),
+        getPurchaseOrderApprovals(id).catch(() => []),
+      ]);
       setPo(data);
+      setStatusHistory(Array.isArray(hist) ? hist : []);
+      setApprovals(Array.isArray(appr) ? appr : []);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load purchase order.');
     } finally {
@@ -151,7 +193,78 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  const handleApprovalStep = async (approvalId) => {
+    setActionBusy(true);
+    try {
+      await approvePurchaseOrderStep(approvalId);
+      setSnackbar({ open: true, msg: 'Approval step recorded.', severity: 'success' });
+      load();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Approval failed', severity: 'error' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleForceClose = async () => {
+    if (!forceCloseDialog.reason?.trim()) {
+      setSnackbar({ open: true, msg: 'Close reason is required.', severity: 'warning' });
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await forceClosePurchaseOrder(id, forceCloseDialog.reason.trim());
+      setForceCloseDialog({ open: false, reason: '' });
+      setSnackbar({ open: true, msg: 'PO force-closed.', severity: 'success' });
+      load();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Close failed', severity: 'error' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+
+  // V86: load attachments once the PO is available. Failure is non-fatal —
+  // the panel simply renders empty.
+  const loadAttachments = React.useCallback(async () => {
+    if (!id) return;
+    try {
+      const list = await listPurchaseOrderAttachments(id);
+      setAttachments(Array.isArray(list) ? list : []);
+    } catch { /* swallow — logged server-side */ }
+  }, [id]);
+
+  useEffect(() => { loadAttachments(); }, [loadAttachments]);
+
+  const handleAttachmentUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadPurchaseOrderAttachment(id, file);
+      setSnackbar({ open: true, msg: `Uploaded "${file.name}".`, severity: 'success' });
+      loadAttachments();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Upload failed.', severity: 'error' });
+    } finally {
+      setUploading(false);
+      // Reset the input so re-uploading the same filename fires onChange.
+      e.target.value = '';
+    }
+  };
+
+  const handleAttachmentDelete = async (attachmentId, name) => {
+    if (!window.confirm(`Remove "${name}" from this PO?`)) return;
+    try {
+      await deletePurchaseOrderAttachment(id, attachmentId);
+      setSnackbar({ open: true, msg: 'Attachment removed.', severity: 'success' });
+      loadAttachments();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Delete failed.', severity: 'error' });
+    }
+  };
 
   // Print handoff: when opened with ?print=1 (from the list's "Print / Save as
   // PDF" action), fire the browser print dialog as soon as the PO is loaded.
@@ -202,6 +315,52 @@ export default function PurchaseOrderDetail() {
         label: 'Sent to supplier',
         detail: 'PO handed over to the supplier for fulfilment.',
         at: po.sentAt,
+      });
+    }
+    // V85: approval events sit between "Created" and "Submitted" chronologically.
+    if (po.status === 'PENDING_APPROVAL') {
+      events.push({
+        key: 'approval-requested',
+        icon: <HourglassEmptyIcon fontSize="small" />,
+        color: theme.palette.warning.main,
+        label: 'Approval requested',
+        detail: 'Awaiting OWNER/ADMIN sign-off.',
+        at: po.updatedAt,
+      });
+    }
+    if (po.approvedAt) {
+      events.push({
+        key: 'approved',
+        icon: <CheckCircleIcon fontSize="small" />,
+        color: theme.palette.success.main,
+        label: po.approvedByName ? `Approved by ${po.approvedByName}` : 'Approved',
+        detail: 'PO cleared for the supplier.',
+        at: po.approvedAt,
+      });
+    }
+    if (po.rejectedAt) {
+      events.push({
+        key: 'rejected',
+        icon: <ThumbDownIcon fontSize="small" />,
+        color: theme.palette.error.main,
+        label: po.rejectedByName ? `Rejected by ${po.rejectedByName}` : 'Rejected',
+        detail: po.rejectionReason || 'No reason recorded.',
+        at: po.rejectedAt,
+      });
+    }
+    // Revision event — inferred from status transitions. When the row is a
+    // DRAFT and still carries a rejection reason, the requester is mid-
+    // revision. When it goes to PENDING_APPROVAL / SUBMITTED again while
+    // rejection stamps are still visible on the timeline (they clear on
+    // submit), that's the resubmission.
+    if (po.status === 'DRAFT' && po.rejectionReason) {
+      events.push({
+        key: 'revising',
+        icon: <EditIcon fontSize="small" />,
+        color: theme.palette.warning.main,
+        label: 'Revising',
+        detail: 'Requester is editing the rejected PO to resubmit.',
+        at: po.updatedAt,
       });
     }
     if (po.status === 'SUBMITTED' || po.status === 'PARTIALLY_RECEIVED' || po.status === 'RECEIVED') {
@@ -255,15 +414,84 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  // Open the send dialog pre-filled with supplier.email + a generated
+  // subject/body. User can override any of them before clicking Send.
+  const openSendDialog = () => {
+    setSendDialog({
+      open: true,
+      to: po?.supplier?.email || '',
+      subject: `Purchase Order ${po?.poNumber || ''}`,
+      body: `Hi ${po?.supplier?.name || 'there'},\n\nPlease find our purchase order ${po?.poNumber || ''} attached.\n\nOrder date: ${fmtDateShort(po?.orderDate)}\nTotal: ₹${Number(po?.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\nKindly confirm receipt and expected dispatch date.\n\nThanks.`,
+      attachPdf: true,
+    });
+  };
+
   const runSend = async () => {
     setActionBusy(true);
     try {
-      await sendPurchaseOrder(po.id);
-      setSnackbar({ open: true, msg: 'Marked as sent to supplier.', severity: 'success' });
-      setSendDialog(false);
+      // Server accepts every override; skip fields the user didn't touch so
+      // BE-side defaults fill in gracefully.
+      const payload = {};
+      if (sendDialog.to && sendDialog.to.trim()) payload.to = sendDialog.to.trim();
+      if (sendDialog.subject && sendDialog.subject.trim()) payload.subject = sendDialog.subject.trim();
+      if (sendDialog.body && sendDialog.body.trim()) payload.body = sendDialog.body.trim();
+      payload.attachPdf = !!sendDialog.attachPdf;
+      await sendPurchaseOrder(po.id, payload);
+      setSnackbar({
+        open: true,
+        msg: sendDialog.to
+          ? `Sent to ${sendDialog.to}.`
+          : 'Marked as sent to supplier.',
+        severity: 'success',
+      });
+      setSendDialog({ open: false, to: '', subject: '', body: '', attachPdf: true });
       load();
     } catch (err) {
       setSnackbar({ open: true, msg: err?.response?.data?.message || 'Send failed.', severity: 'error' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const runApprove = async () => {
+    setActionBusy(true);
+    try {
+      await approvePurchaseOrder(po.id);
+      setSnackbar({ open: true, msg: 'Purchase order approved.', severity: 'success' });
+      load();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Approve failed.', severity: 'error' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const runReject = async () => {
+    if (!rejectDialog.reason.trim()) return;
+    setActionBusy(true);
+    try {
+      await rejectPurchaseOrder(po.id, rejectDialog.reason.trim());
+      setSnackbar({ open: true, msg: 'Sent back to draft with your reason.', severity: 'success' });
+      setRejectDialog({ open: false, reason: '' });
+      load();
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Reject failed.', severity: 'error' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const runRevise = async () => {
+    setActionBusy(true);
+    try {
+      await revisePurchaseOrder(po.id);
+      // Server transitioned REJECTED → DRAFT and kept the rejection reason
+      // on the row so the editor can render it as a banner. Navigate straight
+      // into edit mode; setting revisedFromReject on the location state signals
+      // the editor to relabel "Submit" → "Resubmit for Approval".
+      navigate(`/purchase-orders/${po.id}/edit`, { state: { revisedFromReject: true } });
+    } catch (err) {
+      setSnackbar({ open: true, msg: err?.response?.data?.message || 'Revise failed.', severity: 'error' });
     } finally {
       setActionBusy(false);
     }
@@ -377,6 +605,32 @@ export default function PurchaseOrderDetail() {
             >
               PDF
             </Button>
+            {/* V85 approval CTAs — only render when the PO is waiting for a
+                reviewer. Approve fires SUBMITTED downstream so receiving is
+                immediately unblocked; Reject rolls the PO back to DRAFT so the
+                requester can revise + resubmit. */}
+            {po.status === 'PENDING_APPROVAL' && (
+              <>
+                <Button
+                  variant="outlined" size="small" color="error"
+                  startIcon={<ThumbDownIcon fontSize="small" />}
+                  onClick={() => setRejectDialog({ open: true, reason: '' })}
+                  disabled={actionBusy}
+                  sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none' }}
+                >
+                  Reject
+                </Button>
+                <Button
+                  variant="contained" size="small" color="success"
+                  startIcon={<CheckCircleIcon fontSize="small" />}
+                  onClick={runApprove}
+                  disabled={actionBusy}
+                  sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}
+                >
+                  Approve
+                </Button>
+              </>
+            )}
             {po.status === 'DRAFT' && (
               <Button
                 variant="outlined" size="small" startIcon={<EditIcon fontSize="small" />}
@@ -384,6 +638,19 @@ export default function PurchaseOrderDetail() {
                 sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none' }}
               >
                 Edit
+              </Button>
+            )}
+            {/* REJECTED — primary CTA is "Revise PO": moves the row back to
+                DRAFT (keeping rejection_reason as a banner) and opens editor. */}
+            {po.status === 'REJECTED' && (
+              <Button
+                variant="contained" size="small" color="warning"
+                startIcon={<EditIcon fontSize="small" />}
+                onClick={runRevise}
+                disabled={actionBusy}
+                sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}
+              >
+                Revise PO
               </Button>
             )}
             {/* Primary CTA: shifts based on lifecycle stage.
@@ -415,7 +682,7 @@ export default function PurchaseOrderDetail() {
                 so it's never empty; state-machine actions gate on lifecycle stage. */}
             <Menu anchorEl={actionMenu} open={Boolean(actionMenu)} onClose={closeActions}>
               {(po.status === 'SUBMITTED' || po.status === 'PARTIALLY_RECEIVED') && (
-                <MenuItem onClick={() => { setSendDialog(true); closeActions(); }}>
+                <MenuItem onClick={() => { openSendDialog(); closeActions(); }}>
                   <SendIcon fontSize="small" sx={{ mr: 1 }} /> Mark sent to supplier
                 </MenuItem>
               )}
@@ -485,6 +752,42 @@ export default function PurchaseOrderDetail() {
             </Menu>
           </Stack>
         </Stack>
+
+        {/* Rejection banner — sits between the header and the KPI strip so
+            it's the first thing the requester sees on a REJECTED PO. Also
+            renders while the PO is in DRAFT-revision mode (rejectionReason
+            preserved on the row for exactly this purpose). */}
+        {po.rejectionReason && (po.status === 'REJECTED' || po.status === 'DRAFT') && (
+          <Alert
+            severity={po.status === 'REJECTED' ? 'error' : 'warning'}
+            variant="filled"
+            sx={{ mb: 3, borderRadius: 2, alignItems: 'flex-start' }}
+            action={po.status === 'REJECTED' ? (
+              <Button
+                color="inherit" size="small"
+                onClick={runRevise} disabled={actionBusy}
+                startIcon={<EditIcon fontSize="small" />}
+                sx={{ textTransform: 'none', fontWeight: 700 }}
+              >
+                Revise PO
+              </Button>
+            ) : null}
+          >
+            <Typography variant="body2" fontWeight={800} sx={{ mb: 0.5 }}>
+              {po.status === 'REJECTED' ? 'Purchase Order Rejected' : 'Revising Rejected PO'}
+            </Typography>
+            <Typography variant="body2">
+              {po.status === 'REJECTED' ? (
+                <>Rejected by <strong>{po.rejectedByName || `User #${po.rejectedBy || '?'}`}</strong>
+                  {po.rejectedAt && <> on <strong>{fmtDateShort(po.rejectedAt)}</strong></>}. </>
+              ) : (
+                <>Previously rejected by <strong>{po.rejectedByName || `User #${po.rejectedBy || '?'}`}</strong>
+                  {po.rejectedAt && <> on <strong>{fmtDateShort(po.rejectedAt)}</strong></>}. </>
+              )}
+              <strong>Reason:</strong> {po.rejectionReason}
+            </Typography>
+          </Alert>
+        )}
 
         {/* KPI strip ──────────────────────────────────────────────── */}
         <Paper elevation={0} sx={{ mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
@@ -621,6 +924,58 @@ export default function PurchaseOrderDetail() {
                 <Typography variant="body2" color="text.secondary">{po.notes}</Typography>
               </Paper>
             )}
+
+            {/* V86 Attachments panel — quotes, spec sheets, price lists,
+                supplier docs. Uploaded via FileStorageService; the row IDs
+                let the shop delete individual entries. */}
+            <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}
+              className="po-print-hide">
+              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="subtitle2" fontWeight={800}>Attachments</Typography>
+                  <Chip label={attachments.length} size="small" variant="outlined" />
+                </Stack>
+                <Button
+                  component="label"
+                  size="small"
+                  variant="outlined"
+                  disabled={uploading}
+                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5 }}
+                >
+                  {uploading ? 'Uploading…' : 'Upload file'}
+                  <input type="file" hidden onChange={handleAttachmentUpload} />
+                </Button>
+              </Stack>
+              {attachments.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  No files attached yet. Add supplier quotes, spec sheets, or price lists here — they'll be visible
+                  to anyone who can view this PO.
+                </Typography>
+              ) : (
+                <Stack spacing={0.5}>
+                  {attachments.map((a) => (
+                    <Box key={a.id} sx={{
+                      display: 'flex', alignItems: 'center', gap: 1.5,
+                      p: 1, borderRadius: 1,
+                      '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.03) },
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap>{a.fileName}</Typography>
+                        {a.fileType && (
+                          <Typography variant="caption" color="text.secondary">
+                            {a.fileType}
+                          </Typography>
+                        )}
+                      </Box>
+                      <IconButton size="small" color="error"
+                        onClick={() => handleAttachmentDelete(a.id, a.fileName)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
           </Grid>
 
           {/* Right column — summary + activity timeline */}
@@ -675,6 +1030,49 @@ export default function PurchaseOrderDetail() {
               </Box>
             </Paper>
 
+            {/* V92 Approvals panel — multi-level workflow */}
+            {approvals.length > 0 && (
+              <Paper variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider', overflow: 'hidden', mb: 2 }}>
+                <Box sx={{
+                  px: 2.5, py: 1.5,
+                  borderBottom: '1px solid', borderColor: 'divider',
+                  bgcolor: alpha(theme.palette.text.primary, 0.04),
+                }}>
+                  <Typography variant="overline" fontWeight={800} sx={{ letterSpacing: 1, color: 'text.secondary' }}>
+                    Approvals
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {approvals.map((a) => (
+                      <Stack key={a.id} direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip label={`L${a.level}`} size="small"
+                            sx={{ fontWeight: 700, borderRadius: 1, height: 20 }} />
+                          <Chip label={a.status} size="small"
+                            color={a.status === 'APPROVED' ? 'success' : 'warning'}
+                            sx={{ fontWeight: 700, borderRadius: 1, height: 20, fontSize: '0.65rem' }} />
+                          <Typography variant="body2">{a.approverRole || '—'}</Typography>
+                          {a.approvedAt && (
+                            <Typography variant="caption" color="text.secondary">
+                              {fmtDate(a.approvedAt)}
+                            </Typography>
+                          )}
+                        </Stack>
+                        {a.status === 'PENDING' && (
+                          <Button size="small" variant="contained" color="success"
+                            onClick={() => handleApprovalStep(a.id)} disabled={actionBusy}
+                            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}>
+                            Approve L{a.level}
+                          </Button>
+                        )}
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              </Paper>
+            )}
+
             {/* Activity timeline */}
             <Paper variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider', overflow: 'hidden' }}>
               <Box sx={{
@@ -689,6 +1087,21 @@ export default function PurchaseOrderDetail() {
                 </Typography>
               </Box>
               <Box sx={{ p: 2.5 }}>
+                {statusHistory.length > 0 && (
+                  <Stack spacing={0.5} sx={{ mb: 2, pb: 2, borderBottom: '1px dashed', borderColor: 'divider' }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}
+                      sx={{ letterSpacing: 0.6 }}>STATUS HISTORY</Typography>
+                    {statusHistory.map((h) => (
+                      <Typography key={h.id} variant="body2" color="text.secondary">
+                        <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                          {h.fromStatus ? `${h.fromStatus} → ${h.toStatus}` : h.toStatus}
+                        </Box>
+                        {' · '}{fmtDate(h.changedAt)}
+                        {h.note && ` — ${h.note}`}
+                      </Typography>
+                    ))}
+                  </Stack>
+                )}
                 {timeline.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">No events recorded yet.</Typography>
                 ) : (
@@ -732,6 +1145,45 @@ export default function PurchaseOrderDetail() {
         </Grid>
       </Container>
 
+      {/* V85: Reject dialog — reason required. Reject sends the PO back to
+          DRAFT (not CANCELLED) so the requester can edit and resubmit. */}
+      <Dialog open={rejectDialog.open} onClose={() => setRejectDialog({ open: false, reason: '' })}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 480 } }}>
+        <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>
+          Reject this purchase order?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <strong>{po.poNumber}</strong> · {po.supplier?.name || 'supplier'}<br />
+            The requester will see this reason and can revise + resubmit. Rejection sends the PO
+            back to DRAFT (does not cancel).
+          </Typography>
+          <TextField
+            autoFocus fullWidth multiline minRows={2} maxRows={5}
+            inputProps={{ maxLength: 500 }}
+            label="Reason (required)"
+            placeholder="e.g. Amount exceeds this quarter's budget; split into two POs…"
+            value={rejectDialog.reason}
+            onChange={(e) => setRejectDialog((s) => ({ ...s, reason: e.target.value }))}
+            helperText={`${rejectDialog.reason.length}/500`}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1, bgcolor: alpha(theme.palette.text.primary, 0.02) }}>
+          <Button onClick={() => setRejectDialog({ open: false, reason: '' })}
+            sx={{ textTransform: 'none', fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={runReject}
+            variant="contained" color="error"
+            disabled={actionBusy || !rejectDialog.reason.trim()}
+            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+          >
+            Reject &amp; Return to Draft
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Cancel dialog — reason required (BE @NotBlank, 500 char cap) */}
       <Dialog open={cancelDialog.open} onClose={() => setCancelDialog({ open: false, reason: '' })}
         PaperProps={{ sx: { borderRadius: 2, minWidth: 480 } }}>
@@ -767,23 +1219,66 @@ export default function PurchaseOrderDetail() {
         </DialogActions>
       </Dialog>
 
-      {/* Send dialog */}
-      <Dialog open={sendDialog} onClose={() => setSendDialog(false)}
+      {/* V86 Send dialog — preview + editable recipient/subject/body,
+          attach-PDF checkbox. Server falls back to supplier.email + generated
+          subject/body when any field is left blank. Leaving 'To' blank stamps
+          sent_at without dispatching (out-of-band send). */}
+      <Dialog open={sendDialog.open}
+        onClose={() => setSendDialog({ open: false, to: '', subject: '', body: '', attachPdf: true })}
+        fullWidth maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Mark as sent to supplier?</DialogTitle>
+        <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Send Purchase Order</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Stamps <strong>{po.poNumber}</strong> with today's date as the "sent" timestamp.
-            Real email dispatch arrives in a later phase — this records the handover for reporting.
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <strong>{po.poNumber}</strong> · attached PDF renders server-side with your shop's
+            letterhead + supplier block + GST breakdown.
           </Typography>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth size="small" label="To (email)"
+              value={sendDialog.to}
+              onChange={(e) => setSendDialog((s) => ({ ...s, to: e.target.value }))}
+              placeholder={po.supplier?.email || 'supplier@example.com'}
+              helperText={po.supplier?.email ? `Defaults to ${po.supplier.email}` : 'Supplier has no email on file — add one to enable dispatch.'}
+              type="email"
+            />
+            <TextField
+              fullWidth size="small" label="Subject"
+              value={sendDialog.subject}
+              onChange={(e) => setSendDialog((s) => ({ ...s, subject: e.target.value }))}
+            />
+            <TextField
+              fullWidth multiline minRows={5} maxRows={12}
+              size="small" label="Message"
+              value={sendDialog.body}
+              onChange={(e) => setSendDialog((s) => ({ ...s, body: e.target.value }))}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <input
+                type="checkbox"
+                checked={sendDialog.attachPdf}
+                onChange={(e) => setSendDialog((s) => ({ ...s, attachPdf: e.target.checked }))}
+                id="po-attach-pdf"
+              />
+              <label htmlFor="po-attach-pdf" style={{ fontSize: 14, fontWeight: 600 }}>
+                Attach PO as PDF
+              </label>
+            </Box>
+          </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1, bgcolor: alpha(theme.palette.text.primary, 0.02) }}>
-          <Button onClick={() => setSendDialog(false)} sx={{ textTransform: 'none', fontWeight: 600 }}>
+          <Button
+            onClick={() => setSendDialog({ open: false, to: '', subject: '', body: '', attachPdf: true })}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
             Cancel
           </Button>
-          <Button onClick={runSend} variant="contained" disabled={actionBusy}
-            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}>
-            Mark sent
+          <Button
+            onClick={runSend} variant="contained" disabled={actionBusy}
+            startIcon={actionBusy ? <CircularProgress size={16} /> : <SendIcon fontSize="small" />}
+            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+          >
+            {actionBusy ? 'Sending…' : 'Send'}
           </Button>
         </DialogActions>
       </Dialog>
