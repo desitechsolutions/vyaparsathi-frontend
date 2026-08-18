@@ -33,6 +33,7 @@ import StoreIcon from '@mui/icons-material/Store';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PaymentIcon from '@mui/icons-material/Payment';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import BadgeIcon from '@mui/icons-material/Badge';
 import PaidIcon from '@mui/icons-material/Paid';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -42,6 +43,15 @@ import EventBusyIcon from '@mui/icons-material/EventBusy';
 import VerifiedUser from '@mui/icons-material/VerifiedUser';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import GroupIcon from '@mui/icons-material/Group';
+import ShieldIcon from '@mui/icons-material/Shield';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import RequestPageIcon from '@mui/icons-material/RequestPage';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import DescriptionIcon from '@mui/icons-material/Description';
+import LockClockIcon from '@mui/icons-material/LockClock';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import PolicyIcon from '@mui/icons-material/Policy';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -72,6 +82,10 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
   // Accordion state — each key controls one collapsible group.
   // Sales / Purchases open by default so the everyday workflows are one click away.
+  // Post-reorg (Phase 5 polish): three sections (OPERATIONS · BUSINESS · ADMINISTRATION)
+  // with tighter sub-groups so the sidebar reads like Zoho Books / SAP B1 /
+  // Microsoft Dynamics — every group is one narrow concern instead of the old
+  // 10-item catch-all "Administration".
   const [openStates, setOpenStates] = useState({
     sales: true,
     purchases: false,
@@ -79,7 +93,9 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     contacts: false,
     finance: false,
     reports: false,
-    admin: false,
+    teamAccess: false,
+    configuration: false,
+    compliance: false,
     payments: false,   // legacy nested "payments" inside Finance
   });
 
@@ -89,17 +105,27 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
   // ─── MENU DEFINITION ────────────────────────────────────────────────
   //
-  // Groups are ordered by frequency of daily use:
-  //   1. Sales — the everyday quote-to-cash workflow
-  //   2. Purchases — supplier-side flow
-  //   3. Inventory — stock and products
-  //   4. Contacts — customers + suppliers directory
-  //   5. Finance — payments + expenses (Admin/Owner only)
-  //   6. Reports — reporting hub (Admin/Owner, PRO tier)
-  //   7. Admin — users, payroll, audit, settings (Admin/Owner only)
+  // Sidebar sections, in Zoho Books / SAP B1 / Microsoft Dynamics order:
+  //
+  //   OPERATIONS (everyone with permissions)
+  //     • Dashboard
+  //     • Sales, Purchases, Inventory, Contacts — daily transactional flows
+  //
+  //   BUSINESS (admin/owner)
+  //     • Finance — money in / money out
+  //     • Reports — analytics, GST, compliance dashboard
+  //
+  //   ADMINISTRATION (admin/owner)
+  //     • Team & access   — users, team invitations, roles & permissions
+  //     • Configuration   — shop settings, notifications, payroll, backup
+  //     • Compliance      — audit logs
+  //     • Subscription    — plans & billing (leaf, standalone)
+  //
+  // Per-user personal settings (Profile, Account security / MFA) live in the
+  // header user-menu — not in the sidebar — matching the enterprise pattern.
   //
   // Every item passes through hasAccess(requiredTier) so tier gates render as
-  // a lock icon; STAFF users never see the Finance/Reports/Admin groups.
+  // a lock icon; STAFF never sees the BUSINESS or ADMINISTRATION sections.
 
   const dashboardItem = { text: t('sidebar.dashboard', 'Dashboard'), icon: <DashboardIcon />, path: '/dashboard' };
 
@@ -136,7 +162,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     children: [
       { text: t('itemCatalog', 'Item Catalog'), icon: <CategoryIcon />, path: '/items' },
       { text: t('productsOverview.title', 'Products Overview'), icon: <ShoppingCartIcon />, path: '/products' },
-      { text: t('inventory', 'Stock'), icon: <InventoryIcon />, path: '/stock' },
+      { text: t('sidebar.stock', 'Stock'), icon: <InventoryIcon />, path: '/stock' },
       { text: t('lowStockAlerts', 'Low Stock Alerts'), icon: <WarningAmberIcon />, path: '/low-stock-alerts', requiredTier: 'STARTER' },
     ],
   };
@@ -159,6 +185,9 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       { text: t('customerPayments', 'Customer Payments'), icon: <PaymentIcon />, path: '/customer-payments' },
       { text: t('supplierPayments', 'Supplier Payments'), icon: <PaymentsIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       { text: t('expenses', 'Expenses'), icon: <PaidIcon />, path: '/expenses' },
+      // Payroll lives with Finance (money out to staff), not with Configuration —
+      // it's a transactional workflow that touches ledgers and bank accounts.
+      { text: t('payroll.title', 'Payroll'), icon: <BadgeIcon />, path: '/admin/payroll', requiredTier: 'ENTERPRISE' },
     ],
   };
 
@@ -182,25 +211,72 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     children: reportChildren,
   };
 
-  const adminGroup = {
-    key: 'admin',
-    text: t('admin', 'Administration'),
-    icon: <AdminPanelSettingsIcon />,
+  // ─── ADMINISTRATION sub-groups ──────────────────────────────────────
+  //
+  // Three narrow groups instead of one 10-item bucket:
+  //   • Team & access — who's in the shop and what they can do
+  //   • Configuration — how the shop runs (settings, notifications, payroll, backup)
+  //   • Compliance — audit + regulatory trail
+  //
+  // Subscription & billing is a standalone leaf below these — it's a single
+  // destination and users hit it rarely, so nesting is noise.
+
+  const teamAccessGroup = {
+    key: 'teamAccess',
+    text: t('sidebar.groupTeamAccess', 'Team & access'),
+    icon: <GroupIcon />,
     children: [
-      { text: t('users'), icon: <ManageAccountsIcon />, path: '/admin/users' },
-      { text: t('payroll.title'), icon: <PaymentsIcon />, path: '/admin/payroll', requiredTier: 'ENTERPRISE' },
-      { text: t('auditLogs'), icon: <HistoryEduIcon />, path: '/audit', requiredTier: 'ENTERPRISE' },
-      { text: t('notifications'), icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
-      { text: t('sidebar.shopSettings'), icon: <Settings />, path: '/admin/settings' },
-      { text: t('sidebar.billingPlans'), icon: <AccountBalanceWallet />, path: '/admin/billing' },
-      { text: t('backup'), icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
+      { text: t('sidebar.team', 'Team & invitations'), icon: <GroupIcon />, path: '/admin/team' },
+      { text: t('sidebar.rolesPermissions', 'Roles & permissions'), icon: <ShieldIcon />, path: '/admin/roles' },
+      { text: t('users', 'Users'), icon: <ManageAccountsIcon />, path: '/admin/users' },
     ],
   };
 
-  // Operational groups everyone sees
-  const operationalGroups = [salesGroup, purchasesGroup, inventoryGroup, contactsGroup];
-  // Admin/Owner-only groups
-  const adminGroups = [financeGroup, reportsGroup, adminGroup];
+  const configurationGroup = {
+    key: 'configuration',
+    text: t('sidebar.groupConfiguration', 'Configuration'),
+    icon: <Settings />,
+    children: [
+      { text: t('sidebar.shopProfile', 'Shop profile & settings'), icon: <Settings />, path: '/admin/settings' },
+      // Shop-level 2FA policy — enforcement + own-account status. Personal
+      // MFA enrollment lives in the header user menu (per-user, not shop-config).
+      { text: t('sidebar.twoFactor', 'Two-factor authentication'), icon: <ShieldOutlinedIcon />, path: '/admin/security/two-factor' },
+      { text: t('notifications', 'Notifications'), icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
+      { text: t('sidebar.backupExport', 'Backup & data export'), icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
+    ],
+  };
+
+  // ─── Compliance ─── statutory, tax and audit tooling
+  //
+  // Existing pages already ship for GST Summary, Compliance Dashboard, Tax
+  // Compliance Hub and the platform Audit Logs — the other four (GSTR-1/3B
+  // filing, GSTR-2B ITC recon, E-Way/E-Invoice hub, Period Lock, Cancelled
+  // Documents register) land on ComingSoonPage stubs so the sidebar has no
+  // dead links while we build them out.
+  const complianceGroup = {
+    key: 'compliance',
+    text: t('sidebar.groupCompliance', 'Compliance'),
+    icon: <PolicyIcon />,
+    children: [
+      { text: t('sidebar.auditTrail', 'Audit trail & activity logs'), icon: <HistoryEduIcon />, path: '/audit', requiredTier: 'ENTERPRISE' },
+      { text: t('sidebar.gstrFiling', 'GST returns & filing'), icon: <RequestPageIcon />, path: '/compliance/gstr-filing', requiredTier: 'PRO' },
+      { text: t('sidebar.gstr2b', 'GSTR-2B ITC reconciliation'), icon: <CompareArrowsIcon />, path: '/compliance/gstr-2b', requiredTier: 'ENTERPRISE' },
+      { text: t('sidebar.einvoiceEway', 'E-Invoicing & E-Way Bill hub'), icon: <DescriptionIcon />, path: '/compliance/einvoice-eway', requiredTier: 'PRO' },
+      { text: t('sidebar.periodLock', 'Period lock (book closing)'), icon: <LockClockIcon />, path: '/compliance/period-lock', requiredTier: 'ENTERPRISE' },
+      { text: t('sidebar.cancelledDocs', 'Cancelled / deleted documents'), icon: <DeleteSweepIcon />, path: '/compliance/cancelled-documents', requiredTier: 'PRO' },
+    ],
+  };
+
+  const billingLeaf = {
+    text: t('sidebar.billingPlans', 'Subscription & billing'),
+    icon: <AccountBalanceWallet />,
+    path: '/admin/billing',
+  };
+
+  // Section order — operations sit above business insights sit above admin.
+  const operationsGroups = [salesGroup, purchasesGroup, inventoryGroup, contactsGroup];
+  const businessGroups = [financeGroup, reportsGroup];
+  const administrationGroups = [teamAccessGroup, configurationGroup, complianceGroup];
 
   const isDark = theme.palette.mode === 'dark';
 
@@ -341,43 +417,52 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         {/* Dashboard sits above the accordion groups — it is the app's home */}
         <List disablePadding>{renderLeaf(dashboardItem)}</List>
 
-        <Box sx={{ px: 3, pt: 2, pb: 0.5 }}>
-          <Typography
-            variant="overline"
-            sx={{
-              display: 'block',
-              fontSize: '0.68rem',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              color: 'text.secondary',
-              lineHeight: 1.4,
-            }}
-          >
-            {t('sidebar.operations', 'Operations').toUpperCase()}
-          </Typography>
-        </Box>
-        <List disablePadding>{operationalGroups.map(renderGroup)}</List>
-
-        {isAdminOrOwner && (
-          <>
+        {/* Section header + accordion body helper — keeps the three sections
+            visually parallel without duplicating the sx block below. */}
+        {(() => {
+          const SectionHeader = ({ label }) => (
             <Box sx={{ px: 3, pt: 2, pb: 0.5 }}>
               <Typography
                 variant="overline"
                 sx={{
                   display: 'block',
                   fontSize: '0.68rem',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   letterSpacing: '0.08em',
-                  color: 'text.secondary',
+                  color: 'text.disabled',
                   lineHeight: 1.4,
                 }}
               >
-                {t('sidebar.management', 'Management').toUpperCase()}
+                {label}
               </Typography>
             </Box>
-            <List disablePadding>{adminGroups.map(renderGroup)}</List>
-          </>
-        )}
+          );
+
+          return (
+            <>
+              {/* ─── OPERATIONS ─── everyone with the right permissions */}
+              <SectionHeader label={t('sidebar.sectionOperations', 'OPERATIONS')} />
+              <List disablePadding>{operationsGroups.map(renderGroup)}</List>
+
+              {/* ─── BUSINESS ─── finance + reports (admin/owner) */}
+              {isAdminOrOwner && (
+                <>
+                  <SectionHeader label={t('sidebar.sectionBusiness', 'BUSINESS')} />
+                  <List disablePadding>{businessGroups.map(renderGroup)}</List>
+                </>
+              )}
+
+              {/* ─── ADMINISTRATION ─── team / config / compliance / billing */}
+              {isAdminOrOwner && (
+                <>
+                  <SectionHeader label={t('sidebar.sectionAdministration', 'ADMINISTRATION')} />
+                  <List disablePadding>{administrationGroups.map(renderGroup)}</List>
+                  <List disablePadding>{renderLeaf(billingLeaf)}</List>
+                </>
+              )}
+            </>
+          );
+        })()}
       </Box>
       {/* About Us moved to the header user dropdown to keep the sidebar focused
           on operational navigation. Legal / marketing links live under the profile menu. */}

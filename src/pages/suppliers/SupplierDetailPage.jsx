@@ -25,7 +25,17 @@ import {
   getSupplierPayments,
   listSupplierRateCards,
   saveSupplierRateCard,
+  getSupplierStats,
+  toggleSupplierActive,
 } from '../../services/api';
+import SupplierEditDialog from './SupplierEditDialog';
+import EditIcon from '@mui/icons-material/Edit';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import ToggleOffIcon from '@mui/icons-material/ToggleOff';
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import RedoIcon from '@mui/icons-material/Redo';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 
 const formatInr = (val) =>
   Number(val || 0).toLocaleString('en-IN', {
@@ -78,6 +88,8 @@ const SupplierDetailPage = () => {
 
   const [tab, setTab] = useState(0);
   const [supplier, setSupplier] = useState(null);
+  const [beStats, setBeStats] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [pos, setPos] = useState([]);
   const [grns, setGrns] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -90,14 +102,16 @@ const SupplierDetailPage = () => {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, allPos, allGrns, sPayments, rates] = await Promise.all([
+      const [s, allPos, allGrns, sPayments, rates, statsRes] = await Promise.all([
         getSupplierById(id),
         getPurchaseOrders().catch(() => []),
         fetchReceiving().catch(() => []),
         getSupplierPayments({ supplierId: id }).catch(() => ({ content: [] })),
         listSupplierRateCards(id).catch(() => []),
+        getSupplierStats(id).catch(() => null),
       ]);
       setSupplier(s);
+      setBeStats(statsRes || null);
       const supplierIdNum = String(id);
       setPos((Array.isArray(allPos) ? allPos : allPos?.content || [])
         .filter((po) => String(po.supplierId ?? po.supplier?.id) === supplierIdNum));
@@ -246,9 +260,15 @@ const SupplierDetailPage = () => {
                 <BackIcon />
               </IconButton>
               <Box>
-                <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: -0.4 }}>
-                  {supplier.name}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: -0.4 }}>
+                    {supplier.tradeName || supplier.name}
+                  </Typography>
+                  <Chip size="small" label={supplier.active === false ? 'Inactive' : 'Active'}
+                    color={supplier.active === false ? 'default' : 'success'}
+                    variant={supplier.active === false ? 'outlined' : 'filled'}
+                    sx={{ fontWeight: 700 }} />
+                </Stack>
                 <Stack direction="row" spacing={2} sx={{ mt: 0.5 }} flexWrap="wrap">
                   {supplier.email && (
                     <Typography variant="body2" color="text.secondary"
@@ -274,27 +294,91 @@ const SupplierDetailPage = () => {
                 )}
               </Box>
             </Stack>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Button variant="outlined" startIcon={<EditIcon />}
+                onClick={() => setEditOpen(true)}
+                sx={{ textTransform: 'none', fontWeight: 700 }}>
+                Edit
+              </Button>
+              <Button variant="outlined"
+                color={supplier.active === false ? 'success' : 'warning'}
+                startIcon={supplier.active === false ? <ToggleOnIcon /> : <ToggleOffIcon />}
+                onClick={async () => {
+                  try {
+                    await toggleSupplierActive(id);
+                    setSnackbar({ open: true, severity: 'info',
+                      message: supplier.active === false ? 'Supplier reactivated.' : 'Supplier deactivated.' });
+                    refresh();
+                  } catch (e) {
+                    setSnackbar({ open: true, severity: 'error',
+                      message: e?.response?.data?.message || 'Toggle failed' });
+                  }
+                }}
+                sx={{ textTransform: 'none', fontWeight: 700 }}>
+                {supplier.active === false ? 'Reactivate' : 'Deactivate'}
+              </Button>
+            </Stack>
           </Stack>
         </Paper>
 
-        {/* KPI strip */}
+        {/* KPI strip — BE stats when available, fallback to client-side computation */}
         <Paper elevation={0} sx={{
           mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden',
         }}>
           <Box sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+            gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' },
           }}>
             <KpiCell icon={<PoIcon fontSize="small" />} label="OPEN POs"
-              value={stats.openPos} color={theme.palette.primary.main} divider />
+              value={beStats?.openPurchaseOrders ?? stats.openPos}
+              color={theme.palette.primary.main} divider />
             <KpiCell icon={<MoneyIcon fontSize="small" />} label="TOTAL PO VALUE"
-              value={`₹${formatInr(stats.poValue)}`} color={theme.palette.info.main} divider />
+              value={`INR ${formatInr(beStats?.totalPoValue ?? stats.poValue)}`}
+              color={theme.palette.info.main} divider />
             <KpiCell icon={<InventoryIcon fontSize="small" />} label="GRNs RECEIVED"
-              value={stats.grnCount} color={theme.palette.success.main} divider />
-            <KpiCell icon={<ReceiptIcon fontSize="small" />} label="PAYMENTS PAID"
-              value={`₹${formatInr(stats.paid)}`} color={theme.palette.warning.main} />
+              value={beStats?.totalGrns ?? stats.grnCount}
+              color={theme.palette.success.main} divider />
+            <KpiCell icon={<AssignmentReturnIcon fontSize="small" />} label="RETURNS"
+              value={beStats?.totalPurchaseReturns ?? 0}
+              color={theme.palette.warning.main} divider />
+            <KpiCell icon={<RedoIcon fontSize="small" />} label="DEBIT NOTES"
+              value={beStats?.totalDebitNotes ?? 0}
+              color={theme.palette.secondary?.main || theme.palette.info.dark} divider />
+            <KpiCell icon={<HourglassBottomIcon fontSize="small" />} label="OUTSTANDING PAYABLE"
+              value={`INR ${formatInr(beStats?.outstandingPayable ?? 0)}`}
+              color={theme.palette.error.main} />
           </Box>
         </Paper>
+
+        {(supplier.creditDays != null || supplier.creditLimit != null || supplier.paymentTerms) && (
+          <Paper elevation={0} sx={{ mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700}
+              sx={{ letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              Payment Terms
+            </Typography>
+            <Stack direction="row" spacing={3} sx={{ mt: 1 }} flexWrap="wrap">
+              {supplier.creditDays != null && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Credit days</Typography>
+                  <Typography variant="body1" fontWeight={700}>{supplier.creditDays} days</Typography>
+                </Box>
+              )}
+              {supplier.creditLimit != null && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Credit limit</Typography>
+                  <Typography variant="body1" fontWeight={700}>INR {formatInr(supplier.creditLimit)}</Typography>
+                </Box>
+              )}
+              {supplier.paymentTerms && (
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary">Terms</Typography>
+                  <Typography variant="body2">{supplier.paymentTerms}</Typography>
+                </Box>
+              )}
+            </Stack>
+          </Paper>
+        )}
 
         {/* Tabs */}
         <Paper elevation={0} sx={{
@@ -493,6 +577,17 @@ const SupplierDetailPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <SupplierEditDialog
+          open={editOpen}
+          supplier={supplier}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setEditOpen(false);
+            setSnackbar({ open: true, severity: 'success', message: 'Supplier updated.' });
+            refresh();
+          }}
+        />
       </Container>
     </Box>
   );

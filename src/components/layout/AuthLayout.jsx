@@ -6,151 +6,32 @@ import {
   Typography,
   Stack,
   Button,
-  IconButton,
   Chip,
-  Container,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import LockIcon from '@mui/icons-material/Lock';
-import SecurityIcon from '@mui/icons-material/Security';
-import StarIcon from '@mui/icons-material/Star';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
+import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import LanguageIcon from '@mui/icons-material/Language';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTranslation } from 'react-i18next';
+import BrandMark from '../branding/BrandMark';
 
-// ─── Dashboard Mockup (Visual ERP representation) ───
-const DashboardMockup = () => (
-  <Box
-    sx={{
-      width: '100%',
-      aspectRatio: '16/10',
-      borderRadius: 3,
-      overflow: 'hidden',
-      boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
-      position: 'relative',
-    }}
-  >
-    {/* Top Bar */}
-    <Box
-      sx={{
-        height: 36,
-        bgcolor: '#0B0F19',
-        display: 'flex',
-        alignItems: 'center',
-        px: 2,
-        gap: 1,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-      }}
-    >
-      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#EF4444' }} />
-      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#F59E0B' }} />
-      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981' }} />
-      <Box sx={{ flex: 1, mx: 2, height: 18, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 1 }} />
-    </Box>
-
-    {/* Sidebar + Content */}
-    <Box sx={{ display: 'flex', height: 'calc(100% - 36px)' }}>
-      {/* Sidebar */}
-      <Box
-        sx={{
-          width: 44,
-          bgcolor: '#0B0F19',
-          borderRight: '1px solid rgba(255,255,255,0.05)',
-          p: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-        }}
-      >
-        {['📊', '📦', '🧾', '👥', '⚙️'].map((icon, i) => (
-          <Box
-            key={i}
-            sx={{
-              width: 24,
-              height: 24,
-              bgcolor: i === 0 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
-              border: i === 0 ? '1px solid rgba(245,158,11,0.3)' : 'none',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.65rem',
-            }}
-          >
-            {icon}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Main Content */}
-      <Box sx={{ flex: 1, p: 1.5, overflow: 'hidden' }}>
-        {/* Stats Row */}
-        <Grid container spacing={1} sx={{ mb: 1.5 }}>
-          {[
-            { label: "Today's Sales", value: '₹24,580', color: '#F59E0B' },
-            { label: 'Customers', value: '1,240', color: '#10B981' },
-            { label: 'Pending Dues', value: '₹8,920', color: '#EF4444' },
-          ].map((stat, i) => (
-            <Grid item xs={4} key={i}>
-              <Box
-                sx={{
-                  p: 1,
-                  bgcolor: 'rgba(255,255,255,0.02)',
-                  borderRadius: 1.5,
-                  border: '1px solid rgba(255,255,255,0.04)',
-                }}
-              >
-                <Typography sx={{ fontSize: '0.5rem', color: '#64748B', fontWeight: 600 }}>
-                  {stat.label}
-                </Typography>
-                <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: stat.color, mt: 0.1 }}>
-                  {stat.value}
-                </Typography>
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Graph / List */}
-        <Box
-          sx={{
-            p: 1,
-            bgcolor: 'rgba(255,255,255,0.01)',
-            borderRadius: 1.5,
-            border: '1px solid rgba(255,255,255,0.04)',
-            height: 'calc(100% - 65px)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Box sx={{ width: 50, height: 6, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }} />
-            <Box sx={{ width: 25, height: 6, bgcolor: 'rgba(16,185,129,0.2)', borderRadius: 1 }} />
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.6, height: '70%', px: 1 }}>
-            {[30, 50, 40, 75, 55, 90, 80, 95].map((h, i) => (
-              <Box
-                key={i}
-                sx={{
-                  flex: 1,
-                  height: `${h}%`,
-                  bgcolor: i === 7 ? '#F59E0B' : 'rgba(245,158,11,0.2)',
-                  borderRadius: '2px 2px 0 0',
-                }}
-              />
-            ))}
-          </Box>
-        </Box>
-      </Box>
-    </Box>
-  </Box>
-);
-
+/**
+ * Auth split-screen shell.
+ *
+ * Left panel — one anchor pattern (Zoho / Salesforce / Xero convention):
+ *   BrandMark → concise headline → single pull-quote card → subdued trust
+ *   chips. No fake dashboards, no stats-that-look-small, no marketing
+ *   bullet list — everything competes for attention on a login page and
+ *   the point is to get the user IN, not to sell.
+ *
+ * Right panel — unchanged: back-to-home + language toggle chrome, then
+ *   the centered form (Outlet) that Login/Register/ForgotPassword render.
+ *
+ * 50/50 split at md+, single-column at xs/sm so mobile just gets the form.
+ */
 const AuthLayout = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const navigate = useNavigate();
 
   const toggleLanguage = () => {
@@ -159,206 +40,154 @@ const AuthLayout = () => {
     localStorage.setItem('language', newLang);
   };
 
-  const featureHighlights = [
-    { title: 'GST-Ready Invoicing', desc: 'Generate professional invoices in under a minute.' },
-    { title: 'Smart Inventory', desc: 'Track stock items and get automated low stock alerts.' },
-    { title: 'Automatic Reminders', desc: 'Send automated WhatsApp reminders for outstanding dues.' },
-  ];
-
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: 'background.default' }}>
       <Grid container sx={{ flex: 1 }}>
-        {/* ── LEFT PANEL (60% on Desktop, hidden on mobile) ── */}
+        {/* ── LEFT PANEL (50% on desktop, hidden on mobile) ── */}
         <Grid
           item
           xs={false}
           md={6}
-          lg={7}
           sx={{
             display: { xs: 'none', md: 'flex' },
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #0F172A 100%)',
+            // Solid deep navy with one soft accent gradient at the top-
+            // right corner — matches how Salesforce / Linear use one
+            // muted accent per surface instead of stacked gradients.
+            background: 'radial-gradient(circle at 90% 10%, rgba(245,158,11,0.10) 0%, rgba(245,158,11,0) 45%), #0B1220',
             color: '#FFFFFF',
             position: 'relative',
             overflow: 'hidden',
             p: { md: 6, lg: 8 },
           }}
         >
-          {/* Decorative Background Effects */}
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.03,
-              backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              pointerEvents: 'none',
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '-10%',
-              left: '-10%',
-              width: 400,
-              height: 400,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)',
-              filter: 'blur(50px)',
-              pointerEvents: 'none',
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: '-10%',
-              right: '-10%',
-              width: 500,
-              height: 500,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%)',
-              filter: 'blur(60px)',
-              pointerEvents: 'none',
-            }}
+          {/* Brand mark */}
+          <BrandMark
+            size="lg"
+            variant="dark"
+            showTagline
+            sx={{ zIndex: 2, alignSelf: 'flex-start' }}
           />
 
-          {/* Logo & Header */}
-          <Box
-            component={RouterLink}
-            to="/"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              textDecoration: 'none',
-              zIndex: 2,
-              alignSelf: 'flex-start',
-            }}
-          >
-            <img
-              src="/desitechsolution.png"
-              alt="VyaparSathi Logo"
-              style={{ height: 42, width: 'auto', objectFit: 'contain' }}
-            />
-            <Box>
-              <Typography
-                variant="h6"
+          {/* Middle — headline + subhead + pull-quote card */}
+          <Box sx={{ zIndex: 2, maxWidth: 520 }}>
+            <Typography
+              variant="h3"
+              fontWeight={800}
+              letterSpacing="-1.2px"
+              sx={{ mb: 2, lineHeight: 1.1 }}
+            >
+              Run your entire shop
+              <br />
+              from{' '}
+              <Box component="span" sx={{ color: '#F59E0B' }}>
+                one login
+              </Box>
+              .
+            </Typography>
+            <Typography
+              variant="body1"
+              sx={{
+                color: 'rgba(255,255,255,0.72)',
+                mb: 5,
+                fontSize: '1.05rem',
+                lineHeight: 1.55,
+                maxWidth: 460,
+              }}
+            >
+              Billing, stock, GST returns and dues — the same data everywhere,
+              on every device your team signs in from.
+            </Typography>
+
+            {/*
+              Pull-quote card. Intentionally NOT attributed to a fabricated
+              person — attributing to "Rajesh Sharma, Sharma Traders" when
+              no such customer exists would be misleading. Replace `quote`
+              + `author` with real values when a real testimonial is
+              collected, or keep this framing as an anonymous product-voice
+              card in the meantime.
+            */}
+            <Box
+              sx={{
+                position: 'relative',
+                p: { md: 3, lg: 4 },
+                borderRadius: 3,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(6px)',
+              }}
+            >
+              <FormatQuoteIcon
                 sx={{
-                  fontWeight: 900,
-                  background: 'linear-gradient(90deg, #F59E0B, #EF4444)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  lineHeight: 1,
+                  position: 'absolute',
+                  top: 12,
+                  left: 16,
+                  fontSize: 40,
+                  color: 'rgba(245,158,11,0.35)',
+                  transform: 'scaleX(-1)',
+                }}
+                aria-hidden
+              />
+              <Typography
+                variant="body1"
+                sx={{
+                  pl: 5,
+                  color: 'rgba(255,255,255,0.92)',
+                  fontStyle: 'italic',
+                  fontSize: '1.05rem',
+                  lineHeight: 1.55,
                 }}
               >
-                VyaparSathi
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
-                Business ERP Platform
+                One place for every invoice, every rupee, every GSTR — so a
+                whole afternoon's work is a couple of clicks, not a folder of
+                spreadsheets.
               </Typography>
             </Box>
           </Box>
 
-          {/* Content Middle Section */}
-          <Box sx={{ zIndex: 2, my: 4, maxWidth: 540 }}>
-            <Typography variant="h3" fontWeight={900} letterSpacing="-1px" sx={{ mb: 2, lineHeight: 1.15 }}>
-              Simplifying{' '}
-              <Box component="span" sx={{ color: '#F59E0B' }}>
-                Vyapar
-              </Box>{' '}
-              for Indian Businesses
-            </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4, fontSize: '1.1rem' }}>
-              Create GST bills, manage real-time inventory, track dues, and get smart financial insights to take your shop to the next level.
-            </Typography>
-
-            {/* Dashboard Mockup Display */}
-            <Box sx={{ mb: 4 }}>
-              <DashboardMockup />
-            </Box>
-
-            {/* Features Bullet List */}
-            <Stack spacing={2.5}>
-              {featureHighlights.map((feat, idx) => (
-                <Stack key={idx} direction="row" spacing={2} alignItems="flex-start">
-                  <CheckCircleIcon sx={{ color: '#F59E0B', mt: 0.3, fontSize: 20 }} />
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      {feat.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                      {feat.desc}
-                    </Typography>
-                  </Box>
-                </Stack>
-              ))}
-            </Stack>
-          </Box>
-
-          {/* Bottom Row / Stats / Badges */}
+          {/* Bottom — trust chips (subdued, not competing with the anchor) */}
           <Stack
             direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ borderTop: '1px solid rgba(255,255,255,0.1)', pt: 3, zIndex: 2 }}
+            spacing={1.5}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ zIndex: 2, pt: 3 }}
           >
-            {/* Stats */}
-            <Stack direction="row" spacing={4}>
-              <Box>
-                <Typography variant="h6" fontWeight={800} color="#F59E0B">
-                  10+
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Active Shops
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={800} color="#F59E0B">
-                  ₹10Lakh+
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Transacted Volume
-                </Typography>
-              </Box>
-            </Stack>
-
-            {/* Security Indicators */}
-            <Stack direction="row" spacing={1.5}>
-              <Chip
-                icon={<SecurityIcon style={{ color: '#10B981', fontSize: 14 }} />}
-                label="Bank-grade Security"
-                size="small"
-                sx={{
-                  bgcolor: 'rgba(16,185,129,0.1)',
-                  color: '#10B981',
-                  border: '1px solid rgba(16,185,129,0.2)',
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
-                  '& .MuiChip-icon': { marginLeft: '8px' },
-                }}
-              />
-              <Chip
-                label="Made in India 🇮🇳"
-                size="small"
-                sx={{
-                  bgcolor: 'rgba(255,255,255,0.06)',
-                  color: '#FFF',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
-                }}
-              />
-            </Stack>
+            <Chip
+              size="small"
+              icon={<LockOutlinedIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.7) !important' }} />}
+              label="Bank-grade encryption"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.05)',
+                color: 'rgba(255,255,255,0.75)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                '& .MuiChip-icon': { marginLeft: '8px' },
+              }}
+            />
+            <Chip
+              size="small"
+              icon={<VerifiedUserOutlinedIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.7) !important' }} />}
+              label="GST-compliant · IN-hosted data"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.05)',
+                color: 'rgba(255,255,255,0.75)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                '& .MuiChip-icon': { marginLeft: '8px' },
+              }}
+            />
           </Stack>
         </Grid>
 
-        {/* ── RIGHT PANEL (40% on Desktop, 100% on Mobile) ── */}
+        {/* ── RIGHT PANEL (50% on desktop, 100% on mobile) ── */}
         <Grid
           item
           xs={12}
           md={6}
-          lg={5}
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -366,7 +195,7 @@ const AuthLayout = () => {
             minHeight: '100vh',
           }}
         >
-          {/* Top Actions: Back to Home + Language Selector */}
+          {/* Top chrome — back to home + language toggle */}
           <Box
             sx={{
               display: 'flex',
@@ -417,7 +246,7 @@ const AuthLayout = () => {
             </Button>
           </Box>
 
-          {/* Centered Scrollable Form Container */}
+          {/* Centered scrollable form container */}
           <Box
             sx={{
               flex: 1,
@@ -432,38 +261,9 @@ const AuthLayout = () => {
             }}
           >
             <Box sx={{ width: '100%', maxWidth: 420 }}>
-              {/* Logo block visible ONLY on Mobile */}
-              <Box
-                sx={{
-                  display: { xs: 'flex', md: 'none' },
-                  alignItems: 'center',
-                  gap: 1.5,
-                  mb: 4,
-                  justifyContent: 'center',
-                }}
-              >
-                <img
-                  src="/desitechsolution.png"
-                  alt="VyaparSathi Logo"
-                  style={{ height: 36, width: 'auto' }}
-                />
-                <Box>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 900,
-                      background: 'linear-gradient(90deg, #F59E0B, #EF4444)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      lineHeight: 1,
-                    }}
-                  >
-                    VyaparSathi
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                    Business ERP Platform
-                  </Typography>
-                </Box>
+              {/* Mobile-only brand mark — desktop shows it in the left panel */}
+              <Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 4 }}>
+                <BrandMark size="md" />
               </Box>
 
               <Outlet />

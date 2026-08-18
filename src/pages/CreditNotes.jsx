@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Typography, Chip, Table, TableBody, TableCell, TableHead, TableRow,
   TableContainer, IconButton, Tooltip, Stack, CircularProgress, TablePagination, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 
 import { listCreditNotes, getCreditNoteSignedUrl, downloadReceiptPdf } from '../services/api';
+import EInvoiceActionBar from '../components/enterprise/EInvoiceActionBar';
 
 const STATUS_COLORS = {
   ISSUED: 'default',
@@ -22,6 +25,7 @@ const CreditNotes = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [gstDialogRow, setGstDialogRow] = useState(null);   // credit note row for which the ActionBar dialog is open
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -102,6 +106,11 @@ const CreditNotes = () => {
                     <Chip size="small" label={cn.status || 'ISSUED'} color={STATUS_COLORS[cn.status] || 'default'} />
                   </TableCell>
                   <TableCell align="center">
+                    <Tooltip title="E-invoice / E-way bill">
+                      <IconButton size="small" onClick={() => setGstDialogRow(cn)}>
+                        <VerifiedUserIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Download PDF">
                       <IconButton size="small" onClick={() => handleDownload(cn)}>
                         <DownloadIcon fontSize="small" />
@@ -113,6 +122,28 @@ const CreditNotes = () => {
             </TableBody>
           </Table>
         </TableContainer>
+
+        <Dialog
+          open={!!gstDialogRow}
+          onClose={() => setGstDialogRow(null)}
+          fullWidth maxWidth="md"
+        >
+          <DialogTitle>
+            E-invoice / E-way bill — {gstDialogRow?.creditNoteNo || ''}
+          </DialogTitle>
+          <DialogContent dividers>
+            {gstDialogRow && (
+              <EInvoiceActionBar
+                documentType="CREDIT_NOTE"
+                documentId={gstDialogRow.id}
+                documentNumber={gstDialogRow.creditNoteNo}
+              />
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setGstDialogRow(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
 
         <TablePagination
           rowsPerPageOptions={[10, 20, 50]}

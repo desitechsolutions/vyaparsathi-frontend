@@ -45,6 +45,7 @@ import {
   assignReceivingBin,
   removeReceivingBin,
 } from '../../services/api';
+import EInvoiceActionBar from '../../components/enterprise/EInvoiceActionBar';
 
 const STATUS_META = {
   DRAFT:              { label: 'Draft',              tone: 'default' },
@@ -570,6 +571,18 @@ const GrnDetailPage = () => {
             </Stack>
           </Stack>
         </Paper>
+
+        {/* E-way bill action bar — GRN is EWB-only (no IRN required),
+            so the bar auto-suppresses the IRN button internally. */}
+        {grn?.id && (
+          <Box sx={{ mb: 3 }}>
+            <EInvoiceActionBar
+              documentType="GOODS_RECEIPT_NOTE"
+              documentId={grn.id}
+              documentNumber={grn.grNumber}
+            />
+          </Box>
+        )}
 
         {/* KPI strip */}
         <Paper elevation={0} sx={{

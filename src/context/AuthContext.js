@@ -9,12 +9,26 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { getValidToken, clearAuthStorage } from '../utils/authStorage';
+import { clearPermissionsCache } from '../hooks/usePermissions';
+import IdleWarningModal from '../components/auth/IdleWarningModal';
 
 export const AuthContext = createContext(null);
+
+// Multi-tab sync channel. When one tab logs the user out (or logs them
+// in), it posts on this channel so sibling tabs redirect too — the
+// alternative is a stale tab silently making requests with a token that
+// was revoked in another tab, which is confusing and (in the logout
+// case) briefly insecure.
+const AUTH_CHANNEL_NAME = 'vs-auth';
+const AUTH_EVENT_LOGOUT = 'logout';
+const AUTH_EVENT_LOGIN = 'login';
+const authChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(AUTH_CHANNEL_NAME) : null;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Idle-warning state — populated from utils/auth.js's onWarning callback.
+  const [idleWarning, setIdleWarning] = useState({ open: false, ms: 0 });
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,10 +36,13 @@ export const AuthProvider = ({ children }) => {
   const isRefreshing = useRef(false);
   const isLoggingOut = useRef(false);
   const logoutToastShown = useRef(false);
+  // Latest activity signal — the idle modal's "Stay signed in" button
+  // posts through here to reset the local timer without a full remount.
+  const activitySignalRef = useRef(null);
 
   // ---------------- LOGOUT ----------------
-  const logout = useCallback(async (message, isExpired = false) => {
-    if (isLoggingOut.current) return; 
+  const logout = useCallback(async (message, isExpired = false, opts = {}) => {
+    if (isLoggingOut.current) return;
     isLoggingOut.current = true;
 
     try {
@@ -33,8 +50,19 @@ export const AuthProvider = ({ children }) => {
     } catch {}
 
     clearAuthStorage();
+    clearPermissionsCache();
     delete API.defaults.headers.common['Authorization'];
     setUser(null);
+    setIdleWarning({ open: false, ms: 0 });
+
+    // Broadcast to sibling tabs so they redirect too. Suppress when the
+    // event was itself triggered by a sibling tab, to avoid infinite
+    // ping-pong.
+    if (authChannel && !opts.fromBroadcast) {
+      try {
+        authChannel.postMessage({ type: AUTH_EVENT_LOGOUT, isExpired });
+      } catch {}
+    }
 
     let redirectUrl = '/login';
     if (isExpired && window.location.pathname !== '/login') {
@@ -127,6 +155,36 @@ export const AuthProvider = ({ children }) => {
     init();
   }, [silentRefresh]);
 
+  // ---------------- MULTI-TAB SYNC ----------------
+  // Listen for auth events posted by sibling tabs. On logout, mirror
+  // the sign-out here so the whole browser stays in one auth state.
+  // On login, silent-refresh so this tab picks up the same token.
+  useEffect(() => {
+    if (!authChannel) return undefined;
+    const handler = (event) => {
+      const msg = event?.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === AUTH_EVENT_LOGOUT) {
+        // fromBroadcast=true keeps logout() from re-broadcasting.
+        logout(msg.isExpired ? 'Signed out from another tab.' : null, !!msg.isExpired, { fromBroadcast: true });
+      } else if (msg.type === AUTH_EVENT_LOGIN) {
+        // Another tab just signed in — pull the token they wrote to
+        // localStorage. Storage events also fire, but that's a
+        // different sync path; either arrives first, both are idempotent.
+        const token = getValidToken();
+        if (token && !user) {
+          try {
+            const decoded = jwtDecode(token);
+            API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setUser(decoded);
+          } catch {}
+        }
+      }
+    };
+    authChannel.addEventListener('message', handler);
+    return () => authChannel.removeEventListener('message', handler);
+  }, [logout, user]);
+
   // ---------------- TOKEN AUTO REFRESH ----------------
   useEffect(() => {
     if (!user || isLoggingOut.current) return;
@@ -160,12 +218,32 @@ export const AuthProvider = ({ children }) => {
           logout('Logged out due to inactivity.', true);
         }
       },
+      onWarning: (msLeft) => {
+        // Only show the modal if the user is actually here — a truly
+        // idle browser tab shouldn't spawn hidden dialogs.
+        setIdleWarning({ open: true, ms: msLeft });
+      },
+      onExtend: () => {
+        // Fires when the user proves they're still active. Clear the
+        // warning modal if it happens to be up.
+        setIdleWarning((prev) => (prev.open ? { open: false, ms: 0 } : prev));
+      },
     });
 
     return () => {
       if (cleanup) cleanup();
     };
   }, [user, logout]);
+
+  const dismissIdleWarning = useCallback(() => {
+    // Simulate a user activity event so utils/auth.js resets its
+    // internal lastActivity timestamp — cleaner than piercing that
+    // module's state directly.
+    setIdleWarning({ open: false, ms: 0 });
+    try {
+      window.dispatchEvent(new Event('mousemove'));
+    } catch {}
+  }, []);
 
   // ---------------- LOGIN ----------------
   const login = (token) => {
@@ -176,7 +254,12 @@ export const AuthProvider = ({ children }) => {
       const decoded = jwtDecode(token);
       setUser(decoded);
 
-      logoutToastShown.current = false; 
+      logoutToastShown.current = false;
+
+      // Announce to sibling tabs so they pick up the same session.
+      if (authChannel) {
+        try { authChannel.postMessage({ type: AUTH_EVENT_LOGIN }); } catch {}
+      }
 
       const queryParams = new URLSearchParams(window.location.search);
       const redirectParam = queryParams.get('redirect');
@@ -210,6 +293,14 @@ export const AuthProvider = ({ children }) => {
         theme="colored"
       />
       {!loading && children}
+      {user && (
+        <IdleWarningModal
+          open={idleWarning.open}
+          initialMs={idleWarning.ms}
+          onStay={dismissIdleWarning}
+          onLogout={() => logout('Signed out.', false)}
+        />
+      )}
     </AuthContext.Provider>
   );
 };

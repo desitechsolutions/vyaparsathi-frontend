@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useAuthContext } from '../context/AuthContext';
 
 function PrivateRoute({ children }) {
@@ -7,7 +8,29 @@ function PrivateRoute({ children }) {
   const location = useLocation();
 
   if (authLoading) {
-    return <div>Loading...</div>;
+    // Branded full-page loader replaces the plain "Loading..." — the
+    // silent-refresh boot path can take a beat on cold cache and a
+    // half-second of grey text looked broken.
+    return (
+      <Box
+        role="status"
+        aria-live="polite"
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+          zIndex: (theme) => theme.zIndex.modal + 1,
+        }}
+      >
+        <Stack spacing={2} alignItems="center">
+          <CircularProgress size={44} thickness={4} />
+          <Typography variant="body2" color="text.secondary">Signing you in…</Typography>
+        </Stack>
+      </Box>
+    );
   }
 
   if (!user) {

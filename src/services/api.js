@@ -85,6 +85,104 @@ export const resetPin = (data) =>
 export const changePin = (data) =>
   API.post(endpoints.auth.changePin, data);
 
+// --- Email verification ---
+
+export const verifyEmail = (token) =>
+  API.post(endpoints.auth.verifyEmail, { token }, { skipAuthRefresh: true });
+
+export const resendVerification = (email) =>
+  API.post(endpoints.auth.resendVerification, { email }, { skipAuthRefresh: true });
+
+// --- MFA (TOTP) ---
+
+/** Returns { enabled: boolean, remainingBackupCodes: number }. */
+export const fetchMfaStatus = () => API.get(endpoints.auth.mfaStatus);
+
+/** Kicks off enrollment — returns { secret, otpAuthUri, qrDataUrl }. */
+export const initMfaSetup = () => API.post(endpoints.auth.mfaSetupInit);
+
+/** Confirms enrollment with the first 6-digit code — returns { enabled, backupCodes[] }. */
+export const confirmMfaSetup = (code) =>
+  API.post(endpoints.auth.mfaSetupConfirm, { code });
+
+/** Regenerates the backup-code batch. Requires a current TOTP code. */
+export const regenerateBackupCodes = (code) =>
+  API.post(endpoints.auth.mfaRegenerateCodes, { code });
+
+/** Disables MFA. Requires a current TOTP or backup code. */
+export const disableMfa = (code) =>
+  API.post(endpoints.auth.mfaDisable, { code });
+
+/**
+ * Exchanges an MFA challenge token + verification code for a real access token
+ * + refresh cookie. Used only on the login flow between the password step
+ * and the authenticated session.
+ */
+export const verifyMfaChallenge = (challengeToken, code) =>
+  API.post(endpoints.auth.mfaVerify, { challengeToken, code }, { skipAuthRefresh: true });
+
+// --- RBAC + multi-shop context (Phase 5) ---
+
+/** List every shop the current user belongs to (for the shop switcher). */
+export const fetchMyShops = () => API.get(endpoints.auth.myShops);
+
+/** Effective permission codes for the current user in the active shop. */
+export const fetchMyPermissions = () => API.get(endpoints.auth.myPermissions);
+
+/** Switch active shop — returns a fresh access token to swap in. */
+export const switchShop = (shopId) => API.post(endpoints.auth.switchShop, { shopId });
+
+// --- Active Sessions (Phase 6) ---
+
+/** List every active session for the current user (browser/device rows). */
+export const fetchMySessions = () => API.get(endpoints.auth.sessions);
+
+/** Revoke a specific session by sid. */
+export const revokeSession = (sessionId) =>
+  API.delete(endpoints.auth.sessionById(sessionId));
+
+/** Revoke every session except this one — the "Sign out everywhere else" action. */
+export const revokeAllOtherSessions = () =>
+  API.post(endpoints.auth.sessionsRevokeAllExceptCurrent);
+
+/** Canonical permission catalogue (grouped by module). */
+export const fetchRbacPermissions = () => API.get(endpoints.rbac.permissions);
+
+/** All roles seeded / created for the current shop. */
+export const fetchRbacRoles = () => API.get(endpoints.rbac.roles);
+
+// --- Shop staff invitations ---
+
+export const listShopInvitations = () => API.get(endpoints.shopInvitations);
+
+export const createShopInvitation = (payload) => API.post(endpoints.shopInvitations, payload);
+
+export const revokeShopInvitation = (id) => API.delete(endpoints.shopInvitationById(id));
+
+/** Public — no auth required. Preview an invitation before accepting. */
+export const lookupShopInvitation = (token) =>
+  API.get(endpoints.shopInvitationLookup, { params: { token }, skipAuthRefresh: true });
+
+/** Public — no auth required. Accepts the invitation and auto-logs the invitee in. */
+export const acceptShopInvitation = (payload) =>
+  API.post(endpoints.shopInvitationAccept, payload, { skipAuthRefresh: true });
+
+// --- Custom role management ---
+
+export const createRbacRole = (payload) => API.post(endpoints.rbac.roles, payload);
+export const updateRbacRole = (id, payload) => API.put(endpoints.rbac.roleById(id), payload);
+export const deleteRbacRole = (id) => API.delete(endpoints.rbac.roleById(id));
+
+// --- Shop members ---
+
+export const listShopMembers = () => API.get(endpoints.shopMembers);
+export const changeShopMemberRole = (userId, roleName) =>
+  API.patch(endpoints.shopMemberRole(userId), { roleName });
+export const setShopMemberStatus = (userId, active) =>
+  API.patch(endpoints.shopMemberStatus(userId), { active });
+export const removeShopMember = (userId) =>
+  API.delete(endpoints.shopMemberById(userId));
+
 // This is simplified as the browser handles the token cookie
 export const refreshToken = () =>
   API.post(endpoints.auth.refresh, {});
@@ -108,6 +206,14 @@ export const fetchIndustryConfig = (industryType) => {
   const type = (industryType || 'GENERAL').toUpperCase();
   return API.get(endpoints.configIndustryFields(type));
 };
+
+/**
+ * Fetches the server-authoritative list of enabled industry types.
+ * The FE used to hard-code the list — this call means adding a new
+ * IndustryType server-side automatically becomes selectable without a
+ * frontend redeploy.
+ */
+export const fetchIndustries = () => API.get(endpoints.configIndustries);
 
 // Per-shop custom attribute definitions (Phase 4)
 export const fetchCustomAttributes = () => API.get(endpoints.customAttributes);
@@ -280,6 +386,14 @@ export const deleteSupplier = (id) =>
 export const getSupplierById = (id) =>
   API.get(endpoints.supplierById(id)).then((r) => r.data);
 
+// V103 — aggregate stats for the enterprise supplier detail KPI strip.
+export const getSupplierStats = (id) =>
+  API.get(`/api/suppliers/${id}/stats`).then((r) => r.data);
+
+// V103 — soft on/off toggle (never hard-delete a supplier with history).
+export const toggleSupplierActive = (id) =>
+  API.post(`/api/suppliers/${id}/toggle-active`).then((r) => r.data);
+
 // --- SUPPLIER PAYMENTS ---
 
 export const recordSupplierPayment = (data) =>
@@ -371,9 +485,70 @@ export const fetchCustomers = () => API.get(endpoints.customers);
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
 export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
+export const deleteCustomer = (id) => API.delete(`${endpoints.customers}/${id}`);
+export const archiveCustomer = (id) => API.post(`/api/customers/${id}/archive`).then((r) => r.data);
+
 export const fetchCustomerLedger = (id, params = {}) => {
   return API.get(`/api/customers/${id}/ledger`, { params });
 };
+/** Returns CustomerStatsDto — total sales, AOV, outstanding, credit notes, payments, advance, quotes, SOs. */
+export const getCustomerStats = (id) =>
+  API.get(`/api/customers/${id}/stats`).then((r) => r.data);
+/** Flips the customer's active flag. OWNER/ADMIN only. Returns updated CustomerDto. */
+export const toggleCustomerActive = (id) =>
+  API.post(`/api/customers/${id}/toggle-active`).then((r) => r.data);
+
+// Enterprise Customer Endpoints (V105)
+export const fetchCustomersPaged = (params = {}) =>
+  API.get('/api/customers/paged', { params }).then((r) => r.data);
+
+export const fetchCustomerKpis = () =>
+  API.get('/api/customers/kpis').then((r) => r.data);
+
+export const bulkToggleCustomerActive = (ids, active) =>
+  API.post('/api/customers/bulk-toggle-active', { ids, active }).then((r) => r.data);
+
+export const bulkDeleteCustomers = (ids) =>
+  API.post('/api/customers/bulk-delete', { ids }).then((r) => r.data);
+
+export const exportCustomersCsv = () =>
+  API.get('/api/customers/export.csv', { responseType: 'blob' });
+
+export const importCustomersCsv = (formData) =>
+  API.post('/api/customers/import.csv', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data);
+
+export const fetchCustomerTransactions = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/transactions`, { params: { page, size } }).then((r) => r.data);
+
+export const fetchCustomerAudit = (customerId) =>
+  API.get(`/api/customers/${customerId}/audit`).then((r) => r.data);
+
+export const fetchCustomerCreditNotes = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/credit-notes`, { params: { page, size } }).then((r) => r.data);
+
+export const fetchCustomerPayments = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/payments`, { params: { page, size } }).then((r) => r.data);
+
+export const fetchCustomerQuotations = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/quotations`, { params: { page, size } }).then((r) => r.data);
+
+export const fetchCustomerSalesOrders = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/sales-orders`, { params: { page, size } }).then((r) => r.data);
+
+export const sendCustomerStatementEmail = (customerId, data) =>
+  API.post(`/api/customers/${customerId}/statement/email`, data).then((r) => r.data);
+
+export const getCustomerStatementPdfUrl = (customerId, from, to) => {
+  const query = [];
+  if (from) query.push(`from=${from}`);
+  if (to) query.push(`to=${to}`);
+  const qStr = query.length > 0 ? `?${query.join('&')}` : '';
+  return `/api/customers/${customerId}/statement/pdf${qStr}`;
+};
+
+
 
 // --- SALES ---
 
@@ -696,6 +871,33 @@ export const applyCreditNote = (creditNoteId, amount) =>
 // Returns [{ id, creditNoteNo, creditNoteDate, totalAmount, appliedAmount, status }]
 export const findCreditNotesBySale = (saleId) =>
   API.get(`/api/v1/credit-notes/by-sale/${saleId}`).then((r) => r.data?.data ?? []);
+
+// --- V101 Credit Note enterprise APIs ---
+
+/** Full detail — customer, invoice link, reason code, restock flag, outstanding. */
+export const getCreditNoteById = (id) =>
+  API.get(`/api/v1/credit-notes/${id}`).then((r) => r.data?.data ?? r.data);
+
+/** Apply remaining credit against one of the customer's unpaid invoices. */
+export const allocateCreditToInvoice = (creditNoteId, saleId, amount, note) =>
+  API.post(`/api/v1/credit-notes/${creditNoteId}/allocate`,
+    { saleId, amount, note }).then((r) => r.data?.data ?? r.data);
+
+/** Record a cash / bank refund payout for the remaining credit. */
+export const refundCreditNote = (creditNoteId, amount, paymentMode, paymentReference, note) =>
+  API.post(`/api/v1/credit-notes/${creditNoteId}/refund`,
+    { amount, paymentMode, paymentReference, note }).then((r) => r.data?.data ?? r.data);
+
+export const listCreditNoteAllocations = (creditNoteId) =>
+  API.get(`/api/v1/credit-notes/${creditNoteId}/allocations`).then((r) => r.data?.data ?? []);
+
+export const reverseCreditNoteAllocation = (allocationId, note) =>
+  API.post(`/api/v1/credit-notes/allocations/${allocationId}/reverse`,
+    { note }).then((r) => r.data?.data ?? r.data);
+
+export const cancelCreditNote = (creditNoteId, note) =>
+  API.post(`/api/v1/credit-notes/${creditNoteId}/cancel`,
+    { note }).then((r) => r.data?.data ?? r.data);
 
 export const listDebitNotes = (page = 0, size = 20) =>
   API.get('/api/v1/debit-notes', { params: { page, size } }).then((r) => r.data);

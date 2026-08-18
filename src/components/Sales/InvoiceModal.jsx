@@ -20,6 +20,7 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import EInvoiceActionBar from '../enterprise/EInvoiceActionBar';
 
 // WhatsApp brand green — this is a brand color, not a theme accent.
 // Keeping it as a hardcoded constant since it should render identically
@@ -267,6 +268,17 @@ const InvoiceModal = ({
             <Typography variant="caption" color="text.secondary">
               Invoice links expire after 24 hours. Download or share to keep a copy.
             </Typography>
+
+            {saleId && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <EInvoiceActionBar
+                  documentType="TAX_INVOICE"
+                  documentId={saleId}
+                  documentNumber={invoiceNo}
+                />
+              </>
+            )}
           </Stack>
         )}
       </DialogContent>

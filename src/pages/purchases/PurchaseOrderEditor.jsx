@@ -18,6 +18,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import StatutoryFieldset from '../../components/StatutoryFieldset';
 import dayjs from 'dayjs';
 
 import {
@@ -262,6 +263,12 @@ export default function PurchaseOrderEditor() {
     recurringEnabled: false,
     recurringFrequency: 'MONTHLY',
     recurringNextAt: '',
+    // V99 statutory GST fields — all optional; BE derives sensible defaults.
+    placeOfSupply: '',
+    supplyType: '',
+    reverseCharge: false,
+    billToAddress: '',
+    shipToAddress: '',
     items: [emptyLine()],
   });
 
@@ -331,6 +338,11 @@ export default function PurchaseOrderEditor() {
           recurringEnabled: !!po.recurringEnabled,
           recurringFrequency: po.recurringFrequency || 'MONTHLY',
           recurringNextAt: po.recurringNextAt ? po.recurringNextAt.split('.')[0] : '',
+          placeOfSupply: po.placeOfSupply || '',
+          supplyType: po.supplyType || '',
+          reverseCharge: !!po.reverseCharge,
+          billToAddress: po.billToAddress || '',
+          shipToAddress: po.shipToAddress || '',
           items: (po.items || []).length > 0
             ? po.items.map((it) => ({
                 id: it.id,
@@ -584,6 +596,12 @@ export default function PurchaseOrderEditor() {
       recurringEnabled: !!form.recurringEnabled,
       recurringFrequency: form.recurringEnabled ? form.recurringFrequency : null,
       recurringNextAt: form.recurringEnabled && form.recurringNextAt ? form.recurringNextAt : null,
+      // Statutory pass-through. Nulls are fine — BE derives from supplier/shop.
+      placeOfSupply: form.placeOfSupply || null,
+      supplyType: form.supplyType || null,
+      reverseCharge: !!form.reverseCharge,
+      billToAddress: form.billToAddress || null,
+      shipToAddress: form.shipToAddress || null,
       // Server-authoritative on total: FE preview matches BE math but final
       // wins on save.
       totalAmount: totals.grand,
@@ -890,6 +908,24 @@ export default function PurchaseOrderEditor() {
                     />
                   </Grid>
                 </Grid>
+              </CardContent>
+            </Card>
+
+            {/* Statutory / GST fieldset — optional, collapsed by default */}
+            <Card variant="outlined" sx={{ borderRadius: 2, mb: 3, borderColor: 'divider' }}>
+              <CardContent sx={{ p: 3 }}>
+                <StatutoryFieldset
+                  disabled={!editable}
+                  value={{
+                    placeOfSupply: form.placeOfSupply,
+                    supplyType: form.supplyType,
+                    reverseCharge: form.reverseCharge,
+                    billToAddress: form.billToAddress,
+                    shipToAddress: form.shipToAddress,
+                  }}
+                  onChange={(next) => setField(next)}
+                  showConsignee={false}
+                />
               </CardContent>
             </Card>
 

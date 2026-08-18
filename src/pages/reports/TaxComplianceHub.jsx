@@ -1,19 +1,27 @@
 import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
-import { 
-  Box, Typography, Paper, Grid, Button, Stack, Card, CardContent, 
-  Avatar, Alert, TextField, MenuItem, CircularProgress, Divider, 
+import { useNavigate } from 'react-router-dom';
+import {
+  Box, Typography, Paper, Grid, Button, Stack, Card, CardContent, CardActionArea,
+  Avatar, Alert, TextField, MenuItem, CircularProgress, Divider,
   useTheme, useMediaQuery, LinearProgress, Table, TableHead, TableRow, TableCell, TableBody
 } from '@mui/material';
-import { 
-  FolderZip, VerifiedUser, BusinessCenter, AccountBalance, 
-  Description, HelpOutline, CheckCircleOutline, Download, ReceiptLong
+import {
+  FolderZip, VerifiedUser, BusinessCenter, AccountBalance,
+  Description, HelpOutline, CheckCircleOutline, Download, ReceiptLong,
+  ChevronRight,
 } from '@mui/icons-material';
 import { downloadAuditPack, getRequest } from '../../services/api';
 
+// "Included Reports" cards on the right-hand sidebar of this page.
+// Most describe what's inside the audit-pack ZIP and stay as static
+// content. The HSN Summary entry has a `path` because it's the one
+// item that also ships as a standalone drill-down page — clicking
+// the card navigates there instead of just describing it. Add a
+// `path` here for any future card that has its own dedicated page.
 const auditFiles = [
   { title: "GST Sales Register", icon: <Description color="primary" />, desc: "GSTR-1 format CSV for B2B/B2C sales." },
-  { title: "HSN Summary", icon: <AccountBalance color="secondary" />, desc: "Table 12 grouping for GST compliance." },
+  { title: "HSN Summary", icon: <AccountBalance color="secondary" />, desc: "Table 12 grouping for GST compliance.", path: '/compliance/hsn' },
   { title: "Purchase/ITC", icon: <BusinessCenter color="success" />, desc: "Input Tax Credit ledger for inventory." },
   { title: "P&L Statement", icon: <VerifiedUser color="warning" />, desc: "Income/Expense summary for ITR." }
 ];
@@ -21,7 +29,8 @@ const auditFiles = [
 export default function TaxComplianceHub() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+  const navigate = useNavigate();
+
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -230,17 +239,40 @@ export default function TaxComplianceHub() {
             Included Reports
           </Typography>
           <Stack spacing={2.5}>
-            {auditFiles.map((file, i) => (
-              <Card key={i} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', borderRadius: 4, transition: '0.2s', '&:hover': { borderColor: theme.palette.primary.main } }}>
+            {auditFiles.map((file, i) => {
+              const inner = (
                 <CardContent sx={{ display: 'flex', gap: 2.5, alignItems: 'center', py: '20px !important' }}>
                   <Avatar sx={{ bgcolor: 'action.hover', color: 'primary.main', width: 48, height: 48 }}>{file.icon}</Avatar>
-                  <Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="body1" fontWeight={800} color="text.primary">{file.title}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{file.desc}</Typography>
                   </Box>
+                  {file.path && <ChevronRight sx={{ color: 'action.active' }} aria-hidden />}
                 </CardContent>
-              </Card>
-            ))}
+              );
+              return (
+                <Card
+                  key={i}
+                  elevation={0}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    borderRadius: 4,
+                    transition: '0.2s',
+                    '&:hover': { borderColor: theme.palette.primary.main },
+                  }}
+                >
+                  {file.path
+                    ? (
+                      <CardActionArea onClick={() => navigate(file.path)} aria-label={`Open ${file.title}`}>
+                        {inner}
+                      </CardActionArea>
+                    )
+                    : inner}
+                </Card>
+              );
+            })}
           </Stack>
         </Grid>
       </Grid>

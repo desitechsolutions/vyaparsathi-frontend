@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 
 import { useShop } from '../../context/ShopContext';
+import StatutoryFieldset from '../../components/StatutoryFieldset';
 import {
   pendingPurchaseOrders,
   getPurchaseOrderById,
@@ -83,6 +84,12 @@ const GrnCreatePage = () => {
     checklist: { vehicleSealed: false, tempCheck: false, invoiceMatches: false, packingIntact: false },
     freightActual: '',
     landedCostEnabled: false,
+    // V99 statutory GST — all optional, BE derives sensible defaults.
+    placeOfSupply: '',
+    supplyType: '',
+    reverseCharge: false,
+    billToAddress: '',
+    shipToAddress: '',
   });
 
   const [lines, setLines] = useState([]);
@@ -213,6 +220,12 @@ const GrnCreatePage = () => {
         freightActual: header.freightActual ? Number(header.freightActual) : null,
         landedCostEnabled: !!header.landedCostEnabled,
         notes: header.notes || null,
+        // Statutory pass-through — nullable, BE derives from supplier/shop.
+        placeOfSupply:    header.placeOfSupply    || null,
+        supplyType:       header.supplyType       || null,
+        reverseCharge:    !!header.reverseCharge,
+        billToAddress:    header.billToAddress    || null,
+        shipToAddress:    header.shipToAddress    || null,
         receivingItems,
       };
       const updated = await updateReceiving(created.id, updatePayload);
@@ -360,6 +373,23 @@ const GrnCreatePage = () => {
                   </Typography>
                 </label>
               </Stack>
+
+              <Divider>
+                <Typography variant="caption" color="text.secondary" fontWeight={700}
+                  sx={{ letterSpacing: 0.6 }}>STATUTORY / GST</Typography>
+              </Divider>
+              <StatutoryFieldset
+                title=""
+                value={{
+                  placeOfSupply: header.placeOfSupply,
+                  supplyType: header.supplyType,
+                  reverseCharge: header.reverseCharge,
+                  billToAddress: header.billToAddress,
+                  shipToAddress: header.shipToAddress,
+                }}
+                onChange={(next) => setHeader((s) => ({ ...s, ...next }))}
+                showConsignee={false}
+              />
 
               <Divider>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}

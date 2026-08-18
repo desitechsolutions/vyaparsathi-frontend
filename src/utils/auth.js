@@ -1,4 +1,10 @@
-const IDLE_LIMIT = 5 * 60 * 1000; // 5 minutes
+// Bumped from 5 → 30 min in Phase 6. Five minutes turned out to be far
+// too aggressive for the workflows that keep an admin on a single screen
+// for a while (approving a batch of GRNs, reviewing GST returns, drafting
+// a big invoice). Thirty minutes matches the industry norm (Zoho, QBO,
+// SAP Business One) and the WARNING_THRESHOLD gives the user a two-minute
+// heads-up they can dismiss to stay signed in.
+const IDLE_LIMIT = 30 * 60 * 1000; // 30 minutes
 const WARNING_THRESHOLD = 2 * 60 * 1000; // 2 minutes
 
 export function startSmartIdleTimer({ onTimeout, onWarning, onExtend }) {

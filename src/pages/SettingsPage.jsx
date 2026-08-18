@@ -186,6 +186,8 @@ const SettingsPage = () => {
     eInvoicingEnabled: false,
     eWayBillEnabled: false,
     digitalSigningEnabled: false,
+    // Phase 5 security policy — require MFA for OWNER + ADMIN.
+    requireMfaForAdmins: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -241,6 +243,7 @@ const SettingsPage = () => {
           eInvoicingEnabled: !!res.data.eInvoicingEnabled,
           eWayBillEnabled: !!res.data.eWayBillEnabled,
           digitalSigningEnabled: !!res.data.digitalSigningEnabled,
+          requireMfaForAdmins: !!res.data.requireMfaForAdmins,
           country: res.data.country || 'IN',
           brandColor: res.data.brandColor || '#2980b9',
           invoiceDueDays: res.data.invoiceDueDays ?? 30,
@@ -937,6 +940,7 @@ const SettingsPage = () => {
             sx={{ maxWidth: 320, ...inputSx }}
           />
         )}
+
       </Stack>
     </SectionCard>
   );
@@ -1134,4 +1138,11 @@ const SettingsPage = () => {
   );
 };
 
+/**
+ * The MFA-for-admins policy toggle. Peeks at the current user's MFA
+ * status so we can tell them "you don't have MFA yet — enable it before
+ * flipping this" instead of letting them save the policy and locking
+ * themselves out. Backend also refuses the FALSE → TRUE transition when
+ * any active OWNER/ADMIN lacks MFA (defense in depth).
+ */
 export default SettingsPage;

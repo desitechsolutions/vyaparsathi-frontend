@@ -39,6 +39,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EmailIcon from '@mui/icons-material/Email';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
+import BrandMark from '../branding/BrandMark';
 
 // ─── Navigate to a landing-page section anchor from any route ─────────────
 // If already on '/', just smooth-scroll. Otherwise navigate to '/#<id>'.
@@ -446,20 +447,15 @@ const EnterpriseHeader = () => {
             disableGutters
             sx={{ height: { xs: 64, lg: 72 }, justifyContent: 'space-between', gap: 2 }}
           >
-            {/* ── Logo ── */}
-            <Box
-              component="a"
-              href="/"
-              sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}
-            >
-              <Box sx={{ height: { xs: 38, lg: 44 }, display: 'flex', alignItems: 'center' }}>
-                <img
-                  src="/desitechsolution.png"
-                  alt="VyaparSathi"
-                  style={{ height: '100%', width: 'auto', objectFit: 'contain' }}
-                />
-              </Box>
-            </Box>
+            {/* ── Brand ── (single source of truth in components/branding/BrandMark)
+                Marketing header uses logo-mark only; wordmark is intentionally
+                omitted because a "Biruma Technology Solutions" branding block
+                sits alongside it. */}
+            <BrandMark
+              size="md"
+              showWordmark={false}
+              sx={{ flexShrink: 0 }}
+            />
 
             {/* ── Company Branding (Desktop Only) ── */}
             <Box

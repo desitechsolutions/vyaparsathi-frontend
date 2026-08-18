@@ -326,7 +326,8 @@ const PurchaseReturnsListPage = () => {
             <TextField select size="small" label="Supplier"
               value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)}
               sx={{ minWidth: { xs: '100%', md: 200 } }}
-              SelectProps={{ native: true }}>
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ native: true, displayEmpty: true }}>
               <option value="">All suppliers</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </TextField>

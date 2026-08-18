@@ -14,6 +14,7 @@ import { searchGlobalData } from '../../services/api';
 import MenuIcon from '@mui/icons-material/Menu'; // Added for Hamburger
 import CloseIcon from '@mui/icons-material/Close';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
@@ -21,6 +22,7 @@ import SupportIcon from '@mui/icons-material/Support';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import ShopSwitcher from '../rbac/ShopSwitcher';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
@@ -350,6 +352,11 @@ const Header = ({ onDrawerToggle }) => {
                     </IconButton>
                   )}
 
+                  {/* Shop switcher (Phase 5): renders only when the user belongs to > 1 shop */}
+                  <Box sx={{ display: { xs: 'none', md: 'flex' }, mr: 1, '& .MuiButton-root': { bgcolor: 'rgba(255,255,255,0.10)', color: 'white', borderColor: 'rgba(255,255,255,0.25)', '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' } } }}>
+                    <ShopSwitcher />
+                  </Box>
+
                   {/* Quick action button: hidden on mobile (available via sidebar) */}
                   <Tooltip title={t('header.quickAction')}>
                     <IconButton
@@ -566,6 +573,14 @@ const Header = ({ onDrawerToggle }) => {
                     <MenuItem onClick={() => { setOpenProfileModal(true); handleClose(); }}>
                       <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
                       {t('header.profile')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { handleClose(); navigate('/account/security/mfa'); }}>
+                      <ListItemIcon><ShieldOutlinedIcon fontSize="small" /></ListItemIcon>
+                      {t('header.security', 'Account security')}
+                    </MenuItem>
+                    <MenuItem onClick={() => { handleClose(); navigate('/account/security/sessions'); }}>
+                      <ListItemIcon><ShieldOutlinedIcon fontSize="small" /></ListItemIcon>
+                      {t('header.sessions', 'Active sessions')}
                     </MenuItem>
                     <MenuItem onClick={() => { setOpenSettingsDialog(true); handleClose(); }}>
                       <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>

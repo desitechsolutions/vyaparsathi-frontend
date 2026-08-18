@@ -40,10 +40,14 @@ import QuotationEditor from '../pages/QuotationEditor';
 import SalesOrders from '../pages/SalesOrders';
 import SalesOrderEditor from '../pages/SalesOrderEditor';
 import CreditNotes from '../pages/CreditNotes';
+import CreditNotesListPage from '../pages/accounting/CreditNotesListPage';
+import CreditNoteDetailPage from '../pages/accounting/CreditNoteDetailPage';
 import DebitNotes from '../pages/DebitNotes';
 import Suppliers from '../pages/Suppliers';
+import SuppliersListPage from '../pages/suppliers/SuppliersListPage';
 import LandingLayout from '../components/layout/LandingLayout';
 import AuthLayout from '../components/layout/AuthLayout';
+import OnboardingLayout from '../components/layout/OnboardingLayout';
 import LandingPage from '../pages/LandingPage';
 import Receiving from '../pages/Receiving'; // legacy Receiving page — kept for backwards compat
 import ReceivingListPage from '../pages/receivings/ReceivingListPage';
@@ -71,6 +75,13 @@ import DeliveryManagement from '../pages/DeliveryManagement';
 import LowStockAlerts from '../pages/LowStockAlerts';
 import { AlertProvider } from '../context/AlertContext';
 import UserManagementPage from '../pages/UserManagementPage';
+import MfaSetupPage from '../pages/MfaSetupPage';
+import ActiveSessionsPage from '../pages/ActiveSessionsPage';
+import TwoFactorAuthenticationPage from '../pages/security/TwoFactorAuthenticationPage';
+import TeamPage from '../pages/TeamPage';
+import RolesPermissionMatrixPage from '../pages/RolesPermissionMatrixPage';
+import AcceptShopInvitePage from '../pages/AcceptShopInvitePage';
+import ComplianceModuleStub from '../pages/compliance/ComingSoonPage';
 import Notifications from '../pages/Notifications';
 import ShopGuard from '../components/guards/ShopGuard';
 import TierGuard from '../components/guards/TierGuard'; // Added TierGuard
@@ -82,6 +93,7 @@ import PayrollDashboard from '../pages/PayrollDashboard';
 import PricingPage from '../pages/PricingPage';
 import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
 import ResetPassword from '../pages/ResetPassword';
+import VerifyEmail from '../pages/VerifyEmail';
 import ComingSoonPage from '../pages/public/ComingSoonPage';
 import AdminLayout from '../components/layout/AdminLayout';
 import TechAdminDashboard from '../pages/admin/TechAdminDashboard';
@@ -160,6 +172,23 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/auth/reset-password"
+            element={user ? <Navigate to="/" replace /> : <ResetPassword />}
+          />
+          {/* Email verification is public — the linked user is (by design) not yet
+              signed in. Allows a link click from the verification email to work
+              even when a stale session exists. */}
+          <Route path="/auth/verify-email" element={<VerifyEmail />} />
+          <Route path="/accept-invite" element={<AcceptAdminInvitePage />} />
+          {/* Shop-level staff invitations (Phase 5). Public: the token in the URL is the auth signal. */}
+          <Route path="/accept-shop-invite" element={<AcceptShopInvitePage />} />
+        </Route>
+
+        {/* 1b. Shop onboarding — its own wide layout, not the auth split-screen.
+             Guarded like the old inline auth block: needs a signed-in user, redirects
+             to /dashboard if the user already has a shop. */}
+        <Route element={<OnboardingLayout />}>
+          <Route
             path="/setup-shop"
             element={
               user ? (
@@ -169,11 +198,6 @@ function AppRoutes() {
               )
             }
           />
-          <Route
-            path="/auth/reset-password"
-            element={user ? <Navigate to="/" replace /> : <ResetPassword />}
-          />
-          <Route path="/accept-invite" element={<AcceptAdminInvitePage />} />
         </Route>
 
         {/* 2. Admin Routes - Active ONLY for Super Admin */}
@@ -234,7 +258,11 @@ function AppRoutes() {
             <Route path="stock/uom" element={<ErrorBoundary resetKey="stock/uom"><UomSettingsPage /></ErrorBoundary>} />
             <Route path="stock/labels" element={<ErrorBoundary resetKey="stock/labels"><BarcodeLabelsPage /></ErrorBoundary>} />
             <Route path="customers" element={<Customers />} />
+            {/* V104 enterprise detail page — /customers/:id */}
+            <Route path="customers/:id" element={<CustomerDetails />} />
+            {/* Legacy ledger route — kept for deep links from SalesHistory */}
             <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
+
             <Route path="sales" element={<Sales />} />
             <Route path="sales/drafts" element={<Sales />} />
             <Route path="sales/return" element={<SalesReturn />} />
@@ -245,6 +273,17 @@ function AppRoutes() {
             <Route path="admin/users" element={<UserManagementPage />} />
             <Route path="admin/settings" element={<SettingsPage />} />
             <Route path="admin/billing" element={<BillingDashboard />} />
+            {/* Account-security (per-user MFA + Active Sessions). Available to every signed-in user regardless of role. */}
+            <Route path="account/security" element={<MfaSetupPage />} />
+            <Route path="account/security/mfa" element={<MfaSetupPage />} />
+            <Route path="account/security/sessions" element={<ActiveSessionsPage />} />
+            {/* Team management (Phase 5). Permission gate lives inside TeamPage. */}
+            <Route path="admin/team" element={<TeamPage />} />
+            <Route path="admin/roles" element={<RolesPermissionMatrixPage />} />
+            {/* Shop-level 2FA policy — dedicated page under Configuration.
+                Personal MFA (enrollment/backup-codes) still lives at
+                /account/security/mfa in the header user menu. */}
+            <Route path="admin/security/two-factor" element={<TwoFactorAuthenticationPage />} />
 
             {/* QUOTATIONS — available on all tiers as a core sales tool */}
             <Route path="quotations" element={<Quotations />} />
@@ -254,8 +293,10 @@ function AppRoutes() {
             <Route path="sales-orders" element={<SalesOrders />} />
             <Route path="sales-orders/new" element={<SalesOrderEditor />} />
             <Route path="sales-orders/:id/edit" element={<SalesOrderEditor />} />
-            {/* CREDIT NOTES — customer-facing returns / adjustments */}
-            <Route path="credit-notes" element={<CreditNotes />} />
+            {/* CREDIT NOTES — customer-facing returns / adjustments (V101 enterprise redesign) */}
+            <Route path="credit-notes" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="credit-notes"><CreditNotesListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="credit-notes/:id" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="credit-notes/:id"><CreditNoteDetailPage /></ErrorBoundary></TierGuard>} />
+            <Route path="credit-notes/legacy" element={<TierGuard requiredTier="PRO"><CreditNotes /></TierGuard>} />
             {/* DEBIT NOTES — supplier-facing returns / adjustments */}
             <Route path="debit-notes" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="debit-notes"><DebitNotesListPage /></ErrorBoundary></TierGuard>} />
             <Route path="debit-notes/reports" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="debit-notes/reports"><DebitNoteReportsPage /></ErrorBoundary></TierGuard>} />
@@ -264,7 +305,9 @@ function AppRoutes() {
 
             {/* STARTER TIER & ABOVE */}
             <Route path="delivery" element={<TierGuard requiredTier="STARTER"><DeliveryManagement /></TierGuard>} />
-            <Route path="suppliers" element={<TierGuard requiredTier="STARTER"><Suppliers /></TierGuard>} />
+            {/* V103 — enterprise suppliers list. Legacy at /suppliers/legacy. */}
+            <Route path="suppliers" element={<TierGuard requiredTier="STARTER"><ErrorBoundary resetKey="suppliers"><SuppliersListPage /></ErrorBoundary></TierGuard>} />
+            <Route path="suppliers/legacy" element={<TierGuard requiredTier="STARTER"><Suppliers /></TierGuard>} />
             <Route path="low-stock-alerts" element={<TierGuard requiredTier="STARTER"><LowStockAlerts /></TierGuard>} />
             <Route path="notifications" element={<TierGuard requiredTier="STARTER"><Notifications /></TierGuard>} />
 
@@ -321,6 +364,95 @@ function AppRoutes() {
             <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />
             <Route path="audit" element={<TierGuard requiredTier="ENTERPRISE"><AuditLogs /></TierGuard>} />
+
+            {/* Compliance module — routes advertised in the sidebar. Live pages
+                already exist for GST Summary and the compliance / tax-compliance
+                dashboards; the remaining items land on a ComingSoonPage so the
+                sidebar has no dead links while we build them out. */}
+            <Route path="compliance/gstr-filing" element={
+              <TierGuard requiredTier="PRO">
+                <ComplianceModuleStub
+                  eyebrow="Compliance · GST Returns"
+                  title="GSTR-1 & GSTR-3B filing"
+                  description="One-click summary + JSON export for GSTR-1 (outward supplies) and GSTR-3B (monthly return) directly from your invoices, credit notes and payments."
+                  bullets={[
+                    { label: 'GSTR-1 summary from invoices + credit notes', hint: 'B2B, B2C, exports, exempt splits with HSN breakdown', done: true },
+                    { label: 'GSTR-3B monthly return summary', hint: 'Outward, inward, ITC, tax paid — auto-computed', done: true },
+                    { label: 'JSON export in the government portal format', hint: 'Upload directly to gst.gov.in', done: false },
+                    { label: 'Filing status tracker per return period', hint: 'Filed / late / pending — with due-date alerts', done: false },
+                  ]}
+                  fallbackPath="/reports/gst-summary"
+                />
+              </TierGuard>
+            } />
+
+            <Route path="compliance/gstr-2b" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <ComplianceModuleStub
+                  eyebrow="Compliance · Input Tax Credit"
+                  title="GSTR-2B ITC reconciliation"
+                  description="Match your GSTR-2B auto-drafted statement against recorded purchase invoices. Flag mismatches, missing invoices, and over-claimed ITC before you file."
+                  bullets={[
+                    { label: 'Upload GSTR-2B JSON', hint: 'From gst.gov.in returns dashboard', done: false },
+                    { label: 'Line-by-line match against recorded purchases', hint: 'GSTIN + invoice-no + tax-value key', done: false },
+                    { label: 'Mismatch report: missing / duplicate / value-mismatch', hint: 'Actionable list with supplier contact', done: false },
+                    { label: 'ITC-eligible summary for GSTR-3B claim', hint: 'Matched + provisional ITC breakdown', done: false },
+                  ]}
+                  fallbackPath="/reports/gst-summary"
+                />
+              </TierGuard>
+            } />
+
+            <Route path="compliance/einvoice-eway" element={
+              <TierGuard requiredTier="PRO">
+                <ComplianceModuleStub
+                  eyebrow="Compliance · Regulatory documents"
+                  title="E-Invoicing & E-Way Bill hub"
+                  description="Central dashboard for IRN generation, e-way bill lifecycle, cancellations and NIC-portal status — across every invoice, credit note and delivery challan."
+                  bullets={[
+                    { label: 'Generate IRN & QR from invoices', hint: 'Per-document, via signed backend integration', done: true },
+                    { label: 'Generate & cancel e-way bills', hint: 'Distance-based validity computation', done: true },
+                    { label: 'Central status board across all documents', hint: 'Filter by date, status, portal error', done: false },
+                    { label: 'Bulk regenerate / bulk cancel', hint: 'Recover from portal outages in one click', done: false },
+                  ]}
+                  fallbackPath="/reports/compliance"
+                />
+              </TierGuard>
+            } />
+
+            <Route path="compliance/period-lock" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <ComplianceModuleStub
+                  eyebrow="Compliance · Book closing"
+                  title="Period lock (financial-year & book closing)"
+                  description="Freeze a financial period so no invoice, payment or ledger entry can be back-dated into it — the gate every accountant asks for before signing off on returns."
+                  bullets={[
+                    { label: 'Lock any period up to a chosen date', hint: 'FY-end, quarter-end, monthly close', done: false },
+                    { label: 'Refuse writes to locked periods', hint: 'Enforced at every service (invoice, payment, journal)', done: false },
+                    { label: 'Reason-required unlock by OWNER only', hint: 'Audited, one-off unlock window with expiry', done: false },
+                    { label: 'Book-closing signoff trail', hint: 'Who locked what, when, with what supporting docs', done: false },
+                  ]}
+                  fallbackPath="/reports/compliance"
+                />
+              </TierGuard>
+            } />
+
+            <Route path="compliance/cancelled-documents" element={
+              <TierGuard requiredTier="PRO">
+                <ComplianceModuleStub
+                  eyebrow="Compliance · Audit register"
+                  title="Cancelled & deleted documents register"
+                  description="Every voided invoice, cancelled sale, deleted draft and reversed payment — with actor, reason and timestamp. The register a GST audit asks for on day one."
+                  bullets={[
+                    { label: 'Cancelled invoices / sales', hint: 'With linked reversal and ledger impact', done: true },
+                    { label: 'Deleted drafts & discarded quotations', hint: 'Even work-in-progress rows are captured', done: true },
+                    { label: 'Reversed payments & refunds', hint: 'With original + reversal transaction pair', done: true },
+                    { label: 'Consolidated register with export', hint: 'CSV / PDF for auditors, filterable by period', done: false },
+                  ]}
+                  fallbackPath="/audit"
+                />
+              </TierGuard>
+            } />
 
             <Route path="*" element={<NotFound />} />
           </Route>
