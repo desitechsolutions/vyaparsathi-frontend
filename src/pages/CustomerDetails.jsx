@@ -29,7 +29,15 @@ import {
   Card,
   CardContent,
   TablePagination,
+  Breadcrumbs,
+  Link as MuiLink,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import {
   ArrowBack as ArrowBackIcon,
   WhatsApp as WhatsAppIcon,
@@ -54,7 +62,16 @@ import {
   CheckCircleOutline as CheckIcon,
   ContentCopy as CopyIcon,
   Add as AddIcon,
+  Block as BlockIcon,
+  WarningAmber as WarningAmberIcon,
+  LocalShipping as LocalShippingIcon,
+  ContactMail as ContactMailIcon,
+  Home as HomeIcon,
+  Sell as SellIcon,
+  StickyNote2 as StickyNoteIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import {
   fetchCustomer,
@@ -68,53 +85,66 @@ import {
   fetchCustomerQuotations,
   fetchCustomerSalesOrders,
   fetchCustomerAudit,
-  getCustomerStatementPdfUrl,
+  downloadCustomerStatementPdf,
 } from '../services/api';
 
 import { CustomerEditDialog } from '../components/customers/CustomerEditDialog';
 import { CustomerEmailDialog } from '../components/customers/CustomerEmailDialog';
+import AgingBucketsBar, { CreditStatusPanel } from '../components/customers/AgingBucketsBar';
+import CustomerNotesPanel from '../components/customers/CustomerNotesPanel';
+import CustomerContactsPanel from '../components/customers/CustomerContactsPanel';
+import CustomerAddressesPanel from '../components/customers/CustomerAddressesPanel';
+import CustomerDeliveryChallansPanel from '../components/customers/CustomerDeliveryChallansPanel';
+import CustomerAttachmentsPanel from '../components/customers/CustomerAttachmentsPanel';
+import CustomerCustomFieldsPanel from '../components/customers/CustomerCustomFieldsPanel';
+import CustomerSegmentsPicker from '../components/customers/CustomerSegmentsPicker';
+import CustomerMergeDialog from '../components/customers/CustomerMergeDialog';
+import { inr, stringToColor } from '../utils/customerFormat';
 
-const inr = (v) =>
-  `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const stringToColor = (string) => {
-  let hash = 0;
-  for (let i = 0; i < (string || '').length; i += 1) {
-    hash = string.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  let color = '#';
-  for (let i = 0; i < 3; i += 1) {
-    const value = (hash >> (i * 8)) & 0xff;
-    color += `00${value.toString(16)}`.slice(-2);
-  }
-  return color;
-};
-
-const KpiTile = ({ icon, label, value, color, subtitle, warn = false }) => {
+/**
+ * Enterprise KPI tile — flat, dense, no big colored icon avatar. Matches
+ * Zoho Books / Salesforce metric tiles: small uppercase label at the top,
+ * bold numeric value below, optional small caption. Warn state gives the
+ * card a subtle red-tinted border but doesn't change the metric's typography.
+ */
+const KpiTile = ({ label, value, subtitle, warn = false }) => {
   const theme = useTheme();
   return (
     <Paper
       variant="outlined"
       sx={{
-        p: 2,
-        borderRadius: 2.5,
+        px: 2,
+        py: 1.75,
+        borderRadius: 2,
         flex: 1,
         minWidth: 140,
-        borderColor: warn ? alpha(theme.palette.error.main, 0.4) : 'divider',
-        bgcolor: warn ? alpha(theme.palette.error.main, 0.02) : 'background.paper',
+        borderColor: warn ? alpha(theme.palette.error.main, 0.5) : 'divider',
+        bgcolor: 'background.paper',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-        <Box sx={{ color: color || 'text.secondary', display: 'flex' }}>{icon}</Box>
-        <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.68rem' }}>
-          {label}
-        </Typography>
-      </Box>
-      <Typography variant="h6" fontWeight={800} color={warn ? 'error.main' : 'text.primary'} sx={{ lineHeight: 1.2 }}>
+      <Typography
+        variant="caption"
+        fontWeight={700}
+        color="text.secondary"
+        sx={{
+          textTransform: 'uppercase',
+          letterSpacing: 0.7,
+          fontSize: '0.68rem',
+          display: 'block',
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        variant="h6"
+        fontWeight={800}
+        color={warn ? 'error.main' : 'text.primary'}
+        sx={{ lineHeight: 1.25, mt: 0.5, letterSpacing: '-0.3px' }}
+      >
         {value}
       </Typography>
       {subtitle && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', mt: 0.25, display: 'block' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', mt: 0.25, display: 'block' }}>
           {subtitle}
         </Typography>
       )}
@@ -164,6 +194,13 @@ export default function CustomerDetails() {
   // Modals
   const [editOpen, setEditOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  // Overflow-menu anchor for the compact header action set. Enterprise
+  // pattern: one primary CTA (Edit) + kebab for the rest, not five
+  // outlined pills competing for attention.
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const openMenu = (e) => setMenuAnchor(e.currentTarget);
+  const closeMenu = () => setMenuAnchor(null);
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -285,14 +322,16 @@ export default function CustomerDetails() {
     }
   }, [id]);
 
-  // Load data based on active tab
+  // Load data based on active tab. Tabs 5-10 (Delivery, Contacts,
+  // Addresses, Notes, Attachments, Custom fields) manage their own
+  // data loading inside their self-contained panel components.
   useEffect(() => {
     if (tabIndex === 0) loadInvoices();
     else if (tabIndex === 1) loadPayments();
     else if (tabIndex === 2) loadLedger();
     else if (tabIndex === 3) loadCreditNotes();
     else if (tabIndex === 4) loadQuotesAndOrders();
-    else if (tabIndex === 5) loadAudit();
+    else if (tabIndex === 11) loadAudit();
   }, [tabIndex, loadInvoices, loadPayments, loadLedger, loadCreditNotes, loadQuotesAndOrders, loadAudit]);
 
   const handleToggleStatus = async () => {
@@ -305,9 +344,15 @@ export default function CustomerDetails() {
     }
   };
 
-  const handleDownloadStatementPdf = () => {
-    const url = getCustomerStatementPdfUrl(id, ledgerDateFrom || null, ledgerDateTo || null);
-    window.open(url, '_blank');
+  const handleDownloadStatementPdf = async () => {
+    try {
+      await downloadCustomerStatementPdf(id, ledgerDateFrom || null, ledgerDateTo || null);
+    } catch (err) {
+      const msg = err?.response?.status === 401
+        ? 'Your session expired. Please sign in again to download the statement.'
+        : err?.response?.data?.message || 'Could not generate the statement PDF.';
+      showSnackbar(msg, 'error');
+    }
   };
 
   const handleCopy = (text, label) => {
@@ -342,98 +387,149 @@ export default function CustomerDetails() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1600, mx: 'auto' }}>
-      {/* ─── 1. TOP HEADER & ACTIONS ────────────────────────────────────── */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          gap: 2,
-          mb: 3,
-        }}
+      {/* ─── Breadcrumb ─────────────────────────────────────────────────── */}
+      <Breadcrumbs
+        separator={<NavigateNextIcon fontSize="small" />}
+        sx={{ mb: 2, '& .MuiBreadcrumbs-separator': { color: 'text.disabled' } }}
+        aria-label="breadcrumb"
       >
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <IconButton onClick={() => navigate('/customers')} sx={{ bgcolor: 'action.hover' }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="h5" fontWeight={800}>
+        <MuiLink
+          component="button"
+          onClick={() => navigate('/customers')}
+          underline="hover"
+          sx={{ fontSize: '0.85rem', fontWeight: 600, color: 'text.secondary', cursor: 'pointer', border: 0, background: 'none', p: 0 }}
+        >
+          Customers
+        </MuiLink>
+        <Typography variant="body2" fontWeight={700} color="text.primary" noWrap sx={{ maxWidth: 360 }}>
+          {customer.name}
+        </Typography>
+      </Breadcrumbs>
+
+      {/* ─── Compact header row ─────────────────────────────────────────── */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ minWidth: 0 }}>
+          <Avatar
+            sx={{
+              width: 44,
+              height: 44,
+              fontSize: '1rem',
+              fontWeight: 800,
+              bgcolor: stringToColor(customer.name),
+            }}
+          >
+            {(customer.name || 'C').charAt(0).toUpperCase()}
+          </Avatar>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+              <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.5px' }} noWrap>
                 {customer.name}
               </Typography>
               <Chip
                 size="small"
                 label={customer.active ? 'Active' : 'Inactive'}
                 color={customer.active ? 'success' : 'default'}
-                sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: '0.7rem' }}
+                variant={customer.active ? 'filled' : 'outlined'}
+                sx={{ fontWeight: 700, height: 22, fontSize: '0.7rem' }}
               />
               <Chip
                 size="small"
-                label={isBusiness ? 'B2B GST' : 'Retail / B2C'}
-                color={isBusiness ? 'info' : 'default'}
-                sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: '0.7rem' }}
+                label={isBusiness ? 'B2B' : 'B2C'}
+                variant="outlined"
+                sx={{ fontWeight: 700, height: 22, fontSize: '0.7rem' }}
               />
+              {customer.creditHold && (
+                <Chip size="small" color="error" label="Credit hold" sx={{ fontWeight: 700, height: 22, fontSize: '0.7rem' }} />
+              )}
             </Stack>
             {customer.tradeName && customer.tradeName !== customer.name && (
               <Typography variant="caption" color="text.secondary">
-                Trading as: {customer.tradeName}
+                Trading as {customer.tradeName}
               </Typography>
             )}
           </Box>
         </Stack>
 
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {customer.phone && (
-            <Button
-              variant="outlined"
-              color="success"
-              startIcon={<WhatsAppIcon />}
-              onClick={() => window.open(`https://wa.me/91${customer.phone.replace(/[^0-9]/g, '')}`, '_blank')}
-              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-            >
-              WhatsApp
-            </Button>
-          )}
-
-          <Button
-            variant="outlined"
-            startIcon={<EmailIcon />}
-            onClick={() => setEmailOpen(true)}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Email Statement
-          </Button>
-
-          <Button
-            variant="outlined"
-            startIcon={<PictureAsPdfIcon />}
-            onClick={handleDownloadStatementPdf}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Statement PDF
-          </Button>
-
-          <Button
-            variant="outlined"
-            color={customer.active ? 'warning' : 'success'}
-            startIcon={customer.active ? <PersonOffIcon /> : <CheckIcon />}
-            onClick={handleToggleStatus}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            {customer.active ? 'Deactivate' : 'Activate'}
-          </Button>
-
+        <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
           <Button
             variant="contained"
             startIcon={<EditIcon />}
             onClick={() => setEditOpen(true)}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2.5, boxShadow: 'none' }}
+            disableElevation
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2 }}
           >
-            Edit Profile
+            Edit
           </Button>
+          <Tooltip title="More actions">
+            <IconButton
+              onClick={openMenu}
+              aria-label="More actions"
+              size="small"
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                width: 38,
+                height: 38,
+              }}
+            >
+              <MoreVertIcon />
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={closeMenu}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{ sx: { minWidth: 220, mt: 0.5, borderRadius: 2 } }}
+          >
+            {customer.phone && (
+              <MenuItem onClick={() => {
+                closeMenu();
+                window.open(`https://wa.me/91${customer.phone.replace(/[^0-9]/g, '')}`, '_blank');
+              }}>
+                <ListItemIcon><WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} /></ListItemIcon>
+                <ListItemText>Message on WhatsApp</ListItemText>
+              </MenuItem>
+            )}
+            <MenuItem onClick={() => { closeMenu(); setEmailOpen(true); }}>
+              <ListItemIcon><EmailIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Email statement</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => { closeMenu(); handleDownloadStatementPdf(); }}>
+              <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Download statement PDF</ListItemText>
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem onClick={() => { closeMenu(); setMergeOpen(true); }}>
+              <ListItemIcon>
+                {/* Merge is a destructive-ish action but not warning-colored
+                    until confirmed — matches Zoho / QuickBooks convention. */}
+                <PersonIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Merge with another customer…</ListItemText>
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem onClick={() => { closeMenu(); handleToggleStatus(); }}>
+              <ListItemIcon>
+                {customer.active
+                  ? <PersonOffIcon fontSize="small" sx={{ color: 'warning.main' }} />
+                  : <CheckIcon fontSize="small" sx={{ color: 'success.main' }} />}
+              </ListItemIcon>
+              <ListItemText sx={{ color: customer.active ? 'warning.main' : 'success.main' }}>
+                {customer.active ? 'Deactivate customer' : 'Activate customer'}
+              </ListItemText>
+            </MenuItem>
+          </Menu>
         </Stack>
-      </Box>
+      </Stack>
 
       {/* ─── 2. MAIN 2-COLUMN LAYOUT ────────────────────────────────────── */}
       <Grid container spacing={3}>
@@ -449,44 +545,27 @@ export default function CustomerDetails() {
               bgcolor: 'background.paper',
             }}
           >
-            {/* Avatar & Header */}
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Avatar
-                sx={{
-                  width: 72,
-                  height: 72,
-                  fontSize: '1.75rem',
-                  fontWeight: 800,
-                  bgcolor: stringToColor(customer.name),
-                  mx: 'auto',
-                  mb: 1.5,
-                  boxShadow: 3,
-                }}
-              >
-                {(customer.name || 'C').charAt(0).toUpperCase()}
-              </Avatar>
-              <Typography variant="h6" fontWeight={800}>
-                {customer.name}
-              </Typography>
-              {customer.legalName && (
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Legal: {customer.legalName}
+            {/*
+              The name + avatar identity block lives in the page header now
+              (compact inline layout) — showing it a second time in the
+              sidebar was redundant. What stays here is the shop-specific
+              detail: legal name (only when it differs from display), tags,
+              contact info, and statutory block below.
+             */}
+            {customer.legalName && customer.legalName !== customer.name && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', mb: 0.5 }}>
+                  Legal name
                 </Typography>
-              )}
-              {customer.tags && (
-                <Stack direction="row" spacing={0.5} justifyContent="center" sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
-                  {customer.tags.split(',').map((t, idx) => (
-                    <Chip key={idx} label={t.trim()} size="small" sx={{ fontSize: '0.68rem', height: 20 }} />
-                  ))}
-                </Stack>
-              )}
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
+                <Typography variant="body2" fontWeight={700}>
+                  {customer.legalName}
+                </Typography>
+              </Box>
+            )}
 
             {/* Contact Details */}
             <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', mb: 1.5 }}>
-              Contact Information
+              Contact
             </Typography>
 
             <Stack spacing={1.5}>
@@ -615,6 +694,11 @@ export default function CustomerDetails() {
               </Grid>
             </Grid>
 
+            {/* V115 — Segments picker. Renders empty state gracefully when
+                the customer has no segments and the shop has no catalogue yet. */}
+            <Divider sx={{ my: 2 }} />
+            <CustomerSegmentsPicker customerId={id} />
+
             {customer.notes && (
               <>
                 <Divider sx={{ my: 2 }} />
@@ -631,51 +715,52 @@ export default function CustomerDetails() {
 
         {/* RIGHT COLUMN: KPI Tiles & 6 Enterprise Tabs (8 / 12 on md) */}
         <Grid item xs={12} md={8} lg={8.5}>
-          {/* Top KPI Metrics Strip */}
+          {/* KPI strip — flat, dense, no chart-y icon boxes. Metric name
+              (uppercase caption) + value + tiny caption. Matches Zoho Books
+              / Xero enterprise metric tiles. */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={6} sm={3}>
               <KpiTile
-                icon={<WalletIcon fontSize="small" />}
-                label="Net Balance"
+                label="Net balance"
                 value={isOwed ? `-${inr(Math.abs(balance))}` : inr(balance)}
-                color={isOwed ? theme.palette.error.main : theme.palette.success.main}
-                subtitle={isOwed ? 'Customer Owes' : balance > 0 ? 'Advance Credit' : 'Zero Balance'}
+                subtitle={isOwed ? 'Customer owes' : balance > 0 ? 'Advance credit' : 'Zero balance'}
                 warn={isOwed}
               />
             </Grid>
-
             <Grid item xs={6} sm={3}>
               <KpiTile
-                icon={<TrendingUpIcon fontSize="small" />}
-                label="Total Sales"
+                label="Total sales"
                 value={inr(stats?.totalSalesValue)}
-                color={theme.palette.primary.main}
-                subtitle={`${stats?.totalSales || 0} Invoices`}
+                subtitle={`${stats?.totalSales || 0} invoices`}
               />
             </Grid>
-
             <Grid item xs={6} sm={3}>
               <KpiTile
-                icon={<PaymentsIcon fontSize="small" />}
-                label="Avg Order"
+                label="Avg order"
                 value={inr(stats?.averageOrderValue)}
-                color="#8b5cf6"
-                subtitle="Per sale transaction"
+                subtitle="Per invoice"
               />
             </Grid>
-
             <Grid item xs={6} sm={3}>
               <KpiTile
-                icon={<ReceiptLongIcon fontSize="small" />}
-                label="Advance Balance"
+                label="Advance balance"
                 value={inr(stats?.advanceBalance)}
-                color={theme.palette.info.main}
-                subtitle="Unallocated Credit"
+                subtitle="Unallocated credit"
               />
             </Grid>
           </Grid>
 
-          {/* 6 TABS NAVIGATION */}
+          {/* V115 — Credit hold banner + credit-limit utilization gauge.
+              Both render nothing when not applicable, so the empty
+              state on a healthy customer stays clean. */}
+          <CreditStatusPanel customer={customer} stats={stats} />
+
+          {/* V115 — Aging bucket bar. Renders nothing when total
+              outstanding is zero, so healthy accounts don't get a
+              row of "₹0 across zero buckets". */}
+          <AgingBucketsBar stats={stats} />
+
+          {/* TABS NAVIGATION */}
           <Paper
             elevation={0}
             sx={{
@@ -688,12 +773,18 @@ export default function CustomerDetails() {
           >
             <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2, bgcolor: 'background.default' }}>
               <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} variant="scrollable" scrollButtons="auto">
-                <Tab icon={<ReceiptLongIcon fontSize="small" />} iconPosition="start" label="Invoices (Sales)" />
-                <Tab icon={<PaymentsIcon fontSize="small" />} iconPosition="start" label="Payments Received" />
-                <Tab icon={<WalletIcon fontSize="small" />} iconPosition="start" label="Statement (Ledger)" />
-                <Tab icon={<TrendingUpIcon fontSize="small" />} iconPosition="start" label="Credit Notes" />
-                <Tab icon={<QuoteIcon fontSize="small" />} iconPosition="start" label="Quotes & Orders" />
-                <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="Notes & Activity" />
+                <Tab icon={<ReceiptLongIcon fontSize="small" />} iconPosition="start" label="Invoices" />
+                <Tab icon={<PaymentsIcon fontSize="small" />} iconPosition="start" label="Payments" />
+                <Tab icon={<WalletIcon fontSize="small" />} iconPosition="start" label="Statement" />
+                <Tab icon={<TrendingUpIcon fontSize="small" />} iconPosition="start" label="Credit notes" />
+                <Tab icon={<QuoteIcon fontSize="small" />} iconPosition="start" label="Quotes & orders" />
+                <Tab icon={<LocalShippingIcon fontSize="small" />} iconPosition="start" label="Delivery" />
+                <Tab icon={<ContactMailIcon fontSize="small" />} iconPosition="start" label="Contacts" />
+                <Tab icon={<HomeIcon fontSize="small" />} iconPosition="start" label="Addresses" />
+                <Tab icon={<StickyNoteIcon fontSize="small" />} iconPosition="start" label="Notes" />
+                <Tab icon={<DescriptionIcon fontSize="small" />} iconPosition="start" label="Attachments" />
+                <Tab icon={<SellIcon fontSize="small" />} iconPosition="start" label="Custom fields" />
+                <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="Activity" />
               </Tabs>
             </Box>
 
@@ -784,7 +875,15 @@ export default function CustomerDetails() {
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    onClick={() => navigate(`/sales`)}
+                                    // Deep-link into the Sales History tab and pre-fill the search box
+                                    // with this invoice number — SalesHistory reads `search` from the URL
+                                    // (SalesHistory.jsx:527) and filters the list down to the target row.
+                                    // Previously navigated to bare `/sales` with no context, which was a
+                                    // dead action.
+                                    onClick={() => {
+                                      const q = inv.invoiceNo || inv.saleId || inv.id;
+                                      navigate(`/sales?tab=history&search=${encodeURIComponent(q)}`);
+                                    }}
                                     sx={{ fontSize: '0.75rem', py: 0.25 }}
                                   >
                                     View
@@ -1145,11 +1244,29 @@ export default function CustomerDetails() {
                 </Box>
               )}
 
-              {/* ─── TAB 5: NOTES & ACTIVITY ─────────────────────────────────── */}
-              {tabIndex === 5 && (
+              {/* ─── TAB 5: DELIVERY CHALLANS ──────────────────────────────── */}
+              {tabIndex === 5 && <CustomerDeliveryChallansPanel customerId={id} />}
+
+              {/* ─── TAB 6: CONTACTS ───────────────────────────────────────── */}
+              {tabIndex === 6 && <CustomerContactsPanel customerId={id} />}
+
+              {/* ─── TAB 7: ADDRESSES ──────────────────────────────────────── */}
+              {tabIndex === 7 && <CustomerAddressesPanel customerId={id} />}
+
+              {/* ─── TAB 8: NOTES ──────────────────────────────────────────── */}
+              {tabIndex === 8 && <CustomerNotesPanel customerId={id} />}
+
+              {/* ─── TAB 9: ATTACHMENTS ─────────────────────────────────────── */}
+              {tabIndex === 9 && <CustomerAttachmentsPanel customerId={id} />}
+
+              {/* ─── TAB 10: CUSTOM FIELDS ─────────────────────────────────── */}
+              {tabIndex === 10 && <CustomerCustomFieldsPanel customerId={id} />}
+
+              {/* ─── TAB 11: ACTIVITY (system audit trail) ────────────────── */}
+              {tabIndex === 11 && (
                 <Box>
                   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-                    Customer Audit Trail & Profile Activity
+                    Profile activity
                   </Typography>
 
                   {auditLoading ? (
@@ -1231,6 +1348,21 @@ export default function CustomerDetails() {
         customerName={customer.name}
         customerEmail={customer.email}
         onSuccess={(msg) => showSnackbar(msg)}
+      />
+
+      {/* Merge into another customer dialog. Navigates away on
+          success since the source (current) customer is deleted
+          when it's the merge SOURCE — but in this flow the current
+          customer is the TARGET, so we stay put and just reload. */}
+      <CustomerMergeDialog
+        open={mergeOpen}
+        onClose={() => setMergeOpen(false)}
+        targetCustomer={customer}
+        onMerged={(summary) => {
+          setMergeOpen(false);
+          showSnackbar(`Merged ${summary.sourceName} into this customer.`);
+          loadProfile();
+        }}
       />
 
       {/* Snackbar */}

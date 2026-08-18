@@ -1,5 +1,15 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+
+/**
+ * Legacy alias — /customer-details/:id/dues is a URL the old
+ * SalesHistory page linked to. Rather than keep dual routes, we
+ *301 through to the canonical /customers/:id.
+ */
+const LegacyDuesRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/customers/${id}`} replace />;
+};
 import PrivateRoute from './PrivateRoute';
 import MainLayout from '../components/layout/MainLayout'; // Updated to use your responsive layout
 import Dashboard from '../pages/Dashboard';
@@ -257,11 +267,14 @@ function AppRoutes() {
             <Route path="stock/bundles" element={<ErrorBoundary resetKey="stock/bundles"><ProductBundlesPage /></ErrorBoundary>} />
             <Route path="stock/uom" element={<ErrorBoundary resetKey="stock/uom"><UomSettingsPage /></ErrorBoundary>} />
             <Route path="stock/labels" element={<ErrorBoundary resetKey="stock/labels"><BarcodeLabelsPage /></ErrorBoundary>} />
-            <Route path="customers" element={<Customers />} />
+            <Route path="customers" element={<ErrorBoundary resetKey="customers"><Customers /></ErrorBoundary>} />
             {/* V104 enterprise detail page — /customers/:id */}
-            <Route path="customers/:id" element={<CustomerDetails />} />
-            {/* Legacy ledger route — kept for deep links from SalesHistory */}
-            <Route path="customer-details/:id/dues" element={<CustomerDetails />} />
+            <Route path="customers/:id" element={<ErrorBoundary resetKey="customers/:id"><CustomerDetails /></ErrorBoundary>} />
+            {/* Legacy ledger route retired in Phase 4 — redirect deep-links from
+                SalesHistory to the canonical /customers/:id URL. Preserves any
+                cached bookmarks pointing at the old path without duplicating the
+                page render. */}
+            <Route path="customer-details/:id/dues" element={<LegacyDuesRedirect />} />
 
             <Route path="sales" element={<Sales />} />
             <Route path="sales/drafts" element={<Sales />} />

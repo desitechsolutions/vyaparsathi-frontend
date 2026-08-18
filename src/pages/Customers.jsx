@@ -35,6 +35,7 @@ import {
   TableSortLabel,
   Checkbox,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,6 +44,8 @@ import {
   CloudUpload as ImportIcon,
   CloudDownload as ExportIcon,
   Refresh as RefreshIcon,
+  FilterList as FilterListIcon,
+  ViewColumn as ViewColumnIcon,
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
@@ -63,42 +66,58 @@ import { CustomerKpiStrip } from '../components/customers/CustomerKpiStrip';
 import { CustomerBulkActionBar } from '../components/customers/CustomerBulkActionBar';
 import { CustomerEditDialog } from '../components/customers/CustomerEditDialog';
 import { CustomerCsvImportDialog } from '../components/customers/CustomerCsvImportDialog';
+import CustomerFilterDrawer from '../components/customers/CustomerFilterDrawer';
+import { inr, stringToColor } from '../utils/customerFormat';
 
-const inr = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-
-const stringToColor = (string) => {
-  let hash = 0;
-  for (let i = 0; i < (string || '').length; i += 1) {
-    hash = string.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  let color = '#';
-  for (let i = 0; i < 3; i += 1) {
-    const value = (hash >> (i * 8)) & 0xff;
-    color += `00${value.toString(16)}`.slice(-2);
-  }
-  return color;
-};
-
-const FilterChip = ({ active, onClick, label, count, color }) => (
+/**
+ * Filter chip — enterprise flavour. Neutral border in idle state
+ * (color-coded borders looked consumer-app-y), a solid primary fill
+ * only on the selected chip. Count sits in a subtle bubble instead
+ * of parenthesized text so it reads as data, not caption.
+ *
+ * <p>The {@code color} prop is now ignored (kept in the signature so
+ * call sites don't need to change) — active chip always uses the
+ * theme primary so filter selection is uniform.</p>
+ */
+const FilterChip = ({ active, onClick, label, count }) => (
   <Chip
     label={
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
         {label}
-        {count !== undefined && <Box component="span" sx={{ opacity: 0.75, fontWeight: 600 }}>({count})</Box>}
+        {count !== undefined && (
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 20,
+              px: 0.75,
+              height: 18,
+              borderRadius: 9,
+              bgcolor: active ? 'rgba(255,255,255,0.22)' : 'action.hover',
+              color: active ? 'common.white' : 'text.secondary',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {count}
+          </Box>
+        )}
       </Box>
     }
     size="small"
     onClick={onClick}
     clickable
     variant={active ? 'filled' : 'outlined'}
+    color={active ? 'primary' : 'default'}
     sx={{
       fontWeight: 600,
-      borderRadius: 2,
-      bgcolor: active ? color || 'primary.main' : 'transparent',
-      color: active ? 'common.white' : 'text.primary',
-      borderColor: color || 'divider',
+      borderRadius: 1.5,
+      borderColor: active ? 'primary.main' : 'divider',
       '&:hover': {
-        bgcolor: active ? color || 'primary.main' : color ? alpha(color, 0.08) : 'action.hover',
+        bgcolor: active ? 'primary.main' : 'action.hover',
       },
     }}
   />
@@ -139,6 +158,27 @@ export default function Customers() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [columnMenuAnchor, setColumnMenuAnchor] = useState(null);
+
+  // Column visibility — persisted to localStorage so a shop keeps its
+  // preference across sessions. All columns visible by default.
+  const [columnVisibility, setColumnVisibility] = useState(() => {
+    try {
+      const raw = localStorage.getItem('vs.customers.columnVisibility');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const toggleColumn = (key) => {
+    setColumnVisibility((prev) => {
+      const next = { ...prev, [key]: !(prev[key] === false ? false : (prev[key] ?? true)) };
+      try { localStorage.setItem('vs.customers.columnVisibility', JSON.stringify(next)); } catch { /* noop */ }
+      return next;
+    });
+  };
+  const colVisible = (key) => columnVisibility[key] !== false;
 
   // Row Action Menu
   const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
@@ -217,70 +257,142 @@ export default function Customers() {
     setFilters((prev) => ({ ...prev, search: '' }));
   };
 
+  /**
+   * Export just the currently-selected rows to CSV, client-side.
+   * The full-tenant export still uses the backend endpoint (all rows);
+   * this is for the "selection subset" case the bulk action bar exposes.
+   */
+  const handleExportSelected = () => {
+    if (!selectedIds.length) return;
+    const idSet = new Set(selectedIds);
+    const rows = customers.filter((c) => idSet.has(c.id));
+    if (rows.length === 0) return;
+    const header = ['Name', 'Trade Name', 'Legal Name', 'Phone', 'Email', 'City', 'State', 'GSTIN', 'PAN', 'Customer Type', 'Credit Limit', 'Credit Balance', 'Active'];
+    const escape = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [header.join(',')];
+    rows.forEach((r) => {
+      lines.push([
+        r.name, r.tradeName, r.legalName, r.phone, r.email,
+        r.city, r.state, r.gstNumber, r.panNumber, r.customerType,
+        r.creditLimit, r.creditBalance, r.active ? 'YES' : 'NO',
+      ].map(escape).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `customers_selected_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+  };
+
   const isAllSelected = customers.length > 0 && selectedIds.length === customers.length;
   const isSomeSelected = selectedIds.length > 0 && selectedIds.length < customers.length;
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1600, mx: 'auto' }}>
-      {/* ─── 1. PAGE HEADER ──────────────────────────────────────────────── */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          gap: 2,
-          mb: 3,
-        }}
+      {/* ─── Slim page header (Zoho Books / Xero pattern) ────────────────
+          Small title, plain-english subtitle (not marketing copy), one
+          primary CTA, secondary actions consolidated into an overflow
+          menu — matches enterprise convention.
+       */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
       >
         <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: -0.5, color: 'text.primary' }}>
+          <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
             Customers
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Enterprise Client Management • B2B & B2C Accounts • Ledger & Receivables
+            {kpis && typeof kpis.total === 'number'
+              ? `${kpis.total} total · ${kpis.active || 0} active`
+              : 'Customer accounts, ledger and receivables'}
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={refreshData}
-            disabled={isLoading}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="outlined"
-            startIcon={<ExportIcon />}
-            onClick={handleExportCsv}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Export CSV
-          </Button>
-
-          <Button
-            variant="outlined"
-            startIcon={<ImportIcon />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Import CSV
-          </Button>
-
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip title="Filters">
+            <IconButton
+              onClick={() => setFilterDrawerOpen(true)}
+              size="small"
+              aria-label="Open filters"
+              sx={{
+                border: '1px solid',
+                borderColor: (filters.city || filters.source || filters.tags || filters.creditStatus || (filters.segmentIds && filters.segmentIds.length))
+                  ? 'primary.main' : 'divider',
+                borderRadius: 2, width: 38, height: 38,
+                color: (filters.city || filters.source || filters.tags || filters.creditStatus || (filters.segmentIds && filters.segmentIds.length))
+                  ? 'primary.main' : 'inherit',
+              }}
+            >
+              <FilterListIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Column visibility">
+            <IconButton
+              onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
+              size="small"
+              aria-label="Column visibility"
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+            >
+              <ViewColumnIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Reload">
+            <span>
+              <IconButton
+                onClick={refreshData}
+                disabled={isLoading}
+                size="small"
+                aria-label="Reload customers"
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Import CSV">
+            <IconButton
+              onClick={() => setImportDialogOpen(true)}
+              size="small"
+              aria-label="Import CSV"
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+            >
+              <ImportIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Export CSV">
+            <IconButton
+              onClick={handleExportCsv}
+              size="small"
+              aria-label="Export CSV"
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+            >
+              <ExportIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenCreate}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2.5, boxShadow: 'none' }}
+            disableElevation
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2 }}
           >
-            Add Customer
+            Add customer
           </Button>
         </Stack>
-      </Box>
+      </Stack>
 
       {/* ─── 2. KPI STRIP ────────────────────────────────────────────────── */}
       <CustomerKpiStrip kpis={kpis} loading={isKpisLoading} />
@@ -330,7 +442,13 @@ export default function Customers() {
               count={kpis?.inactiveCustomers}
             />
 
-            <Box sx={{ width: 1, height: 20, bgcolor: 'divider', mx: 1 }} />
+            {/* Vertical separator between STATUS and TYPE groups. Was
+                previously `<Box sx={{ width: 1, ... }}/>` which MUI's sx
+                interprets as `width: 100%` (fractional), so on wrap it
+                rendered as a full-width grey bar spanning the row.
+                Divider with orientation="vertical" + flexItem does the
+                right thing at any wrap state. */}
+            <Divider orientation="vertical" flexItem sx={{ mx: 1, my: 0.5 }} />
 
             <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mr: 0.5, textTransform: 'uppercase' }}>
               Type:
@@ -422,57 +540,67 @@ export default function Customers() {
                   </TableSortLabel>
                 </TableCell>
 
-                <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
+                {colVisible('type') && <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>}
 
-                <TableCell>
-                  <TableSortLabel
-                    active={filters.sortBy === 'phone'}
-                    direction={filters.sortBy === 'phone' ? filters.sortDir : 'asc'}
-                    onClick={() => handleSort('phone')}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Contact Info
-                  </TableSortLabel>
-                </TableCell>
+                {colVisible('contact') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={filters.sortBy === 'phone'}
+                      direction={filters.sortBy === 'phone' ? filters.sortDir : 'asc'}
+                      onClick={() => handleSort('phone')}
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Contact Info
+                    </TableSortLabel>
+                  </TableCell>
+                )}
 
-                <TableCell sx={{ fontWeight: 700 }}>GSTIN / PAN</TableCell>
+                {colVisible('statutory') && <TableCell sx={{ fontWeight: 700 }}>GSTIN / PAN</TableCell>}
 
-                <TableCell>
-                  <TableSortLabel
-                    active={filters.sortBy === 'city'}
-                    direction={filters.sortBy === 'city' ? filters.sortDir : 'asc'}
-                    onClick={() => handleSort('city')}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Location
-                  </TableSortLabel>
-                </TableCell>
+                {colVisible('location') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={filters.sortBy === 'city'}
+                      direction={filters.sortBy === 'city' ? filters.sortDir : 'asc'}
+                      onClick={() => handleSort('city')}
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Location
+                    </TableSortLabel>
+                  </TableCell>
+                )}
 
-                <TableCell align="right">
-                  <TableSortLabel
-                    active={filters.sortBy === 'creditLimit'}
-                    direction={filters.sortBy === 'creditLimit' ? filters.sortDir : 'asc'}
-                    onClick={() => handleSort('creditLimit')}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Credit Limit
-                  </TableSortLabel>
-                </TableCell>
+                {colVisible('credit') && (
+                  <TableCell align="right">
+                    <TableSortLabel
+                      active={filters.sortBy === 'creditLimit'}
+                      direction={filters.sortBy === 'creditLimit' ? filters.sortDir : 'asc'}
+                      onClick={() => handleSort('creditLimit')}
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Credit Limit
+                    </TableSortLabel>
+                  </TableCell>
+                )}
 
-                <TableCell align="right">
-                  <TableSortLabel
-                    active={filters.sortBy === 'creditBalance'}
-                    direction={filters.sortBy === 'creditBalance' ? filters.sortDir : 'asc'}
-                    onClick={() => handleSort('creditBalance')}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Outstanding / Balance
-                  </TableSortLabel>
-                </TableCell>
+                {colVisible('balance') && (
+                  <TableCell align="right">
+                    <TableSortLabel
+                      active={filters.sortBy === 'creditBalance'}
+                      direction={filters.sortBy === 'creditBalance' ? filters.sortDir : 'asc'}
+                      onClick={() => handleSort('creditBalance')}
+                      sx={{ fontWeight: 700 }}
+                    >
+                      Outstanding / Balance
+                    </TableSortLabel>
+                  </TableCell>
+                )}
 
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  Status
-                </TableCell>
+                {colVisible('status') && (
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>
+                    Status
+                  </TableCell>
+                )}
 
                 <TableCell align="right" sx={{ fontWeight: 700 }}>
                   Actions
@@ -579,97 +707,111 @@ export default function Customers() {
                       </TableCell>
 
                       {/* Type */}
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={isBusiness ? 'B2B' : 'B2C'}
-                          color={isBusiness ? 'info' : 'default'}
-                          variant="filled"
-                          sx={{
-                            fontWeight: 700,
-                            borderRadius: 1.5,
-                            fontSize: '0.72rem',
-                          }}
-                        />
-                      </TableCell>
+                      {colVisible('type') && (
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={isBusiness ? 'B2B' : 'B2C'}
+                            color={isBusiness ? 'info' : 'default'}
+                            variant="filled"
+                            sx={{
+                              fontWeight: 700,
+                              borderRadius: 1.5,
+                              fontSize: '0.72rem',
+                            }}
+                          />
+                        </TableCell>
+                      )}
 
                       {/* Contact */}
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600} color="text.primary">
-                          {c.phone ? `+91 ${c.phone}` : '—'}
-                        </Typography>
-                        {c.email && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {c.email}
+                      {colVisible('contact') && (
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600} color="text.primary">
+                            {c.phone ? `+91 ${c.phone}` : '—'}
                           </Typography>
-                        )}
-                      </TableCell>
+                          {c.email && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {c.email}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      )}
 
                       {/* GSTIN / PAN */}
-                      <TableCell>
-                        {c.gstNumber ? (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem' }}>
-                            {c.gstNumber}
-                          </Typography>
-                        ) : c.panNumber ? (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', fontSize: '0.8rem' }}>
-                            PAN: {c.panNumber}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" color="text.disabled">
-                            Unregistered
-                          </Typography>
-                        )}
-                      </TableCell>
+                      {colVisible('statutory') && (
+                        <TableCell>
+                          {c.gstNumber ? (
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.8rem' }}>
+                              {c.gstNumber}
+                            </Typography>
+                          ) : c.panNumber ? (
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', fontSize: '0.8rem' }}>
+                              PAN: {c.panNumber}
+                            </Typography>
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">
+                              Unregistered
+                            </Typography>
+                          )}
+                        </TableCell>
+                      )}
 
                       {/* City */}
-                      <TableCell>
-                        <Typography variant="body2" color="text.primary">
-                          {c.city || '—'}
-                        </Typography>
-                        {c.state && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {c.state}
+                      {colVisible('location') && (
+                        <TableCell>
+                          <Typography variant="body2" color="text.primary">
+                            {c.city || '—'}
                           </Typography>
-                        )}
-                      </TableCell>
+                          {c.state && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {c.state}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      )}
 
                       {/* Credit Limit */}
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight={600}>
-                          {c.creditLimit > 0 ? inr(c.creditLimit) : '—'}
-                        </Typography>
-                        {c.creditDays ? (
-                          <Typography variant="caption" color="text.secondary">
-                            {c.creditDays} Days
+                      {colVisible('credit') && (
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={600}>
+                            {c.creditLimit > 0 ? inr(c.creditLimit) : '—'}
                           </Typography>
-                        ) : null}
-                      </TableCell>
+                          {c.creditDays ? (
+                            <Typography variant="caption" color="text.secondary">
+                              {c.creditDays} Days
+                            </Typography>
+                          ) : null}
+                        </TableCell>
+                      )}
 
                       {/* Outstanding Balance */}
-                      <TableCell align="right">
-                        <Typography
-                          variant="body2"
-                          fontWeight={800}
-                          color={isOwed ? 'error.main' : bal > 0 ? 'success.main' : 'text.primary'}
-                        >
-                          {isOwed ? `-${inr(Math.abs(bal))}` : inr(bal)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {isOwed ? 'Customer Owes' : bal > 0 ? 'Advance Credit' : 'Settled'}
-                        </Typography>
-                      </TableCell>
+                      {colVisible('balance') && (
+                        <TableCell align="right">
+                          <Typography
+                            variant="body2"
+                            fontWeight={800}
+                            color={isOwed ? 'error.main' : bal > 0 ? 'success.main' : 'text.primary'}
+                          >
+                            {isOwed ? `-${inr(Math.abs(bal))}` : inr(bal)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {isOwed ? 'Customer Owes' : bal > 0 ? 'Advance Credit' : 'Settled'}
+                          </Typography>
+                        </TableCell>
+                      )}
 
                       {/* Status */}
-                      <TableCell align="center">
-                        <Chip
-                          size="small"
-                          label={c.active ? 'Active' : 'Inactive'}
-                          color={c.active ? 'success' : 'default'}
-                          variant="outlined"
-                          sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: '0.7rem' }}
-                        />
-                      </TableCell>
+                      {colVisible('status') && (
+                        <TableCell align="center">
+                          <Chip
+                            size="small"
+                            label={c.active ? 'Active' : 'Inactive'}
+                            color={c.active ? 'success' : 'default'}
+                            variant="outlined"
+                            sx={{ fontWeight: 700, borderRadius: 1.5, fontSize: '0.7rem' }}
+                          />
+                        </TableCell>
+                      )}
 
                       {/* Actions */}
                       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
@@ -734,6 +876,7 @@ export default function Customers() {
         onBulkActivate={() => handleBulkToggleActive(true)}
         onBulkDeactivate={() => handleBulkToggleActive(false)}
         onBulkDelete={handleBulkDelete}
+        onBulkExport={handleExportSelected}
       />
 
       {/* ─── 6. ROW ACTION MENU ─────────────────────────────────────────── */}
@@ -857,6 +1000,45 @@ export default function Customers() {
         onClose={() => setImportDialogOpen(false)}
         onImport={handleImportCsv}
       />
+
+      {/* ─── Faceted filter drawer ──────────────────────────────────────── */}
+      <CustomerFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={filters}
+        onApply={(patch) => {
+          setFilters((prev) => ({ ...prev, ...patch }));
+          setPagination((prev) => ({ ...prev, page: 0 }));
+        }}
+      />
+
+      {/* ─── Column visibility menu ─────────────────────────────────────── */}
+      <Menu
+        anchorEl={columnMenuAnchor}
+        open={Boolean(columnMenuAnchor)}
+        onClose={() => setColumnMenuAnchor(null)}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 220 } }}
+      >
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+            Show columns
+          </Typography>
+        </Box>
+        {[
+          { key: 'type',        label: 'Type' },
+          { key: 'contact',     label: 'Contact info' },
+          { key: 'statutory',   label: 'GSTIN / PAN' },
+          { key: 'location',    label: 'Location' },
+          { key: 'credit',      label: 'Credit terms' },
+          { key: 'balance',     label: 'Outstanding / Balance' },
+          { key: 'status',      label: 'Status' },
+        ].map((c) => (
+          <MenuItem key={c.key} onClick={() => toggleColumn(c.key)} dense>
+            <Checkbox size="small" checked={colVisible(c.key)} sx={{ p: 0.5, mr: 1 }} />
+            <Typography variant="body2">{c.label}</Typography>
+          </MenuItem>
+        ))}
+      </Menu>
 
       {/* ─── 10. SNACKBAR NOTIFICATIONS ─────────────────────────────────── */}
       <Snackbar

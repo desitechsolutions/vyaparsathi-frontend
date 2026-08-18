@@ -5,6 +5,7 @@ import {
   CancelOutlined as InactiveIcon,
   DeleteOutline as DeleteIcon,
   Close as CloseIcon,
+  FileDownload as ExportIcon,
 } from '@mui/icons-material';
 
 export const CustomerBulkActionBar = ({
@@ -13,6 +14,7 @@ export const CustomerBulkActionBar = ({
   onBulkActivate,
   onBulkDeactivate,
   onBulkDelete,
+  onBulkExport,
 }) => {
   const theme = useTheme();
 
@@ -59,6 +61,18 @@ export const CustomerBulkActionBar = ({
       <Divider orientation="vertical" flexItem />
 
       <Stack direction="row" spacing={1}>
+        {onBulkExport && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ExportIcon />}
+            onClick={onBulkExport}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+          >
+            Export selected
+          </Button>
+        )}
+
         <Button
           size="small"
           variant="outlined"

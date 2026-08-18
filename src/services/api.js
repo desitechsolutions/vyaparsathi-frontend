@@ -481,7 +481,33 @@ export const importStockFromExcel = (file) => {
 
 // --- CUSTOMERS ---
 
-export const fetchCustomers = () => API.get(endpoints.customers);
+/**
+ * Legacy customer list — kept for callers that use it as a picker
+ * source (invoice creation, dashboard widget). Under the hood it now
+ * hits the paged endpoint with a hard 500-row cap so a tenant with
+ * 50k customers can't OOM the browser tab.
+ *
+ * <p>Response is wrapped to look exactly like the old unpaged
+ * `GET /api/customers` (an array under `data`) — so every caller
+ * continues to work without a change.</p>
+ *
+ * <p>New callers should use {@link fetchCustomersPaged} directly and
+ * do their own server-side filtering / pagination.</p>
+ */
+export const fetchCustomers = async () => {
+  const page = await API.get('/api/customers/paged', { params: { size: 500 } });
+  const body = page?.data || {};
+  const list = Array.isArray(body.content) ? body.content : [];
+  if (typeof body.totalElements === 'number' && body.totalElements > list.length) {
+    // Not a hard error — just a heads-up so we can find and migrate
+    // legacy callers over time.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[fetchCustomers] Legacy unpaged call: ${body.totalElements} customers exist but only ${list.length} returned. Migrate this caller to fetchCustomersPaged.`,
+    );
+  }
+  return { data: list };
+};
 export const createCustomer = (data) => API.post(endpoints.customers, data);
 export const updateCustomer = (id, data) => API.put(`${endpoints.customers}/${id}`, data);
 export const fetchCustomer = (id, data) => API.get(`${endpoints.customers}/${id}`, data);
@@ -540,6 +566,15 @@ export const fetchCustomerSalesOrders = (customerId, page = 0, size = 20) =>
 export const sendCustomerStatementEmail = (customerId, data) =>
   API.post(`/api/customers/${customerId}/statement/email`, data).then((r) => r.data);
 
+/**
+ * @deprecated Use {@link downloadCustomerStatementPdf} instead.
+ *
+ * Returns the raw endpoint path — but opening this via `window.open`
+ * doesn't work: the browser fetch of a new tab can't attach the
+ * Authorization header, so the endpoint responds 401 and the user
+ * sees the raw URL in the address bar with no PDF. Left here only
+ * so any lingering caller still resolves.
+ */
 export const getCustomerStatementPdfUrl = (customerId, from, to) => {
   const query = [];
   if (from) query.push(`from=${from}`);
@@ -547,6 +582,170 @@ export const getCustomerStatementPdfUrl = (customerId, from, to) => {
   const qStr = query.length > 0 ? `?${query.join('&')}` : '';
   return `/api/customers/${customerId}/statement/pdf${qStr}`;
 };
+
+/**
+ * Fetches the customer statement PDF as an authenticated blob and
+ * triggers a browser download via a programmatic anchor click.
+ *
+ * <p>We deliberately do NOT use {@code window.open(blobUrl, '_blank')}
+ * — a popup blocker can silently swallow it and (worse) some browsers
+ * follow up by navigating the CURRENT tab to the blob URL, so the
+ * user sees the PDF replace the page they were on. The anchor +
+ * download attribute pattern side-steps both: the current page never
+ * moves, and even blocked popups don't turn into navigations.</p>
+ *
+ * <p>Uses the axios instance so the JWT Authorization header + tenant
+ * cookies travel with the request; a raw `window.open` on the path
+ * can't send those and would 401.</p>
+ */
+export const downloadCustomerStatementPdf = async (customerId, from, to) => {
+  const params = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
+  const res = await API.get(`/api/customers/${customerId}/statement/pdf`, {
+    params,
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const blobUrl = window.URL.createObjectURL(blob);
+  const filename = `Customer_${customerId}_Statement${from ? `_${from}` : ''}${to ? `_${to}` : ''}.pdf`;
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Release the blob URL a minute later — long enough for the browser
+  // to have finished the download, short enough not to leak.
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+};
+
+// ─── V115 enterprise Customer helpers ────────────────────────────────
+
+/** Live duplicate lookup for the customer create/edit form. */
+export const findCustomerDuplicates = (params) =>
+  API.get('/api/customers/duplicates', { params }).then((r) => r.data);
+
+/** 7th sub-resource — delivery challans for a customer. */
+export const fetchCustomerDeliveryChallans = (customerId, page = 0, size = 20) =>
+  API.get(`/api/customers/${customerId}/delivery-challans`, { params: { page, size } }).then((r) => r.data);
+
+// ── Customer Contacts ─────────────────────────────────────────────
+export const fetchCustomerContacts = (customerId) =>
+  API.get(`/api/customers/${customerId}/contacts`).then((r) => r.data);
+export const createCustomerContact = (customerId, data) =>
+  API.post(`/api/customers/${customerId}/contacts`, data).then((r) => r.data);
+export const updateCustomerContact = (customerId, contactId, data) =>
+  API.put(`/api/customers/${customerId}/contacts/${contactId}`, data).then((r) => r.data);
+export const deleteCustomerContact = (customerId, contactId) =>
+  API.delete(`/api/customers/${customerId}/contacts/${contactId}`).then((r) => r.data);
+export const setPrimaryCustomerContact = (customerId, contactId) =>
+  API.post(`/api/customers/${customerId}/contacts/${contactId}/set-primary`).then((r) => r.data);
+
+// ── Customer Addresses ────────────────────────────────────────────
+export const fetchCustomerAddresses = (customerId) =>
+  API.get(`/api/customers/${customerId}/addresses`).then((r) => r.data);
+export const createCustomerAddress = (customerId, data) =>
+  API.post(`/api/customers/${customerId}/addresses`, data).then((r) => r.data);
+export const updateCustomerAddress = (customerId, addressId, data) =>
+  API.put(`/api/customers/${customerId}/addresses/${addressId}`, data).then((r) => r.data);
+export const deleteCustomerAddress = (customerId, addressId) =>
+  API.delete(`/api/customers/${customerId}/addresses/${addressId}`).then((r) => r.data);
+export const setDefaultBillingAddress = (customerId, addressId) =>
+  API.post(`/api/customers/${customerId}/addresses/${addressId}/set-default-billing`).then((r) => r.data);
+export const setDefaultShippingAddress = (customerId, addressId) =>
+  API.post(`/api/customers/${customerId}/addresses/${addressId}/set-default-shipping`).then((r) => r.data);
+
+// ── Customer Notes ────────────────────────────────────────────────
+export const fetchCustomerNotes = (customerId) =>
+  API.get(`/api/customers/${customerId}/notes`).then((r) => r.data);
+export const createCustomerNote = (customerId, data) =>
+  API.post(`/api/customers/${customerId}/notes`, data).then((r) => r.data);
+export const updateCustomerNote = (customerId, noteId, data) =>
+  API.put(`/api/customers/${customerId}/notes/${noteId}`, data).then((r) => r.data);
+export const deleteCustomerNote = (customerId, noteId) =>
+  API.delete(`/api/customers/${customerId}/notes/${noteId}`).then((r) => r.data);
+export const pinCustomerNote = (customerId, noteId, pinned = true) =>
+  API.post(`/api/customers/${customerId}/notes/${noteId}/pin`, { pinned }).then((r) => r.data);
+
+// ── Customer Segments (shop-wide catalogue) ───────────────────────
+export const fetchCustomerSegments = () =>
+  API.get('/api/customer-segments').then((r) => r.data);
+export const createCustomerSegment = (data) =>
+  API.post('/api/customer-segments', data).then((r) => r.data);
+export const updateCustomerSegment = (segmentId, data) =>
+  API.put(`/api/customer-segments/${segmentId}`, data).then((r) => r.data);
+export const deleteCustomerSegment = (segmentId) =>
+  API.delete(`/api/customer-segments/${segmentId}`).then((r) => r.data);
+
+// ── Customer ↔ Segment membership ─────────────────────────────────
+export const fetchSegmentsForCustomer = (customerId) =>
+  API.get(`/api/customers/${customerId}/segments`).then((r) => r.data);
+export const attachCustomerToSegment = (customerId, segmentId) =>
+  API.post(`/api/customers/${customerId}/segments/${segmentId}`).then((r) => r.data);
+export const detachCustomerFromSegment = (customerId, segmentId) =>
+  API.delete(`/api/customers/${customerId}/segments/${segmentId}`).then((r) => r.data);
+export const replaceCustomerSegments = (customerId, segmentIds) =>
+  API.put(`/api/customers/${customerId}/segments`, { segmentIds }).then((r) => r.data);
+
+// ── Customer Attachments ─────────────────────────────────────────
+export const fetchCustomerAttachments = (customerId) =>
+  API.get(`/api/customers/${customerId}/attachments`).then((r) => r.data);
+
+export const uploadCustomerAttachment = (customerId, file, category) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  if (category) fd.append('category', category);
+  return API.post(`/api/customers/${customerId}/attachments`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data);
+};
+
+export const deleteCustomerAttachment = (customerId, attachmentId) =>
+  API.delete(`/api/customers/${customerId}/attachments/${attachmentId}`).then((r) => r.data);
+
+/**
+ * Download an attachment as a blob and trigger a browser download.
+ * Same anchor+download pattern as the statement PDF helper — the
+ * axios call sends the auth header, then we hand the browser a blob
+ * URL through a hidden anchor click so the current tab never moves.
+ */
+export const downloadCustomerAttachment = async (customerId, attachmentId, fileName) => {
+  const res = await API.get(`/api/customers/${customerId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data]);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || `attachment_${attachmentId}`;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+};
+
+// ── Customer Custom Fields ────────────────────────────────────────
+export const fetchCustomerCustomFields = (customerId) =>
+  API.get(`/api/customers/${customerId}/custom-fields`).then((r) => r.data);
+
+export const upsertCustomerCustomField = (customerId, fieldKey, fieldValue) =>
+  API.put(`/api/customers/${customerId}/custom-fields/${encodeURIComponent(fieldKey)}`, {
+    fieldKey,
+    fieldValue,
+  }).then((r) => r.data);
+
+export const deleteCustomerCustomField = (customerId, fieldKey) =>
+  API.delete(`/api/customers/${customerId}/custom-fields/${encodeURIComponent(fieldKey)}`).then((r) => r.data);
+
+export const bulkSaveCustomerCustomFields = (customerId, values) =>
+  API.put(`/api/customers/${customerId}/custom-fields`, values).then((r) => r.data);
+
+// ── Merge customers ──────────────────────────────────────────────
+export const mergeCustomers = (sourceId, targetId) =>
+  API.post('/api/customers/merge', { sourceId, targetId }).then((r) => r.data);
 
 
 

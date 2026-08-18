@@ -13,6 +13,13 @@ import {
   importCustomersCsv,
 } from '../services/api';
 
+/**
+ * Milliseconds between the last keystroke in the search box and the
+ * actual API hit. Long enough that typing a full name isn't 8 round
+ * trips, short enough that filtering feels live.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
+
 export const useCustomers = () => {
   const [customers, setCustomers] = useState([]);
   const [kpis, setKpis] = useState(null);
@@ -33,13 +40,24 @@ export const useCustomers = () => {
   const [filters, setFilters] = useState({
     search: '',
     active: null, // null = all, true = active, false = inactive
-    customerType: '', // '' = all, 'INDIVIDUAL', 'BUSINESS'
+    customerType: '', // '' = all, 'INDIVIDUAL', 'BUSINESS', 'GOVERNMENT', 'EXPORT'
     source: '',
     city: '',
     tags: '',
     sortBy: 'name',
     sortDir: 'asc',
   });
+
+  // Debounced copy of `filters.search`. The list-load effect keys off
+  // this instead of the raw value so a keystroke doesn't spam the API.
+  // Non-search filter fields (active/type/source/city/tags/sortBy) fire
+  // immediately — they're changed less frequently and expected to be
+  // responsive.
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [filters.search]);
 
   // Bulk Selection
   const [selectedIds, setSelectedIds] = useState([]);
@@ -75,7 +93,8 @@ export const useCustomers = () => {
         sortBy: filters.sortBy,
         sortDir: filters.sortDir,
       };
-      if (filters.search && filters.search.trim()) params.search = filters.search.trim();
+      const searchQ = (debouncedSearch || '').trim();
+      if (searchQ) params.search = searchQ;
       if (filters.active !== null) params.active = filters.active;
       if (filters.customerType) params.customerType = filters.customerType;
       if (filters.source) params.source = filters.source;
@@ -96,7 +115,20 @@ export const useCustomers = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.page, pagination.size, filters]);
+  }, [
+    pagination.page,
+    pagination.size,
+    filters.sortBy,
+    filters.sortDir,
+    filters.active,
+    filters.customerType,
+    filters.source,
+    filters.city,
+    filters.tags,
+    // debouncedSearch — the whole point of the debounce is that we
+    // want to key on the settled value, not the live one.
+    debouncedSearch,
+  ]);
 
   useEffect(() => {
     loadCustomers();
