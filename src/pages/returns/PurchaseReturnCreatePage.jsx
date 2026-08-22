@@ -76,7 +76,7 @@ const PurchaseReturnCreatePage = () => {
         setSuppliers(sups || []);
         const recList = recs?.content || (Array.isArray(recs) ? recs : []);
         setReceivings(recList);
-        setVariants(vars || []);
+        setVariants(Array.isArray(vars) ? vars : (vars?.data || []));
         if (preselectedGrnId) {
           const grn = recList.find((r) => String(r.id) === String(preselectedGrnId));
           if (grn) {

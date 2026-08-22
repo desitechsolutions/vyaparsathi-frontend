@@ -23,6 +23,7 @@ import EditIcon from '@mui/icons-material/Edit';
 
 import { useTheme } from '@mui/material/styles';
 import getSalesSelectStyles from '../../styles/SalesStyles';
+import StatutoryFieldset from '../StatutoryFieldset';
 
 const CustomerSection = ({
   customers,
@@ -43,6 +44,7 @@ const CustomerSection = ({
   const selectStyles = useMemo(() => getSalesSelectStyles(theme), [theme]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+  const [statutoryModalOpen, setStatutoryModalOpen] = useState(false);
 
   const PAN_THRESHOLD = 200000;
   const isHighValueJewellery = isJewellery && Number(formData.totalAmount) >= PAN_THRESHOLD;
@@ -52,12 +54,11 @@ const CustomerSection = ({
   const isPanError = isPanMissing || (formData.buyerPan?.trim() && !isPanFormatValid);
 
   const isGstMissing = formData.isGstRequired === 'yes' && selectedCustomer && !selectedCustomer.gstNumber;
-  const isGstDisabled = isJewellery ? false : (!selectedCustomer || !selectedCustomer.gstNumber);
+  const isGstDisabled = false;
   
   const handleGstToggle = useCallback((e) => {
-    if (e.target.value === 'yes' && isGstDisabled) return;
     setFormData((prev) => ({ ...prev, isGstRequired: e.target.value }));
-  }, [isGstDisabled, setFormData]);
+  }, [setFormData]);
 
   const copyCustomerAddress = useCallback(() => {
     if (selectedCustomer) {
@@ -275,15 +276,18 @@ const CustomerSection = ({
         </Typography>
       </Box>
     </>
-  ), [formData, selectedCustomer, handleDeliveryAddressChange, handleDeliveryChargeChange, handleDeliveryPaidByChange, handleDeliveryNotesChange, copyCustomerAddress]);
+  ), [formData, selectedCustomer, handleDeliveryAddressChange, handleDeliveryChargeChange, handleDeliveryPaidByChange, handleDeliveryNotesChange, copyCustomerAddress, t]);
 
   // -----------------------------------------------------------------------
   // COMPACT MODE
   // -----------------------------------------------------------------------
   if (compact) {
+    const hasStatutorySet = Boolean(formData.placeOfSupply || formData.supplyType || formData.reverseCharge || formData.billToAddress || formData.shipToAddress);
+
     return (
-      <Box>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+      <Box sx={{ width: '100%', minWidth: 0 }}>
+        {/* Customer Select + Add Button */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', width: '100%' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Select
               options={customers}
@@ -297,59 +301,66 @@ const CustomerSection = ({
             />
           </Box>
           <Tooltip title={t('salesFlow.customer.addNewCustomer')}>
-            <Button variant="contained" onClick={() => setOpenCustomerModal(true)} sx={{ minWidth: 40, p: 1 }}>
+            <Button
+              variant="contained"
+              onClick={() => setOpenCustomerModal(true)}
+              sx={{
+                height: 38,
+                minWidth: 38,
+                width: 38,
+                p: 0,
+                flexShrink: 0,
+                borderRadius: 1.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <PersonAddIcon fontSize="small" />
             </Button>
           </Tooltip>
         </Box>
 
-        {/* Customer identity strip — phone · GSTIN · outstanding balance.
-            Visible once a customer is selected so the seller can confirm at a
-            glance who they're billing without opening the customer dialog. */}
-        {selectedCustomer && (
-          <Stack direction="row" spacing={0.75} sx={{ mb: 1, flexWrap: 'wrap' }} useFlexGap>
-            {selectedCustomer.phone && (
-              <Chip
-                label={selectedCustomer.phone}
-                size="small"
-                variant="outlined"
-                sx={{ borderRadius: 1.5, fontWeight: 600, fontSize: '0.72rem', height: 22, borderColor: 'divider' }}
-              />
-            )}
-            {selectedCustomer.gstNumber && (
-              <Chip
-                label={`GSTIN ${selectedCustomer.gstNumber}`}
-                size="small"
-                variant="outlined"
-                sx={{ borderRadius: 1.5, fontWeight: 600, fontSize: '0.72rem', height: 22, borderColor: 'divider' }}
-              />
-            )}
-            {Number(selectedCustomer.creditBalance || 0) > 0 && (
-              <Chip
-                label={`Due ₹${Number(selectedCustomer.creditBalance).toFixed(2)}`}
-                size="small"
-                color="warning"
-                variant="outlined"
-                sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.72rem', height: 22 }}
-              />
-            )}
-          </Stack>
-        )}
-
-        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-          <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ mr: 1 }}>
-            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption" fontWeight={600}>{t('salesFlow.customer.retailLabel')}</Typography>} sx={{ mr: 1 }} />
-            <Tooltip title={isGstDisabled ? t('salesFlow.customer.noGstOnFile') : ''}>
-              <FormControlLabel
-                value="yes"
-                control={<Radio size="small" />}
-                label={<Typography variant="caption" fontWeight={600}>{isJewellery ? t('salesFlow.customer.gstJewelleryShort') : t('salesFlow.customer.taxGst')}</Typography>}
-                disabled={isGstDisabled}
-                sx={{ mr: 0 }}
-              />
-            </Tooltip>
+        {/* GST & Delivery toggles + Statutory Options + Inline Due / GSTIN */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 0.5 }}>
+          <RadioGroup row value={formData.isGstRequired} onChange={handleGstToggle} sx={{ alignItems: 'center' }}>
+            <FormControlLabel
+              value="no"
+              control={<Radio size="small" />}
+              label={<Typography variant="caption" fontWeight={600} fontSize="0.75rem">{t('salesFlow.customer.retailLabel')}</Typography>}
+              sx={{ mr: 1 }}
+            />
+            <FormControlLabel
+              value="yes"
+              control={<Radio size="small" />}
+              label={<Typography variant="caption" fontWeight={600} fontSize="0.75rem">{isJewellery ? t('salesFlow.customer.gstJewelleryShort') : t('salesFlow.customer.taxGst')}</Typography>}
+              sx={{ mr: 1 }}
+            />
           </RadioGroup>
-          
+
+          {/* Statutory Details Button */}
+          <Button
+            size="small"
+            variant={hasStatutorySet ? "outlined" : "text"}
+            color={hasStatutorySet ? "success" : "inherit"}
+            startIcon={<TuneIcon sx={{ fontSize: 14 }} />}
+            onClick={() => setStatutoryModalOpen(true)}
+            sx={{
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 1.5,
+              py: 0.25,
+              px: 0.75,
+              color: hasStatutorySet ? 'success.main' : 'text.secondary',
+            }}
+          >
+            Statutory GST {hasStatutorySet ? '• Set' : ''}
+          </Button>
+
+          {/* Visual separator */}
+          <Box sx={{ width: '1px', height: 18, bgcolor: 'divider', mx: 0.25 }} />
+
           <Tooltip title={formData.deliveryRequired ? t('salesFlow.customer.deliveryEnabled') : t('salesFlow.customer.enableDelivery')}>
             <FormControlLabel
               control={
@@ -361,19 +372,98 @@ const CustomerSection = ({
                       setDeliveryModalOpen(true);
                     }
                   }}
-                  icon={<LocalShippingIcon color="disabled" />}
-                  checkedIcon={<LocalShippingIcon color="primary" />}
+                  size="small"
+                  icon={<LocalShippingIcon fontSize="small" color="disabled" />}
+                  checkedIcon={<LocalShippingIcon fontSize="small" color="primary" />}
                 />
               }
-              label={<Typography variant="caption" fontWeight={600}>{t('salesFlow.customer.deliveryLabel')}</Typography>}
+              label={<Typography variant="caption" fontWeight={600} fontSize="0.75rem">{t('salesFlow.customer.deliveryLabel')}</Typography>}
               sx={{ mr: 0 }}
             />
           </Tooltip>
-          
+
+          {/* Inline Due Chip — only rendered when customer has an outstanding balance */}
+          {selectedCustomer && Number(selectedCustomer.creditBalance || 0) > 0 && (
+            <Chip
+              label={`Due ₹${Number(selectedCustomer.creditBalance).toFixed(2)}`}
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.72rem', height: 22 }}
+            />
+          )}
+
           {isJewellery && formData.buyerPan && (
-            <Chip label={`PAN: ${formData.buyerPan}`} size="small" color="secondary" variant="outlined" onClick={() => setOptionsOpen(true)} sx={{ cursor: 'pointer', fontWeight: 600 }} />
+            <Chip
+              label={`PAN: ${formData.buyerPan}`}
+              size="small"
+              color="secondary"
+              variant="outlined"
+              onClick={() => setOptionsOpen(true)}
+              sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.72rem', height: 22 }}
+            />
           )}
         </Box>
+
+        {/* Statutory / GST Modal */}
+        <Dialog
+          open={statutoryModalOpen}
+          onClose={() => setStatutoryModalOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: `1.5px solid ${alpha('#0f766e', 0.1)}`,
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            bgcolor: alpha('#0f766e', 0.05),
+            borderBottom: `1px solid ${alpha('#0f766e', 0.1)}`,
+            pb: 2,
+          }}>
+            <TuneIcon color="primary" />
+            <span>Statutory / GST Details (Optional)</span>
+            {hasStatutorySet && (
+              <Chip
+                label="Customized"
+                size="small"
+                color="success"
+                variant="outlined"
+                sx={{ ml: 'auto', fontWeight: 700 }}
+              />
+            )}
+          </DialogTitle>
+          <DialogContent sx={{ p: 3 }}>
+            <StatutoryFieldset
+              title=""
+              value={{
+                placeOfSupply: formData.placeOfSupply,
+                supplyType: formData.supplyType,
+                reverseCharge: formData.reverseCharge,
+                billToAddress: formData.billToAddress,
+                shipToAddress: formData.shipToAddress,
+                consigneeAddress: formData.consigneeAddress,
+              }}
+              onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+              showConsignee
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Button
+              variant="contained"
+              onClick={() => setStatutoryModalOpen(false)}
+              sx={{ fontWeight: 700, borderRadius: 2 }}
+            >
+              Done
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Delivery Modal */}
         <Dialog 
@@ -894,3 +984,6 @@ const CustomerSection = ({
 };
 
 export default CustomerSection;
+
+
+

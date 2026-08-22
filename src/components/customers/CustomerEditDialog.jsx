@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 
 import { findCustomerDuplicates } from '../../services/api';
+import { GST_STATES } from '../../utils/gstStates';
 
 const INITIAL_STATE = {
   name: '',
@@ -97,9 +98,35 @@ export const CustomerEditDialog = ({
 
   const handleChange = (field) => (e) => {
     const value = e.target.value;
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // Auto-derive state and state code from GSTIN first two digits
+      if (field === 'gstNumber' && typeof value === 'string' && value.trim().length >= 2) {
+        const code = value.trim().slice(0, 2);
+        if (/^\d{2}$/.test(code)) {
+          const match = GST_STATES.find(([c]) => c === code);
+          if (match) {
+            next.stateCode = code;
+            next.state = match[1];
+          }
+        }
+      }
+      return next;
+    });
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleStateCodeChange = (code) => {
+    const match = GST_STATES.find(([c]) => c === code);
+    setForm((prev) => ({
+      ...prev,
+      stateCode: code,
+      state: match ? match[1] : prev.state,
+    }));
+    if (errors.stateCode) {
+      setErrors((prev) => ({ ...prev, stateCode: '' }));
     }
   };
 
@@ -150,6 +177,9 @@ export const CustomerEditDialog = ({
     if (form.email && form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       errs.email = 'Invalid email address format';
     }
+    if (form.stateCode && form.stateCode.trim() && !/^\d{2}$/.test(form.stateCode.trim())) {
+      errs.stateCode = 'State code must be 2 digits (e.g. 27)';
+    }
     if (form.gstNumber && form.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstNumber.trim().toUpperCase())) {
       errs.gstNumber = 'Invalid GSTIN format (e.g. 27ABCDE1234F1Z5)';
     }
@@ -172,6 +202,7 @@ export const CustomerEditDialog = ({
     try {
       const payload = {
         ...form,
+        stateCode: form.stateCode && form.stateCode.trim() ? form.stateCode.trim() : null,
         gstNumber: form.gstNumber ? form.gstNumber.trim().toUpperCase() : null,
         panNumber: form.panNumber ? form.panNumber.trim().toUpperCase() : null,
         creditLimit: Number(form.creditLimit) || 0,
@@ -403,13 +434,25 @@ export const CustomerEditDialog = ({
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
+                select
                 fullWidth
-                label="State"
-                value={form.state || ''}
-                onChange={handleChange('state')}
-              />
+                label="State (Place of Supply)"
+                value={form.stateCode || ''}
+                onChange={(e) => handleStateCodeChange(e.target.value)}
+                SelectProps={{ native: true, displayEmpty: true }}
+                InputLabelProps={{ shrink: true }}
+                error={Boolean(errors.stateCode)}
+                helperText={errors.stateCode || (form.state ? `Selected: ${form.state}` : 'Select state for GST calculation')}
+              >
+                <option value="">— Select State (Optional) —</option>
+                {GST_STATES.map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {code} — {name}
+                  </option>
+                ))}
+              </TextField>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Pincode / Postal Code"
@@ -417,16 +460,7 @@ export const CustomerEditDialog = ({
                 onChange={handleChange('postalCode')}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="State Code (GST)"
-                value={form.stateCode || ''}
-                onChange={handleChange('stateCode')}
-                placeholder="e.g. 27 for MH"
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Country"

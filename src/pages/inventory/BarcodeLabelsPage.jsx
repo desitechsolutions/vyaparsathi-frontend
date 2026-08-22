@@ -29,8 +29,9 @@ const BarcodeLabelsPage = () => {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchItemVariants();
-      setRows(Array.isArray(list) ? list : []);
+      const res = await fetchItemVariants();
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setRows(list);
     } catch (e) {
       setSnackbar({ open: true, message: 'Failed to load variants', severity: 'error' });
     } finally { setLoading(false); }

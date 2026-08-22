@@ -62,12 +62,21 @@ export const ShopProvider = ({ children }) => {
   const [customAttributes, setCustomAttributes] = useState([]);
   const [customAttributesLoading, setCustomAttributesLoading] = useState(false);
 
-  useEffect(() => {
-    fetchShop()
-      .then((res) => setShop(res?.data || null))
-      .catch(() => setShop(null))
-      .finally(() => setShopLoading(false));
+  const refreshShop = useCallback(async () => {
+    setShopLoading(true);
+    try {
+      const res = await fetchShop();
+      setShop(res?.data || null);
+    } catch {
+      setShop(null);
+    } finally {
+      setShopLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshShop();
+  }, [refreshShop]);
 
   const industryType = shop?.industryType || null;
 
@@ -116,6 +125,7 @@ export const ShopProvider = ({ children }) => {
   const value = {
     shop,
     shopLoading,
+    refreshShop,
     industryType,
     industryConfig,
     industryConfigLoading,

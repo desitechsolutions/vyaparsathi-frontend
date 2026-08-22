@@ -30,9 +30,11 @@ import {
   Business as BusinessIcon,
 } from '@mui/icons-material';
 
-import { fetchShop, fetchFileBlob } from '../services/api';
+import { fetchShop, fetchFileBlob, fetchIndustries } from '../services/api';
 import API from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
+import { useShop } from '../context/ShopContext';
+import { INDUSTRY_LABELS, industryLabel } from '../utils/industryConstants';
 import BankAccountsPanel from '../components/BankAccountsPanel';
 
 // ── Constants ───────────────────────────────────────────────────────
@@ -190,12 +192,25 @@ const SettingsPage = () => {
     requireMfaForAdmins: false,
   });
 
+  const { refreshShop } = useShop();
+  const [industries, setIndustries] = useState([]);
   const [errors, setErrors] = useState({});
   const [previews, setPreviews] = useState({ logo: null, signature: null });
   const [secureUrls, setSecureUrls] = useState({ logo: '', signature: '' });
 
   const showSnackbar = (message, severity = 'success') =>
     setSnackbar({ open: true, message, severity });
+
+  useEffect(() => {
+    fetchIndustries()
+      .then((res) => {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setIndustries(list.length ? list : Object.keys(INDUSTRY_LABELS));
+      })
+      .catch(() => {
+        setIndustries(Object.keys(INDUSTRY_LABELS));
+      });
+  }, []);
 
   // ── Secure image loading (same behavior as before) ──────────────
   const loadSecureImage = async (path, type) => {
@@ -359,6 +374,9 @@ const SettingsPage = () => {
       showSnackbar('Settings saved.');
       setLastSaved(new Date());
       await loadShopDetails();
+      if (typeof refreshShop === 'function') {
+        await refreshShop();
+      }
     } catch (err) {
       showSnackbar(err.response?.data?.message || 'Error saving settings', 'error');
     } finally {
@@ -613,9 +631,11 @@ const SettingsPage = () => {
             label="Industry type" name="industryType" value={shopData.industryType || ''}
             onChange={handleTextChange} sx={inputSx}>
             <MenuItem value="">Select…</MenuItem>
-            {['RETAIL','WHOLESALE','GROCERY','APPAREL','ELECTRONICS','JEWELRY','AUTOMOTIVE','SERVICES','OTHER'].map(o =>
-              <MenuItem key={o} value={o}>{o.charAt(0) + o.slice(1).toLowerCase()}</MenuItem>
-            )}
+            {(industries.length ? industries : Object.keys(INDUSTRY_LABELS)).map((o) => (
+              <MenuItem key={o} value={o}>
+                {industryLabel(o)}
+              </MenuItem>
+            ))}
           </TextField>
         </Grid>
         <Grid item xs={12} md={4}>

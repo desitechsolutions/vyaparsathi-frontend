@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Snackbar,
   Chip,
   Tooltip,
   Autocomplete,
@@ -65,10 +66,15 @@ export default function CustomFieldsPage() {
   const { customAttributes, customAttributesLoading, refreshCustomAttributes } = useShop();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, def: null, deleting: false });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const showSnackbar = (message, severity = 'success') =>
+    setSnackbar({ open: true, message, severity });
 
   useEffect(() => {
     if (!dialogOpen) setError(null);
@@ -111,6 +117,7 @@ export default function CustomFieldsPage() {
       else         await createCustomAttribute(payload);
       setDialogOpen(false);
       await refreshCustomAttributes();
+      showSnackbar(`Custom field "${payload.label}" ${form.id ? 'updated' : 'created'} successfully.`);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to save custom field.');
     } finally {
@@ -118,13 +125,22 @@ export default function CustomFieldsPage() {
     }
   };
 
-  const handleDelete = async (def) => {
-    if (!window.confirm(`Deactivate custom field "${def.label}"? Existing variant values remain in place; the field just stops appearing on the form.`)) return;
+  const handleDeleteClick = (def) => {
+    setDeleteConfirm({ open: true, def, deleting: false });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.def) return;
+    const { id, label } = deleteConfirm.def;
+    setDeleteConfirm((prev) => ({ ...prev, deleting: true }));
     try {
-      await deleteCustomAttribute(def.id);
+      await deleteCustomAttribute(id);
       await refreshCustomAttributes();
+      setDeleteConfirm({ open: false, def: null, deleting: false });
+      showSnackbar(`Custom field "${label}" deactivated successfully.`);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to delete.');
+      setDeleteConfirm((prev) => ({ ...prev, deleting: false }));
+      showSnackbar(err?.response?.data?.message || 'Failed to deactivate custom field.', 'error');
     }
   };
 
@@ -233,7 +249,7 @@ export default function CustomFieldsPage() {
                     <TableCell>{def.required ? 'Yes' : 'No'}</TableCell>
                     <TableCell align="right">
                       <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(def)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="Deactivate"><IconButton size="small" color="error" onClick={() => handleDelete(def)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Deactivate"><IconButton size="small" color="error" onClick={() => handleDeleteClick(def)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -243,6 +259,7 @@ export default function CustomFieldsPage() {
         </Paper>
       </Container>
 
+      {/* Edit / Create Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>
           {form.id ? 'Edit Custom Field' : 'New Custom Field'}
@@ -332,6 +349,60 @@ export default function CustomFieldsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirm.open}
+        onClose={() => !deleteConfirm.deleting && setDeleteConfirm({ open: false, def: null, deleting: false })}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Deactivate Custom Field?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to deactivate <strong>&ldquo;{deleteConfirm.def?.label}&rdquo;</strong>?
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Existing variant values will remain saved in the database, but the field will no longer appear on item forms.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setDeleteConfirm({ open: false, def: null, deleting: false })}
+            disabled={deleteConfirm.deleting}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+            disabled={deleteConfirm.deleting}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, boxShadow: 'none' }}
+          >
+            {deleteConfirm.deleting ? 'Deactivating…' : 'Deactivate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar Feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%', borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -42,8 +42,8 @@ const ProductBundlesPage = () => {
         listProductBundles(),
         fetchItemVariants().catch(() => []),
       ]);
-      setRows(Array.isArray(list) ? list : []);
-      setVariants(Array.isArray(vlist) ? vlist : []);
+      setRows(Array.isArray(list) ? list : (list?.data || []));
+      setVariants(Array.isArray(vlist) ? vlist : (vlist?.data || []));
     } catch (e) {
       setSnackbar({ open: true, message: 'Failed to load bundles', severity: 'error' });
     } finally { setLoading(false); }

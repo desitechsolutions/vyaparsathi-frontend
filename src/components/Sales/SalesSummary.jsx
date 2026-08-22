@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Card, CardContent, Typography, Table, TableBody, TableCell, TableHead,
-  TableRow, Button, Alert, IconButton, Divider, CardActions, Box, TextField,
+  Card, CardContent, Typography, Button, Alert, IconButton, Divider, CardActions, Box, TextField,
   CircularProgress, Tooltip, Stack, Chip, Dialog, DialogTitle, DialogContent,
-  DialogActions, alpha, ToggleButton, ToggleButtonGroup
+  DialogActions, alpha, ToggleButton, ToggleButtonGroup, Grid
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -233,9 +232,10 @@ const MakingChargesCell = ({ item, makingCharges }) => {
 };
 
 /**
- * Table Row Component
+ * Card-based Cart Item Component (Option A - Compact Horizontal Strip)
+ * Horizontal layout on 1-2 lines to save vertical space
  */
-const CartItemRow = ({
+const CartItemCard = ({
   item,
   index,
   isJewellery,
@@ -244,65 +244,117 @@ const CartItemRow = ({
   onDelete,
 }) => {
   const { t } = useTranslation();
-  // Line total is net of line-level discount (matches backend taxableValue).
-  // `gross` and `lineDiscount` power the strike-through visualization when a
-  // per-line discount is present.
   const gross = Number(item.qty || 0) * Number(item.unitPrice || 0);
   const lineDiscount = Number(item.discount || 0);
   const lineTotal = lineNetBase(item);
   const lineGst = calcLineGst(item);
   const lineMakingCharges = isJewellery ? calcMakingCharges(item) : 0;
 
+  // Calculate stock status
+  const showStock = !item.isCustom && item.currentStock != null;
+  const stockNum = Number(item.currentStock);
+  const soldNum = Number(item.qty || 0);
+  const remaining = Math.max(0, stockNum - soldNum);
+  const stockColor = remaining <= 0 ? 'error' : remaining <= 5 ? 'warning' : 'success';
+
   return (
-    <TableRow hover sx={{
-      '&:hover': { bgcolor: alpha('#0f766e', 0.04) },
+    <Box sx={{
+      p: 1,
+      mb: 0.5,
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 1.25,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 0.35,
+      bgcolor: alpha('#0f766e', 0.02),
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        bgcolor: alpha('#0f766e', 0.05),
+        borderColor: 'primary.light',
+      }
     }}>
-      <TableCell>
-        <ItemDetailsCell item={item} isJewellery={isJewellery} />
-      </TableCell>
-
-      <TableCell align="center" sx={{ fontWeight: 600 }}>
-        {item.qty}
-      </TableCell>
-
-      <TableCell align="right" sx={{ fontWeight: 600 }}>
-        ₹{Number(item.unitPrice).toFixed(2)}
-      </TableCell>
-
-      {isJewellery && (
-        <TableCell align="right" sx={{ color: 'var(--color-secondary)', fontSize: '0.75rem' }}>
-          <MakingChargesCell item={item} makingCharges={lineMakingCharges} />
-        </TableCell>
-      )}
-
-      {showGst && (
-        <TableCell align="right" sx={{ color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600 }}>
-          {item.gstRate > 0 ? `₹${lineGst.toFixed(2)} (${item.gstRate}%)` : '—'}
-        </TableCell>
-      )}
-
-      <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--color-teal)' }}>
-        ₹{lineTotal.toFixed(2)}
-        {lineDiscount > 0 && (
-          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, textDecoration: 'line-through' }}>
-            ₹{gross.toFixed(2)}
+      {/* Line 1: Item details inline (name · color/size · qty · price · total) */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.75, minHeight: 20 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+            {item.itemName}
           </Typography>
-        )}
-      </TableCell>
 
-      <TableCell align="center">
-        <Tooltip title={t('salesFlow.summary.editTooltip')}>
-          <IconButton color="primary" size="small" onClick={() => onEdit(index)}>
+          {!item.isCustom && item.color && (
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+              · {item.color}{item.size ? `/${item.size}` : ''}
+            </Typography>
+          )}
+
+          <Chip
+            label={`×${item.qty}`}
+            size="small"
+            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, minWidth: 42, mx: 0.25 }}
+          />
+
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            @₹{Number(item.unitPrice).toFixed(0)}
+          </Typography>
+        </Box>
+
+        {/* Price total and actions - right aligned */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--color-teal)', fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: 60, textAlign: 'right' }}>
+            ₹{lineTotal.toFixed(2)}
+          </Typography>
+          <IconButton color="primary" size="small" onClick={() => onEdit(index)} sx={{ p: 0.25, '& svg': { fontSize: '0.9rem' } }}>
             <EditIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('salesFlow.summary.deleteTooltip')}>
-          <IconButton color="error" size="small" onClick={() => onDelete(index)}>
+          <IconButton color="error" size="small" onClick={() => onDelete(index)} sx={{ p: 0.25, '& svg': { fontSize: '0.9rem' } }}>
             <DeleteIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
+        </Box>
+      </Box>
+
+      {/* Line 2: Meta info inline (SKU · HSN · Stock · GST/MC) */}
+      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', minHeight: 16 }}>
+        {!item.isCustom && item.sku && (
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'ui-monospace', fontSize: '0.65rem' }}>
+            SKU:{item.sku}
+          </Typography>
+        )}
+
+        {!item.isCustom && item.hsn && (
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'ui-monospace', fontSize: '0.65rem' }}>
+            HSN:{item.hsn}
+          </Typography>
+        )}
+
+        {showStock && (
+          <Chip
+            size="small"
+            color={stockColor}
+            variant="outlined"
+            label={remaining <= 0 ? 'OOS' : `${remaining} left`}
+            sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700 }}
+          />
+        )}
+
+        {isJewellery && lineMakingCharges > 0 && (
+          <Typography variant="caption" sx={{ color: 'var(--color-secondary)', fontWeight: 600, fontSize: '0.65rem' }}>
+            MC:₹{lineMakingCharges.toFixed(0)}
+          </Typography>
+        )}
+
+        {showGst && item.gstRate > 0 && (
+          <Typography variant="caption" sx={{ color: 'var(--color-success)', fontWeight: 600, fontSize: '0.65rem' }}>
+            GST:₹{lineGst.toFixed(0)}
+          </Typography>
+        )}
+
+        {lineDiscount > 0 && (
+          <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600, fontSize: '0.65rem' }}>
+            Disc:−₹{lineDiscount.toFixed(0)}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 };
 
@@ -355,6 +407,10 @@ const SummaryRow = ({ label, value, muted = true, bold = false, valueColor }) =>
   </Box>
 );
 
+/**
+ * Summary Box Component (Option B - Compact Horizontal Strip)
+ * Single/dual-row compressed layout replaces vertical stack
+ */
 const SummaryBox = ({
   subtotal,
   makingCharges,
@@ -373,80 +429,103 @@ const SummaryBox = ({
   return (
   <Box sx={{
     px: embedded ? 1.5 : 2,
-    py: 1,
+    py: 1.25,
     flexShrink: 0,
     borderTop: '1px solid',
     borderTopColor: 'divider',
+    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.02),
   }}>
-    <Box sx={{ width: '100%', ml: 'auto', maxWidth: embedded ? '100%' : 360 }}>
-      <SummaryRow
-        label={isJewellery ? t('salesFlow.summary.subtotalMetal') : t('salesFlow.summary.subtotal')}
-        value={`₹${subtotal.toFixed(2)}`}
-      />
-
-      {isJewellery && makingCharges > 0 && (
-        <SummaryRow
-          label={t('salesFlow.summary.makingCharges')}
-          value={`+ ₹${makingCharges.toFixed(2)}`}
-        />
-      )}
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, gap: 1 }}>
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>
-          {t('salesFlow.summary.discount')}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <ToggleButtonGroup
-            size="small"
-            value={discountMode}
-            exclusive
-            onChange={onDiscountModeChange}
-            aria-label="Discount mode"
-            sx={{
-              '& .MuiToggleButton-root': {
-                minWidth: 28, height: 24, px: 0.75, py: 0,
-                fontSize: '0.72rem', fontWeight: 700, lineHeight: 1,
-              },
-            }}
-          >
-            <ToggleButton value="AMT" aria-label="Rupees">₹</ToggleButton>
-            <ToggleButton value="PCT" aria-label="Percent">%</ToggleButton>
-          </ToggleButtonGroup>
-          <TextField
-            type="number"
-            variant="standard"
-            value={discountMode === 'PCT' ? pctInput : discount}
-            onChange={onDiscountChange}
-            inputProps={{
-              style: { textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: '0.82rem' },
-              min: 0,
-              max: discountMode === 'PCT' ? 100 : undefined,
-            }}
-            sx={{ width: 70 }}
-          />
+    {/* Summary metrics row */}
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        {/* Subtotal */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+            {isJewellery ? t('salesFlow.summary.subtotalMetal') : t('salesFlow.summary.subtotal')}:
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
+            ₹{subtotal.toFixed(2)}
+          </Typography>
         </Box>
+
+        {/* Making Charges (if jewellery) */}
+        {isJewellery && makingCharges > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+              {t('salesFlow.summary.makingCharges')}:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'secondary.main', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
+              +₹{makingCharges.toFixed(2)}
+            </Typography>
+          </Box>
+        )}
+
+        {/* GST */}
+        {showGst && gst > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+              {t('salesFlow.summary.gstHeader')}:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
+              +₹{gst.toFixed(2)}
+            </Typography>
+          </Box>
+        )}
       </Box>
+
+      {/* TOTAL - prominent */}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, ml: 'auto' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          {t('salesFlow.summary.total')}:
+        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.15rem', fontVariantNumeric: 'tabular-nums' }}>
+          ₹{netPayable.toFixed(2)}
+        </Typography>
+      </Box>
+    </Box>
+
+    {/* Discount row */}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 0.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+        {t('salesFlow.summary.discount')}:
+      </Typography>
+      <ToggleButtonGroup
+        size="small"
+        value={discountMode}
+        exclusive
+        onChange={onDiscountModeChange}
+        aria-label="Discount mode"
+        sx={{
+          height: 24,
+          '& .MuiToggleButton-root': {
+            minWidth: 26, height: 24, px: 0.75, py: 0,
+            fontSize: '0.72rem', fontWeight: 700, lineHeight: 1,
+          },
+        }}
+      >
+        <ToggleButton value="AMT" aria-label="Rupees">₹</ToggleButton>
+        <ToggleButton value="PCT" aria-label="Percent">%</ToggleButton>
+      </ToggleButtonGroup>
+
+      <TextField
+        type="number"
+        variant="outlined"
+        size="small"
+        value={discountMode === 'PCT' ? pctInput : discount}
+        onChange={onDiscountChange}
+        inputProps={{
+          style: { textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: '0.8rem', padding: '2px 8px', width: 60 },
+          min: 0,
+          max: discountMode === 'PCT' ? 100 : undefined,
+        }}
+        sx={{ width: 80 }}
+      />
+
       {discountMode === 'PCT' && discount > 0 && (
-        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', color: 'text.secondary', mt: -0.5 }}>
-          {pctInput}% = ₹{Number(discount).toFixed(2)}
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 500 }}>
+          ({pctInput}% = ₹{Number(discount).toFixed(2)})
         </Typography>
       )}
-
-      {showGst && gst > 0 && (
-        <SummaryRow
-          label={t('salesFlow.summary.gstHeader')}
-          value={`+ ₹${gst.toFixed(2)}`}
-        />
-      )}
-
-      <Divider sx={{ my: 0.75 }} />
-
-      <SummaryRow
-        label={<Typography component="span" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.9rem' }}>{t('salesFlow.summary.total')}</Typography>}
-        value={`₹${netPayable.toFixed(2)}`}
-        muted={false}
-        bold
-      />
     </Box>
   </Box>
   );
@@ -677,83 +756,56 @@ const SalesSummary = ({
           overflow: 'hidden',
           '&:last-child': { pb: 0 },
         }}>
-          {/* Header — matches the Customer section pattern (icon + uppercase caption). */}
-          <Box sx={{
-            px: 1.5,
-            py: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            flexShrink: 0,
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <ShoppingCartIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="caption" sx={{
-                fontWeight: 600,
-                fontSize: '0.72rem',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                color: 'text.secondary',
-              }}>
-                {t('salesFlow.summary.cartLabel')}{formData.items.length > 0 && ` · ${formData.items.length} item${formData.items.length === 1 ? '' : 's'}`}
-              </Typography>
-            </Box>
-          </Box>
+           {/* Header — Cart label + item count */}
+           <Box sx={{
+             px: 1,
+             py: 0.65,
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'space-between',
+             borderBottom: '1px solid',
+             borderColor: 'divider',
+             flexShrink: 0,
+           }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+               <ShoppingCartIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+               <Typography variant="caption" sx={{
+                 fontWeight: 700,
+                 fontSize: '0.65rem',
+                 textTransform: 'uppercase',
+                 letterSpacing: 0.3,
+                 color: 'text.secondary',
+               }}>
+                 {t('salesFlow.summary.cartLabel')}{formData.items.length > 0 && ` • ${formData.items.length}`}
+               </Typography>
+             </Box>
+           </Box>
 
-          {/* Table or Empty State */}
-          {isEmpty ? (
-            <EmptyCartState embedded={embedded} />
-          ) : (
-            <Box sx={{
-              overflowX: 'auto',
-              overflowY: 'auto',
-              flex: embedded ? 1 : 'none',
-              minHeight: 0,
-            }}>
-              <Table size="small" sx={{
-                '& .MuiTableCell-root': { borderBottomColor: 'divider' },
-              }}>
-                <TableHead>
-                  <TableRow sx={{
-                    '& .MuiTableCell-root': {
-                      fontWeight: 600,
-                      fontSize: '0.7rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.4,
-                      color: 'text.secondary',
-                      borderBottom: '1px solid',
-                      borderBottomColor: 'divider',
-                      bgcolor: 'transparent',
-                      py: 1,
-                    },
-                  }}>
-                    <TableCell>{t('salesFlow.summary.itemHeader')}</TableCell>
-                    <TableCell align="center">{t('salesFlow.summary.qtyHeader')}</TableCell>
-                    <TableCell align="right">{t('salesFlow.summary.rateHeader')}</TableCell>
-                    {isJewellery && <TableCell align="right">{t('salesFlow.summary.makingHeader')}</TableCell>}
-                    {showGst && <TableCell align="right">{t('salesFlow.summary.gstHeader')}</TableCell>}
-                    <TableCell align="right">{t('salesFlow.summary.totalHeader')}</TableCell>
-                    <TableCell align="center" width={72} />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {formData.items.map((item, index) => (
-                    <CartItemRow
-                      key={`${item.id}-${index}`}
-                      item={item}
-                      index={index}
-                      isJewellery={isJewellery}
-                      showGst={showGst}
-                      onEdit={handleEditItem}
-                      onDelete={handleRemoveItem}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
+           {/* Table or Empty State */}
+           {isEmpty ? (
+             <EmptyCartState embedded={embedded} />
+           ) : (
+             <Box sx={{
+               overflowX: 'auto',
+               overflowY: 'auto',
+               flex: embedded ? 1 : 'none',
+               minHeight: 0,
+               px: 1.25,
+               py: 1,
+             }}>
+               {formData.items.map((item, index) => (
+                 <CartItemCard
+                   key={`${item.id}-${index}`}
+                   item={item}
+                   index={index}
+                   isJewellery={isJewellery}
+                   showGst={showGst}
+                   onEdit={handleEditItem}
+                   onDelete={handleRemoveItem}
+                 />
+               ))}
+             </Box>
+           )}
 
           {/* Summary */}
           <SummaryBox

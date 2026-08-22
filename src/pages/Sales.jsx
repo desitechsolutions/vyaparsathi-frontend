@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Box, Snackbar, Alert, CircularProgress,
   Typography, Paper, Button, IconButton, Tooltip, Stack, Menu, MenuItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, alpha
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -778,17 +778,17 @@ const Sales = () => {
             px: { xs: 1, md: 0 },
             pt: { xs: 1, md: 0 },
           }}>
-            {/* LEFT PANEL */}
-            <Paper elevation={0} sx={{
-              flex: { md: '0 0 54%' },
-              width: { xs: '100%', md: '54%' },
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              overflow: 'auto',
-              mb: { xs: 1.5, md: 0 },
-              bgcolor: 'background.paper',
-            }}>
+             {/* LEFT PANEL */}
+             <Paper elevation={0} sx={{
+               flex: { md: '0 0 50%' },
+               width: { xs: '100%', md: '50%' },
+               borderRadius: 2,
+               border: '1px solid',
+               borderColor: 'divider',
+               overflow: 'auto',
+               mb: { xs: 1.5, md: 0 },
+               bgcolor: 'background.paper',
+             }}>
               <ErrorBoundary>
               <ItemSection
                 variants={filteredVariants}
@@ -836,89 +836,56 @@ const Sales = () => {
               </ErrorBoundary>
             </Paper>
 
-            {/* RIGHT PANEL — one unified Paper, three sections separated by hairline dividers */}
-            <Paper elevation={0} sx={{
-              flex: { md: '0 0 46%' },
-              width: { xs: '100%', md: '46%' },
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-            }}>
-              {/* Customer section */}
-              <Box sx={{
-                p: 1.5,
-                flexShrink: 0,
-                borderBottom: '1px solid',
-                borderBottomColor: 'divider',
+             {/* RIGHT PANEL — one unified Paper, three sections separated by hairline dividers */}
+             <Paper elevation={0} sx={{
+               flex: { md: '0 0 50%' },
+               width: { xs: '100%', md: '50%' },
+               display: 'flex',
+               flexDirection: 'column',
+               overflow: 'hidden',
+               borderRadius: 2,
+               border: '1px solid',
+               borderColor: 'divider',
+               bgcolor: 'background.paper',
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
-                  <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  <Typography variant="caption" sx={{
-                    fontWeight: 600,
-                    fontSize: '0.72rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                    color: 'text.secondary',
-                  }}>
-                    Customer
-                  </Typography>
-                </Box>
-                <CustomerSection
-                  compact
-                  customers={customers}
-                  selectedCustomer={selectedCustomer}
-                  formData={formData}
-                  setFormData={setFormData}
-                  newCustomerData={newCustomerData}
-                  setNewCustomerData={setNewCustomerData}
-                  handleCustomerSelect={handleCustomerSelect}
-                  handleNewCustomer={handleNewCustomer}
-                  openCustomerModal={openCustomerModal}
-                  setOpenCustomerModal={setOpenCustomerModal}
-                    isJewellery={isJewellery}
-                />
-              </Box>
+                {/* Customer & Options Section */}
+                <Box sx={{
+                  p: 1,
+                  pb: 0.75,
+                  flexShrink: 0,
+                  width: '100%',
+                  borderBottom: '1px solid',
+                  borderBottomColor: 'divider',
+                }}>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.65 }}>
+                   <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                   <Typography variant="caption" sx={{
+                     fontWeight: 700,
+                     fontSize: '0.65rem',
+                     textTransform: 'uppercase',
+                     letterSpacing: 0.4,
+                     color: 'text.secondary',
+                   }}>
+                     Customer & Setup
+                   </Typography>
+                 </Box>
+                 <CustomerSection
+                   compact
+                   customers={customers}
+                   selectedCustomer={selectedCustomer}
+                   formData={formData}
+                   setFormData={setFormData}
+                   newCustomerData={newCustomerData}
+                   setNewCustomerData={setNewCustomerData}
+                   handleCustomerSelect={handleCustomerSelect}
+                   handleNewCustomer={handleNewCustomer}
+                   openCustomerModal={openCustomerModal}
+                   setOpenCustomerModal={setOpenCustomerModal}
+                     isJewellery={isJewellery}
+                 />
+               </Box>
 
-              {/* Statutory / GST fieldset — collapsed by default so POS-style
-                  sales stay fast; unfold to set PoS / reverse charge /
-                  supply type / bill-to / ship-to addresses. */}
-              <Box sx={{ p: 1.5, borderBottom: '1px solid', borderBottomColor: 'divider', flexShrink: 0 }}>
-                <details style={{ cursor: 'pointer' }}>
-                  <summary style={{
-                    listStyle: 'none',
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                    color: 'rgba(0,0,0,0.6)',
-                    padding: '4px 0',
-                  }}>
-                    ▸ Statutory / GST (optional)
-                    {(formData.placeOfSupply || formData.supplyType || formData.reverseCharge) && (
-                      <span style={{ marginLeft: 8, color: '#2e7d32' }}>• set</span>
-                    )}
-                  </summary>
-                  <StatutoryFieldset
-                    title=""
-                    value={{
-                      placeOfSupply: formData.placeOfSupply,
-                      supplyType: formData.supplyType,
-                      reverseCharge: formData.reverseCharge,
-                      billToAddress: formData.billToAddress,
-                      shipToAddress: formData.shipToAddress,
-                      consigneeAddress: formData.consigneeAddress,
-                    }}
-                    onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
-                    showConsignee
-                  />
-                </details>
-              </Box>
-
-              {/* Cart section */}
+               {/* Cart section */}
               <Box sx={{
                 flex: 1,
                 overflow: 'hidden',
@@ -943,11 +910,11 @@ const Sales = () => {
                 </ErrorBoundary>
               </Box>
 
-              {/* Sale-level notes — free-text metadata, persisted alongside the
-                  sale. Distinct from customer.notes and delivery.deliveryNotes.
-                  Collapsed by default; expands to a textarea on click and stays
-                  open while there's content. */}
-              <Box sx={{ px: 2, pb: 1 }}>
+               {/* Sale-level notes — free-text metadata, persisted alongside the
+                   sale. Distinct from customer.notes and delivery.deliveryNotes.
+                   Collapsed by default; expands to a textarea on click and stays
+                   open while there's content. */}
+               <Box sx={{ px: 1, pb: 0.75, pt: 0.5, borderTop: '1px solid', borderTopColor: 'divider' }}>
                 {(notesExpanded || formData.saleNotes) ? (
                   <TextField
                     fullWidth
@@ -1088,117 +1055,119 @@ const ActionBar = ({
     ? 'Please select a customer'
     : !isDeliveryValid ? 'Complete delivery details' : '';
 
-  return (
-    <Box sx={{
-      borderTop: '1px solid',
-      borderTopColor: 'divider',
-      p: 1.25,
-      flexShrink: 0,
-      display: 'flex',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      gap: 1,
-    }}>
-      {!formData.customerId && formData.items.length > 0 && (
-        <Typography
-          variant="caption"
-          sx={{ color: 'error.main', fontWeight: 600, mr: 'auto', ml: 0.5 }}
-        >
-          Select a customer to continue
-        </Typography>
-      )}
+   return (
+     <Box sx={{
+       borderTop: '1px solid',
+       borderTopColor: 'divider',
+       p: 0.9,
+       flexShrink: 0,
+       display: 'flex',
+       justifyContent: 'flex-end',
+       alignItems: 'center',
+       gap: 0.75,
+       bgcolor: alpha('#0f766e', 0.01),
+     }}>
+       {!formData.customerId && formData.items.length > 0 && (
+         <Typography
+           variant="caption"
+           sx={{ color: 'error.main', fontWeight: 700, mr: 'auto', ml: 0.5, fontSize: '0.7rem' }}
+         >
+           Select a customer to continue
+         </Typography>
+       )}
 
-      <Tooltip title="Clear cart">
-        <span>
-          <IconButton
-            size="small"
-            onClick={onClear}
-            disabled={formData.items.length === 0}
-            aria-label="Clear cart"
-          >
-            <DeleteSweepIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
+       <Tooltip title="Clear cart">
+         <span>
+           <IconButton
+             size="small"
+             onClick={onClear}
+             disabled={formData.items.length === 0}
+             aria-label="Clear cart"
+             sx={{ p: 0.5 }}
+           >
+             <DeleteSweepIcon fontSize="small" />
+           </IconButton>
+         </span>
+       </Tooltip>
 
-      {onHold && (
-        <Tooltip title={canHold ? 'Park this cart to serve the next customer' : 'Add items to hold'}>
-          <span>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={onHold}
-              disabled={!canHold}
-              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-            >
-              Hold
-            </Button>
-          </span>
-        </Tooltip>
-      )}
+       {onHold && (
+         <Tooltip title={canHold ? 'Park this cart to serve the next customer' : 'Add items to hold'}>
+           <span>
+             <Button
+               variant="outlined"
+               size="small"
+               onClick={onHold}
+               disabled={!canHold}
+               sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, fontSize: '0.75rem', px: 1.25, py: 0.4 }}
+             >
+               Hold
+             </Button>
+           </span>
+         </Tooltip>
+       )}
 
-      <Tooltip title={canSave ? '' : 'Add customer and items to save'}>
-        <span>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={onProforma ? openSaveMenu : onDraft}
-            disabled={!canSave}
-            endIcon={onProforma ? <ArrowDropDownIcon /> : null}
-            startIcon={<SaveOutlinedIcon />}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            Save
-          </Button>
-        </span>
-      </Tooltip>
+       <Tooltip title={canSave ? '' : 'Add customer and items to save'}>
+         <span>
+           <Button
+             variant="outlined"
+             size="small"
+             onClick={onProforma ? openSaveMenu : onDraft}
+             disabled={!canSave}
+             endIcon={onProforma ? <ArrowDropDownIcon /> : null}
+             startIcon={<SaveOutlinedIcon fontSize="small" />}
+             sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, fontSize: '0.75rem', px: 1.25, py: 0.4 }}
+           >
+             Save
+           </Button>
+         </span>
+       </Tooltip>
 
-      {onProforma && (
-        <Menu
-          anchorEl={saveMenuAnchor}
-          open={Boolean(saveMenuAnchor)}
-          onClose={closeSaveMenu}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <MenuItem onClick={() => { closeSaveMenu(); onDraft(); }}>
-            <ListItemIcon><SaveOutlinedIcon fontSize="small" /></ListItemIcon>
-            <ListItemText
-              primary="Save as Draft"
-              secondary="Resume later — no stock impact"
-              primaryTypographyProps={{ fontWeight: 600 }}
-              secondaryTypographyProps={{ variant: 'caption' }}
-            />
-          </MenuItem>
-          <MenuItem onClick={() => { closeSaveMenu(); onProforma(); }}>
-            <ListItemIcon><DescriptionOutlinedIcon fontSize="small" /></ListItemIcon>
-            <ListItemText
-              primary="Generate Proforma"
-              secondary="Share for customer approval"
-              primaryTypographyProps={{ fontWeight: 600 }}
-              secondaryTypographyProps={{ variant: 'caption' }}
-            />
-          </MenuItem>
-        </Menu>
-      )}
+       {onProforma && (
+         <Menu
+           anchorEl={saveMenuAnchor}
+           open={Boolean(saveMenuAnchor)}
+           onClose={closeSaveMenu}
+           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+           transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+         >
+           <MenuItem onClick={() => { closeSaveMenu(); onDraft(); }}>
+             <ListItemIcon><SaveOutlinedIcon fontSize="small" /></ListItemIcon>
+             <ListItemText
+               primary="Save as Draft"
+               secondary="Resume later — no stock impact"
+               primaryTypographyProps={{ fontWeight: 600, fontSize: '0.8rem' }}
+               secondaryTypographyProps={{ variant: 'caption', fontSize: '0.65rem' }}
+             />
+           </MenuItem>
+           <MenuItem onClick={() => { closeSaveMenu(); onProforma(); }}>
+             <ListItemIcon><DescriptionOutlinedIcon fontSize="small" /></ListItemIcon>
+             <ListItemText
+               primary="Generate Proforma"
+               secondary="Share for customer approval"
+               primaryTypographyProps={{ fontWeight: 600, fontSize: '0.8rem' }}
+               secondaryTypographyProps={{ variant: 'caption', fontSize: '0.65rem' }}
+             />
+           </MenuItem>
+         </Menu>
+       )}
 
-      <Tooltip title={proceedTooltip}>
-        <span>
-          <Button
-            variant="contained"
-            size="small"
-            color="primary"
-            endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ChevronRightIcon />}
-            disabled={!canProceed}
-            onClick={onProceed}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, minWidth: 120 }}
-          >
-            {loading ? 'Processing...' : 'Proceed'}
-          </Button>
-        </span>
-      </Tooltip>
-    </Box>
-  );
+       <Tooltip title={proceedTooltip}>
+         <span>
+           <Button
+             variant="contained"
+             size="small"
+             color="primary"
+             endIcon={loading ? <CircularProgress size={14} color="inherit" /> : <ChevronRightIcon sx={{ fontSize: 18 }} />}
+             disabled={!canProceed}
+             onClick={onProceed}
+             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, minWidth: 100, fontSize: '0.75rem', px: 1.5, py: 0.4 }}
+           >
+             {loading ? 'Processing...' : 'Proceed'}
+           </Button>
+         </span>
+       </Tooltip>
+     </Box>
+   );
 };
 
 export default Sales;
