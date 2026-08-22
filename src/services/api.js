@@ -1535,6 +1535,51 @@ export const processBulkSalary = (payloadArray) =>
 export const fetchStaffPaymentHistory = (staffId, page = 0, size = 10) =>
   API.get(`${endpoints.payrollHistory}/staff/${staffId}?page=${page}&size=${size}`).then(r => r.data);
 
+// --- PHASE 1: EMPLOYEE MANAGEMENT ---
+
+export const fetchEmployees = (status = null, page = 0, size = 100) => {
+  const params = { page, size };
+  if (status) params.status = status;
+  return API.get('/api/payroll/employees', { params }).then(r => r.data);
+};
+
+export const addEmployee = (data) =>
+  API.post('/api/payroll/employees', data).then(r => r.data);
+
+export const updateEmployee = (id, data) =>
+  API.put(`/api/payroll/employees/${id}`, data).then(r => r.data);
+
+export const getEmployee = (id) =>
+  API.get(`/api/payroll/employees/${id}`).then(r => r.data);
+
+export const deleteEmployee = (id) =>
+  API.delete(`/api/payroll/employees/${id}`).then(r => r.data);
+
+// --- PHASE 1: SALARY STRUCTURES ---
+
+export const fetchSalaryStructures = (page = 0, size = 100) =>
+  API.get('/api/payroll/structures', { params: { page, size } }).then(r => r.data);
+
+export const createSalaryStructure = (data) =>
+  API.post('/api/payroll/structures', data).then(r => r.data);
+
+export const updateSalaryStructure = (id, data) =>
+  API.put(`/api/payroll/structures/${id}`, data).then(r => r.data);
+
+export const getSalaryStructure = (id) =>
+  API.get(`/api/payroll/structures/${id}`).then(r => r.data);
+
+export const addComponentToStructure = (structureId, data) =>
+  API.post(`/api/payroll/structures/${structureId}/components`, data).then(r => r.data);
+
+// --- PHASE 1: STAFF LOANS ---
+
+export const createStaffLoan = (employeeId, data) =>
+  API.post('/api/payroll/loans', data, { params: { employeeId } }).then(r => r.data);
+
+export const getLoanSchedule = (loanId) =>
+  API.get(`/api/payroll/loans/${loanId}/schedule`).then(r => r.data);
+
 // --- SUBSCRIPTIONS ---
 
 export const startTrial = () =>
@@ -1764,6 +1809,102 @@ export const fetchReceivablesAging = () =>
 
 export const fetchPayablesAging = () =>
   API.get('/api/v1/accounting/payables-aging').then(r => r.data?.data || r.data);
+
+// --- PHASE 2: PAYROLL RUN OPERATIONS ---
+export const createPayrollRun = (month, year) =>
+  API.post('/api/payroll/runs', {}, { params: { month, year } }).then(r => r.data);
+
+export const fetchPayrollRuns = (page = 0, size = 10) =>
+  API.get('/api/payroll/runs', { params: { page, size } }).then(r => r.data);
+
+export const getPayrollRun = (runId) =>
+  API.get(`/api/payroll/runs/${runId}`).then(r => r.data);
+
+export const markPayrollRunAsProcessing = (runId) =>
+  API.post(`/api/payroll/runs/${runId}/process`).then(r => r.data);
+
+export const approvePayrollRun = (runId, userId) =>
+  API.post(`/api/payroll/runs/${runId}/approve`, {}, { params: { userId } }).then(r => r.data);
+
+export const disbursePayrollRun = (runId, userId) =>
+  API.post(`/api/payroll/runs/${runId}/disburse`, {}, { params: { userId } }).then(r => r.data);
+
+// --- PHASE 2: PAYROLL SLIP OPERATIONS ---
+export const fetchPayrollSlips = (runId, page = 0, size = 10) =>
+  API.get(`/api/payroll/runs/${runId}/slips`, { params: { page, size } }).then(r => r.data);
+
+export const getPayrollSlip = (slipId) =>
+  API.get(`/api/payroll/slips/${slipId}`).then(r => r.data);
+
+export const updatePayrollSlip = (slipId, data) =>
+  API.put(`/api/payroll/slips/${slipId}`, data).then(r => r.data);
+
+// --- PHASE 2: ATTENDANCE OPERATIONS ---
+export const recordAttendance = (employeeId, date, type) =>
+  API.post('/api/payroll/attendance', {}, { params: { employeeId, date, type } }).then(r => r.data);
+
+export const fetchAttendanceForPeriod = (employeeId, startDate, endDate) =>
+  API.get('/api/payroll/attendance', { params: { employeeId, startDate, endDate } }).then(r => r.data);
+
+// --- PHASE 3: STATUTORY COMPLIANCE OPERATIONS ---
+export const applyStatutoryDeductions = (runId) =>
+  API.post(`/api/payroll/runs/${runId}/statutory`).then(r => r.data);
+
+// --- PHASE 3: BANKING INTEGRATION OPERATIONS ---
+export const disburseViaRazorpayX = (runId) =>
+  API.post(`/api/payroll/runs/${runId}/disburse-razorpayx`).then(r => r.data);
+
+export const exportNEFTBatch = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-neft`).then(r => r.data);
+
+export const exportNACHBatch = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-nach`).then(r => r.data);
+
+export const exportECRFile = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-ecr`).then(r => r.data);
+
+export const fetchBankTransactions = (status = 'PENDING', page = 0, size = 10) =>
+  API.get('/api/payroll/bank-transactions', { params: { status, page, size } }).then(r => r.data);
+
+export const validateBankDetails = (employeeId) =>
+  API.get(`/api/payroll/employees/${employeeId}/validate-bank`).then(r => r.data);
+
+// --- PHASE 4: EMPLOYEE SELF-SERVICE OPERATIONS ---
+export const fetchMyPayslips = (page = 0, size = 10) =>
+  API.get('/api/payroll/employee/payslips', { params: { page, size } }).then(r => r.data);
+
+export const getMyPayslip = (slipId) =>
+  API.get(`/api/payroll/employee/payslips/${slipId}`).then(r => r.data);
+
+export const getMyAttendance = (month, year) =>
+  API.get('/api/payroll/employee/attendance', { params: { month, year } }).then(r => r.data);
+
+export const getMyTaxDeclaration = (financialYear) =>
+  API.get('/api/payroll/employee/tax-declaration', { params: { financialYear } }).then(r => r.data);
+
+export const submitTaxDeclaration = (data) =>
+  API.post('/api/payroll/employee/tax-declaration', data).then(r => r.data);
+
+export const requestSalaryAdvance = (amount, reason) =>
+  API.post('/api/payroll/employee/advance-requests', {}, { params: { amount, reason } }).then(r => r.data);
+
+export const fetchMyAdvanceRequests = (page = 0, size = 10) =>
+  API.get('/api/payroll/employee/advance-requests', { params: { page, size } }).then(r => r.data);
+
+export const fetchMyLoans = (page = 0, size = 10) =>
+  API.get('/api/payroll/employee/loans', { params: { page, size } }).then(r => r.data);
+
+export const fetchDispatchHistory = (page = 0, size = 10) =>
+  API.get('/api/payroll/employee/dispatch-history', { params: { page, size } }).then(r => r.data);
+
+export const getMyForm16 = (financialYear) =>
+  API.get('/api/payroll/employee/form16', { params: { financialYear } }).then(r => r.data);
+
+export const getEssPreferences = () =>
+  API.get('/api/payroll/employee/ess-preferences').then(r => r.data);
+
+export const updateEssPreferences = (data) =>
+  API.put('/api/payroll/employee/ess-preferences', data).then(r => r.data);
 
 export default API;
 

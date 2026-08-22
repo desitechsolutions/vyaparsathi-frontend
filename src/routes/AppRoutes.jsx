@@ -102,6 +102,21 @@ import SupplierPaymentPage from '../pages/SupplierPaymentPage';
 import PayrollDashboard from '../pages/PayrollDashboard';
 import PricingPage from '../pages/PricingPage';
 import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
+// Phase 1: Employee Management, Salary Structures, Loans
+import EmployeeDirectory from '../pages/payroll/EmployeeDirectory';
+import SalaryStructures from '../pages/payroll/SalaryStructures';
+import LoanManagement from '../pages/payroll/LoanManagement';
+// Phase 2: Payroll Wizard & Run Management
+import PayrollWizard from '../pages/payroll/PayrollWizard';
+// Phase 3: Statutory Compliance & Banking
+import StatutoryCompliance from '../pages/payroll/StatutoryCompliance';
+import BankingIntegration from '../pages/payroll/BankingIntegration';
+// Phase 4: Employee Self-Service
+import ESSDashboard from '../pages/employee/ESSDashboard';
+import MyPayslips from '../pages/employee/MyPayslips';
+import TaxDeclaration from '../pages/employee/TaxDeclaration';
+// Admin Dashboard
+import PayrollAdminDashboard from '../pages/payroll/PayrollAdminDashboard';
 import ResetPassword from '../pages/ResetPassword';
 import VerifyEmail from '../pages/VerifyEmail';
 import ComingSoonPage from '../pages/public/ComingSoonPage';
@@ -374,6 +389,19 @@ function AppRoutes() {
             {/* ENTERPRISE TIER ONLY */}
             <Route path="admin/payroll" element={<TierGuard requiredTier="ENTERPRISE"><PayrollDashboard /></TierGuard>} />
             <Route path="/payroll/history/:staffId" element={<TierGuard requiredTier="ENTERPRISE"><PaymentHistoryPage /></TierGuard>} />
+
+            {/* Phase 1: Employee Management, Salary Structures, Loans */}
+            <Route path="payroll/employees" element={<TierGuard requiredTier="ENTERPRISE"><EmployeeDirectory /></TierGuard>} />
+            <Route path="payroll/structures" element={<TierGuard requiredTier="ENTERPRISE"><SalaryStructures /></TierGuard>} />
+            <Route path="payroll/loans" element={<TierGuard requiredTier="ENTERPRISE"><LoanManagement /></TierGuard>} />
+            <Route path="payroll/wizard" element={<TierGuard requiredTier="ENTERPRISE"><PayrollWizard /></TierGuard>} />
+            <Route path="payroll/statutory" element={<TierGuard requiredTier="ENTERPRISE"><StatutoryCompliance /></TierGuard>} />
+            <Route path="payroll/banking" element={<TierGuard requiredTier="ENTERPRISE"><BankingIntegration /></TierGuard>} />
+            <Route path="payroll/admin-dashboard" element={<TierGuard requiredTier="ENTERPRISE"><PayrollAdminDashboard /></TierGuard>} />
+            <Route path="employee/dashboard" element={<TierGuard requiredTier="ENTERPRISE"><ESSDashboard /></TierGuard>} />
+            <Route path="employee/payslips" element={<TierGuard requiredTier="ENTERPRISE"><MyPayslips /></TierGuard>} />
+            <Route path="employee/tax-declaration" element={<TierGuard requiredTier="ENTERPRISE"><TaxDeclaration /></TierGuard>} />
+
             <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />
             <Route path="audit" element={<TierGuard requiredTier="ENTERPRISE"><AuditLogs /></TierGuard>} />
