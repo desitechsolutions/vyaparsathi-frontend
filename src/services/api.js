@@ -1908,3 +1908,19 @@ export const updateEssPreferences = (data) =>
 
 export default API;
 
+
+// --- ALIASES & MISSING PAYROLL API FUNCTIONS ---
+
+// Aliases for exportNEFTBatch / exportNACHBatch so Step5Disbursal can call api.exportNEFT / api.exportNACH
+export const exportNEFT = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-neft`).then(r => r.data);
+
+export const exportNACH = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-nach`).then(r => r.data);
+
+// Statutory Config CRUD (used by StatutoryCompliance.jsx)
+export const getStatutoryConfig = () =>
+  API.get('/api/payroll/statutory-config').then(r => r.data);
+
+export const saveStatutoryConfig = (data) =>
+  API.post('/api/payroll/statutory-config', data).then(r => r.data);

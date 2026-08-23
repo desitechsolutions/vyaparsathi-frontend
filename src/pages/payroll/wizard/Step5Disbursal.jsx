@@ -2,91 +2,123 @@ import React, { useState } from 'react';
 import {
   Box, Card, CardContent, Radio, RadioGroup, FormControlLabel, Button,
   Stack, Alert, LinearProgress, Chip, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper
+  TableHead, TableRow, Paper, CircularProgress, Snackbar, Typography
 } from '@mui/material';
 import { Download as DownloadIcon, Check as CheckIcon } from '@mui/icons-material';
+import * as api from '../../../services/api';
 
 export default function Step5Disbursal({ payrollData, onDataChange }) {
   const [payoutMethod, setPayoutMethod] = useState('razorpayx');
   const [autoDispatch, setAutoDispatch] = useState(true);
   const [disbursalProgress, setDisbursalProgress] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+
+  const runId = payrollData?.payrollRun?.id;
 
   const handleDisburse = async () => {
-    // Simulate disbursement progress
-    for (let i = 0; i <= 100; i += 10) {
-      setDisbursalProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 200));
+    if (!runId) {
+      setToast({ open: true, message: 'No payroll run found. Please complete earlier steps.', severity: 'error' });
+      return;
     }
-    onDataChange({ disbursalData: { payoutMethod, autoDispatch, status: 'completed' } });
+    try {
+      setLoading(true);
+      setDisbursalProgress(30);
+
+      if (payoutMethod === 'razorpayx') {
+        await api.disburseViaRazorpayX(runId);
+      } else if (payoutMethod === 'neft') {
+        await api.exportNEFT(runId);
+      } else if (payoutMethod === 'nach') {
+        await api.exportNACH(runId);
+      }
+
+      setDisbursalProgress(100);
+      onDataChange({ disbursalData: { payoutMethod, autoDispatch, status: 'completed' } });
+      setToast({ open: true, message: 'Payroll disbursed successfully!', severity: 'success' });
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.response?.data?.message || 'Disbursal failed. Please try again.',
+        severity: 'error'
+      });
+      setDisbursalProgress(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDownloadBatch = () => {
-    // Mock batch file download
-    alert('NEFT batch file would be downloaded (ABX_20260822_001.csv)');
+  const handleDownloadBatch = async () => {
+    try {
+      if (payoutMethod === 'neft') await api.exportNEFT(runId);
+      else if (payoutMethod === 'nach') await api.exportNACH(runId);
+    } catch (err) {
+      setToast({ open: true, message: 'Failed to download batch file', severity: 'error' });
+    }
   };
 
   return (
     <Box>
-      <h3>Step 5: Disbursal & Payslip Dispatch</h3>
+      <Typography variant="h6" gutterBottom>Step 5: Disbursal & Payslip Dispatch</Typography>
 
       <Alert severity="success" sx={{ mb: 3 }}>
         Select your preferred payout method and configure payslip delivery options.
       </Alert>
 
-      {/* Payout Method Selection */}
+      <Snackbar open={toast.open} autoHideDuration={6000} onClose={() => setToast({ ...toast, open: false })}>
+        <Alert severity={toast.severity}>{toast.message}</Alert>
+      </Snackbar>
+
+      {/* Payout Method */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <h4>Payout Method</h4>
+          <Typography variant="h6" gutterBottom>Payout Method</Typography>
           <RadioGroup value={payoutMethod} onChange={(e) => setPayoutMethod(e.target.value)}>
             <FormControlLabel
               value="razorpayx"
               control={<Radio />}
               label="1-Click Direct Disbursal (RazorpayX API)"
-              sx={{ mb: 2 }}
+              sx={{ mb: 1 }}
             />
-            <p style={{ marginLeft: '32px', marginTop: '-12px', color: '#666', fontSize: '13px' }}>
-              Instant payout to employee bank accounts. Fastest option for 25 employees.
-            </p>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mb: 2 }}>
+              Instant payout to employee bank accounts. Fastest option.
+            </Typography>
 
             <FormControlLabel
               value="neft"
               control={<Radio />}
               label="NEFT Batch File Export (Corporate Banking)"
-              sx={{ mb: 2 }}
+              sx={{ mb: 1 }}
             />
-            <p style={{ marginLeft: '32px', marginTop: '-12px', color: '#666', fontSize: '13px' }}>
-              Download NEFT batch file for your corporate bank account. Requires manual upload.
-            </p>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block', mb: 2 }}>
+              Download NEFT batch file for your corporate bank. Requires manual upload.
+            </Typography>
 
             <FormControlLabel
               value="nach"
               control={<Radio />}
               label="NACH Mandate File Export"
-              sx={{ mb: 2 }}
+              sx={{ mb: 1 }}
             />
-            <p style={{ marginLeft: '32px', marginTop: '-12px', color: '#666', fontSize: '13px' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 4, display: 'block' }}>
               For mandate-based recurring transfers. Upload to your bank.
-            </p>
+            </Typography>
           </RadioGroup>
         </CardContent>
       </Card>
 
-      {/* Batch File Preview (if NEFT/NACH selected) */}
-      {(payoutMethod === 'neft' || payoutMethod === 'nach') && (
+      {/* Batch File Download (if NEFT/NACH) */}
+      {(payoutMethod === 'neft' || payoutMethod === 'nach') && runId && (
         <Card sx={{ mb: 3, bgcolor: 'info.light' }}>
           <CardContent>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <div>
-                <h4 style={{ margin: 0 }}>Batch File Ready</h4>
-                <p style={{ margin: '4px 0', fontSize: '13px' }}>
-                  {payoutMethod === 'neft' ? 'ABX_20260822_001.csv' : 'NACH_20260822_001.txt'}
-                </p>
+                <Typography variant="subtitle1" fontWeight={600}>Batch File Ready</Typography>
+                <Typography variant="caption">
+                  Run: {payrollData?.payrollRun?.runNumber} | {payoutMethod.toUpperCase()} format
+                </Typography>
               </div>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleDownloadBatch}
-              >
+              <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleDownloadBatch}>
                 Download
               </Button>
             </Stack>
@@ -97,35 +129,34 @@ export default function Step5Disbursal({ payrollData, onDataChange }) {
       {/* Payslip Dispatch */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <h4>Payslip Dispatch</h4>
+          <Typography variant="h6" gutterBottom>Payslip Dispatch</Typography>
           <FormControlLabel
             control={
               <input
                 type="checkbox"
                 checked={autoDispatch}
                 onChange={(e) => setAutoDispatch(e.target.checked)}
+                style={{ marginRight: 8 }}
               />
             }
             label="Auto-dispatch payslips to employees via WhatsApp & Email"
-            sx={{ mb: 2 }}
+            sx={{ mb: 1 }}
           />
-          <p style={{ color: '#666', fontSize: '13px', marginTop: '-8px' }}>
-            Employees will receive:
-            <br />• WhatsApp: Quick summary link
-            <br />• Email: PDF attachment + login link
-          </p>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 3 }}>
+            Employees will receive: WhatsApp quick summary • Email PDF attachment
+          </Typography>
         </CardContent>
       </Card>
 
-      {/* Disbursal Progress */}
+      {/* Progress */}
       {disbursalProgress > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-              <h4 style={{ margin: 0 }}>Disbursal in Progress</h4>
-              <Chip label={`${disbursalProgress}%`} />
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2">{disbursalProgress === 100 ? 'Disbursal Complete' : 'Disbursing...'}</Typography>
+              <Chip label={`${disbursalProgress}%`} size="small" color={disbursalProgress === 100 ? 'success' : 'default'} />
             </Stack>
-            <LinearProgress variant="determinate" value={disbursalProgress} sx={{ height: '8px', borderRadius: '4px' }} />
+            <LinearProgress variant="determinate" value={disbursalProgress} sx={{ height: 8, borderRadius: 4 }} />
           </CardContent>
         </Card>
       )}
@@ -134,37 +165,41 @@ export default function Step5Disbursal({ payrollData, onDataChange }) {
         <Card sx={{ mb: 3, bgcolor: 'success.light' }}>
           <CardContent>
             <Stack direction="row" spacing={2} alignItems="center">
-              <CheckIcon sx={{ color: 'success.main', fontSize: '32px' }} />
+              <CheckIcon sx={{ color: 'success.main', fontSize: 32 }} />
               <div>
-                <h4 style={{ margin: 0 }}>Payroll Disbursed Successfully</h4>
-                <p style={{ margin: '4px 0', fontSize: '13px' }}>
-                  Run: PAY-2026-08 | Date: Aug 22, 2026 | Total: ₹1,065,000
-                </p>
+                <Typography variant="subtitle1" fontWeight={700}>Payroll Disbursed Successfully</Typography>
+                <Typography variant="caption">
+                  Run: {payrollData?.payrollRun?.runNumber} | Status: DISBURSED
+                </Typography>
               </div>
             </Stack>
           </CardContent>
         </Card>
       )}
 
-      {/* Disbursal Summary */}
-      <h4>Disbursal Summary</h4>
-      <TableContainer component={Paper}>
+      {/* Summary Table */}
+      <Typography variant="h6" gutterBottom>Disbursal Summary</Typography>
+      <TableContainer component={Paper} sx={{ mb: 3 }}>
         <Table size="small">
           <TableHead sx={{ bgcolor: 'background.default' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Account</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="right">Amount</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Run</TableCell>
+              <TableCell sx={{ fontWeight: 600 }} align="right">Net Payable</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Method</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell>ICICI Corporate Account</TableCell>
-              <TableCell align="right">₹1,065,000</TableCell>
+              <TableCell>{payrollData?.payrollRun?.runNumber || '—'}</TableCell>
+              <TableCell align="right">
+                ₹{(Number(payrollData?.payrollRun?.totalNetPayable) || 0).toLocaleString('en-IN')}
+              </TableCell>
+              <TableCell>{payoutMethod.toUpperCase()}</TableCell>
               <TableCell>
                 <Chip
                   size="small"
-                  label={disbursalProgress === 100 ? 'Disbursed' : 'Queued'}
+                  label={disbursalProgress === 100 ? 'DISBURSED' : 'QUEUED'}
                   color={disbursalProgress === 100 ? 'success' : 'default'}
                 />
               </TableCell>
@@ -173,22 +208,23 @@ export default function Step5Disbursal({ payrollData, onDataChange }) {
         </Table>
       </TableContainer>
 
-      {/* Action Button */}
-      <Stack direction="row" sx={{ mt: 3, gap: 2 }}>
+      <Stack direction="row" sx={{ gap: 2 }}>
         <Button
           variant="contained"
           color="success"
           onClick={handleDisburse}
-          disabled={disbursalProgress > 0}
+          disabled={loading || disbursalProgress === 100 || !runId}
           fullWidth
+          startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
         >
-          {disbursalProgress === 100 ? 'Payroll Complete' : 'Finalize & Disburse'}
+          {disbursalProgress === 100 ? 'Payroll Complete' : loading ? 'Disbursing...' : 'Finalize & Disburse'}
         </Button>
       </Stack>
 
-      <p style={{ marginTop: '16px', color: '#666', fontSize: '12px' }}>
-        <strong>Note:</strong> Once finalized, payroll run status becomes DISBURSED and cannot be edited. Payslips will be generated and dispatched to employees.
-      </p>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>
+        <strong>Note:</strong> Once finalized, payroll run status becomes DISBURSED and cannot be edited.
+        Payslips will be generated and dispatched to employees automatically.
+      </Typography>
     </Box>
   );
 }
