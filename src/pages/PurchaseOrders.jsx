@@ -516,6 +516,14 @@ const PurchaseOrders = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []);
 
+  // ── Column visibility — hide non-critical columns on small screens ──
+  // Always visible: PO #, Supplier, Order Date, Status, Value, Actions.
+  // paymentStatus (Payment) is secondary context that the detail page shows;
+  // hiding it on mobile keeps the grid legible without horizontal scrolling.
+  const columnVisibilityModel = useMemo(() => ({
+    paymentStatus: !isMobile,
+  }), [isMobile]);
+
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="xl" sx={{ pt: 3, pb: 4 }}>
@@ -691,6 +699,17 @@ const PurchaseOrders = () => {
           </Stack>
         </Paper>
 
+        {/* Mobile helper — surfaces hidden-column context below xs breakpoint */}
+        {isMobile && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1, px: 0.5 }}
+          >
+            Tap a row to view full details. Payment column is hidden on small screens.
+          </Typography>
+        )}
+
         {/* DataGrid ──────────────────────────────────────────────── */}
         <Paper elevation={0} sx={{
           borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden',
@@ -710,6 +729,7 @@ const PurchaseOrders = () => {
               disableRowSelectionOnClick
               rowHeight={54}
               onRowClick={(params) => openView(params.row)}
+              columnVisibilityModel={columnVisibilityModel}
               initialState={{
                 pagination: { paginationModel: { pageSize: 25 } },
                 sorting: { sortModel: [{ field: 'orderDate', sort: 'desc' }] },

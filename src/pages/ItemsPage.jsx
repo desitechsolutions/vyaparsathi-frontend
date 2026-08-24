@@ -277,6 +277,17 @@ export default function ItemsPage() {
     [columns, t, handleViewVariants, handleManageItem, theme]
   );
 
+  // Hide low-priority columns on mobile to reduce horizontal clutter.
+  // Columns kept on ALL devices: name, sku, categoryName, stockStatus, variants, actions.
+  // Columns hidden on xs/sm: brandName, priceRange.
+  const columnVisibilityModel = useMemo(() => {
+    if (!isMobile) return {};
+    return {
+      brandName: false,
+      priceRange: false,
+    };
+  }, [isMobile]);
+
   const getStepContent = (currentStep) => {
     switch (currentStep) {
       case 0:
@@ -517,24 +528,37 @@ export default function ItemsPage() {
               ))}
             </Box>
           ) : (
-            <DataGrid
-              rows={displayItems}
-              columns={finalColumns}
-              autoHeight
-              getRowId={(row) => row.id}
-              paginationMode="server"
-              rowCount={rowCount}
-              paginationModel={paginationModel}
-              onPaginationModelChange={setPaginationModel}
-              pageSizeOptions={[10, 25, 50, 100]}
-              checkboxSelection
-              disableRowSelectionOnClick
-              rowSelectionModel={selectedItemIds}
-              onRowSelectionModelChange={(newSelection) => setSelectedItemIds(newSelection)}
-              slots={{ toolbar: CustomToolbar }}
-              slotProps={{ toolbar: { onAddItemClick: handleAddItemClick } }}
-              density="standard"
-              sx={{
+            <>
+              {isMobile && (
+                <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', fontStyle: 'italic' }}
+                  >
+                    Swipe table or view details for more info
+                  </Typography>
+                </Box>
+              )}
+              <DataGrid
+                rows={displayItems}
+                columns={finalColumns}
+                autoHeight
+                getRowId={(row) => row.id}
+                paginationMode="server"
+                rowCount={rowCount}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                pageSizeOptions={[10, 25, 50, 100]}
+                checkboxSelection
+                disableRowSelectionOnClick
+                rowSelectionModel={selectedItemIds}
+                onRowSelectionModelChange={(newSelection) => setSelectedItemIds(newSelection)}
+                slots={{ toolbar: CustomToolbar }}
+                slotProps={{ toolbar: { onAddItemClick: handleAddItemClick } }}
+                density="standard"
+                columnVisibilityModel={columnVisibilityModel}
+                sx={{
                 border: 0,
                 '& .MuiDataGrid-columnHeaders': {
                   bgcolor: alpha(theme.palette.text.primary, 0.04),
@@ -547,7 +571,8 @@ export default function ItemsPage() {
                 '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': { outline: 'none' },
                 '& .MuiDataGrid-row:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) },
               }}
-            />
+              />
+            </>
           )}
         </Paper>
       </Container>

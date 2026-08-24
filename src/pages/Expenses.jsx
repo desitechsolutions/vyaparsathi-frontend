@@ -104,12 +104,17 @@ const Expenses = () => {
 
   const columns = [
     { field: 'date', headerName: t('expensesPage.columns.date'), width: 130, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
-    { field: 'type', headerName: t('expensesPage.columns.category'), width: 180, 
-      renderCell: (params) => <Chip label={params.value} size="small" variant="outlined" sx={{ fontWeight: 600 }} /> 
+    { field: 'type', headerName: t('expensesPage.columns.category'), width: 180,
+      renderCell: (params) => <Chip label={params.value} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
     },
-    { field: 'amount', headerName: t('expensesPage.columns.amount'), width: 150, 
-      renderCell: (params) => <Typography fontWeight={800} color="error.main">₹{parseFloat(params.value).toLocaleString()}</Typography> 
+    { field: 'amount', headerName: t('expensesPage.columns.amount'), width: 150,
+      renderCell: (params) => <Typography fontWeight={800} color="error.main">₹{parseFloat(params.value).toLocaleString()}</Typography>
     },
+    // Secondary columns — hidden on mobile via columnVisibilityModel
+    { field: 'description', headerName: t('expensesPage.columns.description') || 'Description', flex: 1, minWidth: 180 },
+    { field: 'reference', headerName: t('expensesPage.columns.reference') || 'Reference', width: 150 },
+    { field: 'paymentMethod', headerName: t('expensesPage.columns.paymentMethod') || 'Payment Method', width: 160 },
+    { field: 'employee', headerName: t('expensesPage.columns.employee') || 'Employee', width: 160 },
     { field: 'notes', headerName: t('expensesPage.columns.notes'), flex: 1, minWidth: 200 },
     { field: 'actions', headerName: t('expensesPage.columns.actions'), width: 120, sortable: false,
       renderCell: (params) => (
@@ -120,6 +125,15 @@ const Expenses = () => {
       )
     }
   ];
+
+  // Hide non-critical columns on small screens; always show Date, Category, Amount, Actions
+  const columnVisibilityModel = useMemo(() => ({
+    description:   !isMobile,
+    reference:     !isMobile,
+    paymentMethod: !isMobile,
+    employee:      !isMobile,
+    notes:         !isMobile,
+  }), [isMobile]);
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -140,19 +154,33 @@ const Expenses = () => {
       </Grid>
 
       <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', overflow: 'hidden' }}>
-        <Box sx={{ height: 600, width: '100%', bgcolor: 'background.paper' }}>
+        <Box sx={{ width: '100%', bgcolor: 'background.paper' }}>
           <DataGrid
             rows={expenses}
             columns={columns}
             loading={loading}
             disableRowSelectionOnClick
+            autoHeight
+            columnVisibilityModel={columnVisibilityModel}
             slots={{ toolbar: () => (
               <GridToolbarContainer sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
-                <GridToolbarQuickFilter sx={{ width: 300 }} placeholder={t('expensesPage.searchPlaceholder')} />
+                <GridToolbarQuickFilter
+                  sx={{ width: isMobile ? '100%' : 300 }}
+                  placeholder={t('expensesPage.searchPlaceholder')}
+                />
               </GridToolbarContainer>
             )}}
             sx={{ border: 0, '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.default' } }}
           />
+          {isMobile && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', textAlign: 'center', py: 1, borderTop: '1px solid', borderColor: 'divider' }}
+            >
+              Tap row to view full details
+            </Typography>
+          )}
         </Box>
       </Paper>
 

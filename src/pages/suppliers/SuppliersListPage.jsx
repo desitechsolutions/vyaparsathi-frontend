@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme, alpha } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { DataGrid } from '@mui/x-data-grid';
 import {
   Box, Container, Paper, Stack, Typography, Chip, Button, IconButton,
@@ -20,6 +21,7 @@ import {
   FilterAltOff as FilterClearIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
+  PhoneAndroid as MobileIcon,
 } from '@mui/icons-material';
 
 import { getSuppliers, toggleSupplierActive } from '../../services/api';
@@ -70,6 +72,7 @@ const FilterChip = ({ active, onClick, label, count, color }) => (
 
 const SuppliersListPage = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
   const [rows, setRows] = useState([]);
@@ -141,6 +144,13 @@ const SuppliersListPage = () => {
   const openCreate = () => { setEditing(null); setEditOpen(true); };
   const openEdit = (row) => { setEditing(row); setEditOpen(true); };
   const onSaved = () => { notify('Supplier saved.', 'success'); setEditOpen(false); refresh(); };
+
+  // Columns hidden on mobile to keep the table readable on small screens.
+  // Always visible: name (Supplier), contactPerson (Contact), city (Location), active (Status), actions
+  // Hidden on mobile: gstin (GSTIN / PAN)
+  const columnVisibilityModel = useMemo(() => ({
+    gstin: !isMobile,
+  }), [isMobile]);
 
   const columns = useMemo(() => [
     {
@@ -294,6 +304,22 @@ const SuppliersListPage = () => {
         <Paper elevation={0} sx={{
           borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden',
         }}>
+          {isMobile && (
+            <Box sx={{
+              px: 2, py: 1,
+              bgcolor: alpha(theme.palette.info.main, 0.06),
+              borderBottom: '1px solid',
+              borderColor: alpha(theme.palette.info.main, 0.2),
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}>
+              <MobileIcon sx={{ fontSize: '0.9rem', color: 'info.main' }} />
+              <Typography variant="caption" color="info.main" fontWeight={600}>
+                Some columns (GSTIN/PAN) are hidden on mobile. Tap a row to view full details.
+              </Typography>
+            </Box>
+          )}
           {loading ? (
             <Box sx={{ p: 2 }}>
               {[0, 1, 2, 3, 4].map((i) => (
@@ -305,6 +331,7 @@ const SuppliersListPage = () => {
               autoHeight rows={filtered} columns={columns} getRowId={(row) => row.id}
               disableRowSelectionOnClick rowHeight={62}
               onRowClick={(p) => navigate(`/suppliers/${p.row.id}`)}
+              columnVisibilityModel={columnVisibilityModel}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
               pageSizeOptions={[10, 25, 50, 100]}
               sx={{
