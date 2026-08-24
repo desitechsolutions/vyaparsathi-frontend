@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Box, IconButton, Badge, Menu, MenuItem, Chip, Tooltip, useTheme, Stack,
+  Box, IconButton, Badge, Menu, MenuItem, Chip, Tooltip, useTheme, Stack, Divider,
   ListItemIcon, Typography, keyframes,
 } from '@mui/material';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
@@ -11,6 +11,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import BrightnessAutoIcon from '@mui/icons-material/BrightnessAuto';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import StatusIndicators from './StatusIndicators';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAlerts } from '../../context/AlertContext';
@@ -230,6 +231,9 @@ const HeaderActions = ({
           {themeIconMap[colorPreference]}
         </IconButton>
       </Tooltip>
+
+      {/* Status Indicators - Connection, Sync, Loading */}
+      <StatusIndicators isMobile={isMobile} />
     </Stack>
   );
 };
