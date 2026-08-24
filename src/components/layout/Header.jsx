@@ -13,6 +13,7 @@ import HeaderSearch from './HeaderSearch';
 import HeaderActions from './HeaderActions';
 import HeaderUserProfile from './HeaderUserProfile';
 import { useHeaderState } from '../../hooks/useHeaderState';
+import { useResponsiveTouchTarget } from '../../utils/touchTargets';
 
 const Header = ({ onDrawerToggle }) => {
   const { user } = useAuthContext();
@@ -54,7 +55,7 @@ const Header = ({ onDrawerToggle }) => {
               <Button
                 color="inherit"
                 onClick={onDrawerToggle}
-                sx={{ minWidth: 44, p: 1 }}
+                sx={{ minWidth: 44, minHeight: 44, p: 1 }}
                 aria-label="Open navigation menu"
               >
                 ☰
@@ -93,7 +94,7 @@ const Header = ({ onDrawerToggle }) => {
             <Button
               color="inherit"
               onClick={handlers.openMobileSearch}
-              sx={{ minWidth: 44, p: 1 }}
+              sx={{ minWidth: 44, minHeight: 44, p: 1 }}
               aria-label="Open search"
             >
               🔍

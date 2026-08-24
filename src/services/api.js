@@ -9,6 +9,31 @@ const API = axios.create({
   withCredentials: true,
 });
 
+// ── AbortController registry ──────────────────────────────────────────────────
+// Tracks in-flight requests by a caller-supplied requestId so individual
+// requests (or all of them at once) can be cancelled from outside the module.
+const requestControllers = new Map();
+
+/**
+ * Cancel a single in-flight request by the id used when it was registered.
+ * Safe to call even when no request with that id is active.
+ */
+export const cancelRequest = (requestId) => {
+  const controller = requestControllers.get(requestId);
+  if (controller) {
+    controller.abort();
+    requestControllers.delete(requestId);
+  }
+};
+
+/**
+ * Cancel every tracked in-flight request (e.g. on logout or hard navigation).
+ */
+export const cancelAllRequests = () => {
+  requestControllers.forEach((controller) => controller.abort());
+  requestControllers.clear();
+};
+
 export const getRequest = (url, config) => API.get(url, config);
 
 export let isRefreshing = false;
@@ -43,6 +68,12 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Swallow cancellations — the component that triggered the abort already
+    // knows it unmounted/navigated away; propagating the error would cause
+    // "Can't perform a React state update on an unmounted component" warnings.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error); // re-throw so callers can still detect it
+    }
     if (error.response?.status === 401 || error.response?.status === 403) {
       const isLoginRequest = error.config?.url?.includes('/api/auth/login');
       clearAuthStorage();
@@ -229,14 +260,15 @@ export const reorderCustomAttributes = (ids) => API.post(endpoints.customAttribu
 export const bulkPatchItemVariants = (payload) =>
   API.post('/api/item-variants/bulk-patch', payload);
 
-export const fetchShop = async () => {
+export const fetchShop = async (signal) => {
   try {
-    const res = await API.get(endpoints.shop);
+    const res = await API.get(endpoints.shop, signal ? { signal } : undefined);
     if (res.status === 204 || res.status === 404) {
       return { data: null, status: res.status };
     }
     return res;
   } catch (err) {
+    if (axios.isCancel(err)) return null;
     if (err.response?.status === 204 ||
       err.response?.status === 404 ||
       err?.response?.data?.message?.includes('No active shop') ||
@@ -269,8 +301,8 @@ export const setDefaultShopBankAccount = (id) =>
 
 // --- PURCHASE ORDERS ---
 
-export const getPurchaseOrders = () =>
-  API.get(endpoints.purchaseOrders).then((r) => r.data);
+export const getPurchaseOrders = (signal) =>
+  API.get(endpoints.purchaseOrders, signal ? { signal } : undefined).then((r) => r.data);
 
 export const getPurchaseOrderById = (id) =>
   API.get(endpoints.purchaseOrderById(id)).then((r) => r.data);
@@ -371,8 +403,8 @@ export const getOpenPurchaseOrders = () =>
 
 // --- SUPPLIERS ---
 
-export const getSuppliers = () =>
-  API.get(endpoints.suppliers).then((r) => r.data);
+export const getSuppliers = (signal) =>
+  API.get(endpoints.suppliers, signal ? { signal } : undefined).then((r) => r.data);
 
 export const createSupplier = (data) =>
   API.post(endpoints.suppliers, data).then((r) => r.data);
@@ -394,6 +426,13 @@ export const getSupplierStats = (id) =>
 export const toggleSupplierActive = (id) =>
   API.post(`/api/suppliers/${id}/toggle-active`).then((r) => r.data);
 
+/**
+ * Bulk activate or deactivate a list of suppliers.
+ * active=true → activate all; active=false → deactivate all.
+ */
+export const bulkToggleSupplierActive = (ids, active) =>
+  API.post('/api/suppliers/bulk-toggle-active', { ids, active }).then((r) => r.data);
+
 // --- SUPPLIER PAYMENTS ---
 
 export const recordSupplierPayment = (data) =>
@@ -411,10 +450,10 @@ export const getSupplierPaymentSummary = (purchaseOrderId) =>
 // --- ITEMS & VARIANTS ---
 
 export const createItem = (data) => API.post(endpoints.items, data);
-export const fetchItems = () => API.get(endpoints.items);
+export const fetchItems = (signal) => API.get(endpoints.items, signal ? { signal } : undefined);
 export const getItemById = (id) => API.get(endpoints.getItemById(id));
 export const updateItem = (id, data) => API.put(endpoints.updateItem(id), data);
-export const fetchCategories = () => API.get(endpoints.fetchCategories);
+export const fetchCategories = (signal) => API.get(endpoints.fetchCategories, signal ? { signal } : undefined);
 export const createCategory = (payload) => API.post(endpoints.fetchCategories, payload);
 export const updateCategory = (id, payload) => API.put(endpoints.categoryById(id), payload);
 export const deleteCategory = (id) => API.delete(endpoints.categoryById(id));
@@ -423,7 +462,21 @@ export const fetchItemSubstitutes = (itemId) => API.get(`${endpoints.items}/${it
 export const createItemVariant = (data) => API.post(endpoints.createItemVariant, data)
 export const deleteItemVariant = (id) => API.delete(endpoints.deleteItemVariant(id));
 export const deleteItemsBulk = (ids) => API.delete(endpoints.deleteItemsBulk, { data: { ids } });
-export const searchItemsPage = (params) => API.get(endpoints.searchItems, { params });
+
+/**
+ * Apply a price multiplier to every variant of the selected items.
+ * factor > 1 increases prices; factor < 1 reduces them.
+ * e.g. factor=1.1 → 10% increase, factor=0.9 → 10% reduction
+ */
+export const bulkApplyItemPriceFactor = (ids, factor) =>
+  API.post('/api/items/bulk-price-factor', { ids, factor }).then((r) => r.data);
+
+/**
+ * Reassign all selected items to the given category.
+ */
+export const bulkAssignItemCategory = (ids, categoryId) =>
+  API.post('/api/items/bulk-assign-category', { ids, categoryId }).then((r) => r.data);
+export const searchItemsPage = (params, signal) => API.get(endpoints.searchItems, signal ? { params, signal } : { params });
 export const updateItemVariant = (id, data) => API.put(endpoints.itemVariantById(id), data);
 export const fetchItemVariants = (params = {}) => {
   return API.get(endpoints.fetchItemVariants, { params });
@@ -436,7 +489,7 @@ export const fetchItemVariantById = async (id) => {
 // --- STOCK MANAGEMENT ---
 
 export const addStock = (data) => API.post(endpoints.stock, data);
-export const fetchStock = () => API.get(endpoints.fetchStock);
+export const fetchStock = (signal) => API.get(endpoints.fetchStock, signal ? { signal } : undefined);
 export const fetchLowStockAlerts = () =>
   API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
 export const lookupByBarcode = (code) =>
@@ -494,8 +547,11 @@ export const importStockFromExcel = (file) => {
  * <p>New callers should use {@link fetchCustomersPaged} directly and
  * do their own server-side filtering / pagination.</p>
  */
-export const fetchCustomers = async () => {
-  const page = await API.get('/api/customers/paged', { params: { size: 500 } });
+export const fetchCustomers = async (signal) => {
+  const page = await API.get('/api/customers/paged', {
+    params: { size: 500 },
+    ...(signal ? { signal } : {}),
+  });
   const body = page?.data || {};
   const list = Array.isArray(body.content) ? body.content : [];
   if (typeof body.totalElements === 'number' && body.totalElements > list.length) {
@@ -525,17 +581,24 @@ export const toggleCustomerActive = (id) =>
   API.post(`/api/customers/${id}/toggle-active`).then((r) => r.data);
 
 // Enterprise Customer Endpoints (V105)
-export const fetchCustomersPaged = (params = {}) =>
-  API.get('/api/customers/paged', { params }).then((r) => r.data);
+export const fetchCustomersPaged = (params = {}, signal) =>
+  API.get('/api/customers/paged', signal ? { params, signal } : { params }).then((r) => r.data);
 
-export const fetchCustomerKpis = () =>
-  API.get('/api/customers/kpis').then((r) => r.data);
+export const fetchCustomerKpis = (signal) =>
+  API.get('/api/customers/kpis', signal ? { signal } : undefined).then((r) => r.data);
 
 export const bulkToggleCustomerActive = (ids, active) =>
   API.post('/api/customers/bulk-toggle-active', { ids, active }).then((r) => r.data);
 
 export const bulkDeleteCustomers = (ids) =>
   API.post('/api/customers/bulk-delete', { ids }).then((r) => r.data);
+
+/**
+ * Append one or more tags to all selected customers.
+ * tags is a comma-separated string, e.g. "VIP,Wholesale".
+ */
+export const bulkTagCustomers = (ids, tags) =>
+  API.post('/api/customers/bulk-tag', { ids, tags }).then((r) => r.data);
 
 export const exportCustomersCsv = () =>
   API.get('/api/customers/export.csv', { responseType: 'blob' });
@@ -839,11 +902,12 @@ export const fetchSalesHistory = (opts = {}) => {
 };
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
-export const fetchAllSales = (from, to) => {
+export const fetchAllSales = (from, to, signal) => {
+  const cfg = signal ? { signal } : undefined;
   if (from && to) {
-    return API.get(endpoints.salesByDateRange(from, to));
+    return API.get(endpoints.salesByDateRange(from, to), cfg);
   }
-  return API.get(endpoints.sales);
+  return API.get(endpoints.sales, cfg);
 };
 export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 
@@ -964,29 +1028,32 @@ export const clearAllNotifications = (recipient) => API.delete(`/api/notificatio
 
 // --- REPORTS ---
 
-export const fetchDailyReport = (date) =>
-  API.get(endpoints.reports.daily(date));
-export const fetchSalesSummary = (from, to) => {
+export const fetchDailyReport = (date, signal) =>
+  API.get(endpoints.reports.daily(date), signal ? { signal } : undefined);
+export const fetchSalesSummary = (from, to, signal) => {
+  const cfg = signal ? { signal } : undefined;
   if (from && to) {
-    return API.get(endpoints.reports.salesSummary(from, to));
+    return API.get(endpoints.reports.salesSummary(from, to), cfg);
   }
-  return API.get(endpoints.reports.salesSummary());
+  return API.get(endpoints.reports.salesSummary(), cfg);
 };
 export const fetchGstSummary = (from, to) =>
   API.get(endpoints.reports.gstSummary(from, to));
 export const fetchGstBreakdown = (from, to) =>
   API.get(endpoints.reports.gstBreakdown(from, to));
-export const fetchItemsSold = (from, to) => {
+export const fetchItemsSold = (from, to, signal) => {
+  const cfg = signal ? { signal } : undefined;
   if (from && to) {
-    return API.get(endpoints.reports.itemsSold(from, to));
+    return API.get(endpoints.reports.itemsSold(from, to), cfg);
   }
-  return API.get(endpoints.reports.itemsSold());
+  return API.get(endpoints.reports.itemsSold(), cfg);
 };
-export const fetchCategorySales = (from, to) => {
+export const fetchCategorySales = (from, to, signal) => {
+  const cfg = signal ? { signal } : undefined;
   if (from && to) {
-    return API.get(endpoints.reports.categorySales(from, to));
+    return API.get(endpoints.reports.categorySales(from, to), cfg);
   }
-  return API.get(endpoints.reports.categorySales());
+  return API.get(endpoints.reports.categorySales(), cfg);
 };
 export const fetchCustomerSales = (from, to) => {
   if (from && to) {
@@ -1926,36 +1993,54 @@ export const saveStatutoryConfig = (data) =>
   API.post('/api/payroll/statutory-config', data).then(r => r.data);
 
 // --- MISSING LEAVE MANAGEMENT APIs ---
-// ESS endpoint — for employee viewing their own applications
+// ESS endpoint — for employee creating leave applications
+// Backend: POST /api/payroll/employee/leave-applications (EXISTS — PayrollController.java:609)
 export const createLeaveApplication = (employeeId, data) =>
   API.post('/api/payroll/employee/leave-applications', data, { params: { employeeId } }).then(r => r.data);
 
+// TODO: Backend GET /api/payroll/employee/leave-applications is MISSING from PayrollController.java
+// Only POST exists for creating leave applications on this path.
+// Required spec: GET /api/payroll/employee/leave-applications?page={page}&size={size}
+//   → Page<LeaveApplicationDto> for the authenticated employee's own applications
 export const listLeaveApplications = (page = 0, size = 10) =>
   API.get('/api/payroll/employee/leave-applications', { params: { page, size } }).then(r => r.data);
 
 // Admin endpoint — list ALL applications across all employees (for Leave Approvals page)
+// Backend: GET /api/payroll/leave-applications?status= (EXISTS — PayrollController.java:619)
 export const listAdminLeaveApplications = (status = 'PENDING') =>
   API.get('/api/payroll/leave-applications', { params: { status } }).then(r => r.data);
 
+// Backend: POST /api/payroll/leave-applications/{id}/approve (EXISTS — PayrollController.java:626)
 export const approveLeaveApplication = (applicationId) =>
   API.post(`/api/payroll/leave-applications/${applicationId}/approve`).then(r => r.data);
 
+// Backend: POST /api/payroll/leave-applications/{id}/reject (EXISTS — PayrollController.java:633)
 export const rejectLeaveApplication = (applicationId, reason) =>
   API.post(`/api/payroll/leave-applications/${applicationId}/reject`, {}, { params: { reason } }).then(r => r.data);
 
+// Backend: GET /api/payroll/leave-balance (EXISTS — PayrollController.java:641)
 export const getLeaveBalance = (employeeId, leaveTypeId) =>
   API.get('/api/payroll/leave-balance', { params: { employeeId, leaveTypeId } }).then(r => r.data);
 
 // --- MISSING LOAN REQUEST APIs ---
+// Backend: POST /api/payroll/employee/loans — ESS employee self-service create loan request
+// (maps to GET /api/payroll/employee/loans which EXISTS — PayrollController.java:429)
 export const createLoanRequest = (employeeId, data) =>
   API.post('/api/payroll/employee/loans', data, { params: { employeeId } }).then(r => r.data);
 
+// TODO: Backend GET /api/payroll/employees/{employeeId}/loans is MISSING from PayrollController.java
+// Required spec: GET /api/payroll/employees/{employeeId}/loans?page={page}&size={size}
+//   → Page<StaffLoanDto> for admin/manager to view an employee's loan history
 export const getEmployeeLoans = (employeeId, page = 0, size = 10) =>
   API.get(`/api/payroll/employees/${employeeId}/loans`, { params: { page, size } }).then(r => r.data);
 
+// TODO: Backend POST /api/payroll/loans/{loanId}/approve is MISSING from PayrollController.java
+// Required spec: POST /api/payroll/loans/{loanId}/approve → StaffLoanDto (ADMIN/PAYROLL_ADMIN)
 export const approveLoan = (loanId) =>
   API.post(`/api/payroll/loans/${loanId}/approve`).then(r => r.data);
 
+// TODO: Backend POST /api/payroll/loans/{loanId}/reject is MISSING from PayrollController.java
+// Required spec: POST /api/payroll/loans/{loanId}/reject?reason={reason} → StaffLoanDto (ADMIN/PAYROLL_ADMIN)
 export const rejectLoan = (loanId, reason) =>
   API.post(`/api/payroll/loans/${loanId}/reject`, {}, { params: { reason } }).then(r => r.data);
 
@@ -2001,12 +2086,112 @@ export const getLwfReturnBlob = (month, year, state) =>
   API.get('/api/payroll/statutory/lwf-return', { params: { month, year, state }, responseType: 'blob' }).then(r => r.data);
 
 // --- MISSING PAYROLL REPORTS ---
+// TODO: Backend GET /api/payroll/runs/{runId}/reports is MISSING from PayrollController.java
+// Required spec: GET /api/payroll/runs/{runId}/reports → PayrollRunReportDto
+//   (detailed breakdown of the run: gross, deductions, net, employee count, etc.)
 export const getPayrollReports = (runId) =>
   API.get(`/api/payroll/runs/${runId}/reports`).then(r => r.data);
 
+// TODO: Backend GET /api/payroll/summary is MISSING from PayrollController.java
+// Required spec: GET /api/payroll/summary → PayrollSummaryDto
+//   (current month totals: headcount, gross, deductions, net, pending approvals)
 export const getPayrollSummary = () =>
   API.get('/api/payroll/summary').then(r => r.data);
 
 // --- MISSING DISPATCH STATS ---
+// Backend: GET /api/payroll/runs/{runId}/dispatch-stats (EXISTS — PayrollController.java:503)
 export const getDispatchStats = (runId) =>
   API.get(`/api/payroll/runs/${runId}/dispatch-stats`).then(r => r.data);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3 — BACKEND INTEGRATION: ESS PORTAL NAMED EXPORTS
+// Audit date: 2026-08-24  |  Source: PayrollController.java
+// Legend:  [EXISTS] = backend endpoint confirmed  [MISSING] = TODO for backend team
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// --- LOAN DETAILS API ---
+// TODO: [MISSING] Backend GET /api/payroll/loans/{loanId} does NOT exist in PayrollController.java
+// Required spec: GET /api/payroll/loans/{loanId}
+//   Auth: ADMIN | PAYROLL_ADMIN | EMPLOYEE (own loans only)
+//   Response: StaffLoanDto { id, employeeId, principalAmount, remainingBalance, emiAmount,
+//             startDate, tenure, status (PENDING|ACTIVE|CLOSED|REJECTED), repaymentSchedule[] }
+export const getLoanDetails = (loanId) =>
+  API.get(`/api/payroll/loans/${loanId}`).then(r => r.data);
+
+// --- ADVANCE REQUEST APIs (Admin approval side) ---
+// [EXISTS] Employee self-service create — POST /api/payroll/employee/advance-requests
+// createAdvanceRequest is a named alias matching the task spec; delegates to requestSalaryAdvance.
+export const createAdvanceRequest = (amount, reason) =>
+  requestSalaryAdvance(amount, reason);
+
+// [EXISTS] Employee self-service list — GET /api/payroll/employee/advance-requests
+// getAdvanceRequests is a named alias matching the task spec; delegates to fetchMyAdvanceRequests.
+export const getAdvanceRequests = (page = 0, size = 10) =>
+  fetchMyAdvanceRequests(page, size);
+
+// TODO: [MISSING] Backend POST /api/payroll/advance-requests/{advanceId}/approve does NOT exist in PayrollController.java
+// Required spec: POST /api/payroll/advance-requests/{advanceId}/approve
+//   Auth: ADMIN | PAYROLL_ADMIN | MANAGER
+//   Response: AdvanceRequestDto { id, employeeId, amount, reason, status, approvedBy, approvedAt }
+export const approveAdvance = (advanceId) =>
+  API.post(`/api/payroll/advance-requests/${advanceId}/approve`).then(r => r.data);
+
+// TODO: [MISSING] Backend POST /api/payroll/advance-requests/{advanceId}/reject does NOT exist in PayrollController.java
+// Required spec: POST /api/payroll/advance-requests/{advanceId}/reject?reason={reason}
+//   Auth: ADMIN | PAYROLL_ADMIN | MANAGER
+//   Response: AdvanceRequestDto with status=REJECTED and rejectionReason populated
+export const rejectAdvance = (advanceId, reason) =>
+  API.post(`/api/payroll/advance-requests/${advanceId}/reject`, {}, { params: { reason } }).then(r => r.data);
+
+// --- TAX & COMPLIANCE ALIASES ---
+// getForm16Data: named alias for task-spec compliance — delegates to getMyForm16
+// [EXISTS] Backend: GET /api/payroll/employee/form16?financialYear= (PayrollController.java:443)
+export const getForm16Data = (financialYear) =>
+  getMyForm16(financialYear);
+
+// downloadForm16Pdf: triggers authenticated PDF blob download — delegates to getForm16Pdf
+// [EXISTS] Backend: GET /api/payroll/employee/form16/pdf?financialYear= (PayrollController.java:680)
+export const downloadForm16Pdf = (financialYear) =>
+  getForm16Pdf(financialYear);
+
+// getTaxDeclarations: named alias for task-spec compliance — delegates to getMyTaxDeclaration
+// [EXISTS] Backend: GET /api/payroll/employee/tax-declaration?financialYear= (PayrollController.java:399)
+export const getTaxDeclarations = (financialYear) =>
+  getMyTaxDeclaration(financialYear);
+
+// TODO: [MISSING] Backend GET /api/payroll/tax-summary does NOT exist in PayrollController.java
+// Required spec: GET /api/payroll/tax-summary?financialYear={financialYear}
+//   Auth: EMPLOYEE (own data) | ADMIN | PAYROLL_ADMIN
+//   Response: TaxSummaryDto { financialYear, taxableIncome, exemptions, tdsDeducted,
+//             totalTaxLiability, regime (OLD|NEW), breakdownByMonth[] }
+export const getTaxSummary = (financialYear) =>
+  API.get('/api/payroll/tax-summary', { params: { financialYear } }).then(r => r.data);
+
+// --- PAYROLL REPORTS — ADDITIONAL NAMED EXPORTS ---
+// generatePayslip: triggers on-demand generation/re-generation of a payslip for a specific employee+run.
+// TODO: [MISSING] Backend POST /api/payroll/runs/{runId}/generate-payslip does NOT exist in PayrollController.java
+// Required spec: POST /api/payroll/runs/{runId}/generate-payslip?employeeId={employeeId}
+//   Auth: ADMIN | PAYROLL_ADMIN
+//   Response: PayrollSlipDto with freshly computed values
+//   Note: to download an existing payslip PDF use getPayslipPdf(slipId) → GET /api/payroll/slips/{slipId}/pdf
+export const generatePayslip = (runId, employeeId) =>
+  API.post(`/api/payroll/runs/${runId}/generate-payslip`, {}, { params: { employeeId } }).then(r => r.data);
+
+// getMonthlyPayroll: fetches aggregated payroll data for a given month/year.
+// TODO: [MISSING] Backend GET /api/payroll/monthly does NOT exist in PayrollController.java
+// Required spec: GET /api/payroll/monthly?month={month}&year={year}
+//   Auth: ADMIN | PAYROLL_ADMIN | MANAGER
+//   Response: MonthlyPayrollSummaryDto { month, year, totalGross, totalDeductions, totalNet,
+//             headcount, runId, status, employeeBreakdown[] }
+//   Workaround until implemented: use fetchPayrollRuns() and filter client-side by month/year.
+export const getMonthlyPayroll = (month, year) =>
+  API.get('/api/payroll/monthly', { params: { month, year } }).then(r => r.data);
+
+// getYTDSummary: year-to-date cumulative payroll summary.
+// TODO: [MISSING] Backend GET /api/payroll/ytd-summary does NOT exist in PayrollController.java
+// Required spec: GET /api/payroll/ytd-summary?financialYear={financialYear}
+//   Auth: ADMIN | PAYROLL_ADMIN
+//   Response: YTDSummaryDto { financialYear, totalGross, totalDeductions, totalNet,
+//             totalTDS, totalPF, totalESIC, totalLWF, monthlyBreakdown[] }
+export const getYTDSummary = (financialYear) =>
+  API.get('/api/payroll/ytd-summary', { params: { financialYear } }).then(r => r.data);

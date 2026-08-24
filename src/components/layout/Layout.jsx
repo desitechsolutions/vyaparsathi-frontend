@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Box, CssBaseline, Toolbar } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import OfflineIndicator from './OfflineIndicator';
 import PremiumStatusBanner from '../../pages/PremiumStatusBanner';
 import SupportChatWidget from '../../pages/SupportChatWidget';
 import { useAuthContext } from '../../context/AuthContext';
@@ -39,18 +40,23 @@ const Layout = () => {
         {/* Actual Page Content */}
         <Outlet />
 
-        {/* 3. Floating chat for Shop Owners only. 
+        {/* 3. Floating chat for Shop Owners only.
             Super Admins access support via the full-screen AdminSupport page.
         */}
         {!isSuperAdmin && hasShopId && (
-          <SupportChatWidget 
+          <SupportChatWidget
             user={{
               shopId: user.shopId,
               shopName: user.shopName || 'My Shop',
               name: user.userName || user.sub || 'User' // 'sub' is standard for username in JWT
-            }} 
+            }}
           />
         )}
+
+        {/* 4. Global offline / reconnecting indicator — renders as a fixed
+            pill at the bottom-centre of the viewport when the browser goes
+            offline or the STOMP socket drops. Invisible when healthy. */}
+        <OfflineIndicator />
       </Box>
     </Box>
   );

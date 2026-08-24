@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
   fetchCustomersPaged,
   fetchCustomerKpis,
@@ -9,6 +10,7 @@ import {
   toggleCustomerActive,
   bulkToggleCustomerActive,
   bulkDeleteCustomers,
+  bulkTagCustomers,
   exportCustomersCsv,
   importCustomersCsv,
 } from '../services/api';
@@ -71,19 +73,20 @@ export const useCustomers = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
-  const loadKpis = useCallback(async () => {
+  const loadKpis = useCallback(async (signal) => {
     setIsKpisLoading(true);
     try {
-      const data = await fetchCustomerKpis();
+      const data = await fetchCustomerKpis(signal);
       setKpis(data);
     } catch (err) {
+      if (axios.isCancel(err)) return; // navigated away — discard silently
       console.error('Failed to fetch customer KPIs:', err);
     } finally {
       setIsKpisLoading(false);
     }
   }, []);
 
-  const loadCustomers = useCallback(async () => {
+  const loadCustomers = useCallback(async (signal) => {
     setIsLoading(true);
     setError('');
     try {
@@ -101,7 +104,7 @@ export const useCustomers = () => {
       if (filters.city) params.city = filters.city;
       if (filters.tags) params.tags = filters.tags;
 
-      const resp = await fetchCustomersPaged(params);
+      const resp = await fetchCustomersPaged(params, signal);
       setCustomers(resp.content || []);
       setPagination((prev) => ({
         ...prev,
@@ -109,6 +112,7 @@ export const useCustomers = () => {
         totalPages: resp.totalPages || 0,
       }));
     } catch (err) {
+      if (axios.isCancel(err)) return; // navigated away — discard silently
       console.error('Failed to load customers:', err);
       setError('Failed to fetch customer records.');
       showSnackbar('Error loading customers. Please try again.', 'error');
@@ -131,11 +135,15 @@ export const useCustomers = () => {
   ]);
 
   useEffect(() => {
-    loadCustomers();
+    const controller = new AbortController();
+    loadCustomers(controller.signal);
+    return () => controller.abort();
   }, [loadCustomers]);
 
   useEffect(() => {
-    loadKpis();
+    const controller = new AbortController();
+    loadKpis(controller.signal);
+    return () => controller.abort();
   }, [loadKpis]);
 
   const refreshData = () => {
@@ -234,6 +242,21 @@ export const useCustomers = () => {
     }
   };
 
+  /**
+   * Append tags (comma-separated string) to all selected customers.
+   */
+  const handleBulkTag = async (tags) => {
+    if (!selectedIds.length || !tags) return;
+    try {
+      const resp = await bulkTagCustomers(selectedIds, tags);
+      showSnackbar(`Tags added to ${resp.updatedCount ?? selectedIds.length} customer(s).`);
+      setSelectedIds([]);
+      refreshData();
+    } catch (err) {
+      showSnackbar('Failed to apply tags.', 'error');
+    }
+  };
+
   const handleExportCsv = async () => {
     try {
       const resp = await exportCustomersCsv();
@@ -286,6 +309,7 @@ export const useCustomers = () => {
     handleToggleActive,
     handleBulkToggleActive,
     handleBulkDelete,
+    handleBulkTag,
     handleExportCsv,
     handleImportCsv,
     handleSnackbarClose,

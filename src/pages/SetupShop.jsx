@@ -23,6 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useForm, Controller } from 'react-hook-form';
 import API, { setupShop, checkShopCode, fetchIndustries } from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
 import useShopConfig from '../hooks/useShopConfig';
@@ -69,9 +70,14 @@ const CIN_REGEX = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
 const CODE_REGEX = /^[a-z0-9][a-z0-9-]{1,49}$/;
 const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
 
-// Steps in the 5-step wizard. Kept as a constant so both the Stepper and the
-// per-step render function stay in sync. `description` and `tips` power the
-// contextual help panel shown in the left rail of the two-column layout.
+// Fields that must pass validation before advancing past each step
+const STEP_FIELDS = [
+  ['name', 'industryType', 'code'],   // step 0 – business identity
+  ['gstin', 'pan', 'cin', 'state'],   // step 1 – tax
+  ['pincode', 'phone', 'email'],      // step 2 – address
+  [],                                  // step 3 – branding (all optional)
+];
+
 const STEPS = [
   {
     id: 'business',
@@ -90,7 +96,7 @@ const STEPS = [
     icon: <AccountBalanceIcon />,
     description: 'Your GST registration, PAN and the state that decides your place of supply.',
     tips: [
-      'Not GST-registered? Leave GSTIN blank — you\'ll issue Bill of Supply instead of tax invoices.',
+      "Not GST-registered? Leave GSTIN blank — you'll issue Bill of Supply instead of tax invoices.",
       'The GST state code is derived from the state you pick.',
       'PAN and CIN are optional; add them if you plan to e-invoice or file returns from here.',
     ],
@@ -112,7 +118,7 @@ const STEPS = [
     icon: <BrushIcon />,
     description: 'Personalise invoices with your logo, brand colour and signatory details.',
     tips: [
-      'Upload a square PNG/JPG under 2 MB — bigger is fine, we\'ll compress.',
+      "Upload a square PNG/JPG under 2 MB — bigger is fine, we'll compress.",
       'Signatory name appears above the signature block on invoices.',
       'Invoice prefix combined with the fiscal year forms the invoice number (INV/2026/0001).',
     ],
@@ -123,7 +129,7 @@ const STEPS = [
     icon: <ReviewsIcon />,
     description: 'One last look before we activate your shop.',
     tips: [
-      'You can edit any of this from Settings later — nothing is permanent.',
+      "You can edit any of this from Settings later — nothing is permanent.",
       'Category tree and default item fields are pre-seeded based on your industry.',
       'Your first 14 days include full PRO features so you can try before you buy.',
     ],
@@ -133,7 +139,6 @@ const STEPS = [
 // ─── Component ─────────────────────────────────────────────────────────
 
 const SetupShop = () => {
-  // logout button moved to OnboardingLayout's top bar
   const { silentRefresh, user } = useAuthContext();
   const navigate = useNavigate();
   const { refetchShop } = useShopConfig();
@@ -141,49 +146,67 @@ const SetupShop = () => {
 
   const [activeStep, setActiveStep] = useState(0);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [logo, setLogo] = useState(null);
   const [isCodeManuallyEdited, setIsCodeManuallyEdited] = useState(false);
   const [industries, setIndustries] = useState([]);
   const [industriesLoading, setIndustriesLoading] = useState(true);
-
-  const [form, setForm] = useState({
-    // Business identity
-    name: '',
-    ownerName: '',
-    industryType: '',
-    code: '',
-    businessType: '',
-    legalName: '',
-    tradeName: '',
-    // GST & tax
-    gstin: '',
-    pan: '',
-    cin: '',
-    state: '',
-    stateCode: '',
-    isCompositionScheme: false,
-    // Address & contact
-    address: '',
-    addressLine2: '',
-    city: '',
-    pincode: '',
-    phone: user?.phone || '',
-    email: user?.email || '',
-    companyWebsite: '',
-    // Branding
-    logo: null,
-    signatoryName: '',
-    signatoryDesignation: 'Proprietor',
-    brandColor: '#1E40AF',
-    invoicePrefix: 'INV',
-    locale: 'en',
-  });
-
-  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-  const [codeCheckState, setCodeCheckState] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
+  const [codeCheckState, setCodeCheckState] = useState({ status: 'idle', message: '' });
+  const [submitError, setSubmitError] = useState('');
+  const [logoError, setLogoError] = useState('');
 
-  // ─── Fetch industries from API ────────────────────────────────────
+  const {
+    control,
+    trigger,
+    setValue,
+    getValues,
+    watch,
+    setError,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    mode: 'onChange',
+    defaultValues: {
+      // Business identity
+      name: '',
+      ownerName: '',
+      industryType: '',
+      code: '',
+      businessType: '',
+      legalName: '',
+      tradeName: '',
+      // GST & tax
+      gstin: '',
+      pan: '',
+      cin: '',
+      state: '',
+      stateCode: '',
+      isCompositionScheme: false,
+      // Address & contact
+      address: '',
+      addressLine2: '',
+      city: '',
+      pincode: '',
+      phone: user?.phone || '',
+      email: user?.email || '',
+      companyWebsite: '',
+      // Branding
+      signatoryName: '',
+      signatoryDesignation: 'Proprietor',
+      brandColor: '#1E40AF',
+      invoicePrefix: 'INV',
+      locale: 'en',
+    },
+  });
+
+  // Watched values used for derived computations and review summary
+  const watchedName = watch('name');
+  const watchedCode = watch('code');
+  const watchedState = watch('state');
+  const watchedStoreValues = watch(); // all fields for review summary
+
+  // ─── Fetch industries from API ────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setIndustriesLoading(true);
@@ -191,12 +214,13 @@ const SetupShop = () => {
       .then((res) => {
         if (cancelled) return;
         const list = Array.isArray(res?.data) ? res.data : [];
-        setIndustries(list.length
-          ? list.map((v) => ({ value: v, label: industryLabel(v) }))
-          : Object.keys(INDUSTRY_LABELS).map((v) => ({ value: v, label: INDUSTRY_LABELS[v] })));
+        setIndustries(
+          list.length
+            ? list.map((v) => ({ value: v, label: industryLabel(v) }))
+            : Object.keys(INDUSTRY_LABELS).map((v) => ({ value: v, label: INDUSTRY_LABELS[v] }))
+        );
       })
       .catch(() => {
-        // API failure — fall back to the local label map so the wizard still works.
         if (!cancelled) {
           setIndustries(Object.keys(INDUSTRY_LABELS).map((v) => ({ value: v, label: INDUSTRY_LABELS[v] })));
         }
@@ -205,32 +229,33 @@ const SetupShop = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // ─── Auto-slug: shop name → code ──────────────────────────────────
+  // ─── Auto-slug: shop name → code ─────────────────────────────────────────
   useEffect(() => {
-    if (!isCodeManuallyEdited && form.name) {
-      const slug = form.name
+    if (!isCodeManuallyEdited && watchedName) {
+      const slug = watchedName
         .toLowerCase()
         .trim()
         .replace(/[^\w\s-]/g, '')
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '');
-      setForm((prev) => ({ ...prev, code: slug }));
+      setValue('code', slug, { shouldValidate: true });
     }
-  }, [form.name, isCodeManuallyEdited]);
+  }, [watchedName, isCodeManuallyEdited, setValue]);
 
-  // ─── Auto-derive stateCode from state ─────────────────────────────
+  // ─── Auto-derive stateCode from state ────────────────────────────────────
   useEffect(() => {
-    if (!form.state) return;
-    const match = GST_STATES.find(([, name]) => name.toLowerCase() === form.state.toLowerCase());
-    if (match && form.stateCode !== match[0]) {
-      setForm((prev) => ({ ...prev, stateCode: match[0] }));
+    if (!watchedState) return;
+    const match = GST_STATES.find(([, name]) => name.toLowerCase() === watchedState.toLowerCase());
+    if (match) {
+      const current = getValues('stateCode');
+      if (current !== match[0]) setValue('stateCode', match[0]);
     }
-  }, [form.state, form.stateCode]);
+  }, [watchedState, setValue, getValues]);
 
-  // ─── Debounced shop-code availability check ────────────────────────
+  // ─── Debounced shop-code availability check ───────────────────────────────
   useEffect(() => {
     if (activeStep !== 0) return;
-    const value = form.code?.trim();
+    const value = watchedCode?.trim();
     if (!value) { setCodeCheckState({ status: 'idle', message: '' }); return; }
     if (!CODE_REGEX.test(value)) {
       setCodeCheckState({ status: 'invalid', message: 'Use lowercase letters, digits or hyphens (2-50 chars).' });
@@ -250,85 +275,34 @@ const SetupShop = () => {
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [form.code, activeStep]);
+  }, [watchedCode, activeStep]);
 
-  // ─── Validation ────────────────────────────────────────────────────
-
-  const validateStep = useCallback(() => {
-    const e = {};
-    if (activeStep === 0) {
-      if (!form.name.trim()) e.name = 'Shop name is required.';
-      if (!form.industryType) e.industryType = 'Please pick an industry.';
-      if (!form.code.trim()) e.code = 'Shop code is required.';
-      else if (!CODE_REGEX.test(form.code)) e.code = 'Use lowercase letters, digits or hyphens (2-50 chars).';
-    } else if (activeStep === 1) {
-      if (form.gstin && !GSTIN_REGEX.test(form.gstin)) e.gstin = 'Enter a valid 15-character GSTIN.';
-      if (form.pan && !PAN_REGEX.test(form.pan)) e.pan = 'Enter a valid 10-character PAN.';
-      if (form.cin && !CIN_REGEX.test(form.cin)) e.cin = 'Enter a valid 21-character CIN.';
-      if (!form.state.trim()) e.state = 'State is required.';
-    } else if (activeStep === 2) {
-      if (form.pincode && !PINCODE_REGEX.test(form.pincode)) e.pincode = 'Enter a valid 6-digit pincode.';
-      if (form.phone && form.phone.length < 10) e.phone = 'Enter a valid mobile number.';
-      if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email address.';
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }, [activeStep, form]);
-
-  // ─── Field change handlers ─────────────────────────────────────────
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    const nextValue = type === 'checkbox' ? checked : value;
-    setForm((prev) => ({ ...prev, [name]: nextValue }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
-    if (name === 'code') setIsCodeManuallyEdited(true);
-    // Enforce uppercase on GSTIN/PAN/CIN as user types.
-    if (name === 'gstin' || name === 'pan' || name === 'cin') {
-      setForm((prev) => ({ ...prev, [name]: String(nextValue).toUpperCase() }));
-    }
-  };
-
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setErrors({ logo: 'Logo must be smaller than 2 MB.' });
-      return;
-    }
-    setForm((prev) => ({ ...prev, logo: file }));
-    const reader = new FileReader();
-    reader.onloadend = () => setLogoPreview(reader.result);
-    reader.readAsDataURL(file);
-    setErrors((prev) => ({ ...prev, logo: '' }));
-  };
-
-  const removeLogo = () => {
-    setForm((prev) => ({ ...prev, logo: null }));
-    setLogoPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  // ─── Step navigation ──────────────────────────────────────────────────────
 
   const handleNext = async () => {
-    if (!validateStep()) return;
+    const fields = STEP_FIELDS[activeStep];
+    if (fields.length > 0) {
+      const isValid = await trigger(fields);
+      if (!isValid) return;
+    }
+
     if (activeStep === 0) {
       if (codeCheckState.status === 'taken') {
-        setErrors((e) => ({ ...e, code: 'That shop code is already taken.' }));
+        setError('code', { type: 'manual', message: 'That shop code is already taken.' });
         return;
       }
-      if (codeCheckState.status === 'checking') return; // wait
-      // Also do a final synchronous check in case debounced check didn't fire
+      if (codeCheckState.status === 'checking') return; // wait for debounce
+      // Final sync check
       setIsLoading(true);
       try {
-        await checkShopCode(form.code);
+        await checkShopCode(watchedCode);
         setActiveStep((s) => s + 1);
-        setErrors({});
       } catch (err) {
         if (err?.response?.status === 409) {
-          setErrors({ code: 'That shop code is already taken.' });
+          setError('code', { type: 'manual', message: 'That shop code is already taken.' });
           setCodeCheckState({ status: 'taken', message: 'That shop code is already taken.' });
         } else {
-          setErrors({ code: 'Could not verify shop code — please try again.' });
+          setError('code', { type: 'manual', message: 'Could not verify shop code — please try again.' });
         }
       } finally {
         setIsLoading(false);
@@ -340,33 +314,48 @@ const SetupShop = () => {
 
   const handleBack = () => setActiveStep((s) => Math.max(0, s - 1));
 
-  const handleSubmit = async () => {
-    // Run every step's validation before submitting.
-    for (let i = 0; i <= 3; i++) {
-      const originalStep = activeStep;
-      setActiveStep(i);
-      // eslint-disable-next-line no-await-in-loop
-      const ok = validateStep();
-      setActiveStep(originalStep);
-      if (!ok) { setActiveStep(i); return; }
-    }
+  // ─── Logo handling ────────────────────────────────────────────────────────
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('Logo must be smaller than 2 MB.');
+      return;
+    }
+    setLogo(file);
+    setLogoError('');
+    const reader = new FileReader();
+    reader.onloadend = () => setLogoPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => {
+    setLogo(null);
+    setLogoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // ─── Final submission ─────────────────────────────────────────────────────
+
+  const onSubmit = async (data) => {
     setIsLoading(true);
-    setErrors({});
+    setSubmitError('');
 
     const formData = new FormData();
-    Object.entries(form).forEach(([key, value]) => {
+    Object.entries(data).forEach(([key, value]) => {
       if (value === null || value === '' || value === undefined) return;
       if (typeof value === 'boolean') formData.append(key, value ? 'true' : 'false');
       else formData.append(key, value);
     });
+    if (logo) formData.append('logo', logo);
 
     try {
       const res = await setupShop(formData);
-      const data = res?.data;
-      const accessToken = data?.accessToken || data?.token || data?.shop?.accessToken || data?.shop?.token;
-      const refreshToken = data?.refreshToken || data?.shop?.refreshToken;
-      const newShopId = data?.id || data?.shop?.id;
+      const resData = res?.data;
+      const accessToken = resData?.accessToken || resData?.token || resData?.shop?.accessToken || resData?.shop?.token;
+      const refreshToken = resData?.refreshToken || resData?.shop?.refreshToken;
+      const newShopId = resData?.id || resData?.shop?.id;
 
       if (accessToken) {
         localStorage.setItem('accessToken', accessToken);
@@ -394,15 +383,37 @@ const SetupShop = () => {
       setSetupComplete(true);
     } catch (err) {
       console.error('Setup shop error:', err);
-      setErrors({ submit: err?.response?.data?.message || 'Setup failed. Please try again.' });
+      setSubmitError(err?.response?.data?.message || 'Setup failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ─── Success screen ───────────────────────────────────────────────
+  // Validate all steps then submit; if any step has errors, navigate to that step
+  const handleFinish = async () => {
+    const allStepFields = STEP_FIELDS.flat();
+    if (allStepFields.length > 0) {
+      const isValid = await trigger(allStepFields);
+      if (!isValid) {
+        // Navigate to the first step that has errors
+        for (let i = 0; i < STEP_FIELDS.length; i++) {
+          const stepHasError = STEP_FIELDS[i].some((field) => !!errors[field]);
+          if (stepHasError) {
+            setActiveStep(i);
+            return;
+          }
+        }
+        // If errors exist but not found in step fields, stay on review
+        return;
+      }
+    }
+    handleSubmit(onSubmit)();
+  };
+
+  // ─── Success screen ───────────────────────────────────────────────────────
 
   if (setupComplete) {
+    const shopName = getValues('name');
     return (
       <Fade in timeout={500}>
         <Paper elevation={0} sx={{ maxWidth: 620, mx: 'auto', p: { xs: 3, md: 5 }, textAlign: 'center', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -410,7 +421,7 @@ const SetupShop = () => {
             <CheckCircleIcon sx={{ fontSize: 44 }} />
           </Avatar>
           <Typography variant="h4" fontWeight={800} gutterBottom>
-            {form.name} is live!
+            {shopName} is live!
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             Your shop is set up. Pick what to do next — or head straight to your dashboard.
@@ -450,116 +461,176 @@ const SetupShop = () => {
     );
   }
 
-  // ─── Step renderers ───────────────────────────────────────────────
+  // ─── Step renderers ───────────────────────────────────────────────────────
 
   const renderBusiness = () => (
     <Stack spacing={2}>
       <Typography variant="overline" color="text.secondary" fontWeight={700}>Tell us about your business</Typography>
 
-      <TextField
-        label="Shop name"
+      <Controller
         name="name"
-        value={form.name}
-        onChange={handleChange}
-        required
-        fullWidth
-        autoFocus
-        error={!!errors.name}
-        helperText={errors.name || 'The name customers will see on invoices.'}
-        InputProps={{ startAdornment: <InputAdornment position="start"><StorefrontIcon fontSize="small" color="disabled" /></InputAdornment> }}
+        control={control}
+        rules={{ required: 'Shop name is required.' }}
+        render={({ field, fieldState: { error } }) => (
+          <TextField
+            {...field}
+            label="Shop name"
+            required
+            fullWidth
+            autoFocus
+            error={!!error}
+            helperText={error?.message || 'The name customers will see on invoices.'}
+            inputProps={{
+              'aria-required': 'true',
+              'aria-invalid': !!error,
+              'aria-describedby': error ? 'setup-name-error' : 'setup-name-hint',
+            }}
+            FormHelperTextProps={error ? { id: 'setup-name-error', role: 'alert' } : { id: 'setup-name-hint' }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><StorefrontIcon fontSize="small" color="disabled" /></InputAdornment> }}
+          />
+        )}
       />
 
-      <TextField
-        select
-        label="Industry"
+      <Controller
         name="industryType"
-        value={form.industryType}
-        onChange={handleChange}
-        required
-        fullWidth
-        error={!!errors.industryType}
-        helperText={errors.industryType || (industriesLoading ? 'Loading industry list…' : 'We use this to pre-seed categories and item fields.')}
-        InputProps={{ startAdornment: <InputAdornment position="start"><CategoryIcon fontSize="small" color="disabled" /></InputAdornment> }}
-      >
-        {industriesLoading ? (
-          <MenuItem value=""><em>Loading…</em></MenuItem>
-        ) : (
-          industries.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-          ))
+        control={control}
+        rules={{ required: 'Please pick an industry.' }}
+        render={({ field, fieldState: { error } }) => (
+          <TextField
+            {...field}
+            select
+            label="Industry"
+            required
+            fullWidth
+            error={!!error}
+            helperText={error?.message || (industriesLoading ? 'Loading industry list…' : 'We use this to pre-seed categories and item fields.')}
+            inputProps={{
+              'aria-required': 'true',
+              'aria-invalid': !!error,
+              'aria-describedby': error ? 'setup-industry-error' : undefined,
+            }}
+            FormHelperTextProps={error ? { id: 'setup-industry-error', role: 'alert' } : undefined}
+            InputProps={{ startAdornment: <InputAdornment position="start"><CategoryIcon fontSize="small" color="disabled" /></InputAdornment> }}
+          >
+            {industriesLoading ? (
+              <MenuItem value=""><em>Loading…</em></MenuItem>
+            ) : (
+              industries.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              ))
+            )}
+          </TextField>
         )}
-      </TextField>
+      />
 
-      <TextField
-        label="Shop code (URL slug)"
+      <Controller
         name="code"
-        value={form.code}
-        onChange={handleChange}
-        required
-        fullWidth
-        error={!!errors.code || codeCheckState.status === 'taken' || codeCheckState.status === 'invalid'}
-        helperText={
-          errors.code ||
-          codeCheckState.message ||
-          'Auto-generated from name. Used in URLs & invoice numbers.'
-        }
-        InputProps={{
-          startAdornment: <InputAdornment position="start"><NumbersIcon fontSize="small" color="disabled" /></InputAdornment>,
-          endAdornment: codeCheckState.status === 'checking' ? (
-            <InputAdornment position="end"><CircularProgress size={16} /></InputAdornment>
-          ) : codeCheckState.status === 'available' ? (
-            <InputAdornment position="end"><CheckIcon fontSize="small" color="success" /></InputAdornment>
-          ) : (codeCheckState.status === 'taken' || codeCheckState.status === 'invalid') ? (
-            <InputAdornment position="end"><ErrorIcon fontSize="small" color="error" /></InputAdornment>
-          ) : null,
+        control={control}
+        rules={{
+          required: 'Shop code is required.',
+          pattern: {
+            value: CODE_REGEX,
+            message: 'Use lowercase letters, digits or hyphens (2-50 chars).',
+          },
         }}
+        render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+          <TextField
+            value={value}
+            onChange={(e) => {
+              setIsCodeManuallyEdited(true);
+              onChange(e.target.value);
+            }}
+            inputRef={ref}
+            label="Shop code (URL slug)"
+            required
+            fullWidth
+            error={!!error || codeCheckState.status === 'taken' || codeCheckState.status === 'invalid'}
+            helperText={
+              error?.message ||
+              codeCheckState.message ||
+              'Auto-generated from name. Used in URLs & invoice numbers.'
+            }
+            inputProps={{
+              'aria-required': 'true',
+              'aria-invalid': !!error || codeCheckState.status === 'taken' || codeCheckState.status === 'invalid',
+              'aria-describedby': (error || codeCheckState.message) ? 'setup-code-hint' : undefined,
+            }}
+            FormHelperTextProps={{ id: 'setup-code-hint' }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><NumbersIcon fontSize="small" color="disabled" /></InputAdornment>,
+              endAdornment: codeCheckState.status === 'checking' ? (
+                <InputAdornment position="end"><CircularProgress size={16} /></InputAdornment>
+              ) : codeCheckState.status === 'available' ? (
+                <InputAdornment position="end"><CheckIcon fontSize="small" color="success" /></InputAdornment>
+              ) : (codeCheckState.status === 'taken' || codeCheckState.status === 'invalid') ? (
+                <InputAdornment position="end"><ErrorIcon fontSize="small" color="error" /></InputAdornment>
+              ) : null,
+            }}
+          />
+        )}
       />
 
       <Divider sx={{ my: 1 }}><Typography variant="caption" color="text.secondary">Optional company details</Typography></Divider>
 
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
-          <TextField
-            select
-            label="Business type"
+          <Controller
             name="businessType"
-            value={form.businessType}
-            onChange={handleChange}
-            fullWidth
-            helperText="How your business is registered."
-          >
-            <MenuItem value=""><em>Not specified</em></MenuItem>
-            {BUSINESS_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </TextField>
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                select
+                label="Business type"
+                fullWidth
+                helperText="How your business is registered."
+              >
+                <MenuItem value=""><em>Not specified</em></MenuItem>
+                {BUSINESS_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            )}
+          />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Owner / proprietor name"
+          <Controller
             name="ownerName"
-            value={form.ownerName}
-            onChange={handleChange}
-            fullWidth
-            InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" color="disabled" /></InputAdornment> }}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Owner / proprietor name"
+                fullWidth
+                InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" color="disabled" /></InputAdornment> }}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Legal / registered name"
+          <Controller
             name="legalName"
-            value={form.legalName}
-            onChange={handleChange}
-            fullWidth
-            helperText="As per your PAN / GST certificate."
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Legal / registered name"
+                fullWidth
+                helperText="As per your PAN / GST certificate."
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Trade name"
+          <Controller
             name="tradeName"
-            value={form.tradeName}
-            onChange={handleChange}
-            fullWidth
-            helperText="If different from shop name."
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Trade name"
+                fullWidth
+                helperText="If different from shop name."
+              />
+            )}
           />
         </Grid>
       </Grid>
@@ -575,81 +646,146 @@ const SetupShop = () => {
 
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={7}>
-          <TextField
-            label="GSTIN"
+          <Controller
             name="gstin"
-            value={form.gstin}
-            onChange={handleChange}
-            fullWidth
-            inputProps={{ maxLength: 15 }}
-            placeholder="22AAAAA0000A1Z5"
-            error={!!errors.gstin}
-            helperText={errors.gstin || '15-character GST identification number.'}
-            InputProps={{ startAdornment: <InputAdornment position="start"><FingerprintIcon fontSize="small" color="disabled" /></InputAdornment> }}
+            control={control}
+            rules={{
+              validate: (val) =>
+                !val || GSTIN_REGEX.test(val) || 'Enter a valid 15-character GSTIN.',
+            }}
+            render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.toUpperCase())}
+                inputRef={ref}
+                label="GSTIN"
+                fullWidth
+                inputProps={{
+                  maxLength: 15,
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-gstin-error' : 'setup-gstin-hint',
+                }}
+                FormHelperTextProps={error ? { id: 'setup-gstin-error', role: 'alert' } : { id: 'setup-gstin-hint' }}
+                placeholder="22AAAAA0000A1Z5"
+                error={!!error}
+                helperText={error?.message || '15-character GST identification number.'}
+                InputProps={{ startAdornment: <InputAdornment position="start"><FingerprintIcon fontSize="small" color="disabled" /></InputAdornment> }}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={5}>
-          <FormControlLabel
-            control={<Switch name="isCompositionScheme" checked={!!form.isCompositionScheme} onChange={handleChange} />}
-            label={<Typography variant="body2">Composition scheme</Typography>}
-            sx={{ mt: { sm: 1.5 } }}
+          <Controller
+            name="isCompositionScheme"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label={<Typography variant="body2">Composition scheme</Typography>}
+                sx={{ mt: { sm: 1.5 } }}
+              />
+            )}
           />
         </Grid>
 
         <Grid item xs={12} sm={6}>
-          <TextField
-            select
-            label="State of business"
+          <Controller
             name="state"
-            value={form.state}
-            onChange={handleChange}
-            required
-            fullWidth
-            error={!!errors.state}
-            helperText={errors.state || 'Determines your default place of supply.'}
-            InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon fontSize="small" color="disabled" /></InputAdornment> }}
-          >
-            <MenuItem value=""><em>Select state</em></MenuItem>
-            {GST_STATES.map(([code, name]) => (
-              <MenuItem key={code} value={name}>{code} — {name}</MenuItem>
-            ))}
-          </TextField>
+            control={control}
+            rules={{ required: 'State is required.' }}
+            render={({ field, fieldState: { error } }) => (
+              <TextField
+                {...field}
+                select
+                label="State of business"
+                required
+                fullWidth
+                error={!!error}
+                helperText={error?.message || 'Determines your default place of supply.'}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-state-error' : undefined,
+                }}
+                FormHelperTextProps={error ? { id: 'setup-state-error', role: 'alert' } : undefined}
+                InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon fontSize="small" color="disabled" /></InputAdornment> }}
+              >
+                <MenuItem value=""><em>Select state</em></MenuItem>
+                {GST_STATES.map(([code, name]) => (
+                  <MenuItem key={code} value={name}>{code} — {name}</MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="GST state code"
+          <Controller
             name="stateCode"
-            value={form.stateCode}
-            fullWidth
-            InputProps={{ readOnly: true }}
-            helperText="Auto-derived from the state you pick."
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="GST state code"
+                fullWidth
+                InputProps={{ readOnly: true }}
+                helperText="Auto-derived from the state you pick."
+              />
+            )}
           />
         </Grid>
 
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="PAN"
+          <Controller
             name="pan"
-            value={form.pan}
-            onChange={handleChange}
-            fullWidth
-            inputProps={{ maxLength: 10 }}
-            placeholder="AAAAA0000A"
-            error={!!errors.pan}
-            helperText={errors.pan || '10-character Permanent Account Number.'}
+            control={control}
+            rules={{
+              validate: (val) => !val || PAN_REGEX.test(val) || 'Enter a valid 10-character PAN.',
+            }}
+            render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.toUpperCase())}
+                inputRef={ref}
+                label="PAN"
+                fullWidth
+                inputProps={{
+                  maxLength: 10,
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-pan-error' : 'setup-pan-hint',
+                }}
+                FormHelperTextProps={error ? { id: 'setup-pan-error', role: 'alert' } : { id: 'setup-pan-hint' }}
+                placeholder="AAAAA0000A"
+                error={!!error}
+                helperText={error?.message || '10-character Permanent Account Number.'}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="CIN (companies only)"
+          <Controller
             name="cin"
-            value={form.cin}
-            onChange={handleChange}
-            fullWidth
-            inputProps={{ maxLength: 21 }}
-            placeholder="U74999MH2020PTC300000"
-            error={!!errors.cin}
-            helperText={errors.cin || '21-character Corporate Identity Number.'}
+            control={control}
+            rules={{
+              validate: (val) => !val || CIN_REGEX.test(val) || 'Enter a valid 21-character CIN.',
+            }}
+            render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.toUpperCase())}
+                inputRef={ref}
+                label="CIN (companies only)"
+                fullWidth
+                inputProps={{ maxLength: 21 }}
+                placeholder="U74999MH2020PTC300000"
+                error={!!error}
+                helperText={error?.message || '21-character Corporate Identity Number.'}
+              />
+            )}
           />
         </Grid>
       </Grid>
@@ -660,75 +796,113 @@ const SetupShop = () => {
     <Stack spacing={2}>
       <Typography variant="overline" color="text.secondary" fontWeight={700}>How can we reach you?</Typography>
 
-      <TextField
-        label="Address line 1"
+      <Controller
         name="address"
-        value={form.address}
-        onChange={handleChange}
-        fullWidth
-        placeholder="Shop number, street"
+        control={control}
+        render={({ field }) => (
+          <TextField {...field} label="Address line 1" fullWidth placeholder="Shop number, street" />
+        )}
       />
-      <TextField
-        label="Address line 2"
+      <Controller
         name="addressLine2"
-        value={form.addressLine2}
-        onChange={handleChange}
-        fullWidth
-        placeholder="Area, landmark"
+        control={control}
+        render={({ field }) => (
+          <TextField {...field} label="Address line 2" fullWidth placeholder="Area, landmark" />
+        )}
       />
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="City"
+          <Controller
             name="city"
-            value={form.city}
-            onChange={handleChange}
-            fullWidth
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} label="City" fullWidth />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Pincode"
+          <Controller
             name="pincode"
-            value={form.pincode}
-            onChange={(e) => handleChange({ target: { name: 'pincode', value: e.target.value.replace(/\D/g, '').slice(0, 6) } })}
-            fullWidth
-            error={!!errors.pincode}
-            helperText={errors.pincode}
+            control={control}
+            rules={{
+              validate: (val) => !val || PINCODE_REGEX.test(val) || 'Enter a valid 6-digit pincode.',
+            }}
+            render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputRef={ref}
+                label="Pincode"
+                fullWidth
+                error={!!error}
+                helperText={error?.message}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Business phone"
+          <Controller
             name="phone"
-            value={form.phone}
-            onChange={(e) => handleChange({ target: { name: 'phone', value: e.target.value.replace(/\D/g, '').slice(0, 15) } })}
-            fullWidth
-            error={!!errors.phone}
-            helperText={errors.phone}
+            control={control}
+            rules={{
+              validate: (val) => !val || val.length >= 10 || 'Enter a valid mobile number.',
+            }}
+            render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                inputRef={ref}
+                label="Business phone"
+                fullWidth
+                error={!!error}
+                helperText={error?.message}
+                inputProps={{
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-phone-error' : undefined,
+                }}
+                FormHelperTextProps={error ? { id: 'setup-phone-error', role: 'alert' } : undefined}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Business email"
+          <Controller
             name="email"
-            value={form.email}
-            onChange={handleChange}
-            fullWidth
-            type="email"
-            error={!!errors.email}
-            helperText={errors.email}
+            control={control}
+            rules={{
+              validate: (val) =>
+                !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || 'Enter a valid email address.',
+            }}
+            render={({ field, fieldState: { error } }) => (
+              <TextField
+                {...field}
+                label="Business email"
+                fullWidth
+                type="email"
+                error={!!error}
+                helperText={error?.message}
+                inputProps={{
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-email-error' : undefined,
+                }}
+                FormHelperTextProps={error ? { id: 'setup-email-error', role: 'alert' } : undefined}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12}>
-          <TextField
-            label="Company website (optional)"
+          <Controller
             name="companyWebsite"
-            value={form.companyWebsite}
-            onChange={handleChange}
-            fullWidth
-            placeholder="https://your-shop.com"
-            InputProps={{ startAdornment: <InputAdornment position="start"><PublicIcon fontSize="small" color="disabled" /></InputAdornment> }}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Company website (optional)"
+                fullWidth
+                placeholder="https://your-shop.com"
+                InputProps={{ startAdornment: <InputAdornment position="start"><PublicIcon fontSize="small" color="disabled" /></InputAdornment> }}
+              />
+            )}
           />
         </Grid>
       </Grid>
@@ -751,7 +925,7 @@ const SetupShop = () => {
           <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
             <Avatar src={logoPreview} sx={{ width: 72, height: 72 }} variant="rounded" />
             <Stack>
-              <Typography variant="body2" fontWeight={600}>{form.logo?.name || 'Logo uploaded'}</Typography>
+              <Typography variant="body2" fontWeight={600}>{logo?.name || 'Logo uploaded'}</Typography>
               <Typography variant="caption" color="text.secondary">Appears on invoices, receipts and emails.</Typography>
               <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                 <Button size="small" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: 'none' }}>Replace</Button>
@@ -769,64 +943,77 @@ const SetupShop = () => {
             <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: 'none' }}>
               Choose file
             </Button>
-            {errors.logo && <Alert severity="error" variant="outlined">{errors.logo}</Alert>}
+            {logoError && <Alert severity="error" variant="outlined">{logoError}</Alert>}
           </Stack>
         )}
       </Paper>
 
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Signatory name"
+          <Controller
             name="signatoryName"
-            value={form.signatoryName}
-            onChange={handleChange}
-            fullWidth
-            helperText="Printed on invoice signature block."
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Signatory name"
+                fullWidth
+                helperText="Printed on invoice signature block."
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField
-            label="Signatory designation"
+          <Controller
             name="signatoryDesignation"
-            value={form.signatoryDesignation}
-            onChange={handleChange}
-            fullWidth
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} label="Signatory designation" fullWidth />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <TextField
-            label="Invoice prefix"
+          <Controller
             name="invoicePrefix"
-            value={form.invoicePrefix}
-            onChange={(e) => handleChange({ target: { name: 'invoicePrefix', value: e.target.value.toUpperCase().slice(0, 6) } })}
-            fullWidth
-            helperText="e.g. INV → INV/2026/0001"
+            control={control}
+            render={({ field: { onChange, value, ref } }) => (
+              <TextField
+                value={value}
+                onChange={(e) => onChange(e.target.value.toUpperCase().slice(0, 6))}
+                inputRef={ref}
+                label="Invoice prefix"
+                fullWidth
+                helperText="e.g. INV → INV/2026/0001"
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <TextField
-            label="Brand color"
+          <Controller
             name="brandColor"
-            type="color"
-            value={form.brandColor}
-            onChange={handleChange}
-            fullWidth
-            helperText="Accent color on invoices."
-            InputProps={{ sx: { height: 56 } }}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Brand color"
+                type="color"
+                fullWidth
+                helperText="Accent color on invoices."
+                InputProps={{ sx: { height: 56 } }}
+              />
+            )}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <TextField
-            select
-            label="System language"
+          <Controller
             name="locale"
-            value={form.locale}
-            onChange={handleChange}
-            fullWidth
-          >
-            {LOCALES.map((l) => <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>)}
-          </TextField>
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} select label="System language" fullWidth>
+                {LOCALES.map((l) => <MenuItem key={l.value} value={l.value}>{l.label}</MenuItem>)}
+              </TextField>
+            )}
+          />
         </Grid>
       </Grid>
     </Stack>
@@ -841,70 +1028,73 @@ const SetupShop = () => {
     </Stack>
   );
 
-  const renderReview = () => (
-    <Stack spacing={2.5}>
-      <Typography variant="overline" color="text.secondary" fontWeight={700}>Review your details</Typography>
+  const renderReview = () => {
+    const v = watchedStoreValues;
+    return (
+      <Stack spacing={2.5}>
+        <Typography variant="overline" color="text.secondary" fontWeight={700}>Review your details</Typography>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-          <Avatar src={logoPreview} variant="rounded" sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 48, height: 48 }}>
-            <StorefrontIcon />
-          </Avatar>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" fontWeight={800}>{form.name || 'Your shop'}</Typography>
-            <Typography variant="caption" color="text.secondary">{industryLabel(form.industryType)} · @{form.code}</Typography>
-          </Box>
-        </Stack>
-        <Divider sx={{ my: 1 }} />
-        {summaryRow('Owner', form.ownerName)}
-        {summaryRow('Business type', form.businessType)}
-        {summaryRow('Legal name', form.legalName)}
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+            <Avatar src={logoPreview} variant="rounded" sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 48, height: 48 }}>
+              <StorefrontIcon />
+            </Avatar>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h6" fontWeight={800}>{v.name || 'Your shop'}</Typography>
+              <Typography variant="caption" color="text.secondary">{industryLabel(v.industryType)} · @{v.code}</Typography>
+            </Box>
+          </Stack>
+          <Divider sx={{ my: 1 }} />
+          {summaryRow('Owner', v.ownerName)}
+          {summaryRow('Business type', v.businessType)}
+          {summaryRow('Legal name', v.legalName)}
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>GST &amp; tax</Typography>
-        {summaryRow('GSTIN', form.gstin)}
-        {summaryRow('State', form.state ? `${form.state} (${form.stateCode || '—'})` : '')}
-        {summaryRow('PAN', form.pan)}
-        {summaryRow('Scheme', form.isCompositionScheme ? 'Composition' : 'Regular')}
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>GST &amp; tax</Typography>
+          {summaryRow('GSTIN', v.gstin)}
+          {summaryRow('State', v.state ? `${v.state} (${v.stateCode || '—'})` : '')}
+          {summaryRow('PAN', v.pan)}
+          {summaryRow('Scheme', v.isCompositionScheme ? 'Composition' : 'Regular')}
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Contact</Typography>
-        {summaryRow('Address', [form.address, form.addressLine2].filter(Boolean).join(', '))}
-        {summaryRow('City & pincode', [form.city, form.pincode].filter(Boolean).join(' — '))}
-        {summaryRow('Phone', form.phone)}
-        {summaryRow('Email', form.email)}
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Contact</Typography>
+          {summaryRow('Address', [v.address, v.addressLine2].filter(Boolean).join(', '))}
+          {summaryRow('City & pincode', [v.city, v.pincode].filter(Boolean).join(' — '))}
+          {summaryRow('Phone', v.phone)}
+          {summaryRow('Email', v.email)}
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Branding</Typography>
-        {summaryRow('Signatory', [form.signatoryName, form.signatoryDesignation].filter(Boolean).join(' · '))}
-        {summaryRow('Invoice prefix', form.invoicePrefix)}
-        {summaryRow('Brand color', <Chip size="small" label={form.brandColor} sx={{ bgcolor: form.brandColor, color: '#fff', fontWeight: 700 }} />)}
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Branding</Typography>
+          {summaryRow('Signatory', [v.signatoryName, v.signatoryDesignation].filter(Boolean).join(' · '))}
+          {summaryRow('Invoice prefix', v.invoicePrefix)}
+          {summaryRow('Brand color', <Chip size="small" label={v.brandColor} sx={{ bgcolor: v.brandColor, color: '#fff', fontWeight: 700 }} />)}
+        </Paper>
 
-      <Alert severity="info" variant="outlined">
-        You'll start on the free plan. Upgrading, team invites and additional shops become available from the Settings screen after you're in.
-      </Alert>
+        <Alert severity="info" variant="outlined">
+          You'll start on the free plan. Upgrading, team invites and additional shops become available from the Settings screen after you're in.
+        </Alert>
 
-      {errors.submit && (
-        <Alert severity="error" variant="filled" role="alert">{errors.submit}</Alert>
-      )}
-    </Stack>
-  );
+        {submitError && (
+          <Alert severity="error" variant="filled" role="alert">{submitError}</Alert>
+        )}
+      </Stack>
+    );
+  };
 
   const stepRenderers = [renderBusiness, renderTax, renderAddress, renderBranding, renderReview];
-  const progressPct = ((activeStep) / (STEPS.length - 1)) * 100;
+  const progressPct = (activeStep / (STEPS.length - 1)) * 100;
   const currentStep = STEPS[activeStep];
 
-  // ─── Layout ───────────────────────────────────────────────────────
+  // ─── Layout ───────────────────────────────────────────────────────────────
 
   return (
     <Fade in timeout={400}>
       <Box sx={{ width: '100%' }}>
 
-        {/* Page heading + linear progress span the full container width */}
+        {/* Page heading + linear progress */}
         <Stack spacing={1} sx={{ mb: 3 }}>
           <Typography variant="overline" color="text.secondary" fontWeight={700}>
             Shop onboarding
@@ -925,10 +1115,10 @@ const SetupShop = () => {
           <LinearProgress variant="determinate" value={progressPct} sx={{ height: 6, borderRadius: 3, mt: 1 }} />
         </Stack>
 
-        {/* Two-column body: left rail (steps + tips), right pane (form) */}
+        {/* Two-column body */}
         <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} alignItems="flex-start">
 
-          {/* ─── Left rail ────────────────────────────────────────── */}
+          {/* ─── Left rail ──────────────────────────────────── */}
           <Grid item xs={12} md={4} lg={4}>
             <Paper
               variant="outlined"
@@ -936,7 +1126,7 @@ const SetupShop = () => {
                 p: { xs: 2, sm: 3 },
                 borderRadius: 2,
                 position: { md: 'sticky' },
-                top: { md: 96 }, // sits below the sticky top bar
+                top: { md: 96 },
               }}
             >
               <Stepper activeStep={activeStep} orientation="vertical" nonLinear>
@@ -977,7 +1167,6 @@ const SetupShop = () => {
                 })}
               </Stepper>
 
-              {/* Contextual tips for the currently active step */}
               <Divider sx={{ my: 2 }} />
               <Typography variant="overline" color="text.secondary" fontWeight={700}>
                 Tips for this step
@@ -993,7 +1182,7 @@ const SetupShop = () => {
             </Paper>
           </Grid>
 
-          {/* ─── Right pane (form) ────────────────────────────────── */}
+          {/* ─── Right pane (form) ───────────────────────────── */}
           <Grid item xs={12} md={8} lg={8}>
             <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 2 }}>
               {stepRenderers[activeStep]()}
@@ -1012,7 +1201,14 @@ const SetupShop = () => {
                   <Button
                     onClick={handleNext}
                     variant="contained"
-                    disabled={isLoading || (activeStep === 0 && (codeCheckState.status === 'checking' || codeCheckState.status === 'taken' || codeCheckState.status === 'invalid'))}
+                    disabled={
+                      isLoading ||
+                      (activeStep === 0 && (
+                        codeCheckState.status === 'checking' ||
+                        codeCheckState.status === 'taken' ||
+                        codeCheckState.status === 'invalid'
+                      ))
+                    }
                     endIcon={<ChevronRightIcon />}
                     sx={{ textTransform: 'none', fontWeight: 700, minWidth: 140, width: { xs: '100%', sm: 'auto' } }}
                   >
@@ -1020,7 +1216,7 @@ const SetupShop = () => {
                   </Button>
                 ) : (
                   <Button
-                    onClick={handleSubmit}
+                    onClick={handleFinish}
                     variant="contained"
                     color="primary"
                     disabled={isLoading}

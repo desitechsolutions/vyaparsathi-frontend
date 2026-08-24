@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
 import { useThemeContext } from '../../context/ThemeContext';
 import { useShop } from '../../context/ShopContext';
+import { useResponsiveTouchTarget } from '../../utils/touchTargets';
 
 const APP_VERSION = process.env.REACT_APP_VERSION || '1.0.0';
 const BUILD_HASH = process.env.REACT_APP_BUILD_HASH || 'dev';
@@ -94,6 +95,9 @@ const HeaderUserProfile = ({
           gap: 1.5,
           cursor: 'pointer',
           transition: 'all 200ms',
+          /* Touch target: the Avatar is 40px; pad the Box to reach 44px */
+          minWidth: 44,
+          minHeight: 44,
           '&:hover': { opacity: 0.85 },
           '&:focus': {
             outline: '2px solid',

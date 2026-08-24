@@ -15,6 +15,7 @@ import {
   Checkbox,
   FormControlLabel,
   Tooltip,
+  FormHelperText,
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
@@ -29,6 +30,7 @@ import { login as loginApi, register as registerApi, forgotPassword, resendVerif
 import { useTranslation } from 'react-i18next';
 import PasswordField from '../components/auth/PasswordField';
 import PasswordStrengthMeter, { evaluatePassword } from '../components/auth/PasswordStrengthMeter';
+import { useForm, Controller } from 'react-hook-form';
 
 const GoogleLogo = () => (
   <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -54,38 +56,65 @@ const Login = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
 
-  const [view, setView] = useState('login'); // 'login' | 'register' | 'forgotPassword' | 'forgotSent' | 'registerSuccess' | 'mfaChallenge'
+  const [view, setView] = useState('login');
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [forgotSubmittedEmail, setForgotSubmittedEmail] = useState('');
   const [resendState, setResendState] = useState({ inFlight: false, message: '' });
   const [mfa, setMfa] = useState({ challengeToken: '', code: '', useBackup: false });
-  const [username, setUsername] = useState(localStorage.getItem('lastUsername') || '');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
   const [retryAfterSeconds, setRetryAfterSeconds] = useState(null);
 
+  // ─── Refs for browser autofill detection (login form only) ────────────────
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
-  const firstNameRef = useRef(null);
-  const emailRefForgot = useRef(null);
 
   const sessionExpired = searchParams.get('expired') === '1' || searchParams.get('expired') === 'true';
 
+  // ─── Three form instances, one per sub-form ───────────────────────────────
+
+  const loginForm = useForm({
+    defaultValues: {
+      username: localStorage.getItem('lastUsername') || '',
+      password: '',
+      rememberMe: true,
+    },
+  });
+
+  const registerForm = useForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      username: '',
+      password: '',
+      confirmPassword: '',
+      acceptTerms: false,
+    },
+    mode: 'onChange', // real-time validation for password strength, match check, etc.
+  });
+
+  const forgotForm = useForm({
+    defaultValues: { email: '' },
+  });
+
+  // Watch register password for strength meter and confirm-password cross-validation
+  const registerPassword = registerForm.watch('password');
+  const passwordStrength = useMemo(() => evaluatePassword(registerPassword || ''), [registerPassword]);
+  const passwordStrong =
+    passwordStrength.rules.length &&
+    passwordStrength.rules.upper &&
+    passwordStrength.rules.lower &&
+    passwordStrength.rules.digit &&
+    passwordStrength.rules.special;
+
+  // ─── Redirect if already logged in ───────────────────────────────────────
   useEffect(() => {
     window.scrollTo(0, 0);
     if (user) {
       const redirectParam = searchParams.get('redirect');
       const savedRedirect = redirectParam || sessionStorage.getItem('redirectAfterLogin');
       sessionStorage.removeItem('redirectAfterLogin');
-
       if (savedRedirect && savedRedirect !== '/login' && savedRedirect !== '/') {
         navigate(savedRedirect, { replace: true });
       } else {
@@ -94,31 +123,28 @@ const Login = () => {
     }
   }, [user, navigate, searchParams]);
 
+  // ─── Clear server-level errors when switching views ───────────────────────
   useEffect(() => {
-    setError('');
-    setSuccessMessage('');
+    setServerError('');
     setRetryAfterSeconds(null);
-    // Focus the first field for keyboard users when the view changes.
-    const focusTarget =
-      view === 'login' ? usernameRef.current :
-      view === 'register' ? firstNameRef.current :
-      view === 'forgotPassword' ? emailRefForgot.current :
-      null;
-    if (focusTarget && typeof focusTarget.focus === 'function') {
-      focusTarget.focus();
-    }
   }, [view]);
 
-  // Autofill sync — browsers autofill without firing normal onChange for MUI's controlled inputs.
+  // ─── Browser autofill sync for login form ─────────────────────────────────
   useEffect(() => {
     const handleAnimationStart = (e) => {
       if (e.animationName === 'mui-auto-fill' || e.animationName === 'mui-auto-fill-cancel') {
-        if (usernameRef.current && usernameRef.current.value !== username) {
-          setUsername(usernameRef.current.value);
-          localStorage.setItem('lastUsername', usernameRef.current.value);
+        if (usernameRef.current) {
+          const val = usernameRef.current.value;
+          if (val !== loginForm.getValues('username')) {
+            loginForm.setValue('username', val, { shouldValidate: false });
+            localStorage.setItem('lastUsername', val);
+          }
         }
-        if (passwordRef.current && passwordRef.current.value !== password) {
-          setPassword(passwordRef.current.value);
+        if (passwordRef.current) {
+          const val = passwordRef.current.value;
+          if (val !== loginForm.getValues('password')) {
+            loginForm.setValue('password', val, { shouldValidate: false });
+          }
         }
       }
     };
@@ -127,139 +153,88 @@ const Login = () => {
     return () => {
       inputs.forEach((input) => input?.removeEventListener('animationstart', handleAnimationStart));
     };
-  }, [username, password]);
+  }, [loginForm]);
 
-  const passwordStrength = useMemo(() => evaluatePassword(password), [password]);
-  const passwordStrong =
-    passwordStrength.rules.length &&
-    passwordStrength.rules.upper &&
-    passwordStrength.rules.lower &&
-    passwordStrength.rules.digit &&
-    passwordStrength.rules.special;
-
+  // ─── API error handler ────────────────────────────────────────────────────
   const handleApiError = (err, fallback) => {
     if (err.response?.status === 429) {
-      const retryAfter = err.response?.data?.retryAfterSeconds
-        || Number(err.response?.headers?.['retry-after'])
-        || 60;
+      const retryAfter =
+        err.response?.data?.retryAfterSeconds ||
+        Number(err.response?.headers?.['retry-after']) ||
+        60;
       setRetryAfterSeconds(retryAfter);
-      setError(err.response?.data?.message || `Too many attempts. Try again in ${retryAfter}s.`);
+      setServerError(err.response?.data?.message || `Too many attempts. Try again in ${retryAfter}s.`);
       return;
     }
-    const msg = err.response?.data?.message || err.message || fallback;
-    setError(msg);
+    setServerError(err.response?.data?.message || err.message || fallback);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    setSuccessMessage('');
+  // ─── Submit handlers ──────────────────────────────────────────────────────
+
+  const onLoginSubmit = async ({ username, password }) => {
+    setServerError('');
     setRetryAfterSeconds(null);
-
     try {
-      if (view === 'login') {
-        if (!username.trim() || !password.trim()) {
-          setError(t('login.errorAllFieldsRequired', 'Username and password are required.'));
-          setIsSubmitting(false);
-          return;
-        }
-        // Backend accepts `password` (new) and legacy `pin` alias.
-        const response = await loginApi({ username, password });
+      const response = await loginApi({ username, password });
 
-        // Password was correct but the account has MFA on — we can't log
-        // the user in yet. Store the short-lived challenge token and
-        // switch the view to the 6-digit prompt.
-        if (response.data.mfaRequired) {
-          setMfa({ challengeToken: response.data.mfaChallengeToken, code: '', useBackup: false });
-          setView('mfaChallenge');
-          setIsSubmitting(false);
-          return;
-        }
+      if (response.data.mfaRequired) {
+        setMfa({ challengeToken: response.data.mfaChallengeToken, code: '', useBackup: false });
+        setView('mfaChallenge');
+        return;
+      }
 
-        login(response.data.accessToken || response.data.token);
+      login(response.data.accessToken || response.data.token);
+      localStorage.setItem('lastUsername', username);
 
-        // Honour the ?redirect=... param set by PrivateRoute / axios 401
-        // interceptor when the session expired. Falls back to sessionStorage
-        // for older paths that used that channel. Reserved routes (/login,
-        // /setup-shop, /) are treated as "no redirect" so we don't loop
-        // back to the login page.
-        const redirectParam = searchParams.get('redirect');
-        const stashedRedirect = sessionStorage.getItem('redirectAfterLogin');
-        sessionStorage.removeItem('redirectAfterLogin');
-        const target = redirectParam || stashedRedirect;
-        const isSafeTarget = target && target !== '/login' && target !== '/' && target !== '/setup-shop';
+      const redirectParam = searchParams.get('redirect');
+      const stashedRedirect = sessionStorage.getItem('redirectAfterLogin');
+      sessionStorage.removeItem('redirectAfterLogin');
+      const target = redirectParam || stashedRedirect;
+      const isSafeTarget = target && target !== '/login' && target !== '/' && target !== '/setup-shop';
 
-        if (response.data.role === 'SUPER_ADMIN') {
-          navigate('/admin/dashboard', { replace: true });
-        } else if (isSafeTarget) {
-          navigate(target, { replace: true });
-        } else {
-          navigate('/', { replace: true });
-        }
-      } else if (view === 'register') {
-        if (!firstName.trim() || !username.trim() || !password.trim() || !confirmPassword.trim() || !email.trim() || !phone.trim()) {
-          setError(t('login.errorAllFieldsRequired', 'Please fill in every required field.'));
-          setIsSubmitting(false);
-          return;
-        }
-        if (!/\S+@\S+\.\S+/.test(email)) {
-          setError(t('login.errorInvalidEmail', 'Please enter a valid email address.'));
-          setIsSubmitting(false);
-          return;
-        }
-        if (password !== confirmPassword) {
-          setError(t('login.errorPasswordsDontMatch', 'Passwords do not match.'));
-          setIsSubmitting(false);
-          return;
-        }
-        if (!passwordStrong) {
-          setError('Password must be at least 8 characters and include an uppercase letter, lowercase letter, digit and special character.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (!acceptTerms) {
-          setError('Please accept the Terms of Service and Privacy Policy to continue.');
-          setIsSubmitting(false);
-          return;
-        }
-
-        const payload = {
-          firstName,
-          lastName: lastName || null,
-          email,
-          phone,
-          username,
-          password,
-          role: 'PENDING_OWNER',
-        };
-
-        await registerApi(payload);
-        const loginRes = await loginApi({ username, password });
-        login(loginRes.data.accessToken || loginRes.data.token);
-
-        setPendingVerificationEmail(email);
-        setView('registerSuccess');
-        // Do NOT auto-navigate — let the user see the verify-email prompt.
-        // They can proceed to /setup-shop from the CTA on that screen.
-      } else if (view === 'forgotPassword') {
-        if (!email.trim()) {
-          setError(t('login.errorRequired', { field: t('login.email', 'Email') }));
-          setIsSubmitting(false);
-          return;
-        }
-        if (!/\S+@\S+\.\S+/.test(email)) {
-          setError(t('login.errorInvalidEmail', 'Please enter a valid email address.'));
-          setIsSubmitting(false);
-          return;
-        }
-        await forgotPassword({ email });
-        setView('forgotSent');
+      if (response.data.role === 'SUPER_ADMIN') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (isSafeTarget) {
+        navigate(target, { replace: true });
+      } else {
+        navigate('/', { replace: true });
       }
     } catch (err) {
       handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
-    } finally {
-      setIsSubmitting(false);
+    }
+  };
+
+  const onRegisterSubmit = async ({ firstName, lastName, email, phone, username, password }) => {
+    setServerError('');
+    try {
+      const payload = {
+        firstName,
+        lastName: lastName || null,
+        email,
+        phone,
+        username,
+        password,
+        role: 'PENDING_OWNER',
+      };
+      await registerApi(payload);
+      const loginRes = await loginApi({ username, password });
+      login(loginRes.data.accessToken || loginRes.data.token);
+      setPendingVerificationEmail(email);
+      setView('registerSuccess');
+    } catch (err) {
+      handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
+    }
+  };
+
+  const onForgotSubmit = async ({ email }) => {
+    setServerError('');
+    setRetryAfterSeconds(null);
+    try {
+      await forgotPassword({ email });
+      setForgotSubmittedEmail(email);
+      setView('forgotSent');
+    } catch (err) {
+      handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
     }
   };
 
@@ -267,14 +242,14 @@ const Login = () => {
 
   const renderStatusBanners = () => (
     <>
-      {sessionExpired && view === 'login' && !error && (
+      {sessionExpired && view === 'login' && !serverError && (
         <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
           Your session expired. Please sign in again to continue.
         </Alert>
       )}
-      {error && (
+      {serverError && (
         <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }} role="alert">
-          {error}
+          {serverError}
           {retryAfterSeconds ? (
             <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
               Retry after {retryAfterSeconds}s.
@@ -282,13 +257,10 @@ const Login = () => {
           ) : null}
         </Alert>
       )}
-      {successMessage && (
-        <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
-          {successMessage}
-        </Alert>
-      )}
     </>
   );
+
+  // ─── Login view ───────────────────────────────────────────────────────────
 
   const renderLogin = () => (
     <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
@@ -354,54 +326,99 @@ const Login = () => {
         </Typography>
       </Divider>
 
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+      <Box
+        component="form"
+        onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+        noValidate
+      >
         <Stack spacing={2}>
-          <TextField
-            id="username"
+          <Controller
             name="username"
-            label={t('login.username', 'Username or email')}
-            fullWidth
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value);
-              localStorage.setItem('lastUsername', e.target.value);
-            }}
-            disabled={isSubmitting}
-            required
-            autoComplete="username"
-            inputRef={usernameRef}
-            variant="outlined"
-            size="medium"
-            InputProps={{
-              startAdornment: <PersonOutlineIcon sx={{ mr: 1.5, color: 'text.secondary' }} aria-hidden="true" />,
-            }}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            control={loginForm.control}
+            rules={{ required: t('login.errorRequired', { field: 'Username', defaultValue: 'Username is required.' }) }}
+            render={({ field: { onChange, value, ref: rhfRef }, fieldState: { error } }) => (
+              <TextField
+                id="username"
+                name="username"
+                label={t('login.username', 'Username or email')}
+                fullWidth
+                value={value}
+                onChange={(e) => {
+                  onChange(e);
+                  localStorage.setItem('lastUsername', e.target.value);
+                }}
+                inputRef={(el) => {
+                  usernameRef.current = el;
+                  rhfRef(el);
+                }}
+                disabled={loginForm.formState.isSubmitting}
+                required
+                autoComplete="username"
+                autoFocus
+                variant="outlined"
+                size="medium"
+                error={!!error}
+                helperText={error?.message}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'login-username-error' : undefined,
+                  'aria-label': 'Username or email address',
+                }}
+                FormHelperTextProps={error ? { id: 'login-username-error', role: 'alert' } : undefined}
+                InputProps={{
+                  startAdornment: (
+                    <PersonOutlineIcon sx={{ mr: 1.5, color: 'text.secondary' }} aria-hidden="true" />
+                  ),
+                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
+            )}
           />
 
           <Stack spacing={0.5}>
-            <PasswordField
-              label={t('login.password', 'Password')}
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="current-password"
-              ref={passwordRef}
-              variant="outlined"
-              size="medium"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            <Controller
+              name="password"
+              control={loginForm.control}
+              rules={{ required: t('login.errorRequired', { field: 'Password', defaultValue: 'Password is required.' }) }}
+              render={({ field: { onChange, value, ref: rhfRef }, fieldState: { error } }) => (
+                <PasswordField
+                  label={t('login.password', 'Password')}
+                  fullWidth
+                  value={value}
+                  onChange={onChange}
+                  ref={(el) => {
+                    passwordRef.current = el;
+                    rhfRef(el);
+                  }}
+                  disabled={loginForm.formState.isSubmitting}
+                  required
+                  autoComplete="current-password"
+                  variant="outlined"
+                  size="medium"
+                  error={!!error}
+                  helperText={error?.message}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+              )}
             />
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
+              <Controller
+                name="rememberMe"
+                control={loginForm.control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label={<Typography variant="body2">Keep me signed in</Typography>}
                   />
-                }
-                label={<Typography variant="body2">Keep me signed in</Typography>}
+                )}
               />
               <Link
                 component="button"
@@ -420,7 +437,7 @@ const Login = () => {
             color="primary"
             type="submit"
             fullWidth
-            disabled={isSubmitting}
+            disabled={loginForm.formState.isSubmitting}
             sx={{
               py: 1.3,
               fontWeight: 700,
@@ -429,14 +446,16 @@ const Login = () => {
               fontSize: '1rem',
             }}
           >
-            {isSubmitting ? <CircularProgress size={22} color="inherit" /> : (t('login.signIn', 'Sign in'))}
+            {loginForm.formState.isSubmitting
+              ? <CircularProgress size={22} color="inherit" />
+              : t('login.signIn', 'Sign in')}
           </Button>
         </Stack>
       </Box>
 
       <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
         <Typography variant="body2">
-          {t('login.noAccount', "New to VyaparSathi?")}{' '}
+          {t('login.noAccount', 'New to VyaparSathi?')}{' '}
           <Link
             component="button"
             type="button"
@@ -451,180 +470,313 @@ const Login = () => {
     </Stack>
   );
 
-  const renderRegister = () => (
-    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <IconButton
-          size="small"
-          onClick={() => setView('login')}
-          aria-label={t('login.backToLogin', 'Back to sign in')}
-        >
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
-        <Typography variant="body2" color="text.secondary">Back to sign in</Typography>
-      </Stack>
+  // ─── Register view ────────────────────────────────────────────────────────
 
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
-          {t('login.createAccount', 'Create your account')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Start invoicing, managing inventory, and tracking dues in minutes.
-        </Typography>
-      </Stack>
+  const renderRegister = () => {
+    const { formState: { errors: regErrors, isSubmitting: regSubmitting } } = registerForm;
 
-      <Box component="form" onSubmit={handleSubmit} noValidate>
-        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('login.firstName', 'First name')}
-              fullWidth
-              inputRef={firstNameRef}
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="given-name"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('login.lastName', 'Last name')}
-              fullWidth
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="family-name"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              label={t('login.email', 'Work email')}
-              type="email"
-              fullWidth
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="email"
-              helperText="We'll send you a verification link at this address."
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('login.phone', 'Mobile number')}
-              fullWidth
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
-              disabled={isSubmitting}
-              required
-              autoComplete="tel"
-              inputProps={{ maxLength: 15 }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label={t('login.username', 'Choose a username')}
-              fullWidth
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="username"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <PasswordField
-              label={t('login.createPassword', 'Create a password')}
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="new-password"
-              showStartIcon={false}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <PasswordField
-              label={t('login.confirmPassword', 'Confirm password')}
-              fullWidth
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={isSubmitting}
-              required
-              autoComplete="new-password"
-              error={confirmPassword.length > 0 && password !== confirmPassword}
-              helperText={confirmPassword.length > 0 && password !== confirmPassword ? 'Passwords do not match' : ''}
-              showStartIcon={false}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <PasswordStrengthMeter value={password} />
-          </Grid>
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  I agree to the{' '}
-                  <Link component={RouterLink} to="/terms" target="_blank" rel="noopener" underline="hover">Terms of Service</Link>{' '}
-                  and{' '}
-                  <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener" underline="hover">Privacy Policy</Link>.
-                </Typography>
-              }
-            />
-          </Grid>
-        </Grid>
-
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit"
-          fullWidth
-          disabled={isSubmitting || password !== confirmPassword || !acceptTerms}
-          sx={{
-            mt: 3,
-            py: 1.3,
-            fontWeight: 700,
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1rem',
-          }}
-        >
-          {isSubmitting ? <CircularProgress size={22} color="inherit" /> : (t('login.register', 'Create account'))}
-        </Button>
-      </Box>
-
-      <Box sx={{ textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {t('login.alreadyHaveAccount', 'Already have an account?')}{' '}
-          <Link
-            component="button"
-            type="button"
-            variant="body2"
+    return (
+      <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <IconButton
+            size="small"
             onClick={() => setView('login')}
-            sx={{ fontWeight: 700, textDecoration: 'none', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+            aria-label={t('login.backToLogin', 'Back to sign in')}
           >
-            {t('login.signIn', 'Sign in')}
-          </Link>
-        </Typography>
-      </Box>
-    </Stack>
-  );
+            <ArrowBackIcon fontSize="small" />
+          </IconButton>
+          <Typography variant="body2" color="text.secondary">Back to sign in</Typography>
+        </Stack>
+
+        <Stack spacing={1}>
+          <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
+            {t('login.createAccount', 'Create your account')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Start invoicing, managing inventory, and tracking dues in minutes.
+          </Typography>
+        </Stack>
+
+        <Box component="form" onSubmit={registerForm.handleSubmit(onRegisterSubmit)} noValidate>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="firstName"
+                control={registerForm.control}
+                rules={{ required: t('login.errorRequired', { field: 'First name', defaultValue: 'First name is required.' }) }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label={t('login.firstName', 'First name')}
+                    fullWidth
+                    autoFocus
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="given-name"
+                    error={!!error}
+                    helperText={error?.message}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-firstname-error' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-firstname-error', role: 'alert' } : undefined}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="lastName"
+                control={registerForm.control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label={t('login.lastName', 'Last name')}
+                    fullWidth
+                    disabled={regSubmitting}
+                    autoComplete="family-name"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Controller
+                name="email"
+                control={registerForm.control}
+                rules={{
+                  required: t('login.errorRequired', { field: 'Email', defaultValue: 'Email is required.' }),
+                  pattern: {
+                    value: /\S+@\S+\.\S+/,
+                    message: t('login.errorInvalidEmail', 'Please enter a valid email address.'),
+                  },
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label={t('login.email', 'Work email')}
+                    type="email"
+                    fullWidth
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="email"
+                    error={!!error}
+                    helperText={error?.message || "We'll send you a verification link at this address."}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-email-error' : 'reg-email-hint',
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-email-error', role: 'alert' } : { id: 'reg-email-hint' }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="phone"
+                control={registerForm.control}
+                rules={{ required: t('login.errorRequired', { field: 'Phone', defaultValue: 'Phone number is required.' }) }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <TextField
+                    value={value}
+                    onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                    inputRef={ref}
+                    label={t('login.phone', 'Mobile number')}
+                    fullWidth
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="tel"
+                    error={!!error}
+                    helperText={error?.message}
+                    inputProps={{
+                      maxLength: 15,
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-phone-error' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-phone-error', role: 'alert' } : undefined}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="username"
+                control={registerForm.control}
+                rules={{ required: t('login.errorRequired', { field: 'Username', defaultValue: 'Username is required.' }) }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label={t('login.username', 'Choose a username')}
+                    fullWidth
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="username"
+                    error={!!error}
+                    helperText={error?.message}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-username-error' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-username-error', role: 'alert' } : undefined}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="password"
+                control={registerForm.control}
+                rules={{
+                  required: t('login.errorRequired', { field: 'Password', defaultValue: 'Password is required.' }),
+                  validate: (val) =>
+                    (() => {
+                      const s = evaluatePassword(val);
+                      return (
+                        (s.rules.length && s.rules.upper && s.rules.lower && s.rules.digit && s.rules.special) ||
+                        'Password must be at least 8 characters and include uppercase, lowercase, digit and special character.'
+                      );
+                    })(),
+                }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <PasswordField
+                    label={t('login.createPassword', 'Create a password')}
+                    fullWidth
+                    value={value}
+                    onChange={(e) => {
+                      onChange(e);
+                      // Re-validate confirmPassword when password changes
+                      if (registerForm.getValues('confirmPassword')) {
+                        registerForm.trigger('confirmPassword');
+                      }
+                    }}
+                    ref={ref}
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="new-password"
+                    showStartIcon={false}
+                    error={!!error}
+                    helperText={error?.message}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="confirmPassword"
+                control={registerForm.control}
+                rules={{
+                  required: 'Please confirm your password.',
+                  validate: (val) =>
+                    val === registerForm.getValues('password') || t('login.errorPasswordsDontMatch', 'Passwords do not match.'),
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <PasswordField
+                    label={t('login.confirmPassword', 'Confirm password')}
+                    fullWidth
+                    value={field.value}
+                    onChange={field.onChange}
+                    ref={field.ref}
+                    disabled={regSubmitting}
+                    required
+                    autoComplete="new-password"
+                    showStartIcon={false}
+                    error={!!error}
+                    helperText={error?.message}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <PasswordStrengthMeter value={registerPassword || ''} />
+            </Grid>
+            <Grid item xs={12}>
+              <Controller
+                name="acceptTerms"
+                control={registerForm.control}
+                rules={{
+                  validate: (val) =>
+                    val || 'Please accept the Terms of Service and Privacy Policy to continue.',
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" color={error ? 'error' : 'text.secondary'}>
+                          I agree to the{' '}
+                          <Link component={RouterLink} to="/terms" target="_blank" rel="noopener" underline="hover">Terms of Service</Link>{' '}
+                          and{' '}
+                          <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener" underline="hover">Privacy Policy</Link>.
+                        </Typography>
+                      }
+                    />
+                    {error && (
+                      <FormHelperText error sx={{ ml: 2 }}>
+                        {error.message}
+                      </FormHelperText>
+                    )}
+                  </>
+                )}
+              />
+            </Grid>
+          </Grid>
+
+          <Button
+            variant="contained"
+            color="primary"
+            type="submit"
+            fullWidth
+            disabled={regSubmitting}
+            sx={{
+              mt: 3,
+              py: 1.3,
+              fontWeight: 700,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontSize: '1rem',
+            }}
+          >
+            {regSubmitting
+              ? <CircularProgress size={22} color="inherit" />
+              : t('login.register', 'Create account')}
+          </Button>
+        </Box>
+
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('login.alreadyHaveAccount', 'Already have an account?')}{' '}
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              onClick={() => setView('login')}
+              sx={{ fontWeight: 700, textDecoration: 'none', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+            >
+              {t('login.signIn', 'Sign in')}
+            </Link>
+          </Typography>
+        </Box>
+      </Stack>
+    );
+  };
+
+  // ─── Forgot password view ─────────────────────────────────────────────────
 
   const renderForgot = () => (
     <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
@@ -651,51 +803,74 @@ const Login = () => {
         </Typography>
       </Stack>
 
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+      <Box component="form" onSubmit={forgotForm.handleSubmit(onForgotSubmit)} noValidate>
         <Stack spacing={2}>
-          <TextField
-            label={t('login.email', 'Registered email address')}
-            type="email"
-            fullWidth
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isSubmitting}
-            required
-            inputRef={emailRefForgot}
-            autoComplete="email"
-            placeholder="you@example.com"
-            InputProps={{
-              startAdornment: <EmailIcon sx={{ mr: 1.5, color: 'text.secondary' }} aria-hidden="true" />,
+          <Controller
+            name="email"
+            control={forgotForm.control}
+            rules={{
+              required: t('login.errorRequired', { field: 'Email', defaultValue: 'Email is required.' }),
+              pattern: {
+                value: /\S+@\S+\.\S+/,
+                message: t('login.errorInvalidEmail', 'Please enter a valid email address.'),
+              },
             }}
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            render={({ field, fieldState: { error } }) => (
+              <TextField
+                {...field}
+                label={t('login.email', 'Registered email address')}
+                type="email"
+                fullWidth
+                disabled={forgotForm.formState.isSubmitting}
+                required
+                autoFocus
+                autoComplete="email"
+                placeholder="you@example.com"
+                error={!!error}
+                helperText={error?.message}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'forgot-email-error' : undefined,
+                  'aria-label': 'Registered email address',
+                }}
+                FormHelperTextProps={error ? { id: 'forgot-email-error', role: 'alert' } : undefined}
+                InputProps={{
+                  startAdornment: <EmailIcon sx={{ mr: 1.5, color: 'text.secondary' }} aria-hidden="true" />,
+                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
+            )}
           />
           <Button
             variant="contained"
             color="primary"
             type="submit"
             fullWidth
-            disabled={isSubmitting}
+            disabled={forgotForm.formState.isSubmitting}
             sx={{ py: 1.3, fontWeight: 700, borderRadius: 2, textTransform: 'none', fontSize: '1rem' }}
           >
-            {isSubmitting ? <CircularProgress size={22} color="inherit" /> : (t('login.sendResetLink', 'Send reset link'))}
+            {forgotForm.formState.isSubmitting
+              ? <CircularProgress size={22} color="inherit" />
+              : t('login.sendResetLink', 'Send reset link')}
           </Button>
         </Stack>
       </Box>
     </Stack>
   );
 
+  // ─── MFA challenge view ───────────────────────────────────────────────────
+
   const handleMfaSubmit = async (e) => {
     e.preventDefault();
     if (!mfa.code.trim()) {
-      setError(t('login.mfaCodeRequired', 'Enter your authenticator code.'));
+      setServerError(t('login.mfaCodeRequired', 'Enter your authenticator code.'));
       return;
     }
-    setIsSubmitting(true);
-    setError('');
+    setServerError('');
     try {
       const res = await verifyMfaChallenge(mfa.challengeToken, mfa.code.trim());
       login(res.data.accessToken);
-      // Same post-login redirect logic as the password path.
       const redirectParam = searchParams.get('redirect');
       const stashedRedirect = sessionStorage.getItem('redirectAfterLogin');
       sessionStorage.removeItem('redirectAfterLogin');
@@ -706,26 +881,6 @@ const Login = () => {
       else navigate('/', { replace: true });
     } catch (err) {
       handleApiError(err, t('login.mfaCodeInvalid', 'The code you entered is incorrect. Try again.'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResendPostRegister = async () => {
-    if (!pendingVerificationEmail) return;
-    setResendState({ inFlight: true, message: '' });
-    try {
-      const res = await resendVerification(pendingVerificationEmail);
-      setResendState({
-        inFlight: false,
-        message: res.data?.message || 'Verification email sent again.',
-      });
-    } catch {
-      // Backend is intentionally idempotent — surface a friendly message anyway
-      setResendState({
-        inFlight: false,
-        message: 'If your email is registered, a fresh link has been sent.',
-      });
     }
   };
 
@@ -767,8 +922,13 @@ const Login = () => {
             autoComplete="one-time-code"
             inputMode={mfa.useBackup ? 'text' : 'numeric'}
             value={mfa.code}
-            onChange={(e) => setMfa((m) => ({ ...m, code: mfa.useBackup ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-            disabled={isSubmitting}
+            onChange={(e) => setMfa((m) => ({
+              ...m,
+              code: mfa.useBackup
+                ? e.target.value.toUpperCase()
+                : e.target.value.replace(/\D/g, '').slice(0, 6),
+            }))}
+            disabled={false}
             required
             inputProps={{
               'aria-label': mfa.useBackup ? 'Backup code' : 'Six-digit authenticator code',
@@ -783,10 +943,10 @@ const Login = () => {
             variant="contained"
             type="submit"
             fullWidth
-            disabled={isSubmitting || !mfa.code.trim()}
+            disabled={!mfa.code.trim()}
             sx={{ py: 1.3, fontWeight: 700, borderRadius: 2, textTransform: 'none', fontSize: '1rem' }}
           >
-            {isSubmitting ? <CircularProgress size={22} color="inherit" /> : t('login.mfaVerify', 'Verify & continue')}
+            {t('login.mfaVerify', 'Verify & continue')}
           </Button>
 
           <Box sx={{ textAlign: 'center' }}>
@@ -807,6 +967,19 @@ const Login = () => {
       </Box>
     </Stack>
   );
+
+  // ─── Post-register success view ───────────────────────────────────────────
+
+  const handleResendPostRegister = async () => {
+    if (!pendingVerificationEmail) return;
+    setResendState({ inFlight: true, message: '' });
+    try {
+      const res = await resendVerification(pendingVerificationEmail);
+      setResendState({ inFlight: false, message: res.data?.message || 'Verification email sent again.' });
+    } catch {
+      setResendState({ inFlight: false, message: 'If your email is registered, a fresh link has been sent.' });
+    }
+  };
 
   const renderRegisterSuccess = () => (
     <Stack spacing={{ xs: 2, sm: 3 }} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
@@ -866,6 +1039,8 @@ const Login = () => {
     </Stack>
   );
 
+  // ─── Forgot-sent confirmation view ────────────────────────────────────────
+
   const renderForgotSent = () => (
     <Stack spacing={{ xs: 2, sm: 3 }} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
       <Avatar sx={{ bgcolor: 'success.light', color: 'success.main', width: 64, height: 64 }}>
@@ -876,7 +1051,7 @@ const Login = () => {
           Check your inbox
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          If <strong>{email || 'your email'}</strong> is registered with us, a password reset link is on its way. The link expires in 30 minutes.
+          If <strong>{forgotSubmittedEmail || 'your email'}</strong> is registered with us, a password reset link is on its way. The link expires in 30 minutes.
         </Typography>
       </Stack>
 
@@ -891,20 +1066,25 @@ const Login = () => {
         </Button>
         <Button
           variant="text"
-          onClick={handleSubmit}
+          onClick={forgotForm.handleSubmit(onForgotSubmit)}
           fullWidth
-          disabled={isSubmitting}
+          disabled={forgotForm.formState.isSubmitting}
           sx={{ textTransform: 'none' }}
         >
-          {isSubmitting ? 'Sending…' : "Didn't get the email? Resend"}
+          {forgotForm.formState.isSubmitting ? 'Sending…' : "Didn't get the email? Resend"}
         </Button>
       </Stack>
 
       <Typography variant="caption" color="text.secondary">
-        Wrong email? <Link component="button" type="button" onClick={() => setView('forgotPassword')} underline="hover">Try a different address</Link>.
+        Wrong email?{' '}
+        <Link component="button" type="button" onClick={() => setView('forgotPassword')} underline="hover">
+          Try a different address
+        </Link>.
       </Typography>
     </Stack>
   );
+
+  // ─── Route to active view ─────────────────────────────────────────────────
 
   const renderCurrentView = () => {
     switch (view) {

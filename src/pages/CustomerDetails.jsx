@@ -234,6 +234,30 @@ export default function CustomerDetails() {
     loadProfile();
   }, [loadProfile]);
 
+  // ── Real-time customer updates ───────────────────────────────────────────────
+  // The ws:customer CustomEvent fires when the backend publishes to
+  // /topic/shop/{shopId}/customers.
+  // Payload: { customerId, event, details }
+  //
+  // We store a stable ref to a "refresh all" callback so the effect only
+  // needs to depend on `id` — avoiding stale-closure issues with the
+  // lazy-tab loaders that are declared later in the component body.
+  const wsCustomerRefreshRef = useRef(null);
+
+  useEffect(() => {
+    const handleCustomerUpdate = (e) => {
+      const update = e.detail;
+      if (!update || !id) return;
+      if (String(update.customerId) !== String(id)) return;
+
+      // Delegate to whatever refresh logic is current at event time
+      if (wsCustomerRefreshRef.current) wsCustomerRefreshRef.current(update.event);
+    };
+
+    window.addEventListener('ws:customer', handleCustomerUpdate);
+    return () => window.removeEventListener('ws:customer', handleCustomerUpdate);
+  }, [id]);
+
   // Lazy tab data loaders
   const loadInvoices = useCallback(async () => {
     if (!id) return;
@@ -321,6 +345,22 @@ export default function CustomerDetails() {
       setAuditLoading(false);
     }
   }, [id]);
+
+  // Wire the stable ref used by the ws:customer event handler so it always
+  // has access to the latest loader functions without the effect needing to
+  // re-register every time a callback identity changes.
+  useEffect(() => {
+    wsCustomerRefreshRef.current = (eventType) => {
+      const ev = (eventType || '').toUpperCase();
+      // Always refresh the header KPI strip
+      loadProfile();
+      // For payment / credit events also reload the currently-visible tab data
+      if (ev === 'PAYMENT_RECEIVED' || ev === 'CREDIT_NOTE') {
+        loadPayments();
+        loadLedger();
+      }
+    };
+  }, [loadProfile, loadPayments, loadLedger]);
 
   // Load data based on active tab. Tabs 5-10 (Delivery, Contacts,
   // Addresses, Notes, Attachments, Custom fields) manage their own

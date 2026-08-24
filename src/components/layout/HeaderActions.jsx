@@ -14,6 +14,7 @@ import { Notifications as NotificationsIcon } from '@mui/icons-material';
 import { Receipt as ReceiptIcon, CreditCard as CreditCardIcon, Inventory as InventoryIcon } from '@mui/icons-material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import StatusIndicators from './StatusIndicators';
+import { useResponsiveTouchTarget } from '../../utils/touchTargets';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAlerts } from '../../context/AlertContext';
@@ -113,11 +114,13 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onNotificationOpen}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label={`Notifications: ${alertCount} alert${alertCount !== 1 ? 's' : ''}`}
               aria-expanded={Boolean(notificationAnchor)}
               aria-haspopup="menu"
               sx={{
+                minWidth: 44,
+                minHeight: 44,
                 animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none',
               }}
             >
@@ -142,10 +145,10 @@ const HeaderActions = ({
                 {alertCount} Alert{alertCount !== 1 ? 's' : ''}
               </Typography>
               <IconButton
-                size="small"
+                size={{ xs: 'small', md: 'medium' }}
                 onClick={onNotificationClose}
-                sx={{ '&:hover': { bgcolor: 'action.hover' } }}
-                title="Close"
+                sx={{ minWidth: 44, minHeight: 44, '&:hover': { bgcolor: 'action.hover' } }}
+                aria-label="Close notifications"
               >
                 <CloseIcon sx={{ fontSize: 18 }} />
               </IconButton>
@@ -257,10 +260,11 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onQuickActionOpen}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Quick actions menu"
               aria-expanded={Boolean(quickActionAnchor)}
               aria-haspopup="menu"
+              sx={{ minWidth: 44, minHeight: 44 }}
             >
               <AddCircleIcon sx={{ fontSize: 22 }} />
             </IconButton>
@@ -368,10 +372,11 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onLanguageMenuOpen}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Language selector"
               aria-expanded={Boolean(languageMenuAnchor)}
               aria-haspopup="menu"
+              sx={{ minWidth: 44, minHeight: 44 }}
             >
               <LanguageIcon sx={{ fontSize: 20 }} />
             </IconButton>
@@ -397,9 +402,9 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={cycleColorPreference}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label={`Theme: currently ${colorPreference}. Click to switch to ${themeNextLabel[colorPreference]}`}
-              sx={{ transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
+              sx={{ minWidth: 44, minHeight: 44, transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
             >
               {themeIconMap[colorPreference]}
             </IconButton>

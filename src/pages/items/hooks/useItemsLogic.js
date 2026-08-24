@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -7,6 +8,8 @@ import {
   updateItem,
   deleteItemVariant,
   deleteItemsBulk,
+  bulkApplyItemPriceFactor,
+  bulkAssignItemCategory,
   fetchStock,
   fetchCategories,
   searchItemsPage,
@@ -84,13 +87,13 @@ export default function useItemsLogic() {
   }, []);
 
   // ── Data Loading ───────────────────────────────────────
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (signal) => {
     setLoading(true);
     try {
       const [itemsRes, stockRes, categoriesRes] = await Promise.all([
-        fetchItems(),
-        fetchStock(),
-        fetchCategories(),
+        fetchItems(signal),
+        fetchStock(signal),
+        fetchCategories(signal),
       ]);
 
       const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
@@ -99,11 +102,12 @@ export default function useItemsLogic() {
       setItemsWithoutVariants(items.filter((item) => !item.variants?.length));
 
       setStockData(Array.isArray(stockRes.data) ? stockRes.data : []);
-      
+
       const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
       setApiCategories(categories);
 
     } catch (err) {
+      if (axios.isCancel(err)) return; // tab closed / unmounted — discard silently
       console.error('Data fetch error:', err);
       showSnackbar('Failed to load data. Please check API service.', 'error');
     } finally {
@@ -112,29 +116,36 @@ export default function useItemsLogic() {
   }, [showSnackbar]);
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
   }, [loadData]);
 
-  const loadPage = useCallback(async () => {
+  const loadPage = useCallback(async (signal) => {
     try {
       const res = await searchItemsPage({
         q: searchQuery || '',
         categoryId: searchCategoryId || undefined,
         page: paginationModel.page,
         size: paginationModel.pageSize,
-      });
+      }, signal);
       const data = res?.data || {};
       const rows = Array.isArray(data.content) ? data.content : [];
       setItemsWithVariants(rows);
       setRowCount(typeof data.totalElements === 'number' ? data.totalElements : rows.length);
     } catch (err) {
+      if (axios.isCancel(err)) return; // query superseded or component unmounted
       console.error('Server search failed:', err);
     }
   }, [searchQuery, searchCategoryId, paginationModel.page, paginationModel.pageSize]);
 
   useEffect(() => {
-    const t = setTimeout(() => { loadPage(); }, 250);
-    return () => clearTimeout(t);
+    const controller = new AbortController();
+    const t = setTimeout(() => { loadPage(controller.signal); }, 250);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
   }, [loadPage]);
 
   // Cleanup Preview URLs to prevent memory leaks
@@ -354,6 +365,44 @@ export default function useItemsLogic() {
     }
   };
 
+  /**
+   * Apply a price factor to every variant in the selected items.
+   * factor: number (e.g. 1.1 = +10%, 0.9 = -10%)
+   */
+  const handleBulkPriceFactor = async (factor) => {
+    if (!selectedItemIds.length || !factor) return;
+    try {
+      const res = await bulkApplyItemPriceFactor(selectedItemIds, factor);
+      const updated = res?.updatedCount ?? selectedItemIds.length;
+      showSnackbar(`Price factor applied to ${updated} item(s).`, 'success');
+      setSelectedItemIds([]);
+      loadData();
+      loadPage();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to apply price factor.';
+      showSnackbar(msg, 'error');
+    }
+  };
+
+  /**
+   * Reassign all selected items to a different category.
+   * categoryId: string | number
+   */
+  const handleBulkAssignCategory = async (categoryId) => {
+    if (!selectedItemIds.length || !categoryId) return;
+    try {
+      const res = await bulkAssignItemCategory(selectedItemIds, categoryId);
+      const updated = res?.updatedCount ?? selectedItemIds.length;
+      showSnackbar(`Category updated for ${updated} item(s).`, 'success');
+      setSelectedItemIds([]);
+      loadData();
+      loadPage();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to assign category.';
+      showSnackbar(msg, 'error');
+    }
+  };
+
   const confirmDeleteVariant = async () => {
     try {
       await deleteItemVariant(selectedVariantId);
@@ -534,6 +583,8 @@ export default function useItemsLogic() {
     // Bulk selection
     selectedItemIds, setSelectedItemIds,
     openBulkDeleteConfirm, setOpenBulkDeleteConfirm, confirmBulkDelete,
+    handleBulkPriceFactor,
+    handleBulkAssignCategory,
     // Server-side pagination / search
     paginationModel, setPaginationModel,
     searchQuery, setSearchQuery,

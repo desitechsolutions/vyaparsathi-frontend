@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme, alpha } from '@mui/material/styles';
@@ -29,11 +29,23 @@ import {
   WhatsApp as WhatsAppIcon,
   Email as EmailIcon,
   ContentCopy as DuplicateIcon,
+  AutoAwesome as AdvancedFilterIcon,
 } from '@mui/icons-material';
 
+import { useResponsiveTouchTarget } from '../utils/touchTargets';
 import { usePurchaseOrders } from '../hooks/usePurchaseOrders';
 import CustomToolbar from './items/components/CustomToolbar';
-import { duplicatePurchaseOrder, getPurchaseOrderSignedUrl } from '../services/api';
+import {
+  duplicatePurchaseOrder,
+  getPurchaseOrderSignedUrl,
+  sendPurchaseOrder,
+  markReceivedPurchaseOrder,
+  cancelPurchaseOrder,
+} from '../services/api';
+import FloatingBulkActionBar from '../components/common/FloatingBulkActionBar';
+import FilterBuilderDialog, { applyFilterState } from '../components/enterprise/FilterBuilderDialog';
+import SavedViewsBar from '../components/enterprise/SavedViewsBar';
+import { useSavedViews } from '../hooks/useSavedViews';
 
 // ── Formatting helpers ────────────────────────────────────────────────
 const formatInr = (val) =>
@@ -114,6 +126,10 @@ const FilterChip = ({ active, onClick, label, count, color }) => (
     variant={active ? 'filled' : 'outlined'}
     sx={{
       fontWeight: 600, borderRadius: 1,
+      /* Ensure the clickable filter chip meets the 44 px touch-target standard */
+      height: 36,
+      px: 0.5,
+      '& .MuiChip-label': { px: 1.5 },
       bgcolor: active ? (color || 'primary.main') : 'transparent',
       color: active ? 'common.white' : 'text.primary',
       borderColor: color || 'divider',
@@ -159,6 +175,23 @@ const isOverdue = (po) => {
   return due < now;
 };
 
+// ── Advanced filter field definitions for Purchase Orders ─────────────────────
+const PO_FILTER_FIELDS = [
+  { key: 'poNumber',              label: 'PO Number',         type: 'text' },
+  { key: 'supplierName',          label: 'Supplier',          type: 'text' },
+  { key: 'status', label: 'Status', type: 'select',
+    options: STATUS_ORDER.map((s) => ({ value: s, label: STATUS_META[s]?.label || s })) },
+  { key: 'paymentStatus', label: 'Payment Status', type: 'select',
+    options: [
+      { value: 'PENDING',  label: 'Pending' },
+      { value: 'PARTIAL',  label: 'Partial' },
+      { value: 'PAID',     label: 'Paid' },
+    ] },
+  { key: 'orderDate',             label: 'Order Date',        type: 'date' },
+  { key: 'expectedDeliveryDate',  label: 'Expected Delivery', type: 'date' },
+  { key: 'totalAmount',           label: 'Order Value (₹)',   type: 'number' },
+];
+
 const PurchaseOrders = () => {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -190,12 +223,57 @@ const PurchaseOrders = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Advanced filter builder
+  const [filterBuilderOpen, setFilterBuilderOpen] = useState(false);
+  const [advancedFilter, setAdvancedFilter] = useState({ logic: 'AND', conditions: [] });
+  const hasAdvancedFilter = advancedFilter.conditions?.some((c) => c.field && c.value);
+
+  // Saved views
+  const { savedViews, saveView, deleteView, exportViews } = useSavedViews('purchase_orders');
+  const [activeViewId, setActiveViewId] = useState(null);
+
   // ── Confirm dialogs (kept on the list page for row-level bulk actions) ──
   const [submitDialog, setSubmitDialog] = useState({ open: false, po: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, po: null, reason: '' });
   const [sendDialog, setSendDialog] = useState({ open: false, po: null });
   const [receivedDialog, setReceivedDialog] = useState({ open: false, po: null });
   const [actionBusy, setActionBusy] = useState(false);
+
+  // ── Bulk selection & bulk operation state ──────────────────────────
+  const [selectedPoIds, setSelectedPoIds] = useState([]);
+  const [bulkProgress, setBulkProgress] = useState(null); // { current, total, label }
+  const [bulkCancelDialog, setBulkCancelDialog] = useState({ open: false, reason: '' });
+  const [bulkSnackbar, setBulkSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  /**
+   * Run a bulk operation sequentially over the selected PO IDs.
+   * Shows live progress in the floating bar, surfaces final outcome via snackbar.
+   */
+  const runBulkPoOp = useCallback(async (opFn, opLabel) => {
+    const ids = [...selectedPoIds];
+    if (!ids.length) return;
+    let passed = 0;
+    let failed = 0;
+    for (let i = 0; i < ids.length; i++) {
+      setBulkProgress({ current: i + 1, total: ids.length, label: `${opLabel}: ${i + 1} of ${ids.length}` });
+      try {
+        await opFn(ids[i]);
+        passed++;
+      } catch {
+        failed++;
+      }
+    }
+    setBulkProgress(null);
+    setSelectedPoIds([]);
+    refreshData();
+    setBulkSnackbar({
+      open: true,
+      message: failed === 0
+        ? `${opLabel}: ${passed} order${passed !== 1 ? 's' : ''} updated.`
+        : `${opLabel}: ${passed} succeeded, ${failed} failed.`,
+      severity: failed === 0 ? 'success' : 'warning',
+    });
+  }, [selectedPoIds, refreshData]);
 
   // Row action menu (three-dot on each PO row)
   const [rowMenu, setRowMenu] = useState({ anchor: null, po: null });
@@ -416,6 +494,35 @@ const PurchaseOrders = () => {
 
   const filtersActive = !!(searchText || supplierFilter || statusFilter !== 'ALL' || dateFrom || dateTo);
 
+  // Apply advanced filter client-side on top of quick-filtered results.
+  // Flatten supplier.name into a top-level field so the generic matchCondition works.
+  const finalDisplayOrders = (() => {
+    const base = hasAdvancedFilter
+      ? filteredOrders.map((po) => ({
+          ...po,
+          supplierName: po.supplier?.name || '',
+        }))
+      : filteredOrders;
+    return hasAdvancedFilter ? applyFilterState(base, advancedFilter) : base;
+  })();
+
+  const handleLoadView = (view) => {
+    setAdvancedFilter(view.filterState || { logic: 'AND', conditions: [] });
+    setActiveViewId(view.id);
+  };
+
+  const handleDeleteView = (id) => {
+    deleteView(id);
+    if (activeViewId === id) {
+      setActiveViewId(null);
+      setAdvancedFilter({ logic: 'AND', conditions: [] });
+    }
+  };
+
+  const handleSaveView = (name, description) => {
+    saveView(name, advancedFilter, description);
+  };
+
   // ── Grid columns ────────────────────────────────────────────────────
   // Trimmed to the 7 columns that fit standard screen widths without
   // horizontal scroll: PO # / Supplier / Order Date / Status / Payment /
@@ -506,8 +613,10 @@ const PurchaseOrders = () => {
       align: 'right', headerAlign: 'right',
       renderCell: (params) => (
         <IconButton
-          size="small"
+          size={{ xs: 'small', md: 'medium' }}
           onClick={(e) => { e.stopPropagation(); openRowMenu(e, params.row); }}
+          sx={{ minWidth: 44, minHeight: 44 }}
+          aria-label={`More actions for ${params.row.poNumber}`}
         >
           <MoreIcon fontSize="small" />
         </IconButton>
@@ -554,7 +663,7 @@ const PurchaseOrders = () => {
               variant="outlined"
               size="small"
               onClick={() => navigate('/purchase-orders/approvals')}
-              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', mr: 1 }}
+              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', mr: 1, minHeight: 44, py: { xs: 1, md: 1.5 } }}
             >
               Approvals
               {statusCounts.PENDING_APPROVAL > 0 && (
@@ -570,7 +679,7 @@ const PurchaseOrders = () => {
               variant="outlined"
               size="small"
               onClick={() => navigate('/purchase-orders/reports')}
-              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none' }}
+              sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', minHeight: 44, py: { xs: 1, md: 1.5 } }}
             >
               Reports
             </Button>
@@ -584,6 +693,8 @@ const PurchaseOrders = () => {
                 fontWeight: 700,
                 textTransform: 'none',
                 boxShadow: 'none',
+                minHeight: 44,
+                py: { xs: 1, md: 1.5 },
                 '&:hover': { boxShadow: 'none' },
               }}
             >
@@ -617,6 +728,17 @@ const PurchaseOrders = () => {
               value={`₹${formatInr(kpi.monthSpend)}`} color={theme.palette.warning.main} />
           </Box>
         </Paper>
+
+        {/* Saved views bar ────────────────────────────────────────── */}
+        <SavedViewsBar
+          savedViews={savedViews}
+          activeViewId={activeViewId}
+          onLoad={handleLoadView}
+          onDelete={handleDeleteView}
+          onSave={handleSaveView}
+          onExport={exportViews}
+          hasActiveFilter={hasAdvancedFilter}
+        />
 
         {/* Filter bar ─────────────────────────────────────────────── */}
         <Paper elevation={0} sx={{
@@ -676,6 +798,18 @@ const PurchaseOrders = () => {
                 Clear
               </Button>
             )}
+            <Tooltip title="Advanced filter builder — multi-condition AND/OR logic">
+              <Button
+                size="small"
+                variant={hasAdvancedFilter ? 'contained' : 'outlined'}
+                color={hasAdvancedFilter ? 'warning' : 'inherit'}
+                startIcon={<AdvancedFilterIcon fontSize="small" />}
+                onClick={() => setFilterBuilderOpen(true)}
+                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, ml: 'auto' }}
+              >
+                Advanced{hasAdvancedFilter ? ' (on)' : ''}
+              </Button>
+            </Tooltip>
           </Stack>
 
           {/* Chip row — StockTab-style status filter with counts */}
@@ -723,13 +857,17 @@ const PurchaseOrders = () => {
           ) : (
             <DataGrid
               autoHeight
-              rows={filteredOrders}
+              rows={finalDisplayOrders}
               columns={columns}
               getRowId={(row) => row.id}
+              checkboxSelection
               disableRowSelectionOnClick
+              rowSelectionModel={selectedPoIds}
+              onRowSelectionModelChange={(newSel) => setSelectedPoIds(newSel)}
               rowHeight={54}
               onRowClick={(params) => openView(params.row)}
               columnVisibilityModel={columnVisibilityModel}
+              aria-label="Purchase orders table"
               initialState={{
                 pagination: { paginationModel: { pageSize: 25 } },
                 sorting: { sortModel: [{ field: 'orderDate', sort: 'desc' }] },
@@ -759,7 +897,7 @@ const PurchaseOrders = () => {
                   outline: 'none',
                 },
               }}
-              localeText={{ noRowsLabel: filtersActive ? 'No purchase orders match your filters.' : 'No purchase orders yet.' }}
+              localeText={{ noRowsLabel: (filtersActive || hasAdvancedFilter) ? 'No purchase orders match your filters.' : 'No purchase orders yet.' }}
             />
           )}
         </Paper>
@@ -840,9 +978,11 @@ const PurchaseOrders = () => {
         {/* Submit confirmation */}
         <Dialog open={submitDialog.open} onClose={() => setSubmitDialog({ open: false, po: null })}
           fullScreen={isMobile}
+          aria-labelledby="po-submit-dialog-title"
+          aria-describedby="po-submit-dialog-description"
           PaperProps={{ sx: { borderRadius: 2 } }}>
-          <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Submit purchase order?</DialogTitle>
-          <DialogContent>
+          <DialogTitle id="po-submit-dialog-title" sx={{ p: 2.5, fontWeight: 800 }}>Submit purchase order?</DialogTitle>
+          <DialogContent id="po-submit-dialog-description">
             <Typography variant="body2" color="text.secondary">
               <strong>{submitDialog.po?.poNumber}</strong> will move to Submitted. Draft edits are locked
               once submitted; further changes require cancel + reissue.
@@ -864,11 +1004,13 @@ const PurchaseOrders = () => {
         <Dialog open={cancelDialog.open}
           onClose={() => setCancelDialog({ open: false, po: null, reason: '' })}
           fullScreen={isMobile}
+          aria-labelledby="po-cancel-dialog-title"
+          aria-describedby="po-cancel-dialog-description"
           PaperProps={{ sx: { borderRadius: 2, minWidth: 480 } }}>
-          <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>
+          <DialogTitle id="po-cancel-dialog-title" sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>
             Cancel this purchase order?
           </DialogTitle>
-          <DialogContent>
+          <DialogContent id="po-cancel-dialog-description">
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               <strong>{cancelDialog.po?.poNumber}</strong> · {cancelDialog.po?.supplier?.name}
               <br />
@@ -881,7 +1023,7 @@ const PurchaseOrders = () => {
               multiline
               minRows={2}
               maxRows={5}
-              inputProps={{ maxLength: 500 }}
+              inputProps={{ maxLength: 500, 'aria-required': 'true' }}
               label="Reason (required)"
               placeholder="e.g. Supplier out of stock, order duplicated, price mismatch…"
               value={cancelDialog.reason}
@@ -909,9 +1051,11 @@ const PurchaseOrders = () => {
         {/* "Mark sent" confirmation — Phase 1 stub, Phase 5 wires real email */}
         <Dialog open={sendDialog.open} onClose={() => setSendDialog({ open: false, po: null })}
           fullScreen={isMobile}
+          aria-labelledby="po-send-dialog-title"
+          aria-describedby="po-send-dialog-description"
           PaperProps={{ sx: { borderRadius: 2 } }}>
-          <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Mark as sent to supplier?</DialogTitle>
-          <DialogContent>
+          <DialogTitle id="po-send-dialog-title" sx={{ p: 2.5, fontWeight: 800 }}>Mark as sent to supplier?</DialogTitle>
+          <DialogContent id="po-send-dialog-description">
             <Typography variant="body2" color="text.secondary">
               Stamps <strong>{sendDialog.po?.poNumber}</strong> with today's date as the "sent"
               timestamp. Real email dispatch arrives in Phase 5 — for now, this records the
@@ -933,9 +1077,11 @@ const PurchaseOrders = () => {
         {/* Mark received — admin closeout */}
         <Dialog open={receivedDialog.open} onClose={() => setReceivedDialog({ open: false, po: null })}
           fullScreen={isMobile}
+          aria-labelledby="po-received-dialog-title"
+          aria-describedby="po-received-dialog-description"
           PaperProps={{ sx: { borderRadius: 2 } }}>
-          <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Mark PO as fully received?</DialogTitle>
-          <DialogContent>
+          <DialogTitle id="po-received-dialog-title" sx={{ p: 2.5, fontWeight: 800 }}>Mark PO as fully received?</DialogTitle>
+          <DialogContent id="po-received-dialog-description">
             <Typography variant="body2" color="text.secondary">
               This is a manual close-out for <strong>{receivedDialog.po?.poNumber}</strong>. Use it
               when the receiving flow can't fully match (e.g. supplier can't deliver the last N units
@@ -957,9 +1103,11 @@ const PurchaseOrders = () => {
         {/* Delete draft — retains existing modal-flavoured guard */}
         <Dialog open={deleteDialog?.open || false} onClose={cancelDelete}
           fullScreen={isMobile}
+          aria-labelledby="po-delete-dialog-title"
+          aria-describedby="po-delete-dialog-description"
           PaperProps={{ sx: { borderRadius: 2 } }}>
-          <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>Delete draft PO?</DialogTitle>
-          <DialogContent>
+          <DialogTitle id="po-delete-dialog-title" sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>Delete draft PO?</DialogTitle>
+          <DialogContent id="po-delete-dialog-description">
             <Typography variant="body2" color="text.secondary">
               Only draft POs can be deleted. Submitted or later POs must be cancelled (with a reason).
             </Typography>
@@ -974,7 +1122,117 @@ const PurchaseOrders = () => {
             </Button>
           </DialogActions>
         </Dialog>
+        {/* Advanced filter builder dialog ─────────────────────────── */}
+        <FilterBuilderDialog
+          open={filterBuilderOpen}
+          onClose={() => setFilterBuilderOpen(false)}
+          fields={PO_FILTER_FIELDS}
+          value={advancedFilter}
+          onApply={(state) => {
+            setAdvancedFilter(state);
+            setActiveViewId(null);
+          }}
+        />
+
+        {/* Bulk cancel confirmation dialog — reason required */}
+        <Dialog
+          open={bulkCancelDialog.open}
+          onClose={() => setBulkCancelDialog({ open: false, reason: '' })}
+          maxWidth="xs"
+          fullWidth
+          fullScreen={isMobile}
+          PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>
+            Cancel {selectedPoIds.length} purchase order{selectedPoIds.length !== 1 ? 's' : ''}?
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Cancellation is permanent and audit-logged. Provide a shared reason for all selected POs.
+              Note: only orders in a cancellable state (not Draft or already Received) will be affected.
+            </Typography>
+            <TextField
+              autoFocus
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={5}
+              inputProps={{ maxLength: 500 }}
+              label="Reason (required)"
+              placeholder="e.g. Supplier discontinued, price mismatch, duplicate orders…"
+              value={bulkCancelDialog.reason}
+              onChange={(e) => setBulkCancelDialog((s) => ({ ...s, reason: e.target.value }))}
+              helperText={`${bulkCancelDialog.reason.length}/500`}
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1, bgcolor: alpha(theme.palette.text.primary, 0.02) }}>
+            <Button onClick={() => setBulkCancelDialog({ open: false, reason: '' })}
+              sx={{ textTransform: 'none', fontWeight: 600 }}>
+              Keep
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={!bulkCancelDialog.reason.trim()}
+              sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+              onClick={() => {
+                const reason = bulkCancelDialog.reason.trim();
+                setBulkCancelDialog({ open: false, reason: '' });
+                runBulkPoOp((id) => cancelPurchaseOrder(id, reason), 'Bulk cancel');
+              }}
+            >
+              Cancel {selectedPoIds.length}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bulk outcome snackbar */}
+        <Snackbar
+          open={bulkSnackbar.open}
+          autoHideDuration={5000}
+          onClose={() => setBulkSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        >
+          <Alert
+            severity={bulkSnackbar.severity}
+            variant="filled"
+            onClose={() => setBulkSnackbar((s) => ({ ...s, open: false }))}
+          >
+            {bulkSnackbar.message}
+          </Alert>
+        </Snackbar>
       </Container>
+
+      {/* Floating bulk action bar — outside Container so it overlays the page */}
+      <FloatingBulkActionBar
+        selectedCount={selectedPoIds.length}
+        entityLabel="order"
+        onClearSelection={() => setSelectedPoIds([])}
+        progress={bulkProgress}
+        actions={[
+          {
+            label: 'Mark sent',
+            icon: <SendIcon />,
+            color: 'info',
+            variant: 'outlined',
+            onClick: () => runBulkPoOp((id) => sendPurchaseOrder(id), 'Mark sent'),
+          },
+          {
+            label: 'Mark received',
+            icon: <MarkReceivedIcon />,
+            color: 'success',
+            variant: 'outlined',
+            onClick: () => runBulkPoOp((id) => markReceivedPurchaseOrder(id), 'Mark received'),
+          },
+          {
+            label: 'Cancel',
+            icon: <CancelIcon />,
+            color: 'error',
+            variant: 'outlined',
+            onClick: () => setBulkCancelDialog({ open: true, reason: '' }),
+          },
+        ]}
+      />
     </Box>
   );
 };

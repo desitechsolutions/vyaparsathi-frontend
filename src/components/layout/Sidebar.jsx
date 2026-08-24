@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   Drawer, SwipeableDrawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
-  Box, Collapse, useMediaQuery, useTheme, Typography, alpha
+  Box, Collapse, useMediaQuery, useTheme, Typography, alpha, Badge
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useShop } from '../../context/ShopContext';
+import { useWebSocketContext } from '../../context/WebSocketContext';
 
 // Icons — one icon per concept. Duplicate imports here caused the
 // pre-audit "everything looks the same" problem; the current set gives
@@ -63,6 +64,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 
 import SubscriptionStatusCard from '../SubscriptionStatusCard';
+import { useResponsiveTouchTarget } from '../../utils/touchTargets';
 
 const drawerWidth = 240;
 
@@ -76,6 +78,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const { user } = useAuthContext();
   const { hasAccess } = useSubscription();
   const { shop, shopLoading } = useShop();
+  const { unreadCount } = useWebSocketContext();
 
   const userRole = user?.role;
   const isAdminOrOwner = userRole === 'ADMIN' || userRole === 'OWNER';
@@ -264,7 +267,14 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       // Shop-level 2FA policy — enforcement + own-account status. Personal
       // MFA enrollment lives in the header user menu (per-user, not shop-config).
       { text: t('sidebar.twoFactor', 'Two-factor authentication'), icon: <ShieldOutlinedIcon />, path: '/admin/security/two-factor' },
-      { text: t('notifications', 'Notifications'), icon: <NotificationsIcon />, path: '/notifications', requiredTier: 'STARTER' },
+      {
+        text: t('notifications', 'Notifications'),
+        icon: <NotificationsIcon />,
+        path: '/notifications',
+        requiredTier: 'STARTER',
+        // Live badge from WebSocket — cleared when the user visits /notifications
+        badge: unreadCount,
+      },
       { text: t('sidebar.backupExport', 'Backup & data export'), icon: <BackupIcon />, path: '/backup', requiredTier: 'PRO' },
     ],
   };
@@ -363,7 +373,9 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     const isLocked = !hasAccess(item.requiredTier);
     const isActive = location.pathname === item.path;
     // item.text is already translated via t(...) at declaration; no extra wrap needed
-    const label = item.text;
+    const label    = item.text;
+    const badgeVal = item.badge || 0;
+
     return (
       <ListItem key={item.path || item.text} disablePadding>
         <ListItemButton
@@ -373,18 +385,40 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
             if (isLocked) navigate('/pricing', { state: { requiredTier: item.requiredTier } });
             if (isMobile) onDrawerToggle();
           }}
+          aria-label={isLocked ? `${label} (requires upgrade)` : label}
+          aria-current={isActive && !isLocked ? 'page' : undefined}
           sx={{
             borderRadius: '6px',
             margin: '1px 8px',
             pl: isNested ? (5 - 0.375) : (2 - 0.375),  // compensate for the 3px accent so text stays put
             opacity: isLocked ? 0.6 : 1,
             transition: 'background-color 120ms ease',
+            /* Touch target: 44px on mobile, 48px on desktop (WCAG 2.5.5) */
+            minHeight: { xs: 44, md: 48 },
             ...inactiveEdge,
             ...(isActive && !isLocked ? activeStyle : {}),
           }}
         >
+          {/* Icon — wrapped in a Badge when there are unread notifications */}
           <ListItemIcon sx={{ minWidth: 36, color: (isActive && !isLocked) ? 'primary.main' : 'text.secondary' }}>
-            {item.icon}
+            {badgeVal > 0 ? (
+              <Badge
+                badgeContent={badgeVal > 99 ? '99+' : badgeVal}
+                color="error"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.6rem',
+                    height: 16,
+                    minWidth: 16,
+                    padding: '0 3px',
+                  },
+                }}
+              >
+                {item.icon}
+              </Badge>
+            ) : (
+              item.icon
+            )}
           </ListItemIcon>
           <ListItemText
             primary={label}
@@ -408,12 +442,16 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       <React.Fragment key={group.key}>
         <ListItemButton
           onClick={() => toggleNested(group.key)}
+          aria-expanded={open}
+          aria-label={groupIsLocked ? `${group.text} (requires upgrade), ${open ? 'expanded' : 'collapsed'}` : `${group.text}, ${open ? 'expanded' : 'collapsed'}`}
           sx={{
             borderRadius: '6px',
             margin: '1px 8px',
             pl: 2 - 0.375,
             opacity: groupIsLocked ? 0.6 : 1,
             transition: 'background-color 120ms ease',
+            /* Touch target: 44px on mobile, 48px on desktop (WCAG 2.5.5) */
+            minHeight: { xs: 44, md: 48 },
             ...inactiveEdge,
             bgcolor: groupActive ? alpha(theme.palette.primary.main, isDark ? 0.10 : 0.05) : 'transparent',
           }}
@@ -524,7 +562,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   );
 
   return (
-    <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+    <Box component="nav" aria-label="Main navigation" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
       {isMobile ? (
         <SwipeableDrawer
           variant="temporary"
@@ -532,6 +570,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           onOpen={onDrawerToggle}
           onClose={onDrawerToggle}
           ModalProps={{ keepMounted: true }}
+          aria-label="Navigation drawer"
           sx={{
             '& .MuiDrawer-paper': {
               width: drawerWidth,
@@ -548,6 +587,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           variant="permanent"
           open={true}
           ModalProps={{ keepMounted: true }}
+          aria-label="Navigation drawer"
           sx={{
             '& .MuiDrawer-paper': {
               width: drawerWidth,

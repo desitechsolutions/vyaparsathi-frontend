@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import axios from "axios";
+import { useAbortableAPI } from "../hooks/useAbortableAPI";
+import { useWebSocketContext } from "../context/WebSocketContext";
 import { useTheme, useMediaQuery } from '@mui/material/styles';
 import {
   Grid,
@@ -46,6 +49,7 @@ import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as UncheckedIcon,
   Settings as SettingsIcon,
+  FiberManualRecord as LiveDotIcon,
 } from "@mui/icons-material";
 import {
   LineChart,
@@ -70,6 +74,7 @@ import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { useAlerts } from "../context/AlertContext";
 import { useTranslation } from "react-i18next";
+import { useResponsiveTouchTarget } from "../utils/touchTargets";
 
 dayjs.extend(isBetween);
 
@@ -193,6 +198,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { alerts: lowStockAlerts, alertCount: stockAlertCount, criticalCount } = useAlerts();
   const { t } = useTranslation();
+  const abortController = useAbortableAPI();
 
   const [shop, setShop] = useState(null);
   const [dashboardData, setDashboardData] = useState({
@@ -219,6 +225,62 @@ const Dashboard = () => {
   const [todayModalOpen, setTodayModalOpen] = useState(false);
   const [salesGrowth, setSalesGrowth] = useState(0);
   const [profitGrowth, setProfitGrowth] = useState(0);
+
+  // ── Real-time sales via WebSocket ────────────────────────────────────────────
+  // The `ws:sales` CustomEvent is dispatched by useWebSocket whenever the
+  // STOMP broker publishes to /topic/shop/{shopId}/sales.
+  // Payload: { saleId, amount, timestamp, cashier }
+  // We update the KPI strip and Today's Sales table in-place — no refetch.
+  const { connected: wsConnected } = useWebSocketContext();
+  const liveNewSaleRef = useRef(0); // count of WS-injected sales since last full reload
+
+  useEffect(() => {
+    const handleSale = (e) => {
+      const sale = e.detail;
+      if (!sale) return;
+
+      liveNewSaleRef.current += 1;
+
+      setDashboardData((prev) => {
+        const amount = Number(sale.amount || 0);
+        const todayStr = dayjs().format("YYYY-MM-DD");
+        const newSaleRow = {
+          invoiceNo:   sale.invoiceNo || `#${sale.saleId || '—'}`,
+          customer:    { name: sale.customerName || null },
+          date:        sale.timestamp || new Date().toISOString(),
+          totalAmount: amount,
+          dueAmount:   sale.dueAmount ?? 0,
+        };
+
+        return {
+          ...prev,
+          todayStats: {
+            ...prev.todayStats,
+            sales:         (prev.todayStats.sales || 0) + amount,
+            numberOfSales: (prev.todayStats.numberOfSales || 0) + 1,
+          },
+          // Prepend to today's sales so the newest invoice appears first
+          todaySales: [newSaleRow, ...prev.todaySales],
+          // Update the time-series last data point for today
+          salesTimeSeries: (() => {
+            const series = [...(prev.salesTimeSeries || [])];
+            const lastIdx = series.findIndex((p) => p.date === todayStr);
+            if (lastIdx >= 0) {
+              series[lastIdx] = { ...series[lastIdx], totalSales: series[lastIdx].totalSales + amount };
+            } else {
+              series.push({ date: todayStr, totalSales: amount, count: 1 });
+            }
+            return series;
+          })(),
+        };
+      });
+
+      setLastUpdated(new Date());
+    };
+
+    window.addEventListener('ws:sales', handleSale);
+    return () => window.removeEventListener('ws:sales', handleSale);
+  }, []);
 
 const setupChecklist = useMemo(() => {
   if (!shop) return [];
@@ -278,19 +340,19 @@ const setupChecklist = useMemo(() => {
 }, [setupChecklist]);
 
   const fetchDashboardData = useCallback(
-    async (fromDate, toDate) => {
+    async (fromDate, toDate, signal) => {
       setIsLoading(true);
       try {
         const todayStr = dayjs().format("YYYY-MM-DD");
         const results = await Promise.allSettled([
-          fetchShop(),
-          fetchCustomers(),
-          fetchSalesSummary(fromDate, toDate),
-          fetchCategorySales(fromDate, toDate),
-          fetchItemsSold(fromDate, toDate),
-          fetchAllSales(fromDate, toDate),
-          fetchDailyReport(todayStr),
-          fetchAllSales(todayStr, todayStr),
+          fetchShop(signal),
+          fetchCustomers(signal),
+          fetchSalesSummary(fromDate, toDate, signal),
+          fetchCategorySales(fromDate, toDate, signal),
+          fetchItemsSold(fromDate, toDate, signal),
+          fetchAllSales(fromDate, toDate, signal),
+          fetchDailyReport(todayStr, signal),
+          fetchAllSales(todayStr, todayStr, signal),
         ]);
 
         const getRes = (res, fallback = []) =>
@@ -351,6 +413,7 @@ const setupChecklist = useMemo(() => {
 
         setLastUpdated(new Date());
       } catch (e) {
+        if (axios.isCancel(e)) return; // component unmounted — discard silently
         console.error("Dashboard fetch error:", e);
         setError(t('dashboardPage.errorLoad'));
       } finally {
@@ -361,8 +424,8 @@ const setupChecklist = useMemo(() => {
   );
 
   useEffect(() => {
-    fetchDashboardData(range.from, range.to);
-  }, [range, fetchDashboardData]);
+    fetchDashboardData(range.from, range.to, abortController?.signal);
+  }, [range, fetchDashboardData, abortController]);
 
   const avgTicketSize = useMemo(() => {
     const total = dashboardData.summaryStats.totalSales || 0;
@@ -468,6 +531,8 @@ const setupChecklist = useMemo(() => {
         fontWeight: 700,
         borderRadius: 2,
         minWidth: "auto",
+        minHeight: 44,
+        py: { xs: 1, md: 1.5 },
       }}
     >
       Complete
@@ -509,10 +574,28 @@ const setupChecklist = useMemo(() => {
                 {dayjs().format("dddd, DD MMMM YYYY")}
               </Typography>
               <Stack direction="row" spacing={1.5} alignItems="center">
+                {/* LIVE indicator — pulses when the WebSocket is connected */}
+                {wsConnected && (
+                  <MuiTooltip title="Live data — updates automatically via WebSocket">
+                    <Chip
+                      icon={<LiveDotIcon sx={{ fontSize: '10px !important', animation: 'vs-pulse 1.6s ease-in-out infinite', '@keyframes vs-pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.4 } } }} />}
+                      label="LIVE"
+                      size="small"
+                      color="success"
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em', px: 0.5, '& .MuiChip-icon': { ml: 0.5 } }}
+                    />
+                  </MuiTooltip>
+                )}
                 <Typography variant="caption" color="text.secondary">
                   {t('dashboardPage.lastUpdated')}: {dayjs(lastUpdated).format("hh:mm A")}
                 </Typography>
-                <IconButton size="small" onClick={() => fetchDashboardData(range.from, range.to)} sx={{ color: "text.secondary" }}>
+                <IconButton
+                  size={{ xs: 'small', md: 'medium' }}
+                  onClick={() => fetchDashboardData(range.from, range.to)}
+                  sx={{ color: "text.secondary", minWidth: 44, minHeight: 44 }}
+                  aria-label="Refresh dashboard"
+                >
                   <RefreshIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -590,7 +673,7 @@ const setupChecklist = useMemo(() => {
             variant="outlined"
             size="small"
             onClick={() => navigate("/sales?tab=history")}
-            sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+            sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600, minHeight: 44, py: { xs: 1, md: 1.5 } }}
           >
             {t('dashboardPage.viewSalesHistory')}
           </Button>
@@ -599,7 +682,7 @@ const setupChecklist = useMemo(() => {
             size="small"
             startIcon={<ShoppingCartIcon />}
             onClick={() => navigate("/sales")}
-            sx={{ borderRadius: 2, px: 2.25, textTransform: "none", fontWeight: 600 }}
+            sx={{ borderRadius: 2, px: 2.25, textTransform: "none", fontWeight: 600, minHeight: 44, py: { xs: 1, md: 1.5 } }}
           >
             {t('dashboardPage.newSale')}
           </Button>
@@ -799,9 +882,10 @@ const setupChecklist = useMemo(() => {
                               </TableCell>
                               <TableCell align="right">
                                 <IconButton
-                                  size="small"
+                                  size={{ xs: 'small', md: 'medium' }}
                                   onClick={(e) => { e.stopPropagation(); navigate("/sales?tab=history"); }}
-                                  aria-label="Open"
+                                  aria-label="Open invoice"
+                                  sx={{ minWidth: 44, minHeight: 44 }}
                                 >
                                   <NorthEastIcon sx={{ fontSize: 15 }} />
                                 </IconButton>
@@ -1100,13 +1184,16 @@ const setupChecklist = useMemo(() => {
                         </Box>
                         <MuiTooltip title={t('dashboardPage.sendWhatsAppReminder')}>
                           <IconButton
-                            size="small"
+                            size={{ xs: 'small', md: 'medium' }}
                             onClick={() => sendWhatsAppReminder(cust)}
                             sx={{
                               color: "success.main",
                               bgcolor: alpha(theme.palette.success.main, 0.15),
-                              "&:hover": { bgcolor: alpha(theme.palette.success.main, 0.25) }
+                              "&:hover": { bgcolor: alpha(theme.palette.success.main, 0.25) },
+                              minWidth: 44,
+                              minHeight: 44,
                             }}
+                            aria-label={`Send WhatsApp reminder to ${cust.name}`}
                           >
                             <WhatsAppIcon fontSize="small" />
                           </IconButton>
@@ -1129,7 +1216,11 @@ const setupChecklist = useMemo(() => {
       <Dialog open={todayModalOpen} onClose={() => setTodayModalOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: "16px" } }}>
         <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
           {t('dashboardPage.todaysTransactions')}
-          <IconButton onClick={() => setTodayModalOpen(false)} sx={{ position: "absolute", right: 16, top: 16 }}>
+          <IconButton
+            onClick={() => setTodayModalOpen(false)}
+            sx={{ position: "absolute", right: 16, top: 16, minWidth: 44, minHeight: 44 }}
+            aria-label="Close dialog"
+          >
             <CloseIcon />
           </IconButton>
         </DialogTitle>

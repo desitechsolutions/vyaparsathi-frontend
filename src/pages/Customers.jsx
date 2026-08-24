@@ -60,8 +60,10 @@ import {
   Person as PersonIcon,
   LocationOn as LocationIcon,
   FilterList as FilterIcon,
+  AutoAwesome as AdvancedFilterIcon,
 } from '@mui/icons-material';
 
+import { useResponsiveTouchTarget } from '../utils/touchTargets';
 import { useCustomers } from '../hooks/useCustomers';
 import { CustomerKpiStrip } from '../components/customers/CustomerKpiStrip';
 import { CustomerBulkActionBar } from '../components/customers/CustomerBulkActionBar';
@@ -69,6 +71,35 @@ import { CustomerEditDialog } from '../components/customers/CustomerEditDialog';
 import { CustomerCsvImportDialog } from '../components/customers/CustomerCsvImportDialog';
 import CustomerFilterDrawer from '../components/customers/CustomerFilterDrawer';
 import { inr, stringToColor } from '../utils/customerFormat';
+import FilterBuilderDialog, { applyFilterState } from '../components/enterprise/FilterBuilderDialog';
+import SavedViewsBar from '../components/enterprise/SavedViewsBar';
+import { useSavedViews } from '../hooks/useSavedViews';
+
+// ── Advanced filter field definitions for Customers ──────────────────────────
+const CUSTOMER_FILTER_FIELDS = [
+  { key: 'name',          label: 'Name',             type: 'text' },
+  { key: 'tradeName',     label: 'Trade Name',       type: 'text' },
+  { key: 'phone',         label: 'Phone',            type: 'text' },
+  { key: 'email',         label: 'Email',            type: 'text' },
+  { key: 'city',          label: 'City',             type: 'text' },
+  { key: 'state',         label: 'State',            type: 'text' },
+  { key: 'gstNumber',     label: 'GSTIN',            type: 'text' },
+  { key: 'panNumber',     label: 'PAN',              type: 'text' },
+  { key: 'customerType',  label: 'Customer Type',    type: 'select',
+    options: [{ value: 'BUSINESS', label: 'B2B (GST)' }, { value: 'INDIVIDUAL', label: 'B2C Retail' }] },
+  { key: 'active',        label: 'Active Status',    type: 'boolean' },
+  { key: 'creditLimit',   label: 'Credit Limit (₹)', type: 'number' },
+  { key: 'creditBalance', label: 'Credit Balance',   type: 'number' },
+  { key: 'source',        label: 'Source',           type: 'select',
+    options: [
+      { value: 'WALK_IN',   label: 'Walk-in' },
+      { value: 'REFERRAL',  label: 'Referral' },
+      { value: 'ONLINE',    label: 'Online' },
+      { value: 'MARKETING', label: 'Marketing' },
+      { value: 'OTHER',     label: 'Other' },
+    ] },
+  { key: 'tags',          label: 'Tags',             type: 'text' },
+];
 
 /**
  * Filter chip — enterprise flavour. Neutral border in idle state
@@ -117,6 +148,10 @@ const FilterChip = ({ active, onClick, label, count }) => (
       fontWeight: 600,
       borderRadius: 1.5,
       borderColor: active ? 'primary.main' : 'divider',
+      /* Ensure the clickable filter chip meets the 44 px touch-target standard */
+      height: 36,
+      px: 0.5,
+      '& .MuiChip-label': { px: 1.5 },
       '&:hover': {
         bgcolor: active ? 'primary.main' : 'action.hover',
       },
@@ -148,6 +183,7 @@ export default function Customers() {
     handleToggleActive,
     handleBulkToggleActive,
     handleBulkDelete,
+    handleBulkTag,
     handleExportCsv,
     handleImportCsv,
     snackbar,
@@ -162,6 +198,15 @@ export default function Customers() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [columnMenuAnchor, setColumnMenuAnchor] = useState(null);
+
+  // Advanced filter builder
+  const [filterBuilderOpen, setFilterBuilderOpen] = useState(false);
+  const [advancedFilter, setAdvancedFilter] = useState({ logic: 'AND', conditions: [] });
+  const hasAdvancedFilter = advancedFilter.conditions?.some((c) => c.field && c.value);
+
+  // Saved views
+  const { savedViews, saveView, deleteView, exportViews } = useSavedViews('customers');
+  const [activeViewId, setActiveViewId] = useState(null);
 
   // Column visibility — persisted to localStorage so a shop keeps its
   // preference across sessions. All columns visible by default.
@@ -295,8 +340,30 @@ export default function Customers() {
     setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   };
 
-  const isAllSelected = customers.length > 0 && selectedIds.length === customers.length;
-  const isSomeSelected = selectedIds.length > 0 && selectedIds.length < customers.length;
+  // Apply advanced filter client-side on top of server-filtered results
+  const displayedCustomers = hasAdvancedFilter
+    ? applyFilterState(customers, advancedFilter)
+    : customers;
+
+  const isAllSelected = displayedCustomers.length > 0 && selectedIds.length === displayedCustomers.length;
+  const isSomeSelected = selectedIds.length > 0 && selectedIds.length < displayedCustomers.length;
+
+  const handleLoadView = (view) => {
+    setAdvancedFilter(view.filterState || { logic: 'AND', conditions: [] });
+    setActiveViewId(view.id);
+  };
+
+  const handleDeleteView = (id) => {
+    deleteView(id);
+    if (activeViewId === id) {
+      setActiveViewId(null);
+      setAdvancedFilter({ logic: 'AND', conditions: [] });
+    }
+  };
+
+  const handleSaveView = (name, description) => {
+    saveView(name, advancedFilter, description);
+  };
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1600, mx: 'auto' }}>
@@ -324,16 +391,17 @@ export default function Customers() {
         </Box>
 
         <Stack direction="row" spacing={1} alignItems="center">
-          <Tooltip title="Filters">
+          <Tooltip title="Quick filters">
             <IconButton
               onClick={() => setFilterDrawerOpen(true)}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Open filters"
               sx={{
                 border: '1px solid',
                 borderColor: (filters.city || filters.source || filters.tags || filters.creditStatus || (filters.segmentIds && filters.segmentIds.length))
                   ? 'primary.main' : 'divider',
-                borderRadius: 2, width: 38, height: 38,
+                borderRadius: 2,
+                minWidth: 44, minHeight: 44,
                 color: (filters.city || filters.source || filters.tags || filters.creditStatus || (filters.segmentIds && filters.segmentIds.length))
                   ? 'primary.main' : 'inherit',
               }}
@@ -341,12 +409,27 @@ export default function Customers() {
               <FilterListIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+          <Tooltip title="Advanced filter builder">
+            <IconButton
+              onClick={() => setFilterBuilderOpen(true)}
+              size={{ xs: 'small', md: 'medium' }}
+              aria-label="Advanced filters"
+              sx={{
+                border: '1px solid',
+                borderColor: hasAdvancedFilter ? 'warning.main' : 'divider',
+                borderRadius: 2, minWidth: 44, minHeight: 44,
+                color: hasAdvancedFilter ? 'warning.main' : 'inherit',
+              }}
+            >
+              <AdvancedFilterIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Column visibility">
             <IconButton
               onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Column visibility"
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
               <ViewColumnIcon fontSize="small" />
             </IconButton>
@@ -356,9 +439,9 @@ export default function Customers() {
               <IconButton
                 onClick={refreshData}
                 disabled={isLoading}
-                size="small"
+                size={{ xs: 'small', md: 'medium' }}
                 aria-label="Reload customers"
-                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
               >
                 <RefreshIcon fontSize="small" />
               </IconButton>
@@ -367,9 +450,9 @@ export default function Customers() {
           <Tooltip title="Import CSV">
             <IconButton
               onClick={() => setImportDialogOpen(true)}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Import CSV"
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
               <ImportIcon fontSize="small" />
             </IconButton>
@@ -377,9 +460,9 @@ export default function Customers() {
           <Tooltip title="Export CSV">
             <IconButton
               onClick={handleExportCsv}
-              size="small"
+              size={{ xs: 'small', md: 'medium' }}
               aria-label="Export CSV"
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, width: 38, height: 38 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
               <ExportIcon fontSize="small" />
             </IconButton>
@@ -389,7 +472,7 @@ export default function Customers() {
             startIcon={<AddIcon />}
             onClick={handleOpenCreate}
             disableElevation
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2 }}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 2, minHeight: 44, py: { xs: 1, md: 1.5 } }}
           >
             Add customer
           </Button>
@@ -399,7 +482,18 @@ export default function Customers() {
       {/* ─── 2. KPI STRIP ────────────────────────────────────────────────── */}
       <CustomerKpiStrip kpis={kpis} loading={isKpisLoading} />
 
-      {/* ─── 3. FILTER & SEARCH TOOLBAR ─────────────────────────────────── */}
+      {/* ─── 3. SAVED VIEWS BAR ──────────────────────────────────────────── */}
+      <SavedViewsBar
+        savedViews={savedViews}
+        activeViewId={activeViewId}
+        onLoad={handleLoadView}
+        onDelete={handleDeleteView}
+        onSave={handleSaveView}
+        onExport={exportViews}
+        hasActiveFilter={hasAdvancedFilter}
+      />
+
+      {/* ─── 4. FILTER & SEARCH TOOLBAR ─────────────────────────────────── */}
       <Paper
         elevation={0}
         sx={{
@@ -484,6 +578,7 @@ export default function Customers() {
               placeholder="Search by name, phone, email, trade name..."
               value={filters.search}
               onChange={handleSearchChange}
+              inputProps={{ 'aria-label': 'Search customers by name, phone, email, or trade name' }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -492,7 +587,12 @@ export default function Customers() {
                 ),
                 endAdornment: filters.search && (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={handleClearSearch}>
+                    <IconButton
+                      size={{ xs: 'small', md: 'medium' }}
+                      onClick={handleClearSearch}
+                      sx={{ minWidth: 44, minHeight: 44 }}
+                      aria-label="Clear search"
+                    >
                       <ClearIcon fontSize="small" />
                     </IconButton>
                   </InputAdornment>
@@ -520,7 +620,7 @@ export default function Customers() {
         }}
       >
         <TableContainer sx={{ minHeight: 400 }}>
-          <Table stickyHeader>
+          <Table stickyHeader aria-label="Customers table">
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
@@ -528,10 +628,13 @@ export default function Customers() {
                     indeterminate={isSomeSelected}
                     checked={isAllSelected}
                     onChange={handleSelectAll}
+                    inputProps={{ 'aria-label': 'Select all customers' }}
                   />
                 </TableCell>
 
-                <TableCell>
+                <TableCell
+                  aria-sort={filters.sortBy === 'name' ? (filters.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
                   <TableSortLabel
                     active={filters.sortBy === 'name'}
                     direction={filters.sortBy === 'name' ? filters.sortDir : 'asc'}
@@ -545,7 +648,9 @@ export default function Customers() {
                 {colVisible('type') && <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>}
 
                 {colVisible('contact') && (
-                  <TableCell>
+                  <TableCell
+                    aria-sort={filters.sortBy === 'phone' ? (filters.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
                     <TableSortLabel
                       active={filters.sortBy === 'phone'}
                       direction={filters.sortBy === 'phone' ? filters.sortDir : 'asc'}
@@ -560,7 +665,9 @@ export default function Customers() {
                 {colVisible('statutory') && <TableCell sx={{ fontWeight: 700 }}>GSTIN / PAN</TableCell>}
 
                 {colVisible('location') && (
-                  <TableCell>
+                  <TableCell
+                    aria-sort={filters.sortBy === 'city' ? (filters.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
                     <TableSortLabel
                       active={filters.sortBy === 'city'}
                       direction={filters.sortBy === 'city' ? filters.sortDir : 'asc'}
@@ -573,7 +680,10 @@ export default function Customers() {
                 )}
 
                 {colVisible('credit') && (
-                  <TableCell align="right">
+                  <TableCell
+                    align="right"
+                    aria-sort={filters.sortBy === 'creditLimit' ? (filters.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
                     <TableSortLabel
                       active={filters.sortBy === 'creditLimit'}
                       direction={filters.sortBy === 'creditLimit' ? filters.sortDir : 'asc'}
@@ -586,7 +696,10 @@ export default function Customers() {
                 )}
 
                 {colVisible('balance') && (
-                  <TableCell align="right">
+                  <TableCell
+                    align="right"
+                    aria-sort={filters.sortBy === 'creditBalance' ? (filters.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
                     <TableSortLabel
                       active={filters.sortBy === 'creditBalance'}
                       direction={filters.sortBy === 'creditBalance' ? filters.sortDir : 'asc'}
@@ -620,7 +733,7 @@ export default function Customers() {
                     </Typography>
                   </TableCell>
                 </TableRow>
-              ) : customers.length === 0 ? (
+              ) : displayedCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
                     <PersonIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
@@ -628,17 +741,26 @@ export default function Customers() {
                       No Customers Found
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {filters.search
-                        ? `No records matching "${filters.search}". Try clearing search filters.`
+                      {filters.search || hasAdvancedFilter
+                        ? 'No records match the current filters. Try adjusting or clearing them.'
                         : 'Get started by creating your first customer.'}
                     </Typography>
+                    {hasAdvancedFilter && (
+                      <Button
+                        variant="outlined"
+                        sx={{ mr: 1 }}
+                        onClick={() => setAdvancedFilter({ logic: 'AND', conditions: [] })}
+                      >
+                        Clear advanced filter
+                      </Button>
+                    )}
                     <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
                       Add Customer
                     </Button>
                   </TableCell>
                 </TableRow>
               ) : (
-                customers.map((c) => {
+                displayedCustomers.map((c) => {
                   const isSelected = selectedIds.includes(c.id);
                   const isBusiness = c.customerType === 'BUSINESS';
                   const bal = c.creditBalance ?? 0;
@@ -659,6 +781,7 @@ export default function Customers() {
                         <Checkbox
                           checked={isSelected}
                           onChange={() => handleSelectOne(c.id)}
+                          inputProps={{ 'aria-label': `Select customer ${c.name}` }}
                         />
                       </TableCell>
 
@@ -821,9 +944,11 @@ export default function Customers() {
                           {c.phone && (
                             <Tooltip title="Chat on WhatsApp">
                               <IconButton
-                                size="small"
+                                size={{ xs: 'small', md: 'medium' }}
                                 color="success"
                                 onClick={() => window.open(`https://wa.me/91${c.phone.replace(/[^0-9]/g, '')}`, '_blank')}
+                                sx={{ minWidth: 44, minHeight: 44 }}
+                                aria-label={`Chat with ${c.name} on WhatsApp`}
                               >
                                 <WhatsAppIcon fontSize="small" />
                               </IconButton>
@@ -832,17 +957,21 @@ export default function Customers() {
 
                           <Tooltip title="View Profile 360°">
                             <IconButton
-                              size="small"
+                              size={{ xs: 'small', md: 'medium' }}
                               color="primary"
                               onClick={() => navigate(`/customers/${c.id}`)}
+                              sx={{ minWidth: 44, minHeight: 44 }}
+                              aria-label={`View profile for ${c.name}`}
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
                           <IconButton
-                            size="small"
+                            size={{ xs: 'small', md: 'medium' }}
                             onClick={(e) => handleOpenMenu(e, c)}
+                            sx={{ minWidth: 44, minHeight: 44 }}
+                            aria-label={`More actions for ${c.name}`}
                           >
                             <MoreVertIcon fontSize="small" />
                           </IconButton>
@@ -877,6 +1006,7 @@ export default function Customers() {
         onClearSelection={() => setSelectedIds([])}
         onBulkActivate={() => handleBulkToggleActive(true)}
         onBulkDeactivate={() => handleBulkToggleActive(false)}
+        onBulkTag={handleBulkTag}
         onBulkDelete={handleBulkDelete}
         onBulkExport={handleExportSelected}
       />
@@ -959,9 +1089,11 @@ export default function Customers() {
         fullWidth
         fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 3 } }}
+        aria-labelledby="delete-customer-dialog-title"
+        aria-describedby="delete-customer-dialog-description"
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Confirm Customer Deletion</DialogTitle>
-        <DialogContent>
+        <DialogTitle id="delete-customer-dialog-title" sx={{ fontWeight: 700 }}>Confirm Customer Deletion</DialogTitle>
+        <DialogContent id="delete-customer-dialog-description">
           <DialogContentText>
             Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
             <br />
@@ -1012,6 +1144,18 @@ export default function Customers() {
         onApply={(patch) => {
           setFilters((prev) => ({ ...prev, ...patch }));
           setPagination((prev) => ({ ...prev, page: 0 }));
+        }}
+      />
+
+      {/* ─── Advanced filter builder dialog ─────────────────────────────── */}
+      <FilterBuilderDialog
+        open={filterBuilderOpen}
+        onClose={() => setFilterBuilderOpen(false)}
+        fields={CUSTOMER_FILTER_FIELDS}
+        value={advancedFilter}
+        onApply={(state) => {
+          setAdvancedFilter(state);
+          setActiveViewId(null);
         }}
       />
 

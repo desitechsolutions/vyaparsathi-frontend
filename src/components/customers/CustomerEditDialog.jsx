@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -30,6 +30,7 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 
+import { useForm, Controller } from 'react-hook-form';
 import { findCustomerDuplicates } from '../../services/api';
 import { GST_STATES } from '../../utils/gstStates';
 
@@ -68,18 +69,28 @@ export const CustomerEditDialog = ({
   isEdit = false,
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
-  const [form, setForm] = useState(INITIAL_STATE);
-  const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  // Live duplicate-detection results — an array of CustomerDto that
-  // match on phone / GSTIN / PAN within the current shop. Populated
-  // by a debounced effect so we don't hit the API on every keystroke.
   const [duplicates, setDuplicates] = useState([]);
 
+  // Track which save action was requested (save-and-close vs save-and-new)
+  const resetOnSaveRef = useRef(false);
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    defaultValues: INITIAL_STATE,
+    mode: 'onTouched', // show errors after blur; update live on change
+  });
+
+  // Populate form when dialog opens or customer changes
   useEffect(() => {
     if (customer && isEdit) {
-      setForm({
+      reset({
         ...INITIAL_STATE,
         ...customer,
         creditLimit: customer.creditLimit ?? 0,
@@ -89,62 +100,28 @@ export const CustomerEditDialog = ({
         anniversaryDate: customer.anniversaryDate ? customer.anniversaryDate.slice(0, 10) : '',
       });
     } else {
-      setForm(INITIAL_STATE);
+      reset(INITIAL_STATE);
     }
-    setErrors({});
     setSaveError('');
     setTabIndex(0);
-  }, [customer, isEdit, open]);
+    setDuplicates([]);
+  }, [customer, isEdit, open, reset]);
 
-  const handleChange = (field) => (e) => {
-    const value = e.target.value;
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      // Auto-derive state and state code from GSTIN first two digits
-      if (field === 'gstNumber' && typeof value === 'string' && value.trim().length >= 2) {
-        const code = value.trim().slice(0, 2);
-        if (/^\d{2}$/.test(code)) {
-          const match = GST_STATES.find(([c]) => c === code);
-          if (match) {
-            next.stateCode = code;
-            next.state = match[1];
-          }
-        }
-      }
-      return next;
-    });
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: '' }));
-    }
-  };
+  // Watch key fields for live duplicate detection
+  const watchPhone = watch('phone');
+  const watchGst = watch('gstNumber');
+  const watchPan = watch('panNumber');
 
-  const handleStateCodeChange = (code) => {
-    const match = GST_STATES.find(([c]) => c === code);
-    setForm((prev) => ({
-      ...prev,
-      stateCode: code,
-      state: match ? match[1] : prev.state,
-    }));
-    if (errors.stateCode) {
-      setErrors((prev) => ({ ...prev, stateCode: '' }));
-    }
-  };
-
-  // Duplicate detection — debounced. Fires when phone / gstNumber /
-  // panNumber changes; excludes the current customer (edit mode) so
-  // a save doesn't flag the row against itself.
   const dupeKey = useMemo(
-    () => `${form.phone || ''}|${form.gstNumber || ''}|${form.panNumber || ''}`,
-    [form.phone, form.gstNumber, form.panNumber],
+    () => `${watchPhone || ''}|${watchGst || ''}|${watchPan || ''}`,
+    [watchPhone, watchGst, watchPan],
   );
+
   useEffect(() => {
     if (!open) return undefined;
-    const phone = (form.phone || '').trim();
-    const gst = (form.gstNumber || '').trim().toUpperCase();
-    const pan = (form.panNumber || '').trim().toUpperCase();
-    // Only lookup once at least one field has enough characters to
-    // be meaningful — otherwise every empty form would list every
-    // customer with an empty GSTIN/PAN as a "duplicate".
+    const phone = (watchPhone || '').trim();
+    const gst = (watchGst || '').trim().toUpperCase();
+    const pan = (watchPan || '').trim().toUpperCase();
     if (phone.length < 10 && gst.length < 15 && pan.length < 10) {
       setDuplicates([]);
       return undefined;
@@ -159,70 +136,31 @@ export const CustomerEditDialog = ({
         const result = await findCustomerDuplicates(params);
         setDuplicates(Array.isArray(result) ? result : []);
       } catch (_) {
-        // Silent — this is a nice-to-have, not a blocker.
         setDuplicates([]);
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [dupeKey, open, isEdit, customer?.id]);
+  }, [dupeKey, open, isEdit, customer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const validate = () => {
-    const errs = {};
-    if (!form.name || !form.name.trim()) {
-      errs.name = 'Customer Name is required';
-    }
-    if (form.phone && form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
-      errs.phone = 'Phone number must be exactly 10 digits';
-    }
-    if (form.email && form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      errs.email = 'Invalid email address format';
-    }
-    if (form.stateCode && form.stateCode.trim() && !/^\d{2}$/.test(form.stateCode.trim())) {
-      errs.stateCode = 'State code must be 2 digits (e.g. 27)';
-    }
-    if (form.gstNumber && form.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstNumber.trim().toUpperCase())) {
-      errs.gstNumber = 'Invalid GSTIN format (e.g. 27ABCDE1234F1Z5)';
-    }
-    if (form.panNumber && form.panNumber.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(form.panNumber.trim().toUpperCase())) {
-      errs.panNumber = 'Invalid PAN format (e.g. ABCDE1234F)';
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  /**
-   * @param resetForNext - when true (Save & new), reset the form
-   * for another entry instead of closing. Only meaningful for the
-   * create flow — edit-mode ignores the flag and always closes.
-   */
-  const handleSave = async (resetForNext = false) => {
-    if (!validate()) return;
-    setSaving(true);
+  const onSubmit = async (data) => {
     setSaveError('');
-    try {
-      const payload = {
-        ...form,
-        stateCode: form.stateCode && form.stateCode.trim() ? form.stateCode.trim() : null,
-        gstNumber: form.gstNumber ? form.gstNumber.trim().toUpperCase() : null,
-        panNumber: form.panNumber ? form.panNumber.trim().toUpperCase() : null,
-        creditLimit: Number(form.creditLimit) || 0,
-        creditDays: Number(form.creditDays) || 30,
-        dateOfBirth: form.dateOfBirth || null,
-        anniversaryDate: form.anniversaryDate || null,
-      };
+    const payload = {
+      ...data,
+      stateCode: data.stateCode?.trim() || null,
+      gstNumber: data.gstNumber?.trim().toUpperCase() || null,
+      panNumber: data.panNumber?.trim().toUpperCase() || null,
+      creditLimit: Number(data.creditLimit) || 0,
+      creditDays: Number(data.creditDays) || 30,
+      dateOfBirth: data.dateOfBirth || null,
+      anniversaryDate: data.anniversaryDate || null,
+    };
 
+    try {
       const result = await onSave(payload);
       if (result && !result.success) {
         setSaveError(result.error || 'Failed to save customer.');
-      } else if (resetForNext && !isEdit) {
-        // Reset form for another entry — keep the dialog open.
-        // Preserve customerType + defaults; wipe identity fields so
-        // the user isn't re-editing the previous customer's data.
-        setForm({
-          ...INITIAL_STATE,
-          customerType: form.customerType,
-        });
-        setErrors({});
+      } else if (resetOnSaveRef.current && !isEdit) {
+        reset({ ...INITIAL_STATE, customerType: data.customerType });
         setTabIndex(0);
         setDuplicates([]);
       } else {
@@ -230,10 +168,22 @@ export const CustomerEditDialog = ({
       }
     } catch (err) {
       setSaveError(err.message || 'Error occurred while saving customer.');
-    } finally {
-      setSaving(false);
     }
   };
+
+  const handleSave = (andNew = false) => {
+    resetOnSaveRef.current = andNew;
+    handleSubmit(onSubmit)();
+  };
+
+  // Shared helper: derive state name from stateCode
+  const applyStateCode = (code) => {
+    const match = GST_STATES.find(([c]) => c === code);
+    setValue('state', match ? match[1] : '');
+  };
+
+  // Watch customerType for header icon
+  const customerType = watch('customerType');
 
   return (
     <Dialog
@@ -241,11 +191,14 @@ export const CustomerEditDialog = ({
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      aria-labelledby="customer-edit-dialog-title"
+      aria-describedby="customer-edit-dialog-description"
       PaperProps={{
         sx: { borderRadius: 3, overflow: 'hidden' },
       }}
     >
       <DialogTitle
+        id="customer-edit-dialog-title"
         sx={{
           p: 2.5,
           display: 'flex',
@@ -265,7 +218,7 @@ export const CustomerEditDialog = ({
               display: 'flex',
             }}
           >
-            {form.customerType === 'BUSINESS' ? <BusinessIcon /> : <PersonIcon />}
+            {customerType === 'BUSINESS' ? <BusinessIcon /> : <PersonIcon />}
           </Box>
           <Box>
             <Typography variant="h6" fontWeight={700}>
@@ -276,13 +229,13 @@ export const CustomerEditDialog = ({
             </Typography>
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label="Close dialog">
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
       <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2.5, bgcolor: 'background.default' }}>
-        <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} variant="scrollable" scrollButtons="auto">
+        <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} variant="scrollable" scrollButtons="auto" aria-label="Customer form sections">
           <Tab icon={<PersonIcon fontSize="small" />} iconPosition="start" label="Core Details" />
           <Tab icon={<LocationIcon fontSize="small" />} iconPosition="start" label="Address" />
           <Tab icon={<BadgeIcon fontSize="small" />} iconPosition="start" label="Statutory & Tax" />
@@ -290,16 +243,13 @@ export const CustomerEditDialog = ({
         </Tabs>
       </Box>
 
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent id="customer-edit-dialog-description" sx={{ p: 3 }}>
         {saveError && (
           <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }}>
             {saveError}
           </Alert>
         )}
 
-        {/* V115 — live duplicate detection. Only fires when phone /
-            GSTIN / PAN reach a plausible length, so an empty new-form
-            doesn't show every empty-GSTIN customer as a match. */}
         {duplicates.length > 0 && (
           <Alert
             severity="warning"
@@ -332,72 +282,129 @@ export const CustomerEditDialog = ({
         {tabIndex === 0 && (
           <Grid container spacing={2.5}>
             <Grid item xs={12} sm={4}>
-              <TextField
-                select
-                fullWidth
-                label="Customer Type"
-                value={form.customerType}
-                onChange={handleChange('customerType')}
-              >
-                <MenuItem value="INDIVIDUAL">Individual / Retail (B2C)</MenuItem>
-                <MenuItem value="BUSINESS">Business / Corporate (B2B)</MenuItem>
-              </TextField>
+              <Controller
+                name="customerType"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    fullWidth
+                    label="Customer Type"
+                  >
+                    <MenuItem value="INDIVIDUAL">Individual / Retail (B2C)</MenuItem>
+                    <MenuItem value="BUSINESS">Business / Corporate (B2B)</MenuItem>
+                  </TextField>
+                )}
+              />
             </Grid>
 
             <Grid item xs={12} sm={8}>
-              <TextField
-                fullWidth
-                label="Customer Display Name *"
-                value={form.name}
-                onChange={handleChange('name')}
-                error={Boolean(errors.name)}
-                helperText={errors.name || 'Primary business or individual name'}
-                autoFocus
+              <Controller
+                name="name"
+                control={control}
+                rules={{ required: 'Customer Name is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Customer Display Name *"
+                    error={!!error}
+                    helperText={error?.message || 'Primary business or individual name'}
+                    autoFocus
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'customer-name-helper' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'customer-name-helper' } : undefined}
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Trade Name / Shop Name"
-                value={form.tradeName || ''}
-                onChange={handleChange('tradeName')}
-                helperText="DBA (Doing Business As) name if different"
+              <Controller
+                name="tradeName"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Trade Name / Shop Name"
+                    helperText="DBA (Doing Business As) name if different"
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Legal Registered Name"
-                value={form.legalName || ''}
-                onChange={handleChange('legalName')}
-                helperText="Official legal entity name"
+              <Controller
+                name="legalName"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Legal Registered Name"
+                    helperText="Official legal entity name"
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={form.phone || ''}
-                onChange={handleChange('phone')}
-                error={Boolean(errors.phone)}
-                helperText={errors.phone || '10-digit mobile number'}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">+91</InputAdornment>,
+              <Controller
+                name="phone"
+                control={control}
+                rules={{
+                  validate: (val) =>
+                    !val?.trim() || /^\d{10}$/.test(val.trim()) || 'Phone number must be exactly 10 digits',
                 }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <TextField
+                    value={value}
+                    onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    inputRef={ref}
+                    fullWidth
+                    label="Phone Number"
+                    error={!!error}
+                    helperText={error?.message || '10-digit mobile number'}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">+91</InputAdornment>,
+                    }}
+                    inputProps={{
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'customer-phone-helper' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'customer-phone-helper' } : undefined}
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Email Address"
-                value={form.email || ''}
-                onChange={handleChange('email')}
-                error={Boolean(errors.email)}
-                helperText={errors.email || 'Used for sending invoices & statements'}
+              <Controller
+                name="email"
+                control={control}
+                rules={{
+                  validate: (val) =>
+                    !val?.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim()) || 'Invalid email address format',
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Email Address"
+                    error={!!error}
+                    helperText={error?.message || 'Used for sending invoices & statements'}
+                    inputProps={{
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'customer-email-helper' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'customer-email-helper' } : undefined}
+                  />
+                )}
               />
             </Grid>
           </Grid>
@@ -407,65 +414,92 @@ export const CustomerEditDialog = ({
         {tabIndex === 1 && (
           <Grid container spacing={2.5}>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Address Line 1"
-                value={form.addressLine1 || ''}
-                onChange={handleChange('addressLine1')}
-                placeholder="Street address, building, floor"
+              <Controller
+                name="addressLine1"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Address Line 1"
+                    placeholder="Street address, building, floor"
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Address Line 2"
-                value={form.addressLine2 || ''}
-                onChange={handleChange('addressLine2')}
-                placeholder="Landmark, area, sector"
+              <Controller
+                name="addressLine2"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Address Line 2"
+                    placeholder="Landmark, area, sector"
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="City"
-                value={form.city || ''}
-                onChange={handleChange('city')}
+              <Controller
+                name="city"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} fullWidth label="City" />
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                fullWidth
-                label="State (Place of Supply)"
-                value={form.stateCode || ''}
-                onChange={(e) => handleStateCodeChange(e.target.value)}
-                SelectProps={{ native: true, displayEmpty: true }}
-                InputLabelProps={{ shrink: true }}
-                error={Boolean(errors.stateCode)}
-                helperText={errors.stateCode || (form.state ? `Selected: ${form.state}` : 'Select state for GST calculation')}
-              >
-                <option value="">— Select State (Optional) —</option>
-                {GST_STATES.map(([code, name]) => (
-                  <option key={code} value={code}>
-                    {code} — {name}
-                  </option>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Pincode / Postal Code"
-                value={form.postalCode || ''}
-                onChange={handleChange('postalCode')}
+              <Controller
+                name="stateCode"
+                control={control}
+                rules={{
+                  validate: (val) =>
+                    !val?.trim() || /^\d{2}$/.test(val.trim()) || 'State code must be 2 digits (e.g. 27)',
+                }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <TextField
+                    select
+                    fullWidth
+                    label="State (Place of Supply)"
+                    value={value || ''}
+                    onChange={(e) => {
+                      onChange(e.target.value);
+                      applyStateCode(e.target.value);
+                    }}
+                    inputRef={ref}
+                    SelectProps={{ native: true, displayEmpty: true }}
+                    InputLabelProps={{ shrink: true }}
+                    error={!!error}
+                    helperText={error?.message || (watch('state') ? `Selected: ${watch('state')}` : 'Select state for GST calculation')}
+                  >
+                    <option value="">— Select State (Optional) —</option>
+                    {GST_STATES.map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {code} — {name}
+                      </option>
+                    ))}
+                  </TextField>
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Country"
-                value={form.country || 'India'}
-                onChange={handleChange('country')}
+              <Controller
+                name="postalCode"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} fullWidth label="Pincode / Postal Code" />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="country"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} fullWidth label="Country" />
+                )}
               />
             </Grid>
           </Grid>
@@ -475,36 +509,91 @@ export const CustomerEditDialog = ({
         {tabIndex === 2 && (
           <Grid container spacing={2.5}>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="GSTIN"
-                value={form.gstNumber || ''}
-                onChange={handleChange('gstNumber')}
-                error={Boolean(errors.gstNumber)}
-                helperText={errors.gstNumber || '15-digit GST Identification Number'}
-                inputProps={{ style: { textTransform: 'uppercase', fontFamily: 'monospace' } }}
+              <Controller
+                name="gstNumber"
+                control={control}
+                rules={{
+                  validate: (val) =>
+                    !val?.trim() ||
+                    /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val.trim().toUpperCase()) ||
+                    'Invalid GSTIN format (e.g. 27ABCDE1234F1Z5)',
+                }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <TextField
+                    value={value}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      onChange(val);
+                      // Auto-derive state and state code from first two digits
+                      if (val.trim().length >= 2) {
+                        const code = val.trim().slice(0, 2);
+                        if (/^\d{2}$/.test(code)) {
+                          const match = GST_STATES.find(([c]) => c === code);
+                          if (match) {
+                            setValue('stateCode', code);
+                            setValue('state', match[1]);
+                          }
+                        }
+                      }
+                    }}
+                    inputRef={ref}
+                    fullWidth
+                    label="GSTIN"
+                    error={!!error}
+                    helperText={error?.message || '15-digit GST Identification Number'}
+                    inputProps={{
+                      style: { textTransform: 'uppercase', fontFamily: 'monospace' },
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'customer-gstin-helper' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'customer-gstin-helper' } : undefined}
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="PAN Number"
-                value={form.panNumber || ''}
-                onChange={handleChange('panNumber')}
-                error={Boolean(errors.panNumber)}
-                helperText={errors.panNumber || '10-character Permanent Account Number'}
-                inputProps={{ style: { textTransform: 'uppercase', fontFamily: 'monospace' } }}
+              <Controller
+                name="panNumber"
+                control={control}
+                rules={{
+                  validate: (val) =>
+                    !val?.trim() ||
+                    /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val.trim().toUpperCase()) ||
+                    'Invalid PAN format (e.g. ABCDE1234F)',
+                }}
+                render={({ field: { onChange, value, ref }, fieldState: { error } }) => (
+                  <TextField
+                    value={value}
+                    onChange={(e) => onChange(e.target.value.toUpperCase())}
+                    inputRef={ref}
+                    fullWidth
+                    label="PAN Number"
+                    error={!!error}
+                    helperText={error?.message || '10-character Permanent Account Number'}
+                    inputProps={{
+                      style: { textTransform: 'uppercase', fontFamily: 'monospace' },
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'customer-pan-helper' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'customer-pan-helper' } : undefined}
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Internal Compliance / Statutory Notes"
-                value={form.notes || ''}
-                onChange={handleChange('notes')}
-                placeholder="Special tax concessions, SEZ details, or notes..."
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Internal Compliance / Statutory Notes"
+                    placeholder="Special tax concessions, SEZ details, or notes..."
+                  />
+                )}
               />
             </Grid>
           </Grid>
@@ -514,94 +603,129 @@ export const CustomerEditDialog = ({
         {tabIndex === 3 && (
           <Grid container spacing={2.5}>
             <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Credit Limit (₹)"
-                value={form.creditLimit}
-                onChange={handleChange('creditLimit')}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                }}
-                helperText="Maximum allowed outstanding dues"
+              <Controller
+                name="creditLimit"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type="number"
+                    label="Credit Limit (₹)"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                    }}
+                    helperText="Maximum allowed outstanding dues"
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Credit Period (Days)"
-                value={form.creditDays}
-                onChange={handleChange('creditDays')}
-                helperText="Default payment grace period"
+              <Controller
+                name="creditDays"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type="number"
+                    label="Credit Period (Days)"
+                    helperText="Default payment grace period"
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Payment Terms"
-                value={form.paymentTerms || ''}
-                onChange={handleChange('paymentTerms')}
-                placeholder="e.g. Net 30, Due on Receipt"
+              <Controller
+                name="paymentTerms"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Payment Terms"
+                    placeholder="e.g. Net 30, Due on Receipt"
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                fullWidth
-                label="Lead Source"
-                value={form.source || 'WALK_IN'}
-                onChange={handleChange('source')}
-              >
-                <MenuItem value="WALK_IN">Walk-in Customer</MenuItem>
-                <MenuItem value="REFERRAL">Referral</MenuItem>
-                <MenuItem value="ONLINE">Online / Website</MenuItem>
-                <MenuItem value="TRADE_SHOW">Trade Show / Event</MenuItem>
-                <MenuItem value="COLD_OUTREACH">Cold Outreach</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Industry / Category"
-                value={form.industry || ''}
-                onChange={handleChange('industry')}
-                placeholder="e.g. Retail, Healthcare, Tech"
+              <Controller
+                name="source"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} select fullWidth label="Lead Source">
+                    <MenuItem value="WALK_IN">Walk-in Customer</MenuItem>
+                    <MenuItem value="REFERRAL">Referral</MenuItem>
+                    <MenuItem value="ONLINE">Online / Website</MenuItem>
+                    <MenuItem value="TRADE_SHOW">Trade Show / Event</MenuItem>
+                    <MenuItem value="COLD_OUTREACH">Cold Outreach</MenuItem>
+                    <MenuItem value="OTHER">Other</MenuItem>
+                  </TextField>
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Date of Birth"
-                value={form.dateOfBirth || ''}
-                onChange={handleChange('dateOfBirth')}
-                InputLabelProps={{ shrink: true }}
+              <Controller
+                name="industry"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Industry / Category"
+                    placeholder="e.g. Retail, Healthcare, Tech"
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Anniversary / Founded Date"
-                value={form.anniversaryDate || ''}
-                onChange={handleChange('anniversaryDate')}
-                InputLabelProps={{ shrink: true }}
+              <Controller
+                name="dateOfBirth"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type="date"
+                    label="Date of Birth"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="anniversaryDate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type="date"
+                    label="Anniversary / Founded Date"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                )}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Tags (Comma separated)"
-                value={form.tags || ''}
-                onChange={handleChange('tags')}
-                placeholder="e.g. VIP, Wholesaler, Premium, Local"
+              <Controller
+                name="tags"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    label="Tags (Comma separated)"
+                    placeholder="e.g. VIP, Wholesaler, Premium, Local"
+                  />
+                )}
               />
             </Grid>
           </Grid>
@@ -609,12 +733,12 @@ export const CustomerEditDialog = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
-        <Button onClick={onClose} disabled={saving} color="inherit">
+        <Button onClick={onClose} disabled={isSubmitting} color="inherit">
           Cancel
         </Button>
         <Stack direction="row" spacing={1.5}>
           {tabIndex > 0 && (
-            <Button onClick={() => setTabIndex((p) => p - 1)} disabled={saving}>
+            <Button onClick={() => setTabIndex((p) => p - 1)} disabled={isSubmitting}>
               Back
             </Button>
           )}
@@ -627,7 +751,7 @@ export const CustomerEditDialog = ({
             <Button
               variant="outlined"
               onClick={() => handleSave(true)}
-              disabled={saving}
+              disabled={isSubmitting}
               sx={{ px: 2, fontWeight: 700, textTransform: 'none' }}
             >
               Save &amp; new
@@ -636,11 +760,11 @@ export const CustomerEditDialog = ({
           <Button
             variant="contained"
             onClick={() => handleSave(false)}
-            disabled={saving}
+            disabled={isSubmitting}
             disableElevation
             sx={{ px: 3, fontWeight: 700, textTransform: 'none' }}
           >
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create customer'}
+            {isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create customer'}
           </Button>
         </Stack>
       </DialogActions>

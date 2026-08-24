@@ -3,6 +3,7 @@ import { AuthProvider } from './AuthContext';
 import { SubscriptionProvider } from './SubscriptionContext';
 import { AlertProvider } from './AlertContext';
 import { ShopProvider } from './ShopContext';
+import { WebSocketProvider } from './WebSocketContext';
 
 const AppProvider = ({ children }) => {
   return (
@@ -10,7 +11,12 @@ const AppProvider = ({ children }) => {
       <SubscriptionProvider>
         <ShopProvider>
           <AlertProvider>
-            {children}
+            {/* WebSocketProvider lives inside AuthProvider so it can read
+                user.shopId / user.role from the JWT and open a single
+                shared STOMP connection for the entire app. */}
+            <WebSocketProvider>
+              {children}
+            </WebSocketProvider>
           </AlertProvider>
         </ShopProvider>
       </SubscriptionProvider>

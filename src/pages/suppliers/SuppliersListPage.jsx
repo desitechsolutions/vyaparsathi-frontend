@@ -24,8 +24,9 @@ import {
   PhoneAndroid as MobileIcon,
 } from '@mui/icons-material';
 
-import { getSuppliers, toggleSupplierActive } from '../../services/api';
+import { getSuppliers, toggleSupplierActive, bulkToggleSupplierActive } from '../../services/api';
 import SupplierEditDialog from './SupplierEditDialog';
+import FloatingBulkActionBar from '../../components/common/FloatingBulkActionBar';
 
 const formatDate = (v) => {
   if (!v) return '—';

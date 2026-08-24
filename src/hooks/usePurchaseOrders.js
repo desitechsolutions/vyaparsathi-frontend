@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
   getPurchaseOrders,
   createPurchaseOrder,
@@ -25,13 +26,13 @@ export const usePurchaseOrders = () => {
     poId: null,
   });
 
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (signal) => {
     setIsLoading(true);
     setError('');
     try {
       const [ordersData, suppliersData] = await Promise.all([
-        getPurchaseOrders(),
-        getSuppliers(),
+        getPurchaseOrders(signal),
+        getSuppliers(signal),
       ]);
 
       const suppliers = suppliersData.data || suppliersData || [];
@@ -42,6 +43,7 @@ export const usePurchaseOrders = () => {
         setSnackbar({ open: true, message: 'No purchase orders found.', severity: 'info' });
       }
     } catch (err) {
+      if (axios.isCancel(err)) return; // component unmounted — discard silently
       console.error("Failed to fetch initial data:", err);
       setError('Failed to fetch purchase order data.');
       setSnackbar({ open: true, message: 'Error fetching data. Please try again.', severity: 'error' });
@@ -51,7 +53,9 @@ export const usePurchaseOrders = () => {
   }, []);
 
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
+    return () => controller.abort();
   }, [fetchAllData]);
 
   const handleSnackbarClose = (event, reason) => {
