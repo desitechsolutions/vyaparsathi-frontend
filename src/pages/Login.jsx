@@ -177,6 +177,7 @@ const Login = () => {
       }
 
       login(response.data.accessToken || response.data.token);
+      captureMessage('User login', 'info');
       localStorage.setItem('lastUsername', username);
 
       const redirectParam = searchParams.get('redirect');
@@ -193,6 +194,7 @@ const Login = () => {
         navigate('/', { replace: true });
       }
     } catch (err) {
+      captureException(err, { form: 'login', username });
       handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
     }
   };
@@ -212,9 +214,11 @@ const Login = () => {
       await registerApi(payload);
       const loginRes = await loginApi({ username, password });
       login(loginRes.data.accessToken || loginRes.data.token);
+      captureMessage('User registered', 'info');
       setPendingVerificationEmail(email);
       setView('registerSuccess');
     } catch (err) {
+      captureException(err, { form: 'register' });
       handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
     }
   };
