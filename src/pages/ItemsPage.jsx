@@ -565,6 +565,7 @@ export default function ItemsPage() {
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                 }}
                 size="small"
+                inputProps={{ 'aria-label': 'Search items by name or brand' }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
@@ -583,7 +584,16 @@ export default function ItemsPage() {
                 }}
                 size="small"
                 sx={{ minWidth: 220 }}
-                renderInput={(p) => <TextField {...p} placeholder="All categories" />}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    placeholder="All categories"
+                    inputProps={{
+                      ...p.inputProps,
+                      'aria-label': 'Filter items by category',
+                    }}
+                  />
+                )}
               />
               {hasFilters && (
                 <Button

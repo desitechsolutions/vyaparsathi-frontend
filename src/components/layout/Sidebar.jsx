@@ -534,13 +534,13 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
             <>
               {/* ─── OPERATIONS ─── everyone with the right permissions */}
               <SectionHeader label={t('sidebar.sectionOperations', 'OPERATIONS')} />
-              <List disablePadding>{operationsGroups.map(renderGroup)}</List>
+              <List disablePadding aria-label={t('sidebar.sectionOperations', 'Operations')}>{operationsGroups.map(renderGroup)}</List>
 
               {/* ─── BUSINESS ─── finance + reports (admin/owner) */}
               {isAdminOrOwner && (
                 <>
                   <SectionHeader label={t('sidebar.sectionBusiness', 'BUSINESS')} />
-                  <List disablePadding>{businessGroups.map(renderGroup)}</List>
+                  <List disablePadding aria-label={t('sidebar.sectionBusiness', 'Business')}>{businessGroups.map(renderGroup)}</List>
                 </>
               )}
 
@@ -548,8 +548,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
               {isAdminOrOwner && (
                 <>
                   <SectionHeader label={t('sidebar.sectionAdministration', 'ADMINISTRATION')} />
-                  <List disablePadding>{administrationGroups.map(renderGroup)}</List>
-                  <List disablePadding>{renderLeaf(billingLeaf)}</List>
+                  <List disablePadding aria-label={t('sidebar.sectionAdministration', 'Administration')}>{administrationGroups.map(renderGroup)}</List>
+                  <List disablePadding aria-label={t('sidebar.billingPlans', 'Subscription & billing')}>{renderLeaf(billingLeaf)}</List>
                 </>
               )}
             </>

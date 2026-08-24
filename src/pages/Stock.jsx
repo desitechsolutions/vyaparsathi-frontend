@@ -293,6 +293,24 @@ const Stock = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // ── Real-time inventory updates ──────────────────────────────────────────────
+  // Listens for ws:inventory CustomEvents dispatched by useWebSocket when the
+  // backend pushes a stock change to /topic/shop/{shopId}/inventory.
+  // Payload: { itemId, newQty, warehouseId }
+  // Reloads the grid with a short debounce to handle bursts of updates.
+  const stockReloadTimerRef = useRef(null);
+  useEffect(() => {
+    const handleInventory = () => {
+      if (stockReloadTimerRef.current) clearTimeout(stockReloadTimerRef.current);
+      stockReloadTimerRef.current = setTimeout(() => { loadData(); }, 600);
+    };
+    window.addEventListener('ws:inventory', handleInventory);
+    return () => {
+      window.removeEventListener('ws:inventory', handleInventory);
+      if (stockReloadTimerRef.current) clearTimeout(stockReloadTimerRef.current);
+    };
+  }, [loadData]);
+
   // Derive category & brand option lists from the loaded stock so the filter
   // dropdowns never lag behind the grid.
   const categoryOptions = useMemo(() => {

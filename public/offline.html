@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VyaparSathi — You're Offline</title>
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F8FAFC;
+      --surface:   #ffffff;
+      --border:    #e2e8f0;
+      --primary:   #1976d2;
+      --primary-h: #1565c0;
+      --text-1:    #0f172a;
+      --text-2:    #475569;
+      --text-3:    #94a3b8;
+      --warn-bg:   #fff7ed;
+      --warn-bd:   #fed7aa;
+      --warn-text: #9a3412;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:        #0f172a;
+        --surface:   #1e293b;
+        --border:    rgba(148,163,184,.16);
+        --primary:   #60a5fa;
+        --primary-h: #93c5fd;
+        --text-1:    #f8fafc;
+        --text-2:    #cbd5e1;
+        --text-3:    #64748b;
+        --warn-bg:   rgba(251,146,60,.08);
+        --warn-bd:   rgba(251,146,60,.25);
+        --warn-text: #fb923c;
+        --shadow:    0 4px 24px rgba(0,0,0,.35);
+      }
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* ── Icon ────────────────────────────────────────────────────────── */
+    .icon-wrap {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(25, 118, 210, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+    }
+
+    .icon-wrap svg { width: 40px; height: 40px; }
+
+    /* ── Wordmark ────────────────────────────────────────────────────── */
+    .wordmark {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+      margin-bottom: 28px;
+    }
+
+    /* ── Body text ───────────────────────────────────────────────────── */
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    /* ── Status banner ───────────────────────────────────────────────── */
+    .status-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-bd);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+
+    .status-banner .dot {
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warn-text);
+      margin-top: 4px;
+    }
+
+    .status-banner p {
+      font-size: 13px;
+      color: var(--warn-text);
+      line-height: 1.5;
+    }
+
+    /* ── Feature list ─────────────────────────────────────────────────── */
+    .feature-list {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 32px;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 14px;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .feature-list li:last-child { border-bottom: none; }
+
+    .feature-list .check {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(22,163,74,.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feature-list .cross {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(220,38,38,.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Actions ──────────────────────────────────────────────────────── */
+    .actions { display: flex; flex-direction: column; gap: 10px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 22px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      text-decoration: none;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--primary-h); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .btn-secondary:hover { background: var(--bg); }
+
+    /* ── Retry spinner ────────────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    .btn.loading .btn-label { display: none; }
+    .btn.loading .spinner   { display: block; }
+
+    /* ── Footer ───────────────────────────────────────────────────────── */
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    /* ── Online / restored banner (hidden by default) ─────────────────── */
+    #online-banner {
+      display: none;
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #16a34a;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+      animation: slideIn .3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; top: 0; }
+      to   { opacity: 1; top: 16px; }
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Online-restored notification -->
+  <div id="online-banner">
+    Connection restored — redirecting&hellip;
+  </div>
+
+  <div class="page">
+    <div class="card">
+
+      <!-- Logo / wordmark -->
+      <div class="wordmark">VyaparSathi</div>
+
+      <!-- Offline icon -->
+      <div class="icon-wrap">
+        <!-- Cloud-off SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="#1976d2" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="2" y1="2" x2="22" y2="22"/>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+          <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+      </div>
+
+      <h1>You're offline</h1>
+      <p class="subtitle">
+        Some features are unavailable without a network connection.
+        Cached data is shown where possible, and any actions you take
+        will be queued and sent automatically when you reconnect.
+      </p>
+
+      <!-- Current status -->
+      <div class="status-banner" id="status-banner">
+        <div class="dot"></div>
+        <p id="status-text">No internet connection detected. Please check your Wi-Fi or mobile data.</p>
+      </div>
+
+      <!-- What's available / unavailable -->
+      <ul class="feature-list">
+        <li>
+          <span class="check">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          Browsing cached items, customers and reports
+        </li>
+        <li>
+          <span class="check">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          Actions queued offline and synced on reconnect
+        </li>
+        <li>
+          <span class="cross">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M3 3l6 6M9 3l-6 6" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          Real-time updates and notifications
+        </li>
+        <li>
+          <span class="cross">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M3 3l6 6M9 3l-6 6" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          New logins or session refresh
+        </li>
+      </ul>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn btn-primary" id="retry-btn" onclick="retryConnection()">
+          <span class="btn-label">Retry connection</span>
+          <span class="spinner"></span>
+        </button>
+        <button class="btn btn-secondary" onclick="goBack()">
+          Go back to last page
+        </button>
+      </div>
+    </div>
+
+    <p class="footer">VyaparSathi &mdash; offline-capable business management</p>
+  </div>
+
+  <script>
+    // ── Retry logic ──────────────────────────────────────────────────────────
+    function retryConnection() {
+      var btn = document.getElementById('retry-btn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      // Ping a tiny API endpoint; if it reaches the SW / network we're back online
+      fetch('/api/shop', { method: 'HEAD', cache: 'no-store' })
+        .then(function () { handleOnline(); })
+        .catch(function () {
+          // Still offline
+          setTimeout(function () {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            flashStatus('Still offline. Please check your connection and try again.');
+          }, 1200);
+        });
+    }
+
+    function handleOnline() {
+      document.getElementById('online-banner').style.display = 'block';
+      setTimeout(function () {
+        // Try to go back to the page the user was on; fall back to root
+        var dest = sessionStorage.getItem('offline_redirect') || '/';
+        window.location.href = dest;
+      }, 1000);
+    }
+
+    function goBack() {
+      if (history.length > 1) {
+        history.back();
+      } else {
+        window.location.href = '/';
+      }
+    }
+
+    function flashStatus(msg) {
+      document.getElementById('status-text').textContent = msg;
+    }
+
+    // ── Online / offline event listeners ────────────────────────────────────
+    window.addEventListener('online', handleOnline);
+
+    window.addEventListener('offline', function () {
+      flashStatus('No internet connection detected. Please check your Wi-Fi or mobile data.');
+    });
+
+    // ── Remember where user was trying to go ─────────────────────────────────
+    (function () {
+      var ref = document.referrer;
+      if (ref && !ref.includes('/offline')) {
+        try { sessionStorage.setItem('offline_redirect', ref); } catch (_) {}
+      }
+    })();
+
+    // ── If already online (e.g. SW served stale offline.html) → redirect ─────
+    if (navigator.onLine) {
+      handleOnline();
+    }
+  </script>
+</body>
+</html>
