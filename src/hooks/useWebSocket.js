@@ -27,9 +27,6 @@ const useWebSocket = (shopId) => {
       if (!numericId || isNaN(numericId)) return;
 
       const destination = shopId === 'ADMIN_SUPER' ? `/app/admin/typing` : `/app/shop/typing`;
-      
-      // LOG THIS: See if it's true or false right before sending
-      console.log("SENDING TO SERVER:", isTypingValue);
 
       stompClientRef.current.publish({
         destination,
@@ -65,7 +62,6 @@ const useWebSocket = (shopId) => {
       onConnect: () => {
         if (!isMounted) return;
 
-        console.log('Socket Connected for', shopId || 'Admin');
         stompClientRef.current = client;
         setStompClient(client);
         setConnected(true);
@@ -79,12 +75,6 @@ const useWebSocket = (shopId) => {
           try {
             const data = JSON.parse(message.body);
             
-            /**
-             * ✅ CRITICAL FIX:
-             * Jackson serializes Java 'boolean isTyping' as JSON key 'typing'.
-             * We check both to be safe, but 'data.typing' is what your logs show.
-             */
-            console.log(data);
             const currentlyTyping = data.typing !== undefined ? data.typing : data.isTyping;
 
             setTypingStatus({

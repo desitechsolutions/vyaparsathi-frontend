@@ -1,25 +1,24 @@
 import React from 'react';
 import {
   Box, Avatar, Typography, Menu, MenuItem, Divider, Stack, Button, Dialog,
-  DialogTitle, DialogContent, DialogActions, ListItemIcon, useTheme, useMediaQuery,
-  Badge, Chip, IconButton, Drawer,
+  DialogTitle, DialogContent, DialogActions, ListItemIcon, useTheme,
+  Badge, Chip,
 } from '@mui/material';
 import {
-  PersonIcon,
-  ShieldOutlinedIcon,
-  SettingsIcon,
-  ExitToAppIcon,
-  SupportIcon,
-  InfoOutlinedIcon,
-  LanguageIcon,
-  LightModeIcon,
-  DarkModeIcon,
-  BrightnessAutoIcon,
-  StorefrontIcon,
-  HelpOutlineIcon,
-  LockIcon,
-  KeyboardIcon,
-  AssignmentIcon,
+  Person as PersonIcon,
+  ShieldOutlined as ShieldOutlinedIcon,
+  Settings as SettingsIcon,
+  ExitToApp as ExitToAppIcon,
+  Support as SupportIcon,
+  Storefront as StorefrontIcon,
+  HelpOutline as HelpOutlineIcon,
+  Lock as LockIcon,
+  Keyboard as KeyboardIcon,
+  Assignment as AssignmentIcon,
+  Language as LanguageIcon,
+  BrightnessHigh as BrightnessHighIcon,
+  DarkMode as DarkModeIcon,
+  BrightnessAuto as BrightnessAutoIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -34,9 +33,6 @@ const HeaderUserProfile = ({
   profileMenuAnchor,
   onProfileMenuOpen,
   onProfileMenuClose,
-  onProfileModalOpen,
-  onSettingsDialogOpen,
-  onSupportDialogOpen,
   isMobile,
   isTablet,
 }) => {
@@ -48,14 +44,13 @@ const HeaderUserProfile = ({
   const { shop } = useShop();
 
   const [showAboutModal, setShowAboutModal] = React.useState(false);
-  const [showShortcutsDrawer, setShowShortcutsDrawer] = React.useState(false);
 
   const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.sub || 'User' : 'User';
   const firstName = displayName.split(' ')[0];
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   const themeIconMap = {
-    light: <LightModeIcon sx={{ fontSize: 16 }} />,
+    light: <BrightnessHighIcon sx={{ fontSize: 16 }} />,
     dark: <DarkModeIcon sx={{ fontSize: 16 }} />,
     auto: <BrightnessAutoIcon sx={{ fontSize: 16 }} />,
   };
@@ -229,21 +224,18 @@ const HeaderUserProfile = ({
           </Stack>
         </Box>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 1.5 }} />
 
         {/* ===== ACCOUNT & WORKSPACE SETTINGS ===== */}
-        <Box sx={{ px: 1, py: 0.8 }}>
-          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem', ml: 1 }}>
+        <Box sx={{ px: 1.5, py: 1 }}>
+          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem' }}>
             Account & Settings
           </Typography>
         </Box>
 
         <MenuItem
-          onClick={() => {
-            onProfileMenuClose();
-            onProfileModalOpen();
-          }}
-          sx={{ gap: 1.5, py: 1.2 }}
+          onClick={() => handleNavigate('/account/profile')}
+          sx={{ gap: 1.5, py: 1.2, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <ListItemIcon>
             <PersonIcon fontSize="small" />
@@ -259,11 +251,8 @@ const HeaderUserProfile = ({
         </MenuItem>
 
         <MenuItem
-          onClick={() => {
-            onProfileMenuClose();
-            onSettingsDialogOpen();
-          }}
-          sx={{ gap: 1.5, py: 1.2 }}
+          onClick={() => handleNavigate('/admin/settings')}
+          sx={{ gap: 1.5, py: 1.2, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
@@ -278,7 +267,10 @@ const HeaderUserProfile = ({
           </Box>
         </MenuItem>
 
-        <MenuItem sx={{ gap: 1.5, py: 1.2 }}>
+        <MenuItem
+          onClick={() => handleNavigate('/admin/team')}
+          sx={{ gap: 1.5, py: 1.2, '&:hover': { bgcolor: 'action.hover' } }}
+        >
           <ListItemIcon>
             <AssignmentIcon fontSize="small" />
           </ListItemIcon>
@@ -292,11 +284,11 @@ const HeaderUserProfile = ({
           </Box>
         </MenuItem>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 1.5 }} />
 
         {/* ===== PREFERENCES ===== */}
-        <Box sx={{ px: 1, py: 0.8 }}>
-          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem', ml: 1 }}>
+        <Box sx={{ px: 1.5, py: 1 }}>
+          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem' }}>
             Preferences
           </Typography>
         </Box>
@@ -325,21 +317,18 @@ const HeaderUserProfile = ({
           </Typography>
         </MenuItem>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 1.5 }} />
 
         {/* ===== SUPPORT & RESOURCES ===== */}
-        <Box sx={{ px: 1, py: 0.8 }}>
-          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem', ml: 1 }}>
+        <Box sx={{ px: 1.5, py: 1 }}>
+          <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem' }}>
             Support & Resources
           </Typography>
         </Box>
 
         <MenuItem
-          onClick={() => {
-            onProfileMenuClose();
-            onSupportDialogOpen();
-          }}
-          sx={{ gap: 1.5, py: 1 }}
+          onClick={() => handleNavigate('/user/help')}
+          sx={{ gap: 1.5, py: 1, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <ListItemIcon>
             <SupportIcon fontSize="small" />
@@ -348,11 +337,8 @@ const HeaderUserProfile = ({
         </MenuItem>
 
         <MenuItem
-          onClick={() => {
-            onProfileMenuClose();
-            setShowShortcutsDrawer(true);
-          }}
-          sx={{ gap: 1.5, py: 1 }}
+          onClick={() => handleNavigate('/user/keyboard-shortcuts')}
+          sx={{ gap: 1.5, py: 1, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <ListItemIcon>
             <KeyboardIcon fontSize="small" />
@@ -365,7 +351,7 @@ const HeaderUserProfile = ({
             window.open('https://docs.vyaparsathi.com', '_blank');
             onProfileMenuClose();
           }}
-          sx={{ gap: 1.5, py: 1 }}
+          sx={{ gap: 1.5, py: 1, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <ListItemIcon>
             <HelpOutlineIcon fontSize="small" />
@@ -373,10 +359,23 @@ const HeaderUserProfile = ({
           <Typography fontSize="0.9rem">Documentation</Typography>
         </MenuItem>
 
-        <Divider sx={{ my: 1 }} />
+        <MenuItem
+          onClick={() => handleNavigate('/user/preferences')}
+          sx={{ gap: 1.5, py: 1, '&:hover': { bgcolor: 'action.hover' } }}
+        >
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          <Typography fontSize="0.9rem">Preferences</Typography>
+        </MenuItem>
+
+        <Divider sx={{ my: 1.5 }} />
 
         {/* ===== DANGER / EXIT ZONE ===== */}
-        <MenuItem sx={{ gap: 1.5, py: 1 }}>
+        <MenuItem
+          onClick={() => handleNavigate('/user/lock-screen')}
+          sx={{ gap: 1.5, py: 1.2, '&:hover': { bgcolor: 'action.hover' } }}
+        >
           <ListItemIcon>
             <LockIcon fontSize="small" />
           </ListItemIcon>
@@ -389,7 +388,7 @@ const HeaderUserProfile = ({
             gap: 1.5,
             py: 1.2,
             color: 'error.main',
-            '&:hover': { bgcolor: 'error.light', opacity: 0.1 },
+            '&:hover': { bgcolor: 'error.light', color: 'error.dark' },
           }}
         >
           <ListItemIcon sx={{ color: 'error.main' }}>
@@ -429,7 +428,7 @@ const HeaderUserProfile = ({
         onClose={() => setShowAboutModal(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx={{ borderRadius: 2 } }}
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>About VyaparSathi</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
@@ -495,44 +494,6 @@ const HeaderUserProfile = ({
         </DialogActions>
       </Dialog>
 
-      {/* Keyboard Shortcuts Drawer */}
-      <Drawer
-        anchor="right"
-        open={showShortcutsDrawer}
-        onClose={() => setShowShortcutsDrawer(false)}
-        PaperProps={{
-          sx: {
-            width: { xs: '100%', sm: 380 },
-            p: 2,
-          },
-        }}
-      >
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-          Keyboard Shortcuts
-        </Typography>
-        <Stack spacing={2}>
-          {[
-            { key: '⌘K / Ctrl+K', action: 'Open Command Palette' },
-            { key: '/', action: 'Search' },
-            { key: '?', action: 'Help' },
-            { key: 'Escape', action: 'Close menus' },
-            { key: 'Tab', action: 'Navigate elements' },
-            { key: 'Enter / Space', action: 'Activate button' },
-          ].map((shortcut) => (
-            <Stack key={shortcut.key} direction="row" justifyContent="space-between" alignItems="center">
-              <Chip
-                label={shortcut.key}
-                variant="outlined"
-                size="small"
-                sx={{ fontFamily: 'monospace', fontWeight: 600 }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                {shortcut.action}
-              </Typography>
-            </Stack>
-          ))}
-        </Stack>
-      </Drawer>
     </>
   );
 };

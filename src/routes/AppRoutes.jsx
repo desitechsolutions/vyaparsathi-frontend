@@ -88,6 +88,9 @@ import UserManagementPage from '../pages/UserManagementPage';
 import MfaSetupPage from '../pages/MfaSetupPage';
 import ActiveSessionsPage from '../pages/ActiveSessionsPage';
 import TwoFactorAuthenticationPage from '../pages/security/TwoFactorAuthenticationPage';
+import ChangePasswordPage from '../pages/security/ChangePasswordPage';
+import UserProfile from '../pages/UserProfile';
+import SearchResults from '../pages/SearchResults';
 import TeamPage from '../pages/TeamPage';
 import RolesPermissionMatrixPage from '../pages/RolesPermissionMatrixPage';
 import AcceptShopInvitePage from '../pages/AcceptShopInvitePage';
@@ -142,6 +145,10 @@ import SettingsPage from '../pages/SettingsPage';
 import NotFound from '../pages/NotFound';
 import BillingDashboard from '../components/subscriptions/BillingDashboard';
 import PlanConfigManager from '../pages/admin/PlanConfigManager';
+import LockScreenPage from '../pages/LockScreenPage';
+import HelpAndSupportPage from '../pages/HelpAndSupportPage';
+import KeyboardShortcutsPage from '../pages/KeyboardShortcutsPage';
+import UserPreferencesPage from '../pages/UserPreferencesPage';
 import PlatformSettingsPage from '../pages/admin/PlatformSettingsPage';
 import AdminTeamManagementPage from '../pages/admin/AdminTeamManagementPage';
 import FeatureFlagManagerPage from '../pages/admin/FeatureFlagManagerPage';
@@ -162,7 +169,7 @@ import { ShopProvider } from '../context/ShopContext';
 
 function AppRoutes() {
   const { user } = useAuthContext();
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = user?.role === 'ROLE_SUPER_ADMIN';
 
   return (
     <AlertProvider>
@@ -276,6 +283,8 @@ function AppRoutes() {
           >
             {/* PUBLIC WITHIN APP (No Tier Required) */}
             <Route path="/pricing" element={<PricingPage />} />
+            {/* Global Search Results */}
+            <Route path="/search" element={<SearchResults />} />
             {/* Razorpay AutoPay Billing Routes */}
             <Route path="/billing" element={<BillingPage />} />
             <Route path="/billing/success" element={<PaymentSuccessPage />} />
@@ -315,6 +324,8 @@ function AppRoutes() {
             <Route path="account/security" element={<MfaSetupPage />} />
             <Route path="account/security/mfa" element={<MfaSetupPage />} />
             <Route path="account/security/sessions" element={<ActiveSessionsPage />} />
+            <Route path="account/security/change-password" element={<ChangePasswordPage />} />
+            <Route path="account/profile" element={<UserProfile />} />
             {/* Team management (Phase 5). Permission gate lives inside TeamPage. */}
             <Route path="admin/team" element={<TeamPage />} />
             <Route path="admin/roles" element={<RolesPermissionMatrixPage />} />
@@ -322,6 +333,12 @@ function AppRoutes() {
                 Personal MFA (enrollment/backup-codes) still lives at
                 /account/security/mfa in the header user menu. */}
             <Route path="admin/security/two-factor" element={<TwoFactorAuthenticationPage />} />
+
+            {/* User Profile Menu Pages — Available to all authenticated users */}
+            <Route path="user/lock-screen" element={<LockScreenPage />} />
+            <Route path="user/help" element={<HelpAndSupportPage />} />
+            <Route path="user/keyboard-shortcuts" element={<KeyboardShortcutsPage />} />
+            <Route path="user/preferences" element={<UserPreferencesPage />} />
 
             {/* QUOTATIONS — available on all tiers as a core sales tool */}
             <Route path="quotations" element={<Quotations />} />

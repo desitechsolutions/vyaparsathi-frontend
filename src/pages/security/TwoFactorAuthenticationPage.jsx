@@ -56,7 +56,7 @@ import API, { fetchShop, fetchMfaStatus } from '../../services/api';
  * its FALSE→TRUE guard (rejects the transition when any OWNER/ADMIN
  * still lacks MFA).</p>
  */
-export default function TwoFactorAuthenticationPage() {
+export default function TwoFactorAuthenticationPage({ embedded = false }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);

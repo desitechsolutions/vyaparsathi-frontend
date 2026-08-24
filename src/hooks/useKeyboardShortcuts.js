@@ -6,6 +6,8 @@ export const useKeyboardShortcuts = (callbacks = {}) => {
     onSearch = () => {},
     onHelp = () => {},
     onEscape = () => {},
+    onLockScreen = () => {},
+    onPreferences = () => {},
   } = callbacks;
 
   useEffect(() => {
@@ -38,6 +40,22 @@ export const useKeyboardShortcuts = (callbacks = {}) => {
         }
       }
 
+      // Cmd+Shift+L or Ctrl+Shift+L - Lock Screen
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'l') {
+        if (!isTypingInInput) {
+          event.preventDefault();
+          onLockScreen();
+        }
+      }
+
+      // Cmd+, or Ctrl+, - Open Preferences
+      if ((event.metaKey || event.ctrlKey) && event.key === ',') {
+        if (!isTypingInInput) {
+          event.preventDefault();
+          onPreferences();
+        }
+      }
+
       // Escape - Close any open menus/dialogs
       if (event.key === 'Escape') {
         onEscape();
@@ -46,5 +64,5 @@ export const useKeyboardShortcuts = (callbacks = {}) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onCommandPalette, onSearch, onHelp, onEscape]);
+  }, [onCommandPalette, onSearch, onHelp, onEscape, onLockScreen, onPreferences]);
 };

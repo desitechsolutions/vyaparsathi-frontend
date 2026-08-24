@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
-import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import { TrendingUpOutlined as TrendingUpOutlinedIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useShop } from '../../context/ShopContext';
 

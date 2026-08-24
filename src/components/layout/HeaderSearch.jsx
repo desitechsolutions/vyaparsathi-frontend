@@ -44,11 +44,15 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  const handleResultClick = (route) => {
+  const handleResultClick = (route, passQuery = false) => {
+    if (passQuery && searchQuery.trim()) {
+      navigate(`${route}?q=${encodeURIComponent(searchQuery)}`);
+    } else {
+      navigate(route);
+    }
     setSearchQuery('');
     setShowResults(false);
     onMobileSearchClose();
-    navigate(route);
   };
 
   const getResultColor = (type) => {
@@ -59,6 +63,23 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
       PURCHASE: 'error',
     };
     return colors[type] || 'default';
+  };
+
+  const getDisplayName = (result) => {
+    if (result.name && result.name !== 'Unknown') return result.name;
+    if (result.label && result.label !== 'Unknown') return result.label;
+    if (result.meta?.email) return result.meta.email.split('@')[0];
+    if (result.meta?.phone) return result.meta.phone;
+    if (result.id) return `#${result.id.substring(0, 8).toUpperCase()}`;
+    return 'Unknown';
+  };
+
+  const getMetadataPreview = (result) => {
+    const parts = [];
+    if (result.meta?.amount) parts.push(`₹${Number(result.meta.amount).toLocaleString('en-IN')}`);
+    if (result.meta?.status) parts.push(result.meta.status);
+    if (result.meta?.email) parts.push(result.meta.email.substring(0, 20));
+    return parts.slice(0, 2).join(' • ');
   };
 
   // Desktop search (visible on md+)
@@ -118,22 +139,22 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
                     button
                     onClick={() => handleResultClick(result.route)}
                     sx={{
-                      py: 1.5,
+                      py: 2,
                       px: 2,
                       '&:hover': { bgcolor: 'action.hover' },
                       cursor: 'pointer',
                     }}
                   >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: `${getResultColor(result.type)}.light`, width: 32, height: 32, fontSize: '0.8rem' }}>
-                        {result.type.charAt(0)}
+                      <Avatar sx={{ bgcolor: `${getResultColor(result.type)}.light`, width: 36, height: 36, fontSize: '0.8rem', fontWeight: 700 }}>
+                        {getDisplayName(result)?.charAt(0).toUpperCase() || '?'}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={result.name || result.label}
-                      secondary={result.type}
+                      primary={getDisplayName(result)}
+                      secondary={`${result.type}${getMetadataPreview(result) ? ' • ' + getMetadataPreview(result) : ''}`}
                       primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
-                      secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                      secondaryTypographyProps={{ fontSize: '0.75rem', color: 'text.secondary' }}
                     />
                   </ListItem>
                   {idx < searchResults.length - 1 && <Divider />}
@@ -143,7 +164,7 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
               <Button
                 fullWidth
                 size="small"
-                onClick={() => handleResultClick('/search')}
+                onClick={() => handleResultClick('/search', true)}
                 sx={{ py: 1, textTransform: 'none', fontSize: '0.85rem' }}
               >
                 View All Results
@@ -205,13 +226,18 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
                 <ListItem
                   button
                   onClick={() => handleResultClick(result.route)}
-                  sx={{ py: 1, px: 1.5, '&:hover': { bgcolor: 'action.hover' } }}
+                  sx={{ py: 1.5, px: 1.5, '&:hover': { bgcolor: 'action.hover' } }}
                 >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: `${getResultColor(result.type)}.light`, width: 32, height: 32, fontSize: '0.7rem', fontWeight: 700 }}>
+                      {getDisplayName(result)?.charAt(0).toUpperCase() || '?'}
+                    </Avatar>
+                  </ListItemAvatar>
                   <ListItemText
-                    primary={result.name || result.label}
-                    secondary={result.type}
-                    primaryTypographyProps={{ fontSize: '0.85rem' }}
-                    secondaryTypographyProps={{ fontSize: '0.7rem' }}
+                    primary={getDisplayName(result)}
+                    secondary={`${result.type}${getMetadataPreview(result) ? ' • ' + getMetadataPreview(result) : ''}`}
+                    primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 500 }}
+                    secondaryTypographyProps={{ fontSize: '0.7rem', color: 'text.secondary' }}
                   />
                 </ListItem>
                 {idx < Math.min(4, searchResults.length - 1) && <Divider />}

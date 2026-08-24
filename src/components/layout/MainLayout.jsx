@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import PremiumStatusBanner from '../../pages/PremiumStatusBanner';
 import SupportChatWidget from '../../pages/SupportChatWidget';
 import ErrorBoundary from '../common/ErrorBoundary';
+import HeaderErrorBoundary from '../common/HeaderErrorBoundary';
 import CommandPalette from '../common/CommandPalette';
 import { useAuthContext } from '../../context/AuthContext';
 
@@ -23,9 +24,11 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      
-      {/* Pass the toggle function to the Header */}
-      <Header onDrawerToggle={handleDrawerToggle} />
+
+      {/* Lightweight error boundary for header — shows minimal fallback */}
+      <HeaderErrorBoundary>
+        <Header onDrawerToggle={handleDrawerToggle} />
+      </HeaderErrorBoundary>
       
       {/* Pass state and toggle function to Sidebar */}
       <Sidebar mobileOpen={mobileOpen} onDrawerToggle={handleDrawerToggle} />

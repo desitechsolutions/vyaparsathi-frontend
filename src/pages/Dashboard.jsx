@@ -357,7 +357,7 @@ const setupChecklist = useMemo(() => {
         setIsLoading(false);
       }
     },
-    [shop, t]
+    [t]
   );
 
   useEffect(() => {

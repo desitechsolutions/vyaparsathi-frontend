@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import {
-  AppBar, Toolbar, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  Button, Stack, useMediaQuery, useTheme, Typography, skipToMainContentClasses,
+  AppBar, Toolbar, Box,
+  Button, useMediaQuery, useTheme, skipToMainContentClasses,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
-import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import UserProfile from '../../pages/UserProfile';
-import SettingsDialog from '../settings/SettingsDialog';
 import ShopSwitcher from '../rbac/ShopSwitcher';
 
 // Import new sub-components
@@ -135,18 +132,6 @@ const Header = ({ onDrawerToggle }) => {
               profileMenuAnchor={state.profileMenuAnchor}
               onProfileMenuOpen={handlers.openProfileMenu}
               onProfileMenuClose={handlers.closeProfileMenu}
-              onProfileModalOpen={() => {
-                handlers.closeProfileMenu();
-                handlers.openProfileModal();
-              }}
-              onSettingsDialogOpen={() => {
-                handlers.closeProfileMenu();
-                handlers.openSettingsDialog();
-              }}
-              onSupportDialogOpen={() => {
-                handlers.closeProfileMenu();
-                handlers.openSupportDialog();
-              }}
               isMobile={isMobile}
               isTablet={isTablet}
             />
@@ -154,65 +139,6 @@ const Header = ({ onDrawerToggle }) => {
         </Toolbar>
       </AppBar>
 
-      {/* User Profile Modal */}
-      {state.openProfileModal && (
-        <UserProfile
-          open={state.openProfileModal}
-          onClose={handlers.closeProfileModal}
-        />
-      )}
-
-      {/* Settings Dialog */}
-      {state.openSettingsDialog && (
-        <SettingsDialog
-          open={state.openSettingsDialog}
-          onClose={handlers.closeSettingsDialog}
-        />
-      )}
-
-      {/* Support Dialog */}
-      <Dialog
-        open={state.openSupportDialog}
-        onClose={handlers.closeSupportDialog}
-        PaperProps={{ sx: { borderRadius: 3, maxWidth: 400 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 900, pb: 0 }}>
-          {t('header.helpSupport')}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <DialogContentText>
-            {t('header.contactUsDesc')}
-          </DialogContentText>
-          <Stack spacing={2} sx={{ mt: 3 }}>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
-                Email:
-              </Typography>
-              <Typography variant="body1" fontWeight={600}>
-                support@birumatech.com
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
-                Phone:
-              </Typography>
-              <Typography variant="body1" fontWeight={600}>
-                +91-950-815-6282
-              </Typography>
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={handlers.closeSupportDialog}
-            variant="contained"
-            fullWidth
-            sx={{ borderRadius: 2 }}
-          >
-            {t('header.close')}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 };

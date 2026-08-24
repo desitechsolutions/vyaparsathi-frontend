@@ -1,16 +1,18 @@
 import React from 'react';
 import {
   Box, IconButton, Badge, Menu, MenuItem, Chip, Tooltip, useTheme, Stack, Divider,
-  ListItemIcon, Typography, keyframes,
+  ListItemIcon, Typography, keyframes, Button,
 } from '@mui/material';
-import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import LanguageIcon from '@mui/icons-material/Language';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import BrightnessAutoIcon from '@mui/icons-material/BrightnessAuto';
-import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import { ReportProblemOutlined as ReportProblemOutlinedIcon } from '@mui/icons-material';
+import { AddCircle as AddCircleIcon } from '@mui/icons-material';
+import { Language as LanguageIcon } from '@mui/icons-material';
+import { BrightnessHigh as BrightnessHighIcon } from '@mui/icons-material';
+import { DarkMode as DarkModeIcon } from '@mui/icons-material';
+import { BrightnessAuto as BrightnessAutoIcon } from '@mui/icons-material';
+import { WorkspacePremium as WorkspacePremiumIcon } from '@mui/icons-material';
+import { Notifications as NotificationsIcon } from '@mui/icons-material';
+import { Receipt as ReceiptIcon, CreditCard as CreditCardIcon, Inventory as InventoryIcon } from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import StatusIndicators from './StatusIndicators';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -52,7 +54,7 @@ const HeaderActions = ({
   const hasAlerts = alertCount > 0;
 
   const themeIconMap = {
-    light: <LightModeIcon sx={{ fontSize: 20 }} />,
+    light: <BrightnessHighIcon sx={{ fontSize: 20 }} />,
     dark: <DarkModeIcon sx={{ fontSize: 20 }} />,
     auto: <BrightnessAutoIcon sx={{ fontSize: 20 }} />,
   };
@@ -71,6 +73,28 @@ const HeaderActions = ({
     onLanguageMenuClose();
   };
 
+  const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getAlertSeverity = (alert) => {
+    if (alert.currentStock === 0) return 'critical';
+    if (alert.currentStock <= alert.reorderLevel) return 'warning';
+    return 'info';
+  };
+
   let alertTooltip = '';
   if (criticalCount > 0 && lowCount > 0) {
     alertTooltip = `${criticalCount} ${t('header.critical')} and ${lowCount} ${t('header.lowStock')}`;
@@ -81,10 +105,10 @@ const HeaderActions = ({
   }
 
   return (
-    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-      {/* Notification Bell */}
+    <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+      {/* GROUP 1: NOTIFICATIONS (Critical - Always Visible) */}
       {hasAlerts && (
-        <>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Tooltip title={alertTooltip}>
             <IconButton
               color="inherit"
@@ -103,51 +127,132 @@ const HeaderActions = ({
             </IconButton>
           </Tooltip>
 
-          {/* Notification Dropdown Menu */}
+          {/* Notification Dropdown Menu - Enhanced */}
           <Menu
             anchorEl={notificationAnchor}
             open={Boolean(notificationAnchor)}
             onClose={onNotificationClose}
-            PaperProps={{ sx: { minWidth: 320, borderRadius: 2, mt: 1.5 } }}
+            PaperProps={{ sx: { minWidth: 380, maxHeight: 500, borderRadius: 2, mt: 1.5 } }}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <MenuItem disabled>
-              <Typography variant="subtitle2" fontWeight={600}>
+            {/* Header with Clear All */}
+            <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle2" fontWeight={700}>
                 {alertCount} Alert{alertCount !== 1 ? 's' : ''}
               </Typography>
-            </MenuItem>
+              <IconButton
+                size="small"
+                onClick={onNotificationClose}
+                sx={{ '&:hover': { bgcolor: 'action.hover' } }}
+                title="Close"
+              >
+                <CloseIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+            <Divider sx={{ my: 0 }} />
 
-            {(alerts || []).slice(0, 5).map((alert, idx) => (
-              <MenuItem key={idx} sx={{ py: 1.5 }}>
-                <ListItemIcon>
-                  <Badge color="error" variant="dot">
-                    <Box />
-                  </Badge>
-                </ListItemIcon>
-                <Box>
-                  <Typography fontSize="0.85rem" fontWeight={500}>
-                    {alert.itemName || 'Item'}
-                  </Typography>
-                  <Typography fontSize="0.75rem" color="text.secondary">
-                    Stock: {alert.currentStock || 0} {alert.unit}
-                  </Typography>
+            {/* Alert Items - Enhanced with Severity */}
+            {(alerts || []).slice(0, 5).map((alert, idx) => {
+              const severity = getAlertSeverity(alert);
+              const severityColor = severity === 'critical' ? 'error.main' : severity === 'warning' ? 'warning.main' : 'info.main';
+              const severityLabel = severity === 'critical' ? 'CRITICAL' : 'LOW STOCK';
+
+              return (
+                <Box key={idx}>
+                  <MenuItem
+                    sx={{
+                      py: 2,
+                      px: 2,
+                      display: 'flex',
+                      gap: 1.5,
+                      alignItems: 'flex-start',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                  >
+                    {/* Severity Indicator */}
+                    <Box sx={{
+                      width: 4,
+                      height: 68,
+                      bgcolor: severityColor,
+                      borderRadius: 1,
+                      flexShrink: 0,
+                    }} />
+
+                    {/* Content */}
+                    <Box flex={1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                        <Box flex={1}>
+                          <Typography fontWeight={700} fontSize="0.9rem">
+                            {alert.itemName || 'Item'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {severityLabel}
+                          </Typography>
+                          <Typography fontSize="0.75rem" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Stock: {alert.currentStock || 0} / Reorder: {alert.reorderLevel || 0}
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                          {formatRelativeTime(alert.createdAt)}
+                        </Typography>
+                      </Stack>
+
+                      {/* Action Buttons */}
+                      <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            onNotificationClose();
+                            navigate('/low-stock-alerts');
+                          }}
+                          sx={{ fontSize: '0.7rem', py: 0.3, px: 1 }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => {
+                            onNotificationClose();
+                          }}
+                          sx={{ fontSize: '0.7rem', py: 0.3, px: 1 }}
+                        >
+                          Dismiss
+                        </Button>
+                      </Stack>
+                    </Box>
+                  </MenuItem>
+                  {idx < Math.min(4, alerts.length - 1) && <Divider sx={{ my: 0 }} />}
                 </Box>
-              </MenuItem>
-            ))}
+              );
+            })}
 
-            <MenuItem onClick={onNotificationClose} sx={{ py: 1 }}>
-              <Typography variant="body2" color="primary" fontSize="0.85rem" fontWeight={600}>
-                View All Alerts
+            <Divider sx={{ my: 0 }} />
+
+            {/* Footer */}
+            <MenuItem
+              onClick={() => {
+                onNotificationClose();
+                navigate('/low-stock-alerts');
+              }}
+              sx={{ py: 1.5, justifyContent: 'center', bgcolor: 'action.hover' }}
+            >
+              <Typography color="primary" fontWeight={600} fontSize="0.85rem">
+                View All Alerts →
               </Typography>
             </MenuItem>
           </Menu>
-        </>
+        </Stack>
       )}
 
-      {/* Quick Action Button - Hidden on mobile */}
+      {/* DIVIDER - Desktop Only */}
+      {!isMobile && <Divider orientation="vertical" flexItem sx={{ my: 1 }} />}
+
+      {/* GROUP 2: ACTIONS (Desktop Only) */}
       {!isMobile && (
-        <>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Tooltip title="Quick Actions">
             <IconButton
               color="inherit"
@@ -165,26 +270,75 @@ const HeaderActions = ({
             anchorEl={quickActionAnchor}
             open={Boolean(quickActionAnchor)}
             onClose={onQuickActionClose}
-            PaperProps={{ sx: { minWidth: 220, borderRadius: 2, mt: 1.5 } }}
+            PaperProps={{ sx: { minWidth: 280, borderRadius: 2, mt: 1.5 } }}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <MenuItem onClick={() => handleQuickAction('/sales')} sx={{ gap: 1 }}>
-              <Typography fontSize="0.9rem">New Sale</Typography>
+            {/* Header */}
+            <Box sx={{ p: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700}>
+                Quick Actions
+              </Typography>
+            </Box>
+            <Divider sx={{ my: 0 }} />
+
+            {/* Sales Group */}
+            <Box sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">
+                SALES
+              </Typography>
+            </Box>
+            <MenuItem
+              onClick={() => handleQuickAction('/sales')}
+              sx={{ py: 1.5, px: 2, gap: 2, display: 'flex' }}
+            >
+              <ReceiptIcon sx={{ fontSize: 20, color: 'primary.main' }} />
+              <Box flex={1}>
+                <Typography fontWeight={600} fontSize="0.9rem">New Sale</Typography>
+                <Typography variant="caption" color="text.secondary">⌘ Shift + N</Typography>
+              </Box>
             </MenuItem>
-            <MenuItem onClick={() => handleQuickAction('/customer-payments')} sx={{ gap: 1 }}>
-              <Typography fontSize="0.9rem">Advance Payment</Typography>
+
+            <Divider sx={{ my: 1 }} />
+
+            {/* Payments Group */}
+            <Box sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">
+                PAYMENTS
+              </Typography>
+            </Box>
+            <MenuItem
+              onClick={() => handleQuickAction('/customer-payments')}
+              sx={{ py: 1.5, px: 2, gap: 2, display: 'flex' }}
+            >
+              <CreditCardIcon sx={{ fontSize: 20, color: 'success.main' }} />
+              <Box flex={1}>
+                <Typography fontWeight={600} fontSize="0.9rem">Advance Payment</Typography>
+                <Typography variant="caption" color="text.secondary">⌘ Shift + P</Typography>
+              </Box>
             </MenuItem>
-            <MenuItem onClick={() => handleQuickAction('/stock')} sx={{ gap: 1 }}>
-              <Typography fontSize="0.9rem">Add Product</Typography>
+
+            <Divider sx={{ my: 1 }} />
+
+            {/* Inventory Group */}
+            <Box sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">
+                INVENTORY
+              </Typography>
+            </Box>
+            <MenuItem
+              onClick={() => handleQuickAction('/stock')}
+              sx={{ py: 1.5, px: 2, gap: 2, display: 'flex' }}
+            >
+              <InventoryIcon sx={{ fontSize: 20, color: 'warning.main' }} />
+              <Box flex={1}>
+                <Typography fontWeight={600} fontSize="0.9rem">Add Product</Typography>
+                <Typography variant="caption" color="text.secondary">⌘ Shift + A</Typography>
+              </Box>
             </MenuItem>
           </Menu>
-        </>
-      )}
 
-      {/* Premium/Trial Badge - Hidden on mobile */}
-      {!isMobile && (
-        <Chip
+          <Chip
           icon={<WorkspacePremiumIcon />}
           label={premium ? subscription?.tier : 'Upgrade'}
           size="small"
@@ -200,12 +354,16 @@ const HeaderActions = ({
               color: 'white',
             }),
           }}
-        />
+          />
+        </Stack>
       )}
 
-      {/* Language Switcher - Hidden on mobile */}
+      {/* DIVIDER - Desktop Only */}
+      {!isMobile && <Divider orientation="vertical" flexItem sx={{ my: 1 }} />}
+
+      {/* GROUP 3: PREFERENCES (Desktop Only) */}
       {!isMobile && (
-        <>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Tooltip title="Language">
             <IconButton
               color="inherit"
@@ -234,24 +392,27 @@ const HeaderActions = ({
               हिंदी
             </MenuItem>
           </Menu>
-        </>
+
+          <Tooltip title={`Switch to ${themeNextLabel[colorPreference]}`}>
+            <IconButton
+              color="inherit"
+              onClick={cycleColorPreference}
+              size="small"
+              aria-label={`Theme: currently ${colorPreference}. Click to switch to ${themeNextLabel[colorPreference]}`}
+              sx={{ transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
+            >
+              {themeIconMap[colorPreference]}
+            </IconButton>
+          </Tooltip>
+
+          <StatusIndicators isMobile={isMobile} />
+        </Stack>
       )}
 
-      {/* Theme Toggle */}
-      <Tooltip title={`Switch to ${themeNextLabel[colorPreference]}`}>
-        <IconButton
-          color="inherit"
-          onClick={cycleColorPreference}
-          size="small"
-          aria-label={`Theme: currently ${colorPreference}. Click to switch to ${themeNextLabel[colorPreference]}`}
-          sx={{ transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
-        >
-          {themeIconMap[colorPreference]}
-        </IconButton>
-      </Tooltip>
+      {/* DIVIDER - Desktop Only */}
+      {!isMobile && <Divider orientation="vertical" flexItem sx={{ my: 1 }} />}
 
-      {/* Status Indicators - Connection, Sync, Loading */}
-      <StatusIndicators isMobile={isMobile} />
+      {/* GROUP 4: USER (Always Visible) */}
     </Stack>
   );
 };
