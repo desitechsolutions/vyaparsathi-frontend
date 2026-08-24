@@ -85,6 +85,9 @@ const SuppliersListPage = () => {
   const [stateFilter, setStateFilter] = useState('');
   const [rowMenu, setRowMenu] = useState({ anchor: null, row: null });
 
+  // ── Bulk selection state ─────────────────────────────────────────────
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
+
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState(null);  // supplier row or null for create
 
@@ -140,6 +143,34 @@ const SuppliersListPage = () => {
       notify(`Supplier ${row.name} ${isActive(row) ? 'deactivated' : 'reactivated'}.`, 'info');
       refresh();
     } catch (e) { notify(e?.response?.data?.message || 'Toggle failed', 'error'); }
+  };
+
+  /**
+   * Bulk activate or deactivate all selected suppliers.
+   * Falls back to sequential toggle calls if the bulk endpoint is unavailable.
+   */
+  const handleBulkToggle = async (active) => {
+    if (!selectedSupplierIds.length) return;
+    try {
+      const res = await bulkToggleSupplierActive(selectedSupplierIds, active);
+      const count = res?.updatedCount ?? selectedSupplierIds.length;
+      notify(`${count} supplier${count !== 1 ? 's' : ''} ${active ? 'activated' : 'deactivated'}.`, 'success');
+    } catch {
+      // Graceful fallback: call single toggle sequentially
+      let ok = 0;
+      for (const id of selectedSupplierIds) {
+        const row = rows.find((r) => r.id === id);
+        const alreadyActive = row ? isActive(row) : !active;
+        if ((active && !alreadyActive) || (!active && alreadyActive)) {
+          try { await toggleSupplierActive(id); ok++; } catch { /* skip */ }
+        } else {
+          ok++;
+        }
+      }
+      notify(`${ok} supplier${ok !== 1 ? 's' : ''} ${active ? 'activated' : 'deactivated'}.`, 'success');
+    }
+    setSelectedSupplierIds([]);
+    refresh();
   };
 
   const openCreate = () => { setEditing(null); setEditOpen(true); };
@@ -330,7 +361,10 @@ const SuppliersListPage = () => {
           ) : (
             <DataGrid
               autoHeight rows={filtered} columns={columns} getRowId={(row) => row.id}
+              checkboxSelection
               disableRowSelectionOnClick rowHeight={62}
+              rowSelectionModel={selectedSupplierIds}
+              onRowSelectionModelChange={(newSel) => setSelectedSupplierIds(newSel)}
               onRowClick={(p) => navigate(`/suppliers/${p.row.id}`)}
               columnVisibilityModel={columnVisibilityModel}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
@@ -379,6 +413,29 @@ const SuppliersListPage = () => {
           onSaved={onSaved}
         />
       </Container>
+
+      {/* Floating bulk action bar — rendered outside Container so it overlays the page */}
+      <FloatingBulkActionBar
+        selectedCount={selectedSupplierIds.length}
+        entityLabel="supplier"
+        onClearSelection={() => setSelectedSupplierIds([])}
+        actions={[
+          {
+            label: 'Activate',
+            icon: <ActiveIcon />,
+            color: 'success',
+            variant: 'outlined',
+            onClick: () => handleBulkToggle(true),
+          },
+          {
+            label: 'Deactivate',
+            icon: <InactiveIcon />,
+            color: 'warning',
+            variant: 'outlined',
+            onClick: () => handleBulkToggle(false),
+          },
+        ]}
+      />
     </Box>
   );
 };

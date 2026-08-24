@@ -662,6 +662,7 @@ export default function ItemsPage() {
                 </Box>
               )}
               <DataGrid
+                aria-label="Items table"
                 rows={filteredDisplayItems}
                 columns={finalColumns}
                 autoHeight
