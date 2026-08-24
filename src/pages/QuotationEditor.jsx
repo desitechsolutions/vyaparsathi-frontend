@@ -344,19 +344,20 @@ export default function QuotationEditor() {
           </Alert>
         )}
 
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
           {/* Main form */}
           <Grid item xs={12} lg={8}>
             {/* Customer & dates */}
             <Card variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <PersonOutlineIcon color="primary" fontSize="small" />
                   <Typography variant="subtitle1" fontWeight={800}>Customer &amp; Dates</Typography>
                 </Stack>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+                  <Grid item xs={12} sm={6} md={6}>
                     <Autocomplete
+                      fullWidth
                       options={customers}
                       getOptionLabel={(c) => c ? `${c.name}${c.phone ? ' — ' + c.phone : ''}` : ''}
                       isOptionEqualToValue={(a, b) => a?.id === b?.id}
@@ -418,7 +419,7 @@ export default function QuotationEditor() {
 
             {/* Line items */}
             <Card variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <BuildIcon color="primary" fontSize="small" />
@@ -603,12 +604,12 @@ export default function QuotationEditor() {
 
             {/* Charges + notes + terms */}
             <Card variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>
                   Additional Charges &amp; Notes
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
+                <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+                  <Grid item xs={12} sm={6} md={4}>
                     <TextField
                       label="Invoice Discount"
                       type="number"
@@ -622,7 +623,7 @@ export default function QuotationEditor() {
                       helperText="Deducted from bill total"
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid item xs={12} sm={6} md={4}>
                     <TextField
                       label="Shipping"
                       type="number"
@@ -636,7 +637,7 @@ export default function QuotationEditor() {
                       helperText="Added to bill total"
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid item xs={12} sm={6} md={4}>
                     <TextField
                       label="Other Charges"
                       type="number"

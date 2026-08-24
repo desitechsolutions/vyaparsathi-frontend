@@ -291,7 +291,7 @@ const Login = () => {
   );
 
   const renderLogin = () => (
-    <Stack spacing={3} sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={800} sx={{ letterSpacing: '-0.5px', color: 'text.primary' }}>
           {t('login.welcome', 'Welcome back')}
@@ -452,7 +452,7 @@ const Login = () => {
   );
 
   const renderRegister = () => (
-    <Stack spacing={3} sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
       <Stack direction="row" spacing={1} alignItems="center">
         <IconButton
           size="small"
@@ -474,7 +474,7 @@ const Login = () => {
       </Stack>
 
       <Box component="form" onSubmit={handleSubmit} noValidate>
-        <Grid container spacing={2}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
           <Grid item xs={12} sm={6}>
             <TextField
               label={t('login.firstName', 'First name')}
@@ -627,7 +627,7 @@ const Login = () => {
   );
 
   const renderForgot = () => (
-    <Stack spacing={3} sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
       <Stack direction="row" spacing={1} alignItems="center">
         <IconButton
           size="small"
@@ -730,7 +730,7 @@ const Login = () => {
   };
 
   const renderMfaChallenge = () => (
-    <Stack spacing={3} sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} sx={{ width: '100%' }}>
       <Stack direction="row" spacing={1} alignItems="center">
         <IconButton
           size="small"
@@ -809,7 +809,7 @@ const Login = () => {
   );
 
   const renderRegisterSuccess = () => (
-    <Stack spacing={3} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
       <Avatar sx={{ bgcolor: 'success.light', color: 'success.main', width: 64, height: 64 }}>
         <MarkEmailReadIcon fontSize="large" />
       </Avatar>
@@ -867,7 +867,7 @@ const Login = () => {
   );
 
   const renderForgotSent = () => (
-    <Stack spacing={3} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
+    <Stack spacing={{ xs: 2, sm: 3 }} alignItems="center" textAlign="center" sx={{ width: '100%' }}>
       <Avatar sx={{ bgcolor: 'success.light', color: 'success.main', width: 64, height: 64 }}>
         <MarkEmailReadIcon fontSize="large" />
       </Avatar>
@@ -919,7 +919,7 @@ const Login = () => {
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', maxWidth: { xs: '100%', sm: 400, md: 500 }, px: { xs: 2, sm: 0 } }}>
       {renderStatusBanners()}
       {renderCurrentView()}
     </Box>

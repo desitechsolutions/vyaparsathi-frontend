@@ -111,7 +111,7 @@ const SectionCard = ({ id, title, subtitle, action, children }) => {
       scrollMarginTop: 96,
     }}>
       <Box sx={{
-        px: 3, py: 2,
+        px: { xs: 2, sm: 3 }, py: 2,
         borderBottom: '1px solid',
         borderColor: 'divider',
         bgcolor: alpha(theme.palette.text.primary, 0.02),
@@ -129,7 +129,7 @@ const SectionCard = ({ id, title, subtitle, action, children }) => {
         </Box>
         {action}
       </Box>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
         {children}
       </Box>
     </Paper>
@@ -607,26 +607,26 @@ const SettingsPage = () => {
       title="Company identity"
       subtitle="Statutory identifiers required on every invoice, receipt, and tax document."
     >
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" required
             label={<InfoLabel tip="The name registered with the Ministry of Corporate Affairs / GST. Appears at the top of every tax document.">Legal name</InfoLabel>}
             name="legalName" value={shopData.legalName || ''} onChange={handleTextChange}
             helperText="Registered legal / MCA name" sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small"
             label={<InfoLabel tip="The customer-facing brand / DBA. Falls back to Legal name if blank.">Trade name</InfoLabel>}
             name="tradeName" value={shopData.tradeName || ''} onChange={handleTextChange}
             helperText="Brand / DBA (falls back to shop name)" sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" required
             label="Shop name (display)" name="name"
             value={shopData.name} onChange={handleTextChange}
             error={!!errors.name} helperText={errors.name || 'Short label used across the app'} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" select
             label="Industry type" name="industryType" value={shopData.industryType || ''}
             onChange={handleTextChange} sx={inputSx}>
@@ -638,21 +638,21 @@ const SettingsPage = () => {
             ))}
           </TextField>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small"
             label={<InfoLabel tip="15-digit GSTIN. First 2 chars are your state code.">GSTIN</InfoLabel>}
             name="gstin" value={shopData.gstin || ''} onChange={handleTextChange}
             error={!!errors.gstin} helperText={errors.gstin || '15-char CBIC format'} sx={inputSx}
             inputProps={{ style: { textTransform: 'uppercase' }, maxLength: 15 }} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small"
             label={<InfoLabel tip="10-char Permanent Account Number. Required on B2B invoices.">PAN</InfoLabel>}
             name="pan" value={shopData.pan || ''} onChange={handleTextChange}
             error={!!errors.pan} helperText={errors.pan || 'e.g. ABCDE1234F'} sx={inputSx}
             inputProps={{ style: { textTransform: 'uppercase' }, maxLength: 10 }} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small"
             label={<InfoLabel tip="Corporate Identification Number for Pvt Ltd / LLP entities. Optional for proprietorships.">CIN / LLPIN</InfoLabel>}
             name="cin" value={shopData.cin || ''} onChange={handleTextChange}
@@ -679,20 +679,20 @@ const SettingsPage = () => {
       title="Address & contact"
       subtitle="Registered address of the business, with state code for GST determination."
     >
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" label="Address line 1" name="address" multiline rows={2}
             value={shopData.address || ''} onChange={handleTextChange} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" label="Address line 2 (optional)" name="addressLine2" multiline rows={2}
             value={shopData.addressLine2 || ''} onChange={handleTextChange} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" label="City" name="city"
             value={shopData.city || ''} onChange={handleTextChange} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" select required
             label={<InfoLabel tip="Drives CGST+SGST vs IGST decisions on outgoing invoices.">State (GST code)</InfoLabel>}
             name="stateCode" value={shopData.stateCode || ''}
@@ -705,35 +705,35 @@ const SettingsPage = () => {
             ))}
           </TextField>
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid item xs={6} sm={3} md={2}>
           <TextField fullWidth size="small" label="Pincode" name="pincode"
             value={shopData.pincode || ''} onChange={handleTextChange}
             error={!!errors.pincode} helperText={errors.pincode || ''}
             inputProps={{ maxLength: 6 }} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid item xs={6} sm={3} md={2}>
           <TextField fullWidth size="small" label="Country" name="country"
             value={shopData.country || 'IN'} onChange={handleTextChange} sx={inputSx}
             inputProps={{ maxLength: 3, style: { textTransform: 'uppercase' } }} />
         </Grid>
         <Grid item xs={12}><Divider /></Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" required label="Business email" name="email"
             value={shopData.email || ''} onChange={handleTextChange}
             error={!!errors.email} helperText={errors.email || 'For alerts + customer emails'} sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" label="Business phone" name="phone"
             value={shopData.phone || ''} onChange={handleTextChange}
             error={!!errors.phone} helperText={errors.phone || '10-digit mobile'}
             placeholder="9876543210" sx={inputSx} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" label="Support contact" name="supportContact"
             value={shopData.supportContact || ''} onChange={handleTextChange} sx={inputSx}
             helperText="Shown on invoice footer" />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={6}>
           <TextField fullWidth size="small" label="Website (optional)" name="companyWebsite"
             value={shopData.companyWebsite || ''} onChange={handleTextChange} sx={inputSx}
             InputProps={{ startAdornment: <InputAdornment position="start">🌐</InputAdornment> }} />
@@ -748,8 +748,8 @@ const SettingsPage = () => {
       title="Signatory & branding"
       subtitle="Authorised signatory name and brand assets — appear on the invoice signatory block and header."
     >
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+        <Grid item xs={12} sm={6} md={4}>
           <Stack spacing={1.5} alignItems="center">
             <Typography variant="caption" fontWeight={700} color="text.secondary"
               sx={{ letterSpacing: 0.6, alignSelf: 'flex-start' }}>LOGO</Typography>
@@ -772,7 +772,7 @@ const SettingsPage = () => {
             </Typography>
           </Stack>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <Stack spacing={1.5} alignItems="center">
             <Typography variant="caption" fontWeight={700} color="text.secondary"
               sx={{ letterSpacing: 0.6, alignSelf: 'flex-start' }}>SIGNATURE</Typography>
@@ -795,7 +795,7 @@ const SettingsPage = () => {
             </Typography>
           </Stack>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <Stack spacing={2}>
             <TextField fullWidth size="small" label="Signatory name" name="signatoryName"
               value={shopData.signatoryName || ''} onChange={handleTextChange} sx={inputSx}
@@ -845,13 +845,13 @@ const SettingsPage = () => {
       title="Invoicing preferences"
       subtitle="Doc numbering, due-date policy, and the fine-print rendered on every invoice."
     >
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" label="Invoice number prefix" name="invoicePrefix"
             value={shopData.invoicePrefix || ''} onChange={handleTextChange} sx={inputSx}
             helperText='e.g. "INV/25-26/"' />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField fullWidth size="small" type="number" label="Default due days" name="invoiceDueDays"
             value={shopData.invoiceDueDays ?? 30} onChange={handleTextChange} sx={inputSx}
             inputProps={{ min: 0, max: 180 }}
@@ -1017,14 +1017,14 @@ const SettingsPage = () => {
       pb: isDirty ? { xs: 14, md: 12 } : 6,
     }} ref={containerRef}>
       {stickyBar}
-      <Container maxWidth="xl">
+      <Container maxWidth="xl" sx={{ px: { xs: 1, sm: 2 } }}>
         <Snackbar open={snackbar.open} autoHideDuration={4000}
           onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
           <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 1.5 }}>{snackbar.message}</Alert>
         </Snackbar>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
           {!isMobile && (
             <Grid item md={3}>
               {leftRail}

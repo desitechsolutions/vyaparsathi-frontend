@@ -517,7 +517,7 @@ const SetupShop = () => {
 
       <Divider sx={{ my: 1 }}><Typography variant="caption" color="text.secondary">Optional company details</Typography></Divider>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
           <TextField
             select
@@ -573,7 +573,7 @@ const SetupShop = () => {
         Not GST-registered yet? Leave GSTIN blank and we'll issue Bill of Supply instead of tax invoices — you can add it later from Settings.
       </Alert>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={7}>
           <TextField
             label="GSTIN"
@@ -676,7 +676,7 @@ const SetupShop = () => {
         fullWidth
         placeholder="Area, landmark"
       />
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
           <TextField
             label="City"
@@ -774,7 +774,7 @@ const SetupShop = () => {
         )}
       </Paper>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
         <Grid item xs={12} sm={6}>
           <TextField
             label="Signatory name"
@@ -794,7 +794,7 @@ const SetupShop = () => {
             fullWidth
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Invoice prefix"
             name="invoicePrefix"
@@ -804,7 +804,7 @@ const SetupShop = () => {
             helperText="e.g. INV → INV/2026/0001"
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Brand color"
             name="brandColor"
@@ -816,7 +816,7 @@ const SetupShop = () => {
             InputProps={{ sx: { height: 56 } }}
           />
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             select
             label="System language"
@@ -926,14 +926,14 @@ const SetupShop = () => {
         </Stack>
 
         {/* Two-column body: left rail (steps + tips), right pane (form) */}
-        <Grid container spacing={3} alignItems="flex-start">
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} alignItems="flex-start">
 
           {/* ─── Left rail ────────────────────────────────────────── */}
           <Grid item xs={12} md={4} lg={4}>
             <Paper
               variant="outlined"
               sx={{
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 borderRadius: 2,
                 position: { md: 'sticky' },
                 top: { md: 96 }, // sits below the sticky top bar
@@ -1003,7 +1003,7 @@ const SetupShop = () => {
                   onClick={handleBack}
                   disabled={activeStep === 0 || isLoading}
                   startIcon={<ChevronLeftIcon />}
-                  sx={{ textTransform: 'none' }}
+                  sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
                 >
                   Back
                 </Button>
@@ -1014,7 +1014,7 @@ const SetupShop = () => {
                     variant="contained"
                     disabled={isLoading || (activeStep === 0 && (codeCheckState.status === 'checking' || codeCheckState.status === 'taken' || codeCheckState.status === 'invalid'))}
                     endIcon={<ChevronRightIcon />}
-                    sx={{ textTransform: 'none', fontWeight: 700, minWidth: 140 }}
+                    sx={{ textTransform: 'none', fontWeight: 700, minWidth: 140, width: { xs: '100%', sm: 'auto' } }}
                   >
                     {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Continue'}
                   </Button>
@@ -1025,7 +1025,7 @@ const SetupShop = () => {
                     color="primary"
                     disabled={isLoading}
                     endIcon={isLoading ? null : <CheckIcon />}
-                    sx={{ textTransform: 'none', fontWeight: 700, minWidth: 180 }}
+                    sx={{ textTransform: 'none', fontWeight: 700, minWidth: 180, width: { xs: '100%', sm: 'auto' } }}
                   >
                     {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Finish setup'}
                   </Button>

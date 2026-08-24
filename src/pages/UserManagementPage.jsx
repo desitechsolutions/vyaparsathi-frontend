@@ -633,11 +633,11 @@ const UserManagementPage = () => {
           </IconButton>
         </DialogTitle>
         <Divider />
-        <DialogContent>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 1.5, sm: 2 } }}>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <Box>
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Personal details</Typography>
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mt: 0.5 }}>
                 <Grid item xs={12} sm={6}>
                   <TextField autoFocus required fullWidth
                     label={t('userManagementPage.firstName', 'First name')} name="firstName"
@@ -671,7 +671,7 @@ const UserManagementPage = () => {
 
             <Box>
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Sign-in credentials</Typography>
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mt: 0.5 }}>
                 <Grid item xs={12} sm={6}>
                   <TextField required fullWidth
                     label={t('userManagementPage.username', 'Username')} name="username"
@@ -702,7 +702,7 @@ const UserManagementPage = () => {
 
             <Box>
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Access & role</Typography>
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mt: 0.5 }}>
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth required>
                     <InputLabel>{t('userManagementPage.role', 'Role')}</InputLabel>
@@ -769,8 +769,8 @@ const UserManagementPage = () => {
           </IconButton>
         </DialogTitle>
         <Divider />
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 1.5, sm: 2 } }}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
               <TextField autoFocus required fullWidth label={t('userManagementPage.firstName', 'First name')} name="firstName"
                 value={formData.firstName || ''} onChange={handleFormChange}
@@ -828,7 +828,7 @@ const UserManagementPage = () => {
           </IconButton>
         </DialogTitle>
         <Divider />
-        <DialogContent sx={{ minWidth: 320 }}>
+        <DialogContent sx={{ minWidth: { xs: '100%', sm: 320 }, px: { xs: 2, sm: 3 }, py: { xs: 1.5, sm: 2 } }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <FormControl fullWidth>
               <InputLabel>Role</InputLabel>

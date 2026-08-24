@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  Grid,
   IconButton,
   InputLabel,
   MenuItem,
@@ -75,7 +76,7 @@ export default function TeamPage() {
   const { has } = usePermissions();
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 2.5, md: 3 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} mb={3}>
         <Box>
           <Typography variant="overline" color="text.secondary" fontWeight={700}>Team &amp; access</Typography>
@@ -87,7 +88,7 @@ export default function TeamPage() {
       </Stack>
 
       <Paper variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: { xs: 1, sm: 2 } }}>
           <Tab value="members" label="Members" />
           <Tab value="invitations" label="Invitations" />
         </Tabs>
@@ -330,40 +331,68 @@ function MembersTab({ canManage, onNotify }) {
       {/* Change role dialog */}
       <Dialog open={roleDialog.open} onClose={closeRoleChange} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2.5 } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>Change role</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
               Choose a new role for <strong>{roleDialog.member?.email}</strong>.
             </Typography>
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                label="Role"
-                value={roleDialog.newRole}
-                onChange={(e) => setRoleDialog({ ...roleDialog, newRole: e.target.value })}
-              >
-                {roles.filter((r) => r.name !== 'OWNER').map((r) => (
-                  <MenuItem key={r.id} value={r.name}>
-                    <Stack>
-                      <Typography variant="body2" fontWeight={700}>{r.displayName || r.name}</Typography>
-                      {r.description && <Typography variant="caption" color="text.secondary">{r.description}</Typography>}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    label="Role"
+                    value={roleDialog.newRole}
+                    onChange={(e) => setRoleDialog({ ...roleDialog, newRole: e.target.value })}
+                  >
+                    {roles.filter((r) => r.name !== 'OWNER').map((r) => (
+                      <MenuItem key={r.id} value={r.name}>
+                        <Stack>
+                          <Typography variant="body2" fontWeight={700}>{r.displayName || r.name}</Typography>
+                          {r.description && <Typography variant="caption" color="text.secondary">{r.description}</Typography>}
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeRoleChange} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button variant="contained" onClick={applyRoleChange} sx={{ textTransform: 'none', fontWeight: 700 }}>Save</Button>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={1}
+            sx={{ width: '100%' }}
+            justifyContent="flex-end"
+          >
+            <Button
+              onClick={closeRoleChange}
+              sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={applyRoleChange}
+              sx={{ textTransform: 'none', fontWeight: 700, width: { xs: '100%', sm: 'auto' } }}
+            >
+              Save
+            </Button>
+          </Stack>
         </DialogActions>
       </Dialog>
 
       {/* Confirm remove */}
-      <Dialog open={confirm.open} onClose={() => setConfirm({ open: false, member: null, action: null })} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2.5 } }}>
+      <Dialog
+        open={confirm.open}
+        onClose={() => setConfirm({ open: false, member: null, action: null })}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+      >
         <DialogTitle sx={{ fontWeight: 800 }}>Remove from shop?</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
           <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
             They'll lose access to this shop immediately. Their user account and any other shop memberships they hold are untouched.
           </Alert>
@@ -371,9 +400,28 @@ function MembersTab({ canManage, onNotify }) {
             Remove <strong>{confirm.member?.email}</strong> from this shop?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirm({ open: false, member: null, action: null })} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={performRemove} sx={{ textTransform: 'none', fontWeight: 700 }}>Remove</Button>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={1}
+            sx={{ width: '100%' }}
+            justifyContent="flex-end"
+          >
+            <Button
+              onClick={() => setConfirm({ open: false, member: null, action: null })}
+              sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={performRemove}
+              sx={{ textTransform: 'none', fontWeight: 700, width: { xs: '100%', sm: 'auto' } }}
+            >
+              Remove
+            </Button>
+          </Stack>
         </DialogActions>
       </Dialog>
     </>
@@ -562,7 +610,13 @@ function InvitationsTab({ canInvite, onNotify }) {
       </Paper>
 
       {/* Invite dialog */}
-      <Dialog open={inviteOpen} onClose={() => setInviteOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2.5 } }}>
+      <Dialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+      >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
             <Typography variant="h6" fontWeight={800}>Invite a team member</Typography>
@@ -573,63 +627,95 @@ function InvitationsTab({ canInvite, onNotify }) {
           </IconButton>
         </DialogTitle>
         <Divider />
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <TextField
-              label="Email address"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value.trim() })}
-              autoFocus fullWidth required
-              error={!!errors.email}
-              helperText={errors.email || 'They must accept using this exact address.'}
-            />
-            <TextField
-              label="Mobile number (optional)"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
-              fullWidth
-            />
-            <FormControl fullWidth required error={!!errors.roleName}>
-              <InputLabel>Role</InputLabel>
-              <Select
-                label="Role"
-                value={form.roleName}
-                onChange={(e) => setForm({ ...form, roleName: e.target.value })}
-              >
-                {roles.map((r) => (
-                  <MenuItem key={r.id} value={r.name} disabled={r.name === 'OWNER'}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography variant="body2" fontWeight={700}>{r.displayName || r.name}</Typography>
-                      {r.system && <Chip size="small" label="Preset" sx={{ height: 18, fontSize: '0.65rem' }} />}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-              {!errors.roleName && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {roles.find((r) => r.name === form.roleName)?.description || 'Pick a role to see its permissions.'}
-                </Typography>
-              )}
-            </FormControl>
-            <TextField
-              label="Personal message (optional)"
-              value={form.message}
-              onChange={(e) => setForm({ ...form, message: e.target.value.slice(0, 500) })}
-              fullWidth multiline rows={3}
-              placeholder="Welcome to the team!"
-              helperText={`${(form.message || '').length}/500`}
-            />
-          </Stack>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 } }}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mt: 0 }}>
+            <Grid item xs={12} sm={6} md={6}>
+              <TextField
+                label="Email address"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value.trim() })}
+                autoFocus
+                fullWidth
+                required
+                error={!!errors.email}
+                helperText={errors.email || 'They must accept using this exact address.'}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <TextField
+                label="Mobile number (optional)"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required error={!!errors.roleName}>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  label="Role"
+                  value={form.roleName}
+                  onChange={(e) => setForm({ ...form, roleName: e.target.value })}
+                >
+                  {roles.map((r) => (
+                    <MenuItem key={r.id} value={r.name} disabled={r.name === 'OWNER'}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography variant="body2" fontWeight={700}>{r.displayName || r.name}</Typography>
+                        {r.system && <Chip size="small" label="Preset" sx={{ height: 18, fontSize: '0.65rem' }} />}
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </Select>
+                {!errors.roleName && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {roles.find((r) => r.name === form.roleName)?.description || 'Pick a role to see its permissions.'}
+                  </Typography>
+                )}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Personal message (optional)"
+                value={form.message}
+                onChange={(e) => setForm({ ...form, message: e.target.value.slice(0, 500) })}
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="Welcome to the team!"
+                helperText={`${(form.message || '').length}/500`}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <Divider />
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setInviteOpen(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button variant="contained" onClick={submitInvite}
-            disabled={busy || !form.email || !form.roleName}
-            sx={{ textTransform: 'none', fontWeight: 700, minWidth: 160 }}>
-            {busy ? <CircularProgress size={20} color="inherit" /> : 'Send invitation'}
-          </Button>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={1}
+            sx={{ width: '100%' }}
+            justifyContent="flex-end"
+          >
+            <Button
+              onClick={() => setInviteOpen(false)}
+              sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={submitInvite}
+              disabled={busy || !form.email || !form.roleName}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                minWidth: { xs: 'unset', sm: 160 },
+                width: { xs: '100%', sm: 'auto' },
+              }}
+            >
+              {busy ? <CircularProgress size={20} color="inherit" /> : 'Send invitation'}
+            </Button>
+          </Stack>
         </DialogActions>
       </Dialog>
     </>
