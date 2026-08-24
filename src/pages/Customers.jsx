@@ -24,6 +24,7 @@ import {
   Alert,
   Tooltip,
   useTheme,
+  useMediaQuery,
   alpha,
   Table,
   TableBody,
@@ -125,6 +126,7 @@ const FilterChip = ({ active, onClick, label, count }) => (
 
 export default function Customers() {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
   const {
@@ -955,6 +957,7 @@ export default function Customers() {
         onClose={() => setDeleteConfirmOpen(false)}
         maxWidth="xs"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>Confirm Customer Deletion</DialogTitle>

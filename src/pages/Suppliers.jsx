@@ -5,8 +5,9 @@ import {
   Typography, Box, Stack, Button, TextField, Modal, IconButton, Snackbar,
   Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Tooltip, CircularProgress, Divider, Avatar, Card, Grid, Dialog,
-  DialogTitle, DialogContent, DialogActions, Chip
+  DialogTitle, DialogContent, DialogActions, Chip, useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
   Business as BusinessIcon, Email as EmailIcon, Phone as PhoneIcon,
@@ -59,6 +60,8 @@ const initialForm = { name: "", contactPerson: "", phone: "", email: "", address
 const Suppliers = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -282,7 +285,7 @@ const Suppliers = () => {
       </StyledModal>
 
       {/* Professional Deletion Prompt */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { borderRadius: 4, p: 1.5, maxWidth: 450, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}>
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 4, p: 1.5, maxWidth: 450, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 900, color: 'error.main' }}>
           <WarningIcon /> {t('suppliersPage.confirmDelete')}
         </DialogTitle>
@@ -304,6 +307,7 @@ const Suppliers = () => {
       <Dialog
         open={ledgerDialogOpen}
         onClose={() => setLedgerDialogOpen(false)}
+        fullScreen={isMobile}
         maxWidth="lg"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3, p: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}

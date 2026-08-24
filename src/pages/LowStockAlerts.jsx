@@ -8,7 +8,7 @@ import {
   InputAdornment, LinearProgress, Alert, Avatar, Autocomplete, Skeleton,
   Tooltip, IconButton, Snackbar, Dialog, DialogTitle, DialogContent,
   DialogActions, Divider, List, ListItem, ListItemAvatar, ListItemText,
-  Popover,
+  Popover, useMediaQuery,
 } from '@mui/material';
 import {
   Warning as WarningIcon,
@@ -280,6 +280,7 @@ const FilterChip = ({ active, onClick, label, count, color }) => (
 const LowStockAlerts = () => {
   const { t } = useTranslation();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const { manuallySetAlerts } = useAlerts();
 
@@ -1378,7 +1379,7 @@ const LowStockAlerts = () => {
 
       {/* ── Bulk edit dialog (V79 — 2e) ──────────────────────────────── */}
       <Dialog open={bulkEditOpen} onClose={() => setBulkEditOpen(false)}
-        fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
+        fullWidth maxWidth="sm" fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <TuneIcon color="primary" fontSize="small" />
@@ -1470,7 +1471,7 @@ const LowStockAlerts = () => {
 
       {/* ── Bulk PO — split by supplier confirmation ─────────────────── */}
       <Dialog open={bulkDialogOpen} onClose={() => setBulkDialogOpen(false)}
-        fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
+        fullWidth maxWidth="sm" fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <CartIcon color="primary" fontSize="small" />

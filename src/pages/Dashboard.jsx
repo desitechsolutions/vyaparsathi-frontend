@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useTheme } from '@mui/material/styles';
+import { useTheme, useMediaQuery } from '@mui/material/styles';
 import {
   Grid,
   Paper,
@@ -378,6 +378,7 @@ const setupChecklist = useMemo(() => {
 
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const chartColor = theme.palette.text.secondary;
   const chartGrid = theme.palette.divider;
 
@@ -1125,7 +1126,7 @@ const setupChecklist = useMemo(() => {
       )}
 
       {/* Today's Sales Modal */}
-      <Dialog open={todayModalOpen} onClose={() => setTodayModalOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: "16px" } }}>
+      <Dialog open={todayModalOpen} onClose={() => setTodayModalOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: "16px" } }}>
         <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
           {t('dashboardPage.todaysTransactions')}
           <IconButton onClick={() => setTodayModalOpen(false)} sx={{ position: "absolute", right: 16, top: 16 }}>
@@ -1176,7 +1177,7 @@ const setupChecklist = useMemo(() => {
       </Dialog>
 
       {/* Items Sold Modal */}
-      <Dialog open={itemModalOpen} onClose={() => setItemModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: "16px" } }}>
+      <Dialog open={itemModalOpen} onClose={() => setItemModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: "16px" } }}>
         <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>{t('dashboardPage.productPerformance')}</DialogTitle>
         <DialogContent dividers>
           <Table size="small">

@@ -28,6 +28,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   InputAdornment,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -116,6 +118,8 @@ const fmtDateTime = (v) => {
 
 const UserManagementPage = () => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [users, setUsers] = useState([]);
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -615,7 +619,7 @@ const UserManagementPage = () => {
       </Paper>
 
       {/* Create Dialog */}
-      <Dialog open={dialogMode === 'create'} onClose={handleDialogClose} maxWidth="md" fullWidth
+      <Dialog open={dialogMode === 'create'} onClose={handleDialogClose} maxWidth="md" fullWidth fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2.5 } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
@@ -751,7 +755,7 @@ const UserManagementPage = () => {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={dialogMode === 'edit'} onClose={handleDialogClose} maxWidth="sm" fullWidth
+      <Dialog open={dialogMode === 'edit'} onClose={handleDialogClose} maxWidth="sm" fullWidth fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2.5 } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
@@ -810,7 +814,7 @@ const UserManagementPage = () => {
       </Dialog>
 
       {/* Role Dialog */}
-      <Dialog open={dialogMode === 'role'} onClose={handleDialogClose} maxWidth="xs" fullWidth
+      <Dialog open={dialogMode === 'role'} onClose={handleDialogClose} maxWidth="xs" fullWidth fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2.5 } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>

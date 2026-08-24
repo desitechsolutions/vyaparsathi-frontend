@@ -7,6 +7,7 @@ import {
   Container, Typography, Box, Snackbar, Alert, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, InputAdornment, Autocomplete,
   Stack, Paper, Chip, Tooltip, IconButton, Skeleton, MenuItem, Menu, Divider,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -161,6 +162,7 @@ const isOverdue = (po) => {
 const PurchaseOrders = () => {
   const { t } = useTranslation();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -817,6 +819,7 @@ const PurchaseOrders = () => {
 
         {/* Submit confirmation */}
         <Dialog open={submitDialog.open} onClose={() => setSubmitDialog({ open: false, po: null })}
+          fullScreen={isMobile}
           PaperProps={{ sx: { borderRadius: 2 } }}>
           <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Submit purchase order?</DialogTitle>
           <DialogContent>
@@ -840,6 +843,7 @@ const PurchaseOrders = () => {
         {/* Cancel confirmation — reason is required (BE @NotBlank, 500-char cap) */}
         <Dialog open={cancelDialog.open}
           onClose={() => setCancelDialog({ open: false, po: null, reason: '' })}
+          fullScreen={isMobile}
           PaperProps={{ sx: { borderRadius: 2, minWidth: 480 } }}>
           <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>
             Cancel this purchase order?
@@ -884,6 +888,7 @@ const PurchaseOrders = () => {
 
         {/* "Mark sent" confirmation — Phase 1 stub, Phase 5 wires real email */}
         <Dialog open={sendDialog.open} onClose={() => setSendDialog({ open: false, po: null })}
+          fullScreen={isMobile}
           PaperProps={{ sx: { borderRadius: 2 } }}>
           <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Mark as sent to supplier?</DialogTitle>
           <DialogContent>
@@ -907,6 +912,7 @@ const PurchaseOrders = () => {
 
         {/* Mark received — admin closeout */}
         <Dialog open={receivedDialog.open} onClose={() => setReceivedDialog({ open: false, po: null })}
+          fullScreen={isMobile}
           PaperProps={{ sx: { borderRadius: 2 } }}>
           <DialogTitle sx={{ p: 2.5, fontWeight: 800 }}>Mark PO as fully received?</DialogTitle>
           <DialogContent>
@@ -930,6 +936,7 @@ const PurchaseOrders = () => {
 
         {/* Delete draft — retains existing modal-flavoured guard */}
         <Dialog open={deleteDialog?.open || false} onClose={cancelDelete}
+          fullScreen={isMobile}
           PaperProps={{ sx: { borderRadius: 2 } }}>
           <DialogTitle sx={{ p: 2.5, fontWeight: 800, color: 'error.main' }}>Delete draft PO?</DialogTitle>
           <DialogContent>

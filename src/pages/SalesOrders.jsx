@@ -3,7 +3,7 @@ import {
   Box, Paper, Typography, Button, Chip, Table, TableBody, TableCell, TableHead,
   TableRow, TableContainer, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Stack, CircularProgress, TablePagination, Alert,
-  InputAdornment, LinearProgress, Divider,
+  InputAdornment, LinearProgress, Divider, useTheme, useMediaQuery,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -49,6 +49,8 @@ const CONVERTIBLE = new Set(['APPROVED', 'PARTIALLY_FULFILLED']);
 const inr = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const SalesOrders = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const location = useLocation();
   const [rows, setRows] = useState([]);
@@ -355,7 +357,7 @@ const SalesOrders = () => {
       {/* Convert-to-Sale dialog (partial fulfillment) */}
       <Dialog open={convertTarget !== null}
         onClose={() => !converting && setConvertTarget(null)}
-        maxWidth="md" fullWidth>
+        maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 800 }}>
           Convert to Sale — {convertTarget?.orderNo}
         </DialogTitle>

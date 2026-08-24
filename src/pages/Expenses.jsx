@@ -5,7 +5,7 @@ import {
   Button, TextField, Dialog, DialogActions, DialogContent, DialogTitle,
   Box, Typography, CircularProgress, Snackbar, Alert, Paper, Grid,
   Card, CardContent, IconButton, DialogContentText, Stack, Chip,
-  MenuItem, InputAdornment, Divider
+  MenuItem, InputAdornment, Divider, useTheme, useMediaQuery
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
@@ -17,6 +17,8 @@ const EXPENSE_CATEGORIES = ['Rent', 'Salary', 'Electricity', 'Water', 'Inventory
 
 const Expenses = () => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -155,7 +157,7 @@ const Expenses = () => {
       </Paper>
 
       {/* Record/Edit Dialog */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} fullScreen={isMobile} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4 } }}>
         <DialogTitle sx={{ fontWeight: 900 }}>{isEditing ? t('expensesPage.editExpense') : t('expensesPage.newExpense')}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
@@ -180,7 +182,7 @@ const Expenses = () => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullScreen={isMobile}>
         <DialogTitle>{t('expensesPage.deleteTitle')}</DialogTitle>
         <DialogContent><DialogContentText>{t('expensesPage.deleteText')}</DialogContentText></DialogContent>
         <DialogActions sx={{ p: 3 }}>

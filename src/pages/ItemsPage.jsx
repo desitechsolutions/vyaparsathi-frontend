@@ -26,6 +26,7 @@ import {
   Skeleton,
   Chip,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
@@ -62,6 +63,7 @@ const STOCK_LEVEL_COLORS = {
 export default function ItemsPage() {
   const { t } = useTranslation();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const {
     loading,
@@ -568,6 +570,7 @@ export default function ItemsPage() {
         onClose={handleDialogClose}
         fullWidth
         maxWidth="md"
+        fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
@@ -619,7 +622,7 @@ export default function ItemsPage() {
       </Dialog>
 
       {/* Bulk Deactivate Confirmation */}
-      <Dialog open={openBulkDeleteConfirm} onClose={() => setOpenBulkDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Dialog open={openBulkDeleteConfirm} onClose={() => setOpenBulkDeleteConfirm(false)} fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Deactivate selected items?</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -638,7 +641,7 @@ export default function ItemsPage() {
       </Dialog>
 
       {/* Delete Variant Confirmation */}
-      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Dialog open={openDeleteConfirm} onClose={() => setOpenDeleteConfirm(false)} fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>{t('itemsPage.deleteDialogTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -660,6 +663,7 @@ export default function ItemsPage() {
         onClose={() => setOpenViewVariantsDialog(false)}
         fullWidth
         maxWidth="md"
+        fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', fontWeight: 700 }}>
@@ -693,6 +697,7 @@ export default function ItemsPage() {
         onClose={closeDuplicateWarning}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontWeight: 700 }}>

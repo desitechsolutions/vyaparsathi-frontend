@@ -12,7 +12,7 @@ import {
   MenuItem, Select, FormControl, Card, CardContent,
   Avatar, Chip, Stack, Divider, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, LinearProgress, Checkbox, Alert, IconButton, Tooltip as MuiTooltip,
-  Snackbar, ToggleButton, ToggleButtonGroup
+  Snackbar, ToggleButton, ToggleButtonGroup, useMediaQuery
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -72,6 +72,7 @@ const NUM = (n) => (n === null || n === undefined) ? '0' : Number(n).toLocaleStr
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { alerts } = useAlerts();
 
   // ── Range + granularity state (drives every fetch) ──
@@ -785,7 +786,7 @@ const AnalyticsDashboard = () => {
         </Box>
 
         {/* PO MODAL */}
-        <Dialog open={orderModal.open} onClose={() => setOrderModal({ open: false, item: null })} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}>
+        <Dialog open={orderModal.open} onClose={() => setOrderModal({ open: false, item: null })} fullWidth maxWidth="xs" fullScreen={isMobile} PaperProps={{ sx: { borderRadius: 4, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' } }}>
           <DialogTitle sx={{ fontWeight: 800, color: 'text.primary' }}>Create Purchase Order</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
