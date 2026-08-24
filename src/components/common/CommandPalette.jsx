@@ -78,11 +78,25 @@ const CommandPalette = () => {
       fullWidth={isMobile}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? '16px' : '12px',
-          maxHeight: '80vh',
-          mt: isMobile ? undefined : -4,
-          boxShadow: '0 20px 80px rgba(0, 0, 0, 0.3)',
+          borderRadius: isMobile ? '16px 16px 0 0' : '12px',
+          maxHeight: isMobile ? '90vh' : '80vh',
+          mt: isMobile ? 'auto' : -4,
+          mb: isMobile ? 0 : undefined,
+          boxShadow: isMobile
+            ? '0 -10px 60px rgba(0, 0, 0, 0.2)'
+            : '0 20px 80px rgba(0, 0, 0, 0.3)',
           background: 'background.paper',
+          position: isMobile ? 'fixed' : 'absolute',
+          bottom: isMobile ? 0 : undefined,
+          left: isMobile ? 0 : undefined,
+          right: isMobile ? 0 : undefined,
+        },
+      }}
+      slotProps={{
+        backdrop: {
+          sx: {
+            backdropFilter: 'blur(4px)',
+          },
         },
       }}
     >

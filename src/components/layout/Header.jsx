@@ -36,9 +36,11 @@ const Header = ({ onDrawerToggle }) => {
         position="fixed"
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          boxShadow: 'none',
+          boxShadow: '0 4px 20px rgba(25, 118, 210, 0.15)',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
-          background: 'linear-gradient(135deg, primary.main 0%, primary.dark 100%)',
+          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(25, 118, 210, 0.95)',
         }}
       >
         <Toolbar
