@@ -1970,6 +1970,9 @@ export const calculateBulkGratuity = () =>
 export const createLeaveType = (data) =>
   API.post('/api/payroll/leave-types', data).then(r => r.data);
 
+export const listLeaveTypes = () =>
+  API.get('/api/payroll/leave-types').then(r => r.data);
+
 export const createHolidayCalendar = (data) =>
   API.post('/api/payroll/holiday-calendar', data).then(r => r.data);
 

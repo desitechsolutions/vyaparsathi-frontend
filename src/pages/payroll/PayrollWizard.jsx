@@ -125,7 +125,7 @@ export default function PayrollWizard() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Initialize Dialog */}
-      <Dialog open={showInitDialog} maxWidth="sm" fullWidth>
+      <Dialog open={showInitDialog} onClose={() => setShowInitDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create New Payroll Run</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 2 }}>
@@ -154,6 +154,7 @@ export default function PayrollWizard() {
           </Stack>
         </DialogContent>
         <DialogActions>
+          <Button onClick={() => setShowInitDialog(false)}>Cancel</Button>
           <Button onClick={handleInitPayrollRun} variant="contained" disabled={loading}>
             {loading ? <CircularProgress size={24} /> : 'Create Run'}
           </Button>

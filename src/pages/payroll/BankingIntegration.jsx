@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, TextField, Button, Stack, Alert, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Dialog, DialogTitle,
@@ -22,15 +22,27 @@ export default function BankingIntegration() {
     accountId: 'rzp_123456789'
   });
 
-  const [transactions, setTransactions] = useState([
-    { id: 1, date: '2024-09-15', employee: 'John Doe', amount: 50000, status: 'COMPLETED', utr: 'UTR123456' },
-    { id: 2, date: '2024-09-15', employee: 'Jane Smith', amount: 55000, status: 'COMPLETED', utr: 'UTR123457' },
-    { id: 3, date: '2024-09-14', employee: 'Bob Wilson', amount: 48000, status: 'FAILED', utr: 'N/A' }
-  ]);
-
+  const [transactions, setTransactions] = useState([]);
   const [batchDialog, setBatchDialog] = useState({ open: false, type: null });
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const res = await api.fetchBankTransactions?.('ALL', 0, 20) || [];
+      setTransactions(res.content || res || []);
+    } catch (err) {
+      // If API fails, show empty state (not critical)
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBankConfigChange = (field, value) => {
     setBankConfig({ ...bankConfig, [field]: value });

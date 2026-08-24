@@ -123,6 +123,7 @@ export default function PayrollAdminDashboard() {
   const navigate = useNavigate();
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null); // 'approve', 'disburse', etc
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
   const [approvalDialog, setApprovalDialog] = useState({ open: false, run: null });
 
@@ -145,7 +146,7 @@ export default function PayrollAdminDashboard() {
 
   const confirmApproval = async () => {
     try {
-      setLoading(true);
+      setActionLoading('approve');
       await api.approvePayrollRun(approvalDialog.run.id);
       showToast('Payroll run approved successfully');
       setApprovalDialog({ open: false, run: null });
@@ -153,32 +154,33 @@ export default function PayrollAdminDashboard() {
     } catch (error) {
       showToast(error.response?.data?.message || 'Failed to approve', 'error');
     } finally {
-      setLoading(false);
+      setActionLoading(null);
     }
   };
 
   const handleDisburse = async (run) => {
     try {
-      setLoading(true);
+      setActionLoading(`disburse-${run.id}`);
       await api.disbursePayrollRun(run.id);
       showToast('Payroll disbursed successfully');
       fetchPayrollRuns();
     } catch (error) {
       showToast(error.response?.data?.message || 'Failed to disburse', 'error');
     } finally {
-      setLoading(false);
+      setActionLoading(null);
     }
   };
 
   const handlePostToGL = async (runId) => {
     try {
-      setLoading(true);
+      setActionLoading(`postgl-${runId}`);
       await api.postPayrollToGL(runId);
       showToast('Payroll posted to General Ledger');
+      fetchPayrollRuns();
     } catch (error) {
       showToast(error.response?.data?.message || 'Failed to post to GL', 'error');
     } finally {
-      setLoading(false);
+      setActionLoading(null);
     }
   };
 
@@ -370,13 +372,16 @@ export default function PayrollAdminDashboard() {
                     )}
                     {run.status === 'APPROVED' && (
                       <Button size="small" variant="contained" color="success"
-                        onClick={() => handleDisburse(run)} sx={{ fontSize: '0.72rem', py: 0.25 }}>
-                        Disburse
+                        onClick={() => handleDisburse(run)}
+                        disabled={actionLoading === `disburse-${run.id}`}
+                        sx={{ fontSize: '0.72rem', py: 0.25 }}>
+                        {actionLoading === `disburse-${run.id}` ? '…' : 'Disburse'}
                       </Button>
                     )}
                     {run.status === 'DISBURSED' && (
                       <Tooltip title="Post to General Ledger">
-                        <IconButton size="small" color="primary" onClick={() => handlePostToGL(run.id)}>
+                        <IconButton size="small" color="primary" onClick={() => handlePostToGL(run.id)}
+                          disabled={actionLoading === `postgl-${run.id}`}>
                           <GlIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Tooltip>
@@ -431,8 +436,8 @@ export default function PayrollAdminDashboard() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setApprovalDialog({ open: false, run: null })} variant="outlined">Cancel</Button>
-          <Button variant="contained" onClick={confirmApproval} disabled={loading} startIcon={loading ? <CircularProgress size={16} /> : <ApproveIcon />}>
-            {loading ? 'Approving…' : 'Approve'}
+          <Button variant="contained" onClick={confirmApproval} disabled={actionLoading === 'approve'} startIcon={actionLoading === 'approve' ? <CircularProgress size={16} /> : <ApproveIcon />}>
+            {actionLoading === 'approve' ? 'Approving…' : 'Approve'}
           </Button>
         </DialogActions>
       </Dialog>
