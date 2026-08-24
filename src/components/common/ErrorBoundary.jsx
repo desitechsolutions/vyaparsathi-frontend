@@ -3,6 +3,7 @@ import { Box, Typography, Button, Paper, Stack, Alert } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import HomeIcon from '@mui/icons-material/Home';
+import { captureException } from '../../services/sentry';
 
 /**
  * Class-based error boundary — catches render-phase and lifecycle errors
@@ -51,6 +52,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught:', error, errorInfo);
+    captureException(error, { componentStack: errorInfo?.componentStack });
   }
 
   handleRetry = () => {

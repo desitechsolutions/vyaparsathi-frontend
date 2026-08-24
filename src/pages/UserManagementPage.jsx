@@ -532,6 +532,7 @@ const UserManagementPage = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             fullWidth
+            inputProps={{ 'aria-label': 'Search users by name, username, or email' }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -577,6 +578,7 @@ const UserManagementPage = () => {
       {/* Data grid */}
       <Paper variant="outlined" sx={{ height: '65vh', width: '100%', borderRadius: 2, overflow: 'hidden' }}>
         <DataGrid
+          aria-label="Users table"
           rows={filteredUsers}
           columns={columns}
           loading={loading}
@@ -620,11 +622,13 @@ const UserManagementPage = () => {
 
       {/* Create Dialog */}
       <Dialog open={dialogMode === 'create'} onClose={handleDialogClose} maxWidth="md" fullWidth fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 2.5 } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+        aria-labelledby="user-create-dialog-title"
+        aria-describedby="user-create-dialog-description">
+        <DialogTitle id="user-create-dialog-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
             <Typography variant="h6" fontWeight={800}>Add a team member</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography id="user-create-dialog-description" variant="caption" color="text.secondary">
               Create their account and share the credentials over a secure channel.
             </Typography>
           </Stack>
@@ -642,7 +646,14 @@ const UserManagementPage = () => {
                   <TextField autoFocus required fullWidth
                     label={t('userManagementPage.firstName', 'First name')} name="firstName"
                     value={formData.firstName || ''} onChange={handleFormChange}
-                    error={!!formErrors.firstName} helperText={formErrors.firstName} />
+                    error={!!formErrors.firstName} helperText={formErrors.firstName}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!formErrors.firstName,
+                      'aria-describedby': formErrors.firstName ? 'create-firstname-error' : undefined,
+                    }}
+                    FormHelperTextProps={formErrors.firstName ? { id: 'create-firstname-error' } : undefined}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth
@@ -654,7 +665,14 @@ const UserManagementPage = () => {
                     label={t('userManagementPage.email', 'Email')} name="email"
                     autoComplete="email"
                     value={formData.email || ''} onChange={handleFormChange}
-                    error={!!formErrors.email} helperText={formErrors.email} />
+                    error={!!formErrors.email} helperText={formErrors.email}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!formErrors.email,
+                      'aria-describedby': formErrors.email ? 'create-email-error' : undefined,
+                    }}
+                    FormHelperTextProps={formErrors.email ? { id: 'create-email-error' } : undefined}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField required fullWidth
@@ -662,7 +680,14 @@ const UserManagementPage = () => {
                     autoComplete="tel"
                     value={formData.phone || ''}
                     onChange={(e) => handleFormChange({ target: { name: 'phone', value: e.target.value.replace(/\D/g, '').slice(0, 15) } })}
-                    error={!!formErrors.phone} helperText={formErrors.phone} />
+                    error={!!formErrors.phone} helperText={formErrors.phone}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!formErrors.phone,
+                      'aria-describedby': formErrors.phone ? 'create-phone-error' : undefined,
+                    }}
+                    FormHelperTextProps={formErrors.phone ? { id: 'create-phone-error' } : undefined}
+                  />
                 </Grid>
               </Grid>
             </Box>
@@ -677,7 +702,14 @@ const UserManagementPage = () => {
                     label={t('userManagementPage.username', 'Username')} name="username"
                     autoComplete="username"
                     value={formData.username || ''} onChange={handleFormChange}
-                    error={!!formErrors.username} helperText={formErrors.username} />
+                    error={!!formErrors.username} helperText={formErrors.username}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!formErrors.username,
+                      'aria-describedby': formErrors.username ? 'create-username-error' : undefined,
+                    }}
+                    FormHelperTextProps={formErrors.username ? { id: 'create-username-error' } : undefined}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <PasswordField required fullWidth
@@ -685,7 +717,14 @@ const UserManagementPage = () => {
                     autoComplete="new-password"
                     value={formData.password || ''} onChange={handleFormChange}
                     error={!!formErrors.password} helperText={formErrors.password}
-                    showStartIcon={false} />
+                    showStartIcon={false}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!formErrors.password,
+                      'aria-describedby': formErrors.password ? 'create-password-error' : undefined,
+                    }}
+                    FormHelperTextProps={formErrors.password ? { id: 'create-password-error' } : undefined}
+                  />
                 </Grid>
                 <Grid item xs={12}>
                   <PasswordStrengthMeter value={formData.password || ''} />
@@ -756,11 +795,13 @@ const UserManagementPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={dialogMode === 'edit'} onClose={handleDialogClose} maxWidth="sm" fullWidth fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 2.5 } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+        aria-labelledby="user-edit-dialog-title"
+        aria-describedby="user-edit-dialog-description">
+        <DialogTitle id="user-edit-dialog-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
             <Typography variant="h6" fontWeight={800}>Edit user</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography id="user-edit-dialog-description" variant="caption" color="text.secondary">
               @{selectedUser?.username}
             </Typography>
           </Stack>
@@ -774,7 +815,14 @@ const UserManagementPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField autoFocus required fullWidth label={t('userManagementPage.firstName', 'First name')} name="firstName"
                 value={formData.firstName || ''} onChange={handleFormChange}
-                error={!!formErrors.firstName} helperText={formErrors.firstName} />
+                error={!!formErrors.firstName} helperText={formErrors.firstName}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!formErrors.firstName,
+                  'aria-describedby': formErrors.firstName ? 'edit-firstname-error' : undefined,
+                }}
+                FormHelperTextProps={formErrors.firstName ? { id: 'edit-firstname-error' } : undefined}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label={t('userManagementPage.lastName', 'Last name')} name="lastName"
@@ -783,12 +831,26 @@ const UserManagementPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField required fullWidth type="email" label={t('userManagementPage.email', 'Email')} name="email"
                 value={formData.email || ''} onChange={handleFormChange}
-                error={!!formErrors.email} helperText={formErrors.email} />
+                error={!!formErrors.email} helperText={formErrors.email}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!formErrors.email,
+                  'aria-describedby': formErrors.email ? 'edit-email-error' : undefined,
+                }}
+                FormHelperTextProps={formErrors.email ? { id: 'edit-email-error' } : undefined}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField required fullWidth label={t('userManagementPage.phone', 'Mobile number')} name="phone"
                 value={formData.phone || ''} onChange={handleFormChange}
-                error={!!formErrors.phone} helperText={formErrors.phone} />
+                error={!!formErrors.phone} helperText={formErrors.phone}
+                inputProps={{
+                  'aria-required': 'true',
+                  'aria-invalid': !!formErrors.phone,
+                  'aria-describedby': formErrors.phone ? 'edit-phone-error' : undefined,
+                }}
+                FormHelperTextProps={formErrors.phone ? { id: 'edit-phone-error' } : undefined}
+              />
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
@@ -815,11 +877,13 @@ const UserManagementPage = () => {
 
       {/* Role Dialog */}
       <Dialog open={dialogMode === 'role'} onClose={handleDialogClose} maxWidth="xs" fullWidth fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 2.5 } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+        aria-labelledby="user-role-dialog-title"
+        aria-describedby="user-role-dialog-description">
+        <DialogTitle id="user-role-dialog-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
           <Stack>
             <Typography variant="h6" fontWeight={800}>Change role</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography id="user-role-dialog-description" variant="caption" color="text.secondary">
               @{selectedUser?.username}
             </Typography>
           </Stack>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   TextField,
   Button,
@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
-import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmailIcon from '@mui/icons-material/Email';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
@@ -27,6 +26,7 @@ import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { useAuthContext } from '../context/AuthContext';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { login as loginApi, register as registerApi, forgotPassword, resendVerification, verifyMfaChallenge } from '../services/api';
+import { captureMessage, captureException } from '../services/sentry';
 import { useTranslation } from 'react-i18next';
 import PasswordField from '../components/auth/PasswordField';
 import PasswordStrengthMeter, { evaluatePassword } from '../components/auth/PasswordStrengthMeter';
@@ -98,15 +98,8 @@ const Login = () => {
     defaultValues: { email: '' },
   });
 
-  // Watch register password for strength meter and confirm-password cross-validation
+  // Watch register password for the strength meter component and confirm-password cross-validation
   const registerPassword = registerForm.watch('password');
-  const passwordStrength = useMemo(() => evaluatePassword(registerPassword || ''), [registerPassword]);
-  const passwordStrong =
-    passwordStrength.rules.length &&
-    passwordStrength.rules.upper &&
-    passwordStrength.rules.lower &&
-    passwordStrength.rules.digit &&
-    passwordStrength.rules.special;
 
   // ─── Redirect if already logged in ───────────────────────────────────────
   useEffect(() => {
@@ -398,6 +391,12 @@ const Login = () => {
                   size="medium"
                   error={!!error}
                   helperText={error?.message}
+                  inputProps={{
+                    'aria-required': 'true',
+                    'aria-invalid': !!error,
+                    'aria-describedby': error ? 'login-password-error' : undefined,
+                  }}
+                  FormHelperTextProps={error ? { id: 'login-password-error', role: 'alert' } : undefined}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                 />
               )}
@@ -664,6 +663,12 @@ const Login = () => {
                     showStartIcon={false}
                     error={!!error}
                     helperText={error?.message}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-password-error' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-password-error', role: 'alert' } : undefined}
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                   />
                 )}
@@ -691,6 +696,12 @@ const Login = () => {
                     showStartIcon={false}
                     error={!!error}
                     helperText={error?.message}
+                    inputProps={{
+                      'aria-required': 'true',
+                      'aria-invalid': !!error,
+                      'aria-describedby': error ? 'reg-confirm-password-error' : undefined,
+                    }}
+                    FormHelperTextProps={error ? { id: 'reg-confirm-password-error', role: 'alert' } : undefined}
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                   />
                 )}

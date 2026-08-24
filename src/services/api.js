@@ -2,6 +2,7 @@ import axios from 'axios';
 import endpoints from './endpoints';
 import 'react-toastify/dist/ReactToastify.css';
 import { getValidToken, clearAuthStorage } from '../utils/authStorage';
+import { captureException } from './sentry';
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const API = axios.create({
@@ -74,13 +75,30 @@ API.interceptors.response.use(
     if (axios.isCancel(error)) {
       return Promise.reject(error); // re-throw so callers can still detect it
     }
-    if (error.response?.status === 401 || error.response?.status === 403) {
+
+    const status = error.response?.status;
+
+    if (status === 401 || status === 403) {
       const isLoginRequest = error.config?.url?.includes('/api/auth/login');
       clearAuthStorage();
       if (!isLoginRequest && window.location.pathname !== '/login') {
         window.location.href = '/login?expired=true';
       }
     }
+
+    // Capture unexpected server errors (5xx) and network failures to Sentry.
+    // Auth errors (401/403) and client validation errors (4xx) are expected
+    // flows and are intentionally excluded.
+    const isServerError = !status || status >= 500;
+    if (isServerError) {
+      captureException(error, {
+        url: error.config?.url,
+        method: error.config?.method?.toUpperCase(),
+        status: status ?? 'network_error',
+        baseURL: error.config?.baseURL,
+      });
+    }
+
     return Promise.reject(error);
   }
 );

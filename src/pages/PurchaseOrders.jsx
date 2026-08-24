@@ -751,6 +751,7 @@ const PurchaseOrders = () => {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               sx={{ minWidth: { xs: '100%', md: 280 } }}
+              inputProps={{ 'aria-label': 'Search purchase orders by PO number or supplier' }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -766,7 +767,16 @@ const PurchaseOrders = () => {
               isOptionEqualToValue={(a, b) => a?.id === b?.id}
               value={supplierFilter}
               onChange={(_, v) => setSupplierFilter(v)}
-              renderInput={(params) => <TextField {...params} placeholder="Supplier" />}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Supplier"
+                  inputProps={{
+                    ...params.inputProps,
+                    'aria-label': 'Filter purchase orders by supplier',
+                  }}
+                />
+              )}
               sx={{ minWidth: { xs: '100%', md: 220 } }}
             />
             <TextField

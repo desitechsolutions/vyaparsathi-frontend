@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "VyaparSathi",
+  "name": "VyaparSathi — Business Management",
+  "description": "All-in-one business management: inventory, sales, customers, payroll and more.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -18,8 +19,13 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait-primary",
+  "theme_color": "#1976d2",
+  "background_color": "#F8FAFC",
+  "categories": ["business", "productivity", "finance"],
+  "lang": "en-IN",
+  "prefer_related_applications": false
 }

@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
+import * as Sentry from '@sentry/react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes';
 import { ThemeProvider } from '@mui/material/styles';
@@ -13,6 +14,10 @@ import { ThemeContextProvider, useThemeContext } from './context/ThemeContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 import { clearAuthStorage } from './utils/authStorage';
+import { initSentry } from './services/sentry';
+
+// Initialise Sentry as early as possible so every subsequent error is captured.
+initSentry();
 
 /**
  * Inner component — consumes ThemeContext (provided above it).
@@ -73,9 +78,11 @@ function ThemedApp() {
       <Router>
         <AuthProvider>
           <SubscriptionProvider>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
+            <Sentry.ErrorBoundary>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </Sentry.ErrorBoundary>
           </SubscriptionProvider>
         </AuthProvider>
       </Router>
@@ -93,4 +100,4 @@ function App() {
   );
 }
 
-export default App;
+export default Sentry.withProfiler(App);
