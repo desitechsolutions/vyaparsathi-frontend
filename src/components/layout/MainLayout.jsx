@@ -76,7 +76,6 @@ const MainLayout = () => {
 
       {/* Command Palette - Global Cmd+K search */}
       <CommandPalette />
-      </Box>
     </Box>
   );
 };
