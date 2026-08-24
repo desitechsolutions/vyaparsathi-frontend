@@ -68,6 +68,17 @@ const HeaderUserProfile = ({
       {/* User Avatar Button */}
       <Box
         onClick={onProfileMenuOpen}
+        role="button"
+        tabIndex={0}
+        aria-label={`User menu: ${displayName}`}
+        aria-expanded={Boolean(profileMenuAnchor)}
+        aria-haspopup="menu"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onProfileMenuOpen(e);
+          }
+        }}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -75,6 +86,11 @@ const HeaderUserProfile = ({
           cursor: 'pointer',
           transition: 'opacity 200ms',
           '&:hover': { opacity: 0.85 },
+          '&:focus': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            borderRadius: 1,
+          },
           ml: 2,
         }}
       >

@@ -14,6 +14,15 @@ const HeaderBrand = ({ onShopSwitcherOpen, hideBrandName = false }) => {
     <Tooltip title={shopDisplayName} placement="bottom">
       <Box
         onClick={onShopSwitcherOpen}
+        role="button"
+        tabIndex={0}
+        aria-label={`${t('appName')} - ${shopDisplayName}. Click to switch shop.`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onShopSwitcherOpen();
+          }
+        }}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -21,6 +30,11 @@ const HeaderBrand = ({ onShopSwitcherOpen, hideBrandName = false }) => {
           cursor: 'pointer',
           transition: 'opacity 200ms',
           '&:hover': { opacity: 0.85 },
+          '&:focus': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            borderRadius: 1,
+          },
           minWidth: 'fit-content',
         }}
       >

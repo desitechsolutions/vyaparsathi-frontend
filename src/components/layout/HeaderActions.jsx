@@ -90,6 +90,9 @@ const HeaderActions = ({
               color="inherit"
               onClick={onNotificationOpen}
               size="small"
+              aria-label={`Notifications: ${alertCount} alert${alertCount !== 1 ? 's' : ''}`}
+              aria-expanded={Boolean(notificationAnchor)}
+              aria-haspopup="menu"
               sx={{
                 animation: criticalCount > 0 ? `${pulse} 2s infinite` : 'none',
               }}
@@ -146,7 +149,14 @@ const HeaderActions = ({
       {!isMobile && (
         <>
           <Tooltip title="Quick Actions">
-            <IconButton color="inherit" onClick={onQuickActionOpen} size="small">
+            <IconButton
+              color="inherit"
+              onClick={onQuickActionOpen}
+              size="small"
+              aria-label="Quick actions menu"
+              aria-expanded={Boolean(quickActionAnchor)}
+              aria-haspopup="menu"
+            >
               <AddCircleIcon sx={{ fontSize: 22 }} />
             </IconButton>
           </Tooltip>
@@ -197,7 +207,14 @@ const HeaderActions = ({
       {!isMobile && (
         <>
           <Tooltip title="Language">
-            <IconButton color="inherit" onClick={onLanguageMenuOpen} size="small">
+            <IconButton
+              color="inherit"
+              onClick={onLanguageMenuOpen}
+              size="small"
+              aria-label="Language selector"
+              aria-expanded={Boolean(languageMenuAnchor)}
+              aria-haspopup="menu"
+            >
               <LanguageIcon sx={{ fontSize: 20 }} />
             </IconButton>
           </Tooltip>
@@ -226,6 +243,7 @@ const HeaderActions = ({
           color="inherit"
           onClick={cycleColorPreference}
           size="small"
+          aria-label={`Theme: currently ${colorPreference}. Click to switch to ${themeNextLabel[colorPreference]}`}
           sx={{ transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
         >
           {themeIconMap[colorPreference]}

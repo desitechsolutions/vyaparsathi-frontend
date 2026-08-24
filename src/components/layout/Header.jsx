@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
   AppBar, Toolbar, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  Button, Stack, useMediaQuery, useTheme, Typography,
+  Button, Stack, useMediaQuery, useTheme, Typography, skipToMainContentClasses,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '../../context/AuthContext';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import UserProfile from '../../pages/UserProfile';
 import SettingsDialog from '../settings/SettingsDialog';
 import ShopSwitcher from '../rbac/ShopSwitcher';

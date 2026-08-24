@@ -84,6 +84,9 @@ const HeaderSearch = ({ mobileSearchOpen, onMobileSearchClose, isMobile, isTable
             placeholder={t('header.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Global search"
+            aria-describedby="search-help"
+            role="searchbox"
             sx={{
               color: 'white',
               width: '100%',

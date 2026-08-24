@@ -106,6 +106,10 @@ const CommandPalette = () => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="Command palette search"
+          aria-describedby="command-help"
+          role="searchbox"
+          aria-live="polite"
           sx={{
             fontSize: '1rem',
             '& input::placeholder': { color: 'text.secondary', opacity: 0.7 },
