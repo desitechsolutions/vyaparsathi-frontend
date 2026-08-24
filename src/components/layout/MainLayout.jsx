@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import PremiumStatusBanner from '../../pages/PremiumStatusBanner';
 import SupportChatWidget from '../../pages/SupportChatWidget';
 import ErrorBoundary from '../common/ErrorBoundary';
+import CommandPalette from '../common/CommandPalette';
 import { useAuthContext } from '../../context/AuthContext';
 
 const MainLayout = () => {
@@ -63,14 +64,18 @@ const MainLayout = () => {
         </Container>
 
         {!isSuperAdmin && hasShopId && (
-          <SupportChatWidget 
+          <SupportChatWidget
             user={{
               shopId: user.shopId,
               shopName: user.shopName || 'My Shop',
               name: user.userName || user.sub || 'User'
-            }} 
+            }}
           />
         )}
+      </Box>
+
+      {/* Command Palette - Global Cmd+K search */}
+      <CommandPalette />
       </Box>
     </Box>
   );
