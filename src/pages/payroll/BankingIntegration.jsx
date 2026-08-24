@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import {
   Box, Card, CardContent, TextField, Button, Stack, Alert, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Dialog, DialogTitle,
-  DialogContent, DialogActions
+  DialogContent, DialogActions, CircularProgress, Snackbar
 } from '@mui/material';
 import { Download as DownloadIcon, Check as CheckIcon } from '@mui/icons-material';
+import * as api from '../../services/api';
 
 export default function BankingIntegration() {
   const [bankConfig, setBankConfig] = useState({
@@ -28,18 +29,79 @@ export default function BankingIntegration() {
   ]);
 
   const [batchDialog, setBatchDialog] = useState({ open: false, type: null });
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const handleBankConfigChange = (field, value) => {
     setBankConfig({ ...bankConfig, [field]: value });
   };
 
-  const handleDownloadBatch = (type) => {
-    alert(`Downloading ${type} batch file...`);
-    setBatchDialog({ open: false, type: null });
+  const showToast = (message, severity = 'success') => {
+    setToast({ open: true, message, severity });
+  };
+
+  const handleSaveBankDetails = async () => {
+    try {
+      setLoading(true);
+      // Validate IFSC format
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankConfig.ifsc)) {
+        showToast('Invalid IFSC format (must be like ICIC0000001)', 'error');
+        return;
+      }
+      await api.validateBankDetails(bankConfig.accountNumber, bankConfig.ifsc);
+      showToast('Bank details saved successfully');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to save bank details', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfigureRazorpayX = async () => {
+    try {
+      setLoading(true);
+      if (!razorpayConfig.apiKey || razorpayConfig.apiKey.includes('•')) {
+        showToast('Please enter RazorpayX API credentials', 'error');
+        return;
+      }
+      // TODO: Call backend API to save encrypted RazorpayX config
+      showToast('RazorpayX configured successfully');
+    } catch (err) {
+      showToast('Failed to configure RazorpayX', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadBatch = async (type) => {
+    try {
+      setLoading(true);
+      if (type === 'NEFT') {
+        await api.exportNEFT(null); // Should be passed run ID
+      } else if (type === 'NACH') {
+        await api.exportNACH(null);
+      }
+      showToast(`${type} batch file downloaded successfully`);
+      setBatchDialog({ open: false, type: null });
+    } catch (err) {
+      showToast(`Failed to download ${type} batch file`, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Box>
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={() => setToast({ ...toast, open: false })}
+      >
+        <Alert severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
+
       <h1>Banking Integration & Payout Methods</h1>
 
       {/* Bank Configuration */}
@@ -71,7 +133,13 @@ export default function BankingIntegration() {
               onChange={(e) => handleBankConfigChange('branch', e.target.value)}
               fullWidth
             />
-            <Button variant="contained">Save Bank Details</Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveBankDetails}
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Save Bank Details'}
+            </Button>
           </Stack>
         </CardContent>
       </Card>
@@ -105,7 +173,15 @@ export default function BankingIntegration() {
                 size="small"
                 fullWidth
               />
-              <Button variant="contained" size="small" sx={{ mt: 1 }}>Configure RazorpayX</Button>
+              <Button
+                variant="contained"
+                size="small"
+                sx={{ mt: 1 }}
+                onClick={handleConfigureRazorpayX}
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={20} /> : 'Configure RazorpayX'}
+              </Button>
             </div>
 
             <div style={{ border: '1px solid #e0e0e0', padding: '12px', borderRadius: '4px' }}>

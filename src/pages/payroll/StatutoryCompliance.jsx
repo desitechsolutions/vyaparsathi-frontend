@@ -4,13 +4,33 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip,
   CircularProgress, Snackbar, Typography, MenuItem, LinearProgress
 } from '@mui/material';
-import { Save as SaveIcon, Download as DownloadIcon, Check as CheckIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Download as DownloadIcon } from '@mui/icons-material';
 import * as api from '../../services/api';
+
+// Helper to trigger a browser file download from an API blob response
+const downloadFile = async (apiFn, filename) => {
+  try {
+    const data = await apiFn();
+    const url = window.URL.createObjectURL(new Blob([data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (err) {
+    // surface error to caller
+    throw err;
+  }
+};
 
 export default function StatutoryCompliance() {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(null); // which filing is downloading
+  const [submissionsRunId, setSubmissionsRunId] = useState('');
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const [config, setConfig] = useState({
@@ -251,38 +271,125 @@ export default function StatutoryCompliance() {
       {activeTab === 4 && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>Pending Statutory Submissions</Typography>
+            <Typography variant="h6" gutterBottom>Statutory Return Downloads</Typography>
             <Stack spacing={2}>
-              <Alert severity="warning">
-                ECR (PF) and ESIC returns should be filed by the 15th of each month.
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                ECR (PF) and ESIC returns must be filed by the 15th of each month. Download the generated files and upload them to the respective portals.
               </Alert>
-              <TableContainer component={Paper}>
+
+              <TextField
+                label="Payroll Run ID (for ESIC return)"
+                value={submissionsRunId}
+                onChange={e => setSubmissionsRunId(e.target.value)}
+                size="small"
+                type="number"
+                sx={{ maxWidth: 260 }}
+                helperText="Required for ESIC Monthly Return download"
+              />
+
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                 <Table size="small">
-                  <TableHead sx={{ bgcolor: 'background.default' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Filing</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Period</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.hover' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Filing</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Portal</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Due</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Format</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">Download</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {[
-                      { type: 'ECR (EPFO)', period: 'Aug 2026', due: '15 Sep 2026', status: 'PENDING' },
-                      { type: 'ESIC Return', period: 'Aug 2026', due: '15 Sep 2026', status: 'PENDING' },
-                      { type: 'PT Return', period: 'Aug 2026', due: '30 Sep 2026', status: 'PENDING' },
-                    ].map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell fontWeight={600}>{item.type}</TableCell>
-                        <TableCell>{item.period}</TableCell>
-                        <TableCell>{item.due}</TableCell>
-                        <TableCell>
-                          <Chip label={item.status} color="warning" size="small" />
-                        </TableCell>
-                        <TableCell>
-                          <Button size="small" startIcon={<DownloadIcon />} variant="outlined">
-                            Generate
+                      {
+                        type: 'ESIC Monthly Return',
+                        portal: 'esic.gov.in',
+                        due: '15th of next month',
+                        format: 'XLSX',
+                        onDownload: async () => {
+                          if (!submissionsRunId) {
+                            setToast({ open: true, message: 'Enter a Payroll Run ID first', severity: 'warning' });
+                            return;
+                          }
+                          setDownloading('esic');
+                          try {
+                            await downloadFile(
+                              () => api.getEsicReturn(submissionsRunId),
+                              `ESIC_Return_Run${submissionsRunId}.xlsx`
+                            );
+                            setToast({ open: true, message: 'ESIC return downloaded', severity: 'success' });
+                          } catch {
+                            setToast({ open: true, message: 'Failed to download ESIC return', severity: 'error' });
+                          } finally {
+                            setDownloading(null);
+                          }
+                        },
+                        key: 'esic',
+                      },
+                      {
+                        type: '24Q TDS Return',
+                        portal: 'tdscpc.gov.in / TRACES',
+                        due: '31st of end of quarter',
+                        format: 'CSV',
+                        onDownload: async () => {
+                          const fy = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+                          const quarter = Math.ceil((new Date().getMonth() + 1) / 3);
+                          setDownloading('tds');
+                          try {
+                            const blob = await api.getTdsReturnBlob(fy, quarter);
+                            const url = window.URL.createObjectURL(new Blob([blob]));
+                            const a = document.createElement('a');
+                            a.href = url; a.download = `24Q_TDS_Q${quarter}_${fy}.csv`;
+                            document.body.appendChild(a); a.click();
+                            window.URL.revokeObjectURL(url); document.body.removeChild(a);
+                            setToast({ open: true, message: '24Q TDS return downloaded', severity: 'success' });
+                          } catch {
+                            setToast({ open: true, message: 'Failed to download TDS return', severity: 'error' });
+                          } finally {
+                            setDownloading(null);
+                          }
+                        },
+                        key: 'tds',
+                      },
+                      {
+                        type: 'LWF Return',
+                        portal: `State Labour Dept (${config.ptState})`,
+                        due: 'Bi-annual (varies by state)',
+                        format: 'CSV',
+                        onDownload: async () => {
+                          const m = new Date().getMonth() + 1;
+                          const y = new Date().getFullYear();
+                          setDownloading('lwf');
+                          try {
+                            const blob = await api.getLwfReturnBlob(m, y, config.ptState);
+                            const url = window.URL.createObjectURL(new Blob([blob]));
+                            const a = document.createElement('a');
+                            a.href = url; a.download = `LWF_${config.ptState}_${m}_${y}.csv`;
+                            document.body.appendChild(a); a.click();
+                            window.URL.revokeObjectURL(url); document.body.removeChild(a);
+                            setToast({ open: true, message: 'LWF return downloaded', severity: 'success' });
+                          } catch {
+                            setToast({ open: true, message: 'Failed to download LWF return', severity: 'error' });
+                          } finally {
+                            setDownloading(null);
+                          }
+                        },
+                        key: 'lwf',
+                      },
+                    ].map(item => (
+                      <TableRow key={item.key} hover sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{item.type}</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>{item.portal}</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>{item.due}</TableCell>
+                        <TableCell><Chip label={item.format} size="small" variant="outlined" /></TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            startIcon={downloading === item.key ? <CircularProgress size={14} /> : <DownloadIcon />}
+                            variant="outlined"
+                            onClick={item.onDownload}
+                            disabled={!!downloading}
+                          >
+                            {downloading === item.key ? 'Generating…' : 'Download'}
                           </Button>
                         </TableCell>
                       </TableRow>

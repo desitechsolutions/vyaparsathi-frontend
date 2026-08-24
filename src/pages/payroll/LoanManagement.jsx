@@ -5,8 +5,8 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Chip, Tabs, Tab, Stack, Skeleton, Alert, Snackbar
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
-import { createStaffLoan, getLoanSchedule } from '../../services/api';
+import { Add as AddIcon, Check as CheckIcon, Close as CloseIcon } from '@mui/icons-material';
+import { createStaffLoan, getLoanSchedule, approveLoan, rejectLoan, getEmployeeLoans } from '../../services/api';
 
 const LOAN_TYPES = ['SALARY_ADVANCE', 'EMERGENCY_LOAN', 'EQUIPMENT_LOAN', 'PERSONAL_LOAN'];
 const LOAN_STATUSES = ['ACTIVE', 'CLOSED', 'DEFAULTED', 'WRITTEN_OFF'];
@@ -23,12 +23,36 @@ function TabPanel(props) {
 export default function LoanManagement() {
   const [tab, setTab] = useState(0);
   const [loans, setLoans] = useState([]);
+  const [pendingLoans, setPendingLoans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openLoanDialog, setOpenLoanDialog] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [loanSchedule, setLoanSchedule] = useState([]);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+  const [approvalDialog, setApprovalDialog] = useState({ open: false, loanId: null, action: null, reason: '' });
+
+  React.useEffect(() => {
+    loadActiveLoans();
+    loadPendingLoans();
+  }, []);
+
+  const loadActiveLoans = async () => {
+    try {
+      setLoading(true);
+      const data = await getEmployeeLoans(undefined, 0, 50);
+      const active = (data?.content || data || []).filter(l => l.status === 'ACTIVE');
+      setLoans(active);
+    } catch (error) {
+      setToast({
+        open: true,
+        message: 'Failed to load active loans',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Loan form state
   const [loanForm, setLoanForm] = useState({
@@ -90,7 +114,7 @@ export default function LoanManagement() {
       const schedule = await getLoanSchedule(loanId);
       setLoanSchedule(schedule);
       setSelectedLoan(loanId);
-      setTab(1);
+      setTab(2);
     } catch (error) {
       setToast({
         open: true,
@@ -99,6 +123,57 @@ export default function LoanManagement() {
       });
     } finally {
       setScheduleLoading(false);
+    }
+  };
+
+  const loadPendingLoans = async () => {
+    try {
+      setLoading(true);
+      const data = await getEmployeeLoans(undefined, 0, 50);
+      const pending = (data?.content || data || []).filter(l => l.status === 'PENDING');
+      setPendingLoans(pending);
+    } catch (error) {
+      setToast({
+        open: true,
+        message: 'Failed to load pending loans',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveLoan = async (loanId) => {
+    try {
+      await approveLoan(loanId);
+      setToast({ open: true, message: 'Loan approved successfully', severity: 'success' });
+      setApprovalDialog({ open: false, loanId: null, action: null, reason: '' });
+      loadPendingLoans();
+    } catch (error) {
+      setToast({
+        open: true,
+        message: error.response?.data?.message || 'Failed to approve loan',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleRejectLoan = async (loanId, reason) => {
+    if (!reason) {
+      setToast({ open: true, message: 'Please provide a reason', severity: 'error' });
+      return;
+    }
+    try {
+      await rejectLoan(loanId, reason);
+      setToast({ open: true, message: 'Loan rejected successfully', severity: 'success' });
+      setApprovalDialog({ open: false, loanId: null, action: null, reason: '' });
+      loadPendingLoans();
+    } catch (error) {
+      setToast({
+        open: true,
+        message: error.response?.data?.message || 'Failed to reject loan',
+        severity: 'error'
+      });
     }
   };
 
@@ -128,6 +203,7 @@ export default function LoanManagement() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
           <Tab label="Active Loans" />
+          <Tab label="Pending Approvals" />
           <Tab label="Repayment Schedule" />
           <Tab label="Loan History" />
         </Tabs>
@@ -193,8 +269,71 @@ export default function LoanManagement() {
         )}
       </TabPanel>
 
-      {/* Tab 2: Repayment Schedule */}
+      {/* Tab 2: Pending Loan Approvals (NEW) */}
       <TabPanel value={tab} index={1}>
+        {loading ? (
+          <Box>
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} height={100} sx={{ mb: 2 }} />
+            ))}
+          </Box>
+        ) : pendingLoans.length > 0 ? (
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead sx={{ bgcolor: 'background.default' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Employee</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Tenure</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Request Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendingLoans.map(loan => (
+                  <TableRow key={loan.id} hover>
+                    <TableCell>{loan.employeeName}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={loan.loanType} variant="outlined" />
+                    </TableCell>
+                    <TableCell align="right">₹{loan.principalAmount.toLocaleString()}</TableCell>
+                    <TableCell align="right">{loan.durationMonths} months</TableCell>
+                    <TableCell>{new Date(loan.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} justifyContent="center">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="success"
+                          startIcon={<CheckIcon />}
+                          onClick={() => setApprovalDialog({ open: true, loanId: loan.id, action: 'APPROVE', reason: '' })}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<CloseIcon />}
+                          onClick={() => setApprovalDialog({ open: true, loanId: loan.id, action: 'REJECT', reason: '' })}
+                        >
+                          Reject
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Alert severity="info">No pending loan approvals</Alert>
+        )}
+      </TabPanel>
+
+      {/* Tab 3: Repayment Schedule */}
+      <TabPanel value={tab} index={2}>
         {scheduleLoading ? (
           <Box>
             {[1, 2, 3].map(i => (
@@ -239,8 +378,8 @@ export default function LoanManagement() {
         )}
       </TabPanel>
 
-      {/* Tab 3: Loan History */}
-      <TabPanel value={tab} index={2}>
+      {/* Tab 4: Loan History */}
+      <TabPanel value={tab} index={3}>
         <Alert severity="info">Loan history view coming in Phase 2</Alert>
       </TabPanel>
 
@@ -332,6 +471,45 @@ export default function LoanManagement() {
         <DialogActions>
           <Button onClick={() => setOpenLoanDialog(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreateLoan}>Create Loan</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Loan Approval Dialog */}
+      <Dialog open={approvalDialog.open} onClose={() => setApprovalDialog({ open: false, loanId: null, action: null, reason: '' })} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {approvalDialog.action === 'APPROVE' ? 'Approve Loan Request' : 'Reject Loan Request'}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {approvalDialog.action === 'REJECT' && (
+            <TextField
+              label="Rejection Reason"
+              multiline
+              rows={3}
+              value={approvalDialog.reason}
+              onChange={(e) => setApprovalDialog({ ...approvalDialog, reason: e.target.value })}
+              placeholder="Provide reason for rejection"
+              fullWidth
+            />
+          )}
+          {approvalDialog.action === 'APPROVE' && (
+            <Box>Are you sure you want to approve this loan request?</Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApprovalDialog({ open: false, loanId: null, action: null, reason: '' })}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={approvalDialog.action === 'APPROVE' ? 'success' : 'error'}
+            onClick={() => {
+              if (approvalDialog.action === 'APPROVE') {
+                handleApproveLoan(approvalDialog.loanId);
+              } else {
+                handleRejectLoan(approvalDialog.loanId, approvalDialog.reason);
+              }
+            }}
+          >
+            {approvalDialog.action === 'APPROVE' ? 'Approve' : 'Reject'}
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -30,7 +30,7 @@ export default function TaxDeclaration() {
   const fetchDeclaration = async () => {
     try {
       setLoading(true);
-      const data = await api.getTaxDeclaration(FINANCIAL_YEAR);
+      const data = await api.getMyTaxDeclaration(FINANCIAL_YEAR);
       if (data) setDeclaration(prev => ({ ...prev, ...data }));
     } catch (err) {
       // No existing declaration — start fresh

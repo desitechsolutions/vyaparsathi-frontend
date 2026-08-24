@@ -99,7 +99,6 @@ import ErrorBoundary from '../components/common/ErrorBoundary'; // route-level f
 import HsnSummary from '../pages/reports/HsnSummary';
 import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
-import PayrollDashboard from '../pages/PayrollDashboard';
 import PricingPage from '../pages/PricingPage';
 import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
 // Phase 1: Employee Management, Salary Structures, Loans
@@ -111,10 +110,21 @@ import PayrollWizard from '../pages/payroll/PayrollWizard';
 // Phase 3: Statutory Compliance & Banking
 import StatutoryCompliance from '../pages/payroll/StatutoryCompliance';
 import BankingIntegration from '../pages/payroll/BankingIntegration';
+// Phase 3b: Leave & Report Management
+import LeaveApprovals from '../pages/payroll/LeaveApprovals';
+import PayrollReports from '../pages/payroll/PayrollReports';
+import AdvanceApprovals from '../pages/payroll/AdvanceApprovals';
+import LeaveTypeManagement from '../pages/payroll/LeaveTypeManagement';
+import HolidayCalendar from '../pages/payroll/HolidayCalendar';
+import EmployeePayrollHistory from '../pages/payroll/EmployeePayrollHistory';
 // Phase 4: Employee Self-Service
 import ESSDashboard from '../pages/employee/ESSDashboard';
 import MyPayslips from '../pages/employee/MyPayslips';
 import TaxDeclaration from '../pages/employee/TaxDeclaration';
+import LeaveApplications from '../pages/employee/LeaveApplications';
+import LoanRequests from '../pages/employee/LoanRequests';
+import AdvanceRequests from '../pages/employee/AdvanceRequests';
+import ESSPreferences from '../pages/employee/ESSPreferences';
 // Admin Dashboard
 import PayrollAdminDashboard from '../pages/payroll/PayrollAdminDashboard';
 import ResetPassword from '../pages/ResetPassword';
@@ -386,21 +396,167 @@ function AppRoutes() {
             <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><PurchaseRegister /></TierGuard>} />
             <Route path="reports/compliance" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="reports/compliance"><ComplianceDashboard /></ErrorBoundary></TierGuard>} />
 
-            {/* ENTERPRISE TIER ONLY */}
-            <Route path="admin/payroll" element={<TierGuard requiredTier="ENTERPRISE"><PayrollDashboard /></TierGuard>} />
-            <Route path="/payroll/history/:staffId" element={<TierGuard requiredTier="ENTERPRISE"><PaymentHistoryPage /></TierGuard>} />
+            {/* ENTERPRISE TIER ONLY — PAYROLL MODULE (Admin-only routes) */}
+            {/* IMPORTANT: These routes are ADMIN/OWNER ONLY. Regular staff cannot access. */}
 
-            {/* Phase 1: Employee Management, Salary Structures, Loans */}
-            <Route path="payroll/employees" element={<TierGuard requiredTier="ENTERPRISE"><EmployeeDirectory /></TierGuard>} />
-            <Route path="payroll/structures" element={<TierGuard requiredTier="ENTERPRISE"><SalaryStructures /></TierGuard>} />
-            <Route path="payroll/loans" element={<TierGuard requiredTier="ENTERPRISE"><LoanManagement /></TierGuard>} />
-            <Route path="payroll/wizard" element={<TierGuard requiredTier="ENTERPRISE"><PayrollWizard /></TierGuard>} />
-            <Route path="payroll/statutory" element={<TierGuard requiredTier="ENTERPRISE"><StatutoryCompliance /></TierGuard>} />
-            <Route path="payroll/banking" element={<TierGuard requiredTier="ENTERPRISE"><BankingIntegration /></TierGuard>} />
-            <Route path="payroll/admin-dashboard" element={<TierGuard requiredTier="ENTERPRISE"><PayrollAdminDashboard /></TierGuard>} />
+            {/* Admin — Main Dashboard & Reports */}
+            <Route path="payroll" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll">
+                    <PayrollAdminDashboard />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+            {/* Alias: legacy links to /payroll/wizard redirect to the actual wizard page */}
+            <Route path="payroll/wizard" element={<Navigate to="/payroll/runs" replace />} />
+            <Route path="payroll/reports" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/reports">
+                    <PayrollReports />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Admin — Payroll Operations */}
+            <Route path="payroll/runs" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/runs">
+                    <PayrollWizard />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+            <Route path="payroll/history/:staffId" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <PaymentHistoryPage />
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Admin — Employee Management */}
+            <Route path="payroll/employees" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/employees">
+                    <EmployeeDirectory />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+            <Route path="payroll/structures" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/structures">
+                    <SalaryStructures />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Admin — Leave & Attendance */}
+            <Route path="payroll/leave-approvals" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/leave-approvals">
+                    <LeaveApprovals />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Admin — Loans & Advances */}
+            <Route path="payroll/loans" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/loans">
+                    <LoanManagement />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            <Route path="payroll/advance-approvals" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/advance-approvals">
+                    <AdvanceApprovals />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            <Route path="payroll/leave-types" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/leave-types">
+                    <LeaveTypeManagement />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            <Route path="payroll/holidays" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/holidays">
+                    <HolidayCalendar />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            <Route path="payroll/employee-history" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/employee-history">
+                    <EmployeePayrollHistory />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Admin — Compliance & Configuration */}
+            <Route path="payroll/statutory" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/statutory">
+                    <StatutoryCompliance />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+            <Route path="payroll/banking" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
+                  <ErrorBoundary resetKey="payroll/banking">
+                    <BankingIntegration />
+                  </ErrorBoundary>
+                </PrivateRoute>
+              </TierGuard>
+            } />
+
+            {/* Employee Self-Service Portal (ESS) — Dashboard & Analytics */}
             <Route path="employee/dashboard" element={<TierGuard requiredTier="ENTERPRISE"><ESSDashboard /></TierGuard>} />
+
+            {/* Employee Self-Service — Compensation */}
             <Route path="employee/payslips" element={<TierGuard requiredTier="ENTERPRISE"><MyPayslips /></TierGuard>} />
             <Route path="employee/tax-declaration" element={<TierGuard requiredTier="ENTERPRISE"><TaxDeclaration /></TierGuard>} />
+
+            {/* Employee Self-Service — Leave Management */}
+            <Route path="employee/leaves" element={<TierGuard requiredTier="ENTERPRISE"><LeaveApplications /></TierGuard>} />
+
+            {/* Employee Self-Service — Finance */}
+            <Route path="employee/loans" element={<TierGuard requiredTier="ENTERPRISE"><LoanRequests /></TierGuard>} />
+            <Route path="employee/advances" element={<TierGuard requiredTier="ENTERPRISE"><AdvanceRequests /></TierGuard>} />
+
+            {/* Employee Self-Service — Preferences */}
+            <Route path="employee/preferences" element={<TierGuard requiredTier="ENTERPRISE"><ESSPreferences /></TierGuard>} />
 
             <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />

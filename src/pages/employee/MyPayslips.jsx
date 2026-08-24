@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, Chip, Alert,
-  CircularProgress, Snackbar, Typography, Divider, LinearProgress
+  CircularProgress, Snackbar, Typography, Divider, LinearProgress, TextField, MenuItem
 } from '@mui/material';
 import { FileDownload as DownloadIcon, Visibility as ViewIcon } from '@mui/icons-material';
 import * as api from '../../services/api';
@@ -14,13 +14,15 @@ export default function MyPayslips() {
   const [loading, setLoading] = useState(true);
   const [viewDialog, setViewDialog] = useState({ open: false, slip: null });
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
 
   useEffect(() => { fetchPayslips(); }, []);
 
   const fetchPayslips = async () => {
     try {
       setLoading(true);
-      const res = await api.getMyPayslips(0, 24);
+      const res = await api.fetchMyPayslips(0, 24);
       setPayslips(res?.content || res || []);
     } catch (err) {
       setToast({ open: true, message: 'Failed to load payslips', severity: 'error' });
@@ -42,6 +44,11 @@ export default function MyPayslips() {
     window.open(`/api/payroll/slips/${slipId}/pdf`, '_blank');
   };
 
+  const filteredSlips = payslips.filter(slip =>
+    (!filterYear || slip.payrollYear === filterYear) &&
+    (!filterMonth || slip.payrollMonth === filterMonth)
+  );
+
   return (
     <Box>
       <Typography variant="h5" fontWeight={700} gutterBottom>My Payslips</Typography>
@@ -54,6 +61,38 @@ export default function MyPayslips() {
       </Snackbar>
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
+
+      {/* Filters */}
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <TextField
+          select
+          label="Year"
+          value={filterYear}
+          onChange={(e) => setFilterYear(e.target.value)}
+          sx={{ width: 150 }}
+        >
+          {[2024, 2025, 2026].map(y => (
+            <MenuItem key={y} value={y}>{y}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Month"
+          value={filterMonth}
+          onChange={(e) => setFilterMonth(e.target.value)}
+          sx={{ width: 150 }}
+        >
+          <MenuItem value="">All Months</MenuItem>
+          {Array.from({ length: 12 }, (_, i) => (
+            <MenuItem key={i + 1} value={i + 1}>
+              {new Date(2024, i).toLocaleString('en-IN', { month: 'long' })}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Button variant="outlined" onClick={() => { setFilterYear(new Date().getFullYear()); setFilterMonth(new Date().getMonth() + 1); }}>
+          Reset
+        </Button>
+      </Stack>
 
       <TableContainer component={Paper}>
         <Table>
@@ -69,14 +108,14 @@ export default function MyPayslips() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {!loading && payslips.length === 0 && (
+            {!loading && filteredSlips.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                  No payslips found. They will appear here after payroll is processed.
+                  {payslips.length === 0 ? 'No payslips found. They will appear here after payroll is processed.' : 'No payslips match the selected filter.'}
                 </TableCell>
               </TableRow>
             )}
-            {payslips.map(slip => (
+            {filteredSlips.map(slip => (
               <TableRow key={slip.id} hover>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{slip.slipNumber}</TableCell>
                 <TableCell>{slip.payrollMonth}/{slip.payrollYear}</TableCell>

@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useAuthContext } from '../context/AuthContext';
 
-function PrivateRoute({ children }) {
+function PrivateRoute({ children, requiredRole = null }) {
   const { user, loading: authLoading } = useAuthContext();
   const location = useLocation();
 
@@ -39,6 +39,10 @@ function PrivateRoute({ children }) {
       sessionStorage.setItem('redirectAfterLogin', redirectPath);
     }
     return <Navigate to={`/login?expired=1&redirect=${encodeURIComponent(redirectPath)}`} replace />;
+  }
+
+  if (requiredRole && !requiredRole.includes(user.role)) {
+    return <Navigate to="/403" replace />;
   }
 
   return children;

@@ -8,10 +8,26 @@ import * as api from '../../services/api';
 
 const fmtRs = (val) => `₹${(Number(val) || 0).toLocaleString('en-IN')}`;
 
+const downloadPayslipPdf = async (slipId) => {
+  try {
+    const response = await api.getPayslipPdf(slipId);
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `payslip-${slipId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+  } catch (err) {
+    console.error('Failed to download payslip:', err);
+  }
+};
+
 export default function ESSDashboard() {
   const [latestPayslip, setLatestPayslip] = useState(null);
   const [attendance, setAttendance] = useState(null);
   const [myPayslips, setMyPayslips] = useState([]);
+  const [leaveBalance, setLeaveBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
 
@@ -24,9 +40,10 @@ export default function ESSDashboard() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [slipsRes, attendRes] = await Promise.allSettled([
-        api.getMyPayslips(0, 6),
+      const [slipsRes, attendRes, leaveRes] = await Promise.allSettled([
+        api.fetchMyPayslips(0, 6),
         api.getMyAttendance(currentMonth, currentYear),
+        api.getLeaveBalance(null, null),
       ]);
       if (slipsRes.status === 'fulfilled') {
         const slips = slipsRes.value?.content || slipsRes.value || [];
@@ -34,6 +51,7 @@ export default function ESSDashboard() {
         setLatestPayslip(slips[0] || null);
       }
       if (attendRes.status === 'fulfilled') setAttendance(attendRes.value);
+      if (leaveRes.status === 'fulfilled') setLeaveBalance(leaveRes.value);
     } catch (err) {
       setToast({ open: true, message: 'Some data could not be loaded', severity: 'warning' });
     } finally {
@@ -111,6 +129,54 @@ export default function ESSDashboard() {
         </Grid>
       </Grid>
 
+      {/* YTD & Leave Balance */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="caption" color="text.secondary">YTD Earnings</Typography>
+              <Typography variant="h5" fontWeight={700}>
+                {myPayslips.length > 0 ? fmtRs(myPayslips.reduce((sum, s) => sum + (s.grossEarnings || 0), 0)) : '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">Year to date</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="caption" color="text.secondary">YTD Net Paid</Typography>
+              <Typography variant="h5" fontWeight={700}>
+                {myPayslips.length > 0 ? fmtRs(myPayslips.reduce((sum, s) => sum + (s.netSalary || 0), 0)) : '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">Cumulative</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="caption" color="text.secondary">Annual Leave Balance</Typography>
+              <Typography variant="h5" fontWeight={700}>
+                {leaveBalance?.annualDays ?? '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">days remaining</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="caption" color="text.secondary">Sick Leave Balance</Typography>
+              <Typography variant="h5" fontWeight={700}>
+                {leaveBalance?.sickDays ?? '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">days remaining</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       {/* Attendance + Quick Actions */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
@@ -152,15 +218,15 @@ export default function ESSDashboard() {
                 <Button
                   variant="contained" fullWidth startIcon={<FileDownloadIcon />}
                   disabled={!latestPayslip}
-                  onClick={() => latestPayslip && window.open(`/api/payroll/slips/${latestPayslip.id}/pdf`, '_blank')}
+                  onClick={() => latestPayslip && downloadPayslipPdf(latestPayslip.id)}
                 >
                   Download Latest Payslip
                 </Button>
-                <Button variant="outlined" fullWidth href="/payroll/my-payslips">
+                <Button variant="outlined" fullWidth href="/employee/payslips">
                   View All Payslips ({myPayslips.length})
                 </Button>
-                <Button variant="outlined" fullWidth href="/payroll/tax-declaration">Tax Declaration</Button>
-                <Button variant="outlined" fullWidth href="/payroll/my-loans">View My Loans</Button>
+                <Button variant="outlined" fullWidth href="/employee/tax-declaration">Tax Declaration</Button>
+                <Button variant="outlined" fullWidth href="/employee/loans">View My Loans</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -187,7 +253,7 @@ export default function ESSDashboard() {
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip label={slip.payoutStatus} size="small" color="success" />
                     <Button size="small" startIcon={<FileDownloadIcon />}
-                      onClick={() => window.open(`/api/payroll/slips/${slip.id}/pdf`, '_blank')}>
+                      onClick={() => downloadPayslipPdf(slip.id)}>
                       PDF
                     </Button>
                   </Stack>

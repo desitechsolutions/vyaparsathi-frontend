@@ -56,6 +56,14 @@ export default function PayrollWizard() {
 
   const handleNext = async () => {
     // Validate current step before moving forward
+    if (activeStep === 0 && (!payrollData.attendanceData || payrollData.attendanceData.length === 0)) {
+      setToast({ open: true, message: 'Please complete attendance data before proceeding', severity: 'error' });
+      return;
+    }
+    if (activeStep === 3 && (!payrollData.payrollRun || !payrollData.payrollRun.id)) {
+      setToast({ open: true, message: 'Payroll run not initialized', severity: 'error' });
+      return;
+    }
     if (activeStep < STEPS.length - 1) {
       setActiveStep(activeStep + 1);
     }

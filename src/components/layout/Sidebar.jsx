@@ -92,11 +92,12 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     inventory: false,
     contacts: false,
     finance: false,
+    payroll: false,    // Payroll — top-level enterprise group
+    ess: false,        // Employee Self-Service portal
     reports: false,
     teamAccess: false,
     configuration: false,
     compliance: false,
-    payments: false,   // legacy nested "payments" inside Finance
   });
 
   const toggleNested = (key) => {
@@ -185,9 +186,31 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
       { text: t('customerPayments', 'Customer Payments'), icon: <PaymentIcon />, path: '/customer-payments' },
       { text: t('supplierPayments', 'Supplier Payments'), icon: <PaymentsIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
       { text: t('expenses', 'Expenses'), icon: <PaidIcon />, path: '/expenses' },
-      // Payroll lives with Finance (money out to staff), not with Configuration —
-      // it's a transactional workflow that touches ledgers and bank accounts.
-      { text: t('payroll.title', 'Payroll'), icon: <BadgeIcon />, path: '/admin/payroll', requiredTier: 'ENTERPRISE' },
+    ],
+  };
+
+  // Payroll — standalone top-level group (enterprise module)
+  // Lives in BUSINESS section between Finance and Reports, matching Zoho Payroll / Zoho Books patterns.
+  const payrollGroup = {
+    key: 'payroll',
+    text: t('payroll.title', 'Payroll'),
+    icon: <BadgeIcon />,
+    requiredTier: 'ENTERPRISE',
+    children: [
+      // Overview
+      { text: t('payroll.dashboard', 'Dashboard'), icon: <DashboardIcon />, path: '/payroll', requiredTier: 'ENTERPRISE' },
+      { text: t('payroll.reports', 'Reports & Analytics'), icon: <AssessmentIcon />, path: '/payroll/reports', requiredTier: 'ENTERPRISE' },
+      // Payroll Operations
+      { text: t('payroll.runs', 'Payroll Runs'), icon: <AssignmentIcon />, path: '/payroll/runs', requiredTier: 'ENTERPRISE' },
+      // Employee Management
+      { text: t('payroll.employees', 'Employees'), icon: <PeopleIcon />, path: '/payroll/employees', requiredTier: 'ENTERPRISE' },
+      { text: t('payroll.structures', 'Salary Structures'), icon: <RequestQuoteIcon />, path: '/payroll/structures', requiredTier: 'ENTERPRISE' },
+      // Approvals
+      { text: t('payroll.leaveApprovals', 'Leave Approvals'), icon: <EventBusyIcon />, path: '/payroll/leave-approvals', requiredTier: 'ENTERPRISE' },
+      { text: t('payroll.loanApprovals', 'Loan Management'), icon: <PaidIcon />, path: '/payroll/loans', requiredTier: 'ENTERPRISE' },
+      // Configuration
+      { text: t('payroll.statutory', 'Statutory & Compliance'), icon: <PolicyIcon />, path: '/payroll/statutory', requiredTier: 'ENTERPRISE' },
+      { text: t('payroll.banking', 'Banking Setup'), icon: <AccountBalanceIcon />, path: '/payroll/banking', requiredTier: 'ENTERPRISE' },
     ],
   };
 
@@ -273,10 +296,41 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     path: '/admin/billing',
   };
 
+  // Employee Self-Service Portal (ESS) — for employees only
+  const essChildren = [
+    { text: t('ess.dashboard', 'My Dashboard'), icon: <DashboardIcon />, path: '/employee/dashboard', requiredTier: 'ENTERPRISE', divider: false },
+    { text: t('ess.payslips', 'Payslips'), icon: <ReceiptLongIcon />, path: '/employee/payslips', requiredTier: 'ENTERPRISE' },
+    { text: t('ess.tax', 'Tax Declaration'), icon: <RequestPageIcon />, path: '/employee/tax-declaration', requiredTier: 'ENTERPRISE' },
+    { text: t('ess.leaves', 'Leave Requests'), icon: <EventBusyIcon />, path: '/employee/leaves', requiredTier: 'ENTERPRISE', divider: true },
+    { text: t('ess.loans', 'Loans'), icon: <PaidIcon />, path: '/employee/loans', requiredTier: 'ENTERPRISE' },
+    { text: t('ess.advances', 'Salary Advances'), icon: <PaymentsIcon />, path: '/employee/advances', requiredTier: 'ENTERPRISE' },
+    { text: t('ess.preferences', 'Preferences'), icon: <Settings />, path: '/employee/preferences', requiredTier: 'ENTERPRISE', divider: true },
+  ];
+
+  const essGroup = {
+    key: 'ess',
+    text: t('ess.title', 'Employee Portal'),
+    icon: <BadgeIcon />,
+    requiredTier: 'ENTERPRISE',
+    children: essChildren,
+  };
+
   // Section order — operations sit above business insights sit above admin.
+  // IMPORTANT: Role-based sidebar organization
+  // - Admin/Owner: Finance, Payroll (top-level), Reports, Administration
+  // - Regular Staff: Employee Self-Service Portal only
   const operationsGroups = [salesGroup, purchasesGroup, inventoryGroup, contactsGroup];
-  const businessGroups = [financeGroup, reportsGroup];
-  const administrationGroups = [teamAccessGroup, configurationGroup, complianceGroup];
+
+  // For Admin/Owner: Finance | Payroll (own section) | Reports
+  const adminBusinessGroups = [financeGroup, payrollGroup, reportsGroup];
+  const adminAdministrationGroups = [teamAccessGroup, configurationGroup, complianceGroup];
+
+  // For Regular Staff: Only Employee Portal (self-service)
+  const staffBusinessGroups = [essGroup];
+
+  // Choose groups based on role
+  const businessGroups = isAdminOrOwner ? adminBusinessGroups : staffBusinessGroups;
+  const administrationGroups = isAdminOrOwner ? adminAdministrationGroups : [];
 
   const isDark = theme.palette.mode === 'dark';
 

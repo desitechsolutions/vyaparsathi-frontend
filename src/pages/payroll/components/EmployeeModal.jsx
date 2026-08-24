@@ -226,8 +226,17 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                   name="monthlyCTC"
                   control={control}
                   defaultValue="0.00"
+                  rules={{ min: { value: 10000, message: 'CTC must be at least ₹10,000' } }}
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="Monthly CTC" type="number" />
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Monthly CTC"
+                      type="number"
+                      error={!!errors.monthlyCTC}
+                      helperText={errors.monthlyCTC?.message}
+                      inputProps={{ min: 10000 }}
+                    />
                   )}
                 />
               </Grid>
@@ -257,8 +266,16 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                   name="bankAccountNumber"
                   control={control}
                   defaultValue=""
+                  rules={{ pattern: { value: /^\d{9,18}$/, message: 'Account must be 9-18 digits' } }}
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="Bank Account Number" />
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Bank Account Number"
+                      error={!!errors.bankAccountNumber}
+                      helperText={errors.bankAccountNumber?.message}
+                      inputProps={{ pattern: '[0-9]{9,18}' }}
+                    />
                   )}
                 />
               </Grid>
@@ -268,8 +285,16 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                   name="bankIFSCCode"
                   control={control}
                   defaultValue=""
+                  rules={{ pattern: { value: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: 'Invalid IFSC format (e.g., ICIC0000001)' } }}
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="Bank IFSC Code" />
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Bank IFSC Code"
+                      error={!!errors.bankIFSCCode}
+                      helperText={errors.bankIFSCCode?.message}
+                      placeholder="e.g., ICIC0000001"
+                    />
                   )}
                 />
               </Grid>
@@ -325,6 +350,9 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                       label="PAN Number"
                       error={!!errors.panNumber}
                       helperText={errors.panNumber?.message}
+                      type="password"
+                      autoComplete="off"
+                      inputProps={{ maxLength: 10 }}
                     />
                   )}
                 />
@@ -343,6 +371,9 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                       label="Aadhaar Number"
                       error={!!errors.aadhaarNumber}
                       helperText={errors.aadhaarNumber?.message}
+                      type="password"
+                      autoComplete="off"
+                      inputProps={{ maxLength: 12 }}
                     />
                   )}
                 />
@@ -354,7 +385,14 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                   control={control}
                   defaultValue=""
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="UAN Number" />
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="UAN Number"
+                      type="password"
+                      autoComplete="off"
+                      inputProps={{ maxLength: 12 }}
+                    />
                   )}
                 />
               </Grid>
@@ -365,7 +403,14 @@ export default function EmployeeModal({ open, onClose, onSubmit, initialData, mo
                   control={control}
                   defaultValue=""
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="ESIC Number" />
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="ESIC Number"
+                      type="password"
+                      autoComplete="off"
+                      inputProps={{ maxLength: 17 }}
+                    />
                   )}
                 />
               </Grid>

@@ -1924,3 +1924,86 @@ export const getStatutoryConfig = () =>
 
 export const saveStatutoryConfig = (data) =>
   API.post('/api/payroll/statutory-config', data).then(r => r.data);
+
+// --- MISSING LEAVE MANAGEMENT APIs ---
+// ESS endpoint — for employee viewing their own applications
+export const createLeaveApplication = (employeeId, data) =>
+  API.post('/api/payroll/employee/leave-applications', data, { params: { employeeId } }).then(r => r.data);
+
+export const listLeaveApplications = (page = 0, size = 10) =>
+  API.get('/api/payroll/employee/leave-applications', { params: { page, size } }).then(r => r.data);
+
+// Admin endpoint — list ALL applications across all employees (for Leave Approvals page)
+export const listAdminLeaveApplications = (status = 'PENDING') =>
+  API.get('/api/payroll/leave-applications', { params: { status } }).then(r => r.data);
+
+export const approveLeaveApplication = (applicationId) =>
+  API.post(`/api/payroll/leave-applications/${applicationId}/approve`).then(r => r.data);
+
+export const rejectLeaveApplication = (applicationId, reason) =>
+  API.post(`/api/payroll/leave-applications/${applicationId}/reject`, {}, { params: { reason } }).then(r => r.data);
+
+export const getLeaveBalance = (employeeId, leaveTypeId) =>
+  API.get('/api/payroll/leave-balance', { params: { employeeId, leaveTypeId } }).then(r => r.data);
+
+// --- MISSING LOAN REQUEST APIs ---
+export const createLoanRequest = (employeeId, data) =>
+  API.post('/api/payroll/employee/loans', data, { params: { employeeId } }).then(r => r.data);
+
+export const getEmployeeLoans = (employeeId, page = 0, size = 10) =>
+  API.get(`/api/payroll/employees/${employeeId}/loans`, { params: { page, size } }).then(r => r.data);
+
+export const approveLoan = (loanId) =>
+  API.post(`/api/payroll/loans/${loanId}/approve`).then(r => r.data);
+
+export const rejectLoan = (loanId, reason) =>
+  API.post(`/api/payroll/loans/${loanId}/reject`, {}, { params: { reason } }).then(r => r.data);
+
+// --- MISSING GRATUITY APIs ---
+export const getEmployeeGratuity = (employeeId) =>
+  API.get(`/api/payroll/employees/${employeeId}/gratuity`).then(r => r.data);
+
+export const calculateBulkGratuity = () =>
+  API.get('/api/payroll/gratuity/bulk').then(r => r.data);
+
+// --- MISSING LEAVE TYPES & HOLIDAYS ---
+export const createLeaveType = (data) =>
+  API.post('/api/payroll/leave-types', data).then(r => r.data);
+
+export const createHolidayCalendar = (data) =>
+  API.post('/api/payroll/holiday-calendar', data).then(r => r.data);
+
+export const getHolidayCalendar = (year) =>
+  API.get('/api/payroll/holiday-calendar', { params: { year } }).then(r => r.data);
+
+// --- MISSING FORM 16 & PDF Downloads ---
+export const getForm16Pdf = (financialYear) =>
+  API.get('/api/payroll/employee/form16/pdf', { params: { financialYear }, responseType: 'blob' }).then(r => r.data);
+
+export const getPayslipPdf = (slipId) =>
+  API.get(`/api/payroll/slips/${slipId}/pdf`, { responseType: 'blob' }).then(r => r.data);
+
+// --- MISSING GL POSTING ---
+export const postPayrollToGL = (runId) =>
+  API.post(`/api/payroll/runs/${runId}/post-to-gl`).then(r => r.data);
+
+// --- MISSING STATUTORY RETURNS ---
+export const getEsicReturn = (runId) =>
+  API.get(`/api/payroll/statutory/esic-return/${runId}`, { responseType: 'blob' }).then(r => r.data);
+
+export const getTdsReturnBlob = (financialYear, quarter) =>
+  API.get('/api/payroll/statutory/24q-tds', { params: { financialYear, quarter }, responseType: 'blob' }).then(r => r.data);
+
+export const getLwfReturnBlob = (month, year, state) =>
+  API.get('/api/payroll/statutory/lwf-return', { params: { month, year, state }, responseType: 'blob' }).then(r => r.data);
+
+// --- MISSING PAYROLL REPORTS ---
+export const getPayrollReports = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/reports`).then(r => r.data);
+
+export const getPayrollSummary = () =>
+  API.get('/api/payroll/summary').then(r => r.data);
+
+// --- MISSING DISPATCH STATS ---
+export const getDispatchStats = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/dispatch-stats`).then(r => r.data);
