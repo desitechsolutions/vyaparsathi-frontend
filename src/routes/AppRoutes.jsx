@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { CircularProgress, Box } from '@mui/material';
 
 /**
  * Legacy alias — /customer-details/:id/dues is a URL the old
@@ -10,6 +11,14 @@ const LegacyDuesRedirect = () => {
   const { id } = useParams();
   return <Navigate to={`/customers/${id}`} replace />;
 };
+
+// Loading fallback for lazy-loaded components
+const LazyFallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+    <CircularProgress />
+  </Box>
+);
+
 import PrivateRoute from './PrivateRoute';
 import MainLayout from '../components/layout/MainLayout'; // Updated to use your responsive layout
 import Dashboard from '../pages/Dashboard';
@@ -40,7 +49,6 @@ import CustomerPaymentPage from '../pages/payments/CustomerPaymentPage';
 import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
-import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import PurchaseOrderEditor from '../pages/purchases/PurchaseOrderEditor';
 import PurchaseOrderDetail from '../pages/purchases/PurchaseOrderDetail';
@@ -104,64 +112,68 @@ import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
 import PricingPage from '../pages/PricingPage';
 import PaymentHistoryPage from '../pages/payroll/PaymentHistoryPage';
-// Phase 1: Employee Management, Salary Structures, Loans
-import EmployeeDirectory from '../pages/payroll/EmployeeDirectory';
-import SalaryStructures from '../pages/payroll/SalaryStructures';
-import LoanManagement from '../pages/payroll/LoanManagement';
-// Phase 2: Payroll Wizard & Run Management
-import PayrollWizard from '../pages/payroll/PayrollWizard';
-// Phase 3: Statutory Compliance & Banking
-import StatutoryCompliance from '../pages/payroll/StatutoryCompliance';
-import BankingIntegration from '../pages/payroll/BankingIntegration';
-// Phase 3b: Leave & Report Management
-import LeaveApprovals from '../pages/payroll/LeaveApprovals';
-import PayrollReports from '../pages/payroll/PayrollReports';
-import AdvanceApprovals from '../pages/payroll/AdvanceApprovals';
-import LeaveTypeManagement from '../pages/payroll/LeaveTypeManagement';
-import HolidayCalendar from '../pages/payroll/HolidayCalendar';
-import EmployeePayrollHistory from '../pages/payroll/EmployeePayrollHistory';
-// Phase 4: Employee Self-Service
-import ESSDashboard from '../pages/employee/ESSDashboard';
-import MyPayslips from '../pages/employee/MyPayslips';
-import TaxDeclaration from '../pages/employee/TaxDeclaration';
-import LeaveApplications from '../pages/employee/LeaveApplications';
-import LoanRequests from '../pages/employee/LoanRequests';
-import AdvanceRequests from '../pages/employee/AdvanceRequests';
-import ESSPreferences from '../pages/employee/ESSPreferences';
-// Admin Dashboard
-import PayrollAdminDashboard from '../pages/payroll/PayrollAdminDashboard';
+// ===== LAZY-LOADED BUNDLES =====
+// BUNDLE 1: Payroll Module (async)
+const EmployeeDirectory = React.lazy(() => import('../pages/payroll/EmployeeDirectory'));
+const SalaryStructures = React.lazy(() => import('../pages/payroll/SalaryStructures'));
+const LoanManagement = React.lazy(() => import('../pages/payroll/LoanManagement'));
+const PayrollWizard = React.lazy(() => import('../pages/payroll/PayrollWizard'));
+const StatutoryCompliance = React.lazy(() => import('../pages/payroll/StatutoryCompliance'));
+const BankingIntegration = React.lazy(() => import('../pages/payroll/BankingIntegration'));
+const LeaveApprovals = React.lazy(() => import('../pages/payroll/LeaveApprovals'));
+const PayrollReports = React.lazy(() => import('../pages/payroll/PayrollReports'));
+const AdvanceApprovals = React.lazy(() => import('../pages/payroll/AdvanceApprovals'));
+const LeaveTypeManagement = React.lazy(() => import('../pages/payroll/LeaveTypeManagement'));
+const HolidayCalendar = React.lazy(() => import('../pages/payroll/HolidayCalendar'));
+const EmployeePayrollHistory = React.lazy(() => import('../pages/payroll/EmployeePayrollHistory'));
+const PayrollAdminDashboard = React.lazy(() => import('../pages/payroll/PayrollAdminDashboard'));
+
+// BUNDLE 2: Employee Self-Service (async)
+const ESSDashboard = React.lazy(() => import('../pages/employee/ESSDashboard'));
+const MyPayslips = React.lazy(() => import('../pages/employee/MyPayslips'));
+const TaxDeclaration = React.lazy(() => import('../pages/employee/TaxDeclaration'));
+const LeaveApplications = React.lazy(() => import('../pages/employee/LeaveApplications'));
+const LoanRequests = React.lazy(() => import('../pages/employee/LoanRequests'));
+const AdvanceRequests = React.lazy(() => import('../pages/employee/AdvanceRequests'));
+const ESSPreferences = React.lazy(() => import('../pages/employee/ESSPreferences'));
+
+// BUNDLE 3: Admin Module (async)
+const TechAdminDashboard = React.lazy(() => import('../pages/admin/TechAdminDashboard'));
+const AdminPaymentQueue = React.lazy(() => import('../pages/admin/AdminPaymentQueue'));
+const AdminSupport = React.lazy(() => import('../pages/admin/AdminSupport'));
+const GlobalShopManagement = React.lazy(() => import('../pages/admin/GlobalShopManagement'));
+const SystemUserManagement = React.lazy(() => import('../pages/admin/SystemUserManagement'));
+const NewsletterManager = React.lazy(() => import('../pages/admin/NewsletterManager'));
+const PlanConfigManager = React.lazy(() => import('../pages/admin/PlanConfigManager'));
+const PlatformSettingsPage = React.lazy(() => import('../pages/admin/PlatformSettingsPage'));
+const AdminTeamManagementPage = React.lazy(() => import('../pages/admin/AdminTeamManagementPage'));
+const FeatureFlagManagerPage = React.lazy(() => import('../pages/admin/FeatureFlagManagerPage'));
+const SuperAdminAuditPage = React.lazy(() => import('../pages/admin/SuperAdminAuditPage'));
+
+// BUNDLE 4: Analytics & Compliance (async)
+const AnalyticsDashboard = React.lazy(() => import('../pages/AnalyticsDashboard'));
+const ComplianceDashboard = React.lazy(() => import('../pages/reports/ComplianceDashboard'));
+const AccountingDashboard = React.lazy(() => import('../pages/reports/AccountingDashboard'));
+const ExpiryReport = React.lazy(() => import('../pages/reports/ExpiryReport'));
+const PurchaseRegister = React.lazy(() => import('../pages/reports/PurchaseRegister'));
+
+// ===== EAGERLY-LOADED (Main app) =====
 import ResetPassword from '../pages/ResetPassword';
 import VerifyEmail from '../pages/VerifyEmail';
 import ComingSoonPage from '../pages/public/ComingSoonPage';
 import AdminLayout from '../components/layout/AdminLayout';
-import TechAdminDashboard from '../pages/admin/TechAdminDashboard';
-import AdminPaymentQueue from '../pages/admin/AdminPaymentQueue';
 import { useAuthContext } from '../context/AuthContext';
-import AdminSupport from '../pages/admin/AdminSupport';
-import GlobalShopManagement from '../pages/admin/GlobalShopManagement';
-import SystemUserManagement from '../pages/admin/SystemUserManagement';
-import NewsletterManager from '../pages/admin/NewsletterManager';
 import SettingsPage from '../pages/SettingsPage';
 import NotFound from '../pages/NotFound';
 import BillingDashboard from '../components/subscriptions/BillingDashboard';
-import PlanConfigManager from '../pages/admin/PlanConfigManager';
 import LockScreenPage from '../pages/LockScreenPage';
 import HelpAndSupportPage from '../pages/HelpAndSupportPage';
 import KeyboardShortcutsPage from '../pages/KeyboardShortcutsPage';
 import UserPreferencesPage from '../pages/UserPreferencesPage';
-import PlatformSettingsPage from '../pages/admin/PlatformSettingsPage';
-import AdminTeamManagementPage from '../pages/admin/AdminTeamManagementPage';
-import FeatureFlagManagerPage from '../pages/admin/FeatureFlagManagerPage';
-import SuperAdminAuditPage from '../pages/admin/SuperAdminAuditPage';
 import AcceptAdminInvitePage from '../pages/public/AcceptAdminInvitePage';
-import ExpiryReport from '../pages/reports/ExpiryReport';
 import BillingPage from '../pages/billing/BillingPage';
 import PaymentSuccessPage from '../pages/billing/PaymentSuccessPage';
 import PaymentFailurePage from '../pages/billing/PaymentFailurePage';
-import AccountingDashboard from '../pages/reports/AccountingDashboard';
-
-import PurchaseRegister from '../pages/reports/PurchaseRegister';
-import ComplianceDashboard from '../pages/reports/ComplianceDashboard';
 import PurchaseReturns from '../pages/purchases/PurchaseReturns';
 import PrintGRNPage from '../pages/purchases/PrintGRNPage';
 import PrintPurchaseReturnPage from '../pages/purchases/PrintPurchaseReturnPage';
@@ -367,7 +379,7 @@ function AppRoutes() {
             <Route path="notifications" element={<TierGuard requiredTier="STARTER"><Notifications /></TierGuard>} />
 
             {/* PRO TIER & ABOVE */}
-            <Route path="analytics" element={<TierGuard requiredTier="PRO"><AnalyticsDashboard /></TierGuard>} />
+            <Route path="analytics" element={<TierGuard requiredTier="PRO"><Suspense fallback={<LazyFallback />}><AnalyticsDashboard /></Suspense></TierGuard>} />
             {/* PO routes wrapped in ErrorBoundary so a page-render crash keeps
                 the sidebar + header alive — user can still navigate away.
                 resetKey=path clears the fallback when they switch pages. */}
@@ -407,11 +419,11 @@ function AppRoutes() {
             <Route path="reports/z-report" element={<TierGuard requiredTier="PRO"><ZReport /></TierGuard>} />
             <Route path="reports/expenses-summary" element={<TierGuard requiredTier="PRO"><ExpensesSummary /></TierGuard>} />
             <Route path="reports/payments-summary" element={<TierGuard requiredTier="PRO"><PaymentsSummary /></TierGuard>} />
-            <Route path="reports/accounting" element={<TierGuard requiredTier="PRO"><AccountingDashboard /></TierGuard>} />
+            <Route path="reports/accounting" element={<TierGuard requiredTier="PRO"><Suspense fallback={<LazyFallback />}><AccountingDashboard /></Suspense></TierGuard>} />
             {/* Retail Reports (PRO Tier) */}
-            <Route path="reports/expiry-report" element={<TierGuard requiredTier="PRO"><ExpiryReport /></TierGuard>} />
-            <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><PurchaseRegister /></TierGuard>} />
-            <Route path="reports/compliance" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="reports/compliance"><ComplianceDashboard /></ErrorBoundary></TierGuard>} />
+            <Route path="reports/expiry-report" element={<TierGuard requiredTier="PRO"><Suspense fallback={<LazyFallback />}><ExpiryReport /></Suspense></TierGuard>} />
+            <Route path="reports/purchase-register" element={<TierGuard requiredTier="PRO"><Suspense fallback={<LazyFallback />}><PurchaseRegister /></Suspense></TierGuard>} />
+            <Route path="reports/compliance" element={<TierGuard requiredTier="PRO"><ErrorBoundary resetKey="reports/compliance"><Suspense fallback={<LazyFallback />}><ComplianceDashboard /></Suspense></ErrorBoundary></TierGuard>} />
 
             {/* ENTERPRISE TIER ONLY — PAYROLL MODULE (Admin-only routes) */}
             {/* IMPORTANT: These routes are ADMIN/OWNER ONLY. Regular staff cannot access. */}
@@ -421,7 +433,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll">
-                    <PayrollAdminDashboard />
+                    <Suspense fallback={<LazyFallback />}>
+                      <PayrollAdminDashboard />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -432,7 +446,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/reports">
-                    <PayrollReports />
+                    <Suspense fallback={<LazyFallback />}>
+                      <PayrollReports />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -443,7 +459,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/runs">
-                    <PayrollWizard />
+                    <Suspense fallback={<LazyFallback />}>
+                      <PayrollWizard />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -461,7 +479,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/employees">
-                    <EmployeeDirectory />
+                    <Suspense fallback={<LazyFallback />}>
+                      <EmployeeDirectory />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -470,7 +490,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/structures">
-                    <SalaryStructures />
+                    <Suspense fallback={<LazyFallback />}>
+                      <SalaryStructures />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -481,7 +503,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/leave-approvals">
-                    <LeaveApprovals />
+                    <Suspense fallback={<LazyFallback />}>
+                      <LeaveApprovals />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -492,7 +516,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/loans">
-                    <LoanManagement />
+                    <Suspense fallback={<LazyFallback />}>
+                      <LoanManagement />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -502,7 +528,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/advance-approvals">
-                    <AdvanceApprovals />
+                    <Suspense fallback={<LazyFallback />}>
+                      <AdvanceApprovals />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -512,7 +540,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/leave-types">
-                    <LeaveTypeManagement />
+                    <Suspense fallback={<LazyFallback />}>
+                      <LeaveTypeManagement />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -522,7 +552,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/holidays">
-                    <HolidayCalendar />
+                    <Suspense fallback={<LazyFallback />}>
+                      <HolidayCalendar />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -532,7 +564,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/employee-history">
-                    <EmployeePayrollHistory />
+                    <Suspense fallback={<LazyFallback />}>
+                      <EmployeePayrollHistory />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -543,7 +577,9 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/statutory">
-                    <StatutoryCompliance />
+                    <Suspense fallback={<LazyFallback />}>
+                      <StatutoryCompliance />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
@@ -552,28 +588,30 @@ function AppRoutes() {
               <TierGuard requiredTier="ENTERPRISE">
                 <PrivateRoute requiredRole={['ADMIN', 'OWNER']}>
                   <ErrorBoundary resetKey="payroll/banking">
-                    <BankingIntegration />
+                    <Suspense fallback={<LazyFallback />}>
+                      <BankingIntegration />
+                    </Suspense>
                   </ErrorBoundary>
                 </PrivateRoute>
               </TierGuard>
             } />
 
             {/* Employee Self-Service Portal (ESS) — Dashboard & Analytics */}
-            <Route path="employee/dashboard" element={<TierGuard requiredTier="ENTERPRISE"><ESSDashboard /></TierGuard>} />
+            <Route path="employee/dashboard" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><ESSDashboard /></Suspense></TierGuard>} />
 
             {/* Employee Self-Service — Compensation */}
-            <Route path="employee/payslips" element={<TierGuard requiredTier="ENTERPRISE"><MyPayslips /></TierGuard>} />
-            <Route path="employee/tax-declaration" element={<TierGuard requiredTier="ENTERPRISE"><TaxDeclaration /></TierGuard>} />
+            <Route path="employee/payslips" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><MyPayslips /></Suspense></TierGuard>} />
+            <Route path="employee/tax-declaration" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><TaxDeclaration /></Suspense></TierGuard>} />
 
             {/* Employee Self-Service — Leave Management */}
-            <Route path="employee/leaves" element={<TierGuard requiredTier="ENTERPRISE"><LeaveApplications /></TierGuard>} />
+            <Route path="employee/leaves" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><LeaveApplications /></Suspense></TierGuard>} />
 
             {/* Employee Self-Service — Finance */}
-            <Route path="employee/loans" element={<TierGuard requiredTier="ENTERPRISE"><LoanRequests /></TierGuard>} />
-            <Route path="employee/advances" element={<TierGuard requiredTier="ENTERPRISE"><AdvanceRequests /></TierGuard>} />
+            <Route path="employee/loans" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><LoanRequests /></Suspense></TierGuard>} />
+            <Route path="employee/advances" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><AdvanceRequests /></Suspense></TierGuard>} />
 
             {/* Employee Self-Service — Preferences */}
-            <Route path="employee/preferences" element={<TierGuard requiredTier="ENTERPRISE"><ESSPreferences /></TierGuard>} />
+            <Route path="employee/preferences" element={<TierGuard requiredTier="ENTERPRISE"><Suspense fallback={<LazyFallback />}><ESSPreferences /></Suspense></TierGuard>} />
 
             <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />

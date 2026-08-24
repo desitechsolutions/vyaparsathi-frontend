@@ -72,6 +72,21 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
+/* ── Keyboard Navigation Focus Indicator ───────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+*:focus-visible {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.25);
+}
+
+[data-theme="dark"] *:focus-visible {
+  box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.25);
+}
+
 /* ── Scrollbar — Webkit (Chrome, Safari, Edge) ────────── */
 ::-webkit-scrollbar        { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track  { background: var(--scrollbar-track); }

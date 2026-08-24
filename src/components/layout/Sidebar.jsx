@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
+  Drawer, SwipeableDrawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar,
   Box, Collapse, useMediaQuery, useTheme, Typography, alpha
 } from '@mui/material';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
@@ -525,22 +525,41 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
   return (
     <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
-      <Drawer
-        variant={isMobile ? "temporary" : "permanent"}
-        open={isMobile ? mobileOpen : true}
-        onClose={onDrawerToggle}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fbfbfb',
-            borderRight: `1px solid ${theme.palette.divider}`,
-          },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
+      {isMobile ? (
+        <SwipeableDrawer
+          variant="temporary"
+          open={mobileOpen}
+          onOpen={onDrawerToggle}
+          onClose={onDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fbfbfb',
+              borderRight: `1px solid ${theme.palette.divider}`,
+            },
+          }}
+        >
+          {drawerContent}
+        </SwipeableDrawer>
+      ) : (
+        <Drawer
+          variant="permanent"
+          open={true}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fbfbfb',
+              borderRight: `1px solid ${theme.palette.divider}`,
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
     </Box>
   );
 };
