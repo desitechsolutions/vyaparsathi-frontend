@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import axios from "axios";
 import { useAbortableAPI } from "../hooks/useAbortableAPI";
 import { useWebSocketContext } from "../context/WebSocketContext";
-import { useTheme, useMediaQuery } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/material';
 import {
   Grid,
   Paper,
@@ -352,7 +353,6 @@ const setupChecklist = useMemo(() => {
           fetchItemsSold(fromDate, toDate, signal),
           fetchAllSales(fromDate, toDate, signal),
           fetchDailyReport(todayStr, signal),
-          fetchAllSales(todayStr, todayStr, signal),
         ]);
 
         const getRes = (res, fallback = []) =>
@@ -365,9 +365,11 @@ const setupChecklist = useMemo(() => {
         const itemsRes = getRes(results[4], []);
         const rangeSalesRaw = getRes(results[5], []);
         const dailyRes = getRes(results[6], {});
-        const todaySalesRaw = getRes(results[7], []);
 
-        const todaySalesFiltered = todaySalesRaw.filter(
+        // Derive today's sales from the range result — avoids a duplicate API call.
+        // If the selected range doesn't include today (e.g. a past-week report),
+        // todaySales will simply be empty, which is the correct behaviour.
+        const todaySalesFiltered = rangeSalesRaw.filter(
           (sale) => dayjs(sale.date).format("YYYY-MM-DD") === todayStr
         );
 
@@ -426,6 +428,7 @@ const setupChecklist = useMemo(() => {
   useEffect(() => {
     fetchDashboardData(range.from, range.to, abortController?.signal);
   }, [range, fetchDashboardData, abortController]);
+
 
   const avgTicketSize = useMemo(() => {
     const total = dashboardData.summaryStats.totalSales || 0;
@@ -591,7 +594,6 @@ const setupChecklist = useMemo(() => {
                   {t('dashboardPage.lastUpdated')}: {dayjs(lastUpdated).format("hh:mm A")}
                 </Typography>
                 <IconButton
-                  size={{ xs: 'small', md: 'medium' }}
                   onClick={() => fetchDashboardData(range.from, range.to)}
                   sx={{ color: "text.secondary", minWidth: 44, minHeight: 44 }}
                   aria-label="Refresh dashboard"
@@ -882,7 +884,6 @@ const setupChecklist = useMemo(() => {
                               </TableCell>
                               <TableCell align="right">
                                 <IconButton
-                                  size={{ xs: 'small', md: 'medium' }}
                                   onClick={(e) => { e.stopPropagation(); navigate("/sales?tab=history"); }}
                                   aria-label="Open invoice"
                                   sx={{ minWidth: 44, minHeight: 44 }}
@@ -1184,7 +1185,6 @@ const setupChecklist = useMemo(() => {
                         </Box>
                         <MuiTooltip title={t('dashboardPage.sendWhatsAppReminder')}>
                           <IconButton
-                            size={{ xs: 'small', md: 'medium' }}
                             onClick={() => sendWhatsAppReminder(cust)}
                             sx={{
                               color: "success.main",

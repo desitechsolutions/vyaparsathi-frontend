@@ -45,11 +45,22 @@ export const AuthProvider = ({ children }) => {
     if (isLoggingOut.current) return;
     isLoggingOut.current = true;
 
+    // Set the explicit-logout guard BEFORE calling the API.
+    // This ensures that even if apiLogout() fails (network error, backend
+    // down), the flag is already in localStorage. Any subsequent init()
+    // will see it and skip silentRefresh(), preventing auto-login via the
+    // surviving HttpOnly cookie. The flag persists until the user
+    // intentionally logs back in (login() removes it).
+    if (!opts.fromBroadcast) {
+      localStorage.setItem('explicit_logout', '1');
+    }
+
     try {
       await apiLogout().catch(() => {});
     } catch {}
 
     clearAuthStorage();
+    localStorage.removeItem('quick_payment_offline_queue_v1');
     clearPermissionsCache();
     delete API.defaults.headers.common['Authorization'];
     setUser(null);
@@ -128,6 +139,20 @@ export const AuthProvider = ({ children }) => {
   // ---------------- INITIAL BOOT ----------------
   useEffect(() => {
     const init = async () => {
+      // Explicit-logout guard: if the user previously logged out, DO NOT
+      // attempt silentRefresh() even if a refreshToken cookie is still
+      // present in the browser (e.g. backend was unreachable during logout,
+      // or the cookie TTL outlived the logout event).
+      //
+      // IMPORTANT: We do NOT remove the flag here. It must persist across
+      // every page reload and tab reopen until the user intentionally signs
+      // back in. login() is the only place that removes it.
+      if (localStorage.getItem('explicit_logout') === '1') {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       const token = getValidToken();
 
       if (token) {
@@ -255,6 +280,11 @@ export const AuthProvider = ({ children }) => {
       setUser(decoded);
 
       logoutToastShown.current = false;
+
+      // Clear the explicit-logout guard so silentRefresh() works normally
+      // for the remainder of this session. This is the only place the flag
+      // is removed — not in init(), not in clearAuthStorage().
+      localStorage.removeItem('explicit_logout');
 
       // Announce to sibling tabs so they pick up the same session.
       if (authChannel) {

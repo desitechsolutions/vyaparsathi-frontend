@@ -1,755 +1,476 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  Box, Typography, CircularProgress, Paper, Table, TableBody,
-  TableCell, TableHead, TableRow, TableContainer, Autocomplete, TextField,
-  Stack, TableSortLabel, InputAdornment, MenuItem, Select, FormControl, 
-  InputLabel, alpha, Tooltip, IconButton, Chip, TablePagination, Skeleton,
-  Card
+  Box,
+  Typography,
+  Paper,
+  Stack,
+  alpha,
+  Snackbar,
+  Alert,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SearchIcon from '@mui/icons-material/Search';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import PrintIcon from '@mui/icons-material/Print';
+import { DataGrid } from '@mui/x-data-grid';
 import HistoryIcon from '@mui/icons-material/History';
-import DownloadIcon from '@mui/icons-material/Download';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ReplayIcon from '@mui/icons-material/Replay';
 
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useAppPalette } from '../../hooks/useAppPalette';
-import { getPaymentReceiptSignedUrl, downloadReceiptPdf } from '../../services/api';
+import { usePaymentFilters } from '../../hooks/usePaymentFilters';
+import AdvancedPaymentFilter from '../../components/payments/AdvancedPaymentFilter';
+import ReceiptDownloadButton from '../../components/payments/ReceiptDownloadButton';
+import PaymentExportButton from '../../components/payments/PaymentExportButton';
 import RefundDialog from '../../components/payments/RefundDialog';
+import PaymentMethodBadge from '../../components/payments/PaymentMethodBadge';
+import PaymentStatusBadge from '../../components/payments/PaymentStatusBadge';
 
-
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount) => {
-  const num = Math.abs(Number(amount) || 0);
-  const [integer, decimal = '00'] = num.toFixed(2).split('.');
-  const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `₹${formattedInteger}.${decimal}`;
+  const num = Number(amount) || 0;
+  return `₹${num.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
-const formatCurrencyPDF = (amount) => {
-  const num = Math.abs(Number(amount) || 0);
-  const [integer, decimal = '00'] = num.toFixed(2).split('.');
-  const formattedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `Rs. ${formattedInteger}.${decimal}`;
+/** "23 Aug, 14:30" */
+const formatDate = (isoString) => {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  const time = d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return `${day}, ${time}`;
 };
 
-// Downloads the printable PDF receipt for a given payment.
-// Uses the signed-URL flow so the actual PDF fetch does not require session auth.
-const handleDownloadReceipt = async (paymentId, invoiceNumber) => {
-  try {
-    const signedPath = await getPaymentReceiptSignedUrl(paymentId);
-    const filename = invoiceNumber
-      ? `receipt_${invoiceNumber.replace(/[\/\\]/g, '_')}.pdf`
-      : `receipt_payment_${paymentId}.pdf`;
-    await downloadReceiptPdf(signedPath, filename);
-  } catch (err) {
-    console.error('Failed to download receipt', err);
-    alert(err?.response?.data?.message || 'Could not download receipt. Please try again.');
-  }
-};
+// ── Column factory ────────────────────────────────────────────────────────────
 
-// Helper component for smooth loading states
-const SkeletonRow = () => (
-  <TableRow>
-    <TableCell><Skeleton variant="text" width="85%" /></TableCell>
-    <TableCell><Skeleton variant="text" width="70%" /></TableCell>
-    <TableCell align="right"><Skeleton variant="text" width="60%" /></TableCell>
-    <TableCell><Skeleton variant="text" width="75%" /></TableCell>
-    <TableCell><Skeleton variant="text" width="80%" /></TableCell>
-    <TableCell><Skeleton variant="rectangular" width={70} height={24} sx={{ borderRadius: 1.5 }} /></TableCell>
-    <TableCell align="center"><Skeleton variant="circular" width={28} height={28} /></TableCell>
-  </TableRow>
-);
-
-const PaymentHistory = ({ 
-  loading, 
-  paymentHistory, 
-  totalElements = 0,
-  page = 0,
-  rowsPerPage = 20,
-  onPageChange,
-  onRowsPerPageChange,
-  customers, 
-  selectedCustomer, 
-  onCustomerChange, 
-  onRefresh,
-  formatAmount = formatCurrency
-}) => {
-  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
-  const customTheme = useAppPalette();
-  const [order, setOrder] = useState('desc');
-  const [orderBy, setOrderBy] = useState('paymentDate');
-  const [filterText, setFilterText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [refundTarget, setRefundTarget] = useState(null); // payment object; opens the refund dialog when non-null
-
-  const inputSx = {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: 2,
-      bgcolor: 'background.paper',
-      transition: 'all 0.3s ease',
-      '& fieldset': { borderColor: 'divider', transition: 'border-color 0.3s ease' },
-      '&:hover fieldset': { borderColor: 'divider' },
-      '&.Mui-focused fieldset': { borderColor: customTheme.primary },
+const buildColumns = (customTheme, onRefundClick) => [
+  {
+    field: 'paymentDate',
+    headerName: 'Date & Time',
+    width: 165,
+    minWidth: 140,
+    renderCell: ({ value }) => (
+      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.84rem', letterSpacing: '-0.1px' }}>
+        {formatDate(value)}
+      </Typography>
+    ),
+  },
+  {
+    field: 'customerName',
+    headerName: 'Customer',
+    flex: 1,
+    minWidth: 130,
+    sortable: false,
+    renderCell: ({ value, row }) => {
+      const name = value || row.customer?.name || '';
+      return name ? (
+        <Typography variant="body2" fontWeight={700} noWrap sx={{ fontSize: '0.84rem' }}>
+          {name}
+        </Typography>
+      ) : <Typography variant="caption" color="text.secondary">—</Typography>;
     },
-  };
-
-  const downloadCSV = () => {
-    const headers = ['Date', 'Invoice/Type', 'Amount', 'Method', 'Transaction ID', 'Status'];
-    const rows = processedHistory.map(p => [
-      new Date(p.paymentDate).toLocaleString('en-IN'),
-      p.invoiceNumber || 'Account Advance',
-      Number(p.amount).toFixed(2),
-      p.paymentMethod,
-      p.transactionId || p.reference || '-',
-      p.status
-    ]);
-
-    const csvContent = [headers, ...rows].map(e => e.map(cell => `"${cell}"`).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Payments_${selectedCustomer?.name || 'All'}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const printPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-
-    // Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(15, 118, 110);
-    doc.text("PAYMENT HISTORY", pageWidth / 2, 18, { align: 'center' });
-    
-    // Subheader
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, pageWidth / 2, 26, { align: 'center' });
-    
-    // Divider line
-    doc.setDrawColor(15, 118, 110);
-    doc.setLineWidth(0.5);
-    doc.line(14, 32, pageWidth - 14, 32);
-
-    // Customer info
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(30, 41, 59);
-    doc.text(`Customer: ${selectedCustomer?.name || 'All Customers'}`, 14, 42);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Page Total: ${formatCurrencyPDF(viewTotal)}`, 14, 49);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, pageWidth - 14, 49, { align: 'right' });
-
-    const tableColumn = ["Date", "Invoice #", "Method", "Reference", "Amount", "Status"];
-    const tableRows = processedHistory.map(p => [
-      new Date(p.paymentDate).toLocaleDateString('en-IN'),
-      p.invoiceNumber || 'Advance',
-      p.paymentMethod,
-      p.transactionId || p.reference || '-',
-      formatCurrencyPDF(p.amount),
-      p.status
-    ]);
-
-    autoTable(doc, {
-      startY: 55,
-      head: [tableColumn],
-      body: tableRows,
-      theme: 'grid',
-      headStyles: { 
-        fillColor: [15, 118, 110], 
-        halign: 'center',
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 10
-      },
-      bodyStyles: { fontSize: 9, textColor: [30, 41, 59] },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
-      columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
-      margin: { left: 14, right: 14 }
-    });
-
-    doc.save(`Payment_History_${selectedCustomer?.name || 'All'}_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  const handleRequestSort = (property) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-  };
-
-  const processedHistory = useMemo(() => {
-    let data = Array.isArray(paymentHistory) ? paymentHistory : [];
-    let filtered = [...data];
-
-    if (filterText) {
-      const lowerText = filterText.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.invoiceNumber?.toLowerCase().includes(lowerText) ||
-        p.reference?.toLowerCase().includes(lowerText) ||
-        p.transactionId?.toLowerCase().includes(lowerText)
+  },
+  {
+    field: 'amount',
+    headerName: 'Amount',
+    width: 130,
+    minWidth: 100,
+    type: 'number',
+    headerAlign: 'right',
+    align: 'right',
+    renderCell: ({ value }) => (
+      <Typography variant="body2" fontWeight={900} sx={{ color: customTheme.success, fontSize: '0.9rem', letterSpacing: '-0.2px' }}>
+        {formatCurrency(value)}
+      </Typography>
+    ),
+  },
+  {
+    field: 'paymentMethod',
+    headerName: 'Method',
+    width: 135,
+    minWidth: 100,
+    sortable: false,
+    renderCell: ({ value }) => value ? <PaymentMethodBadge method={value} /> : <Typography variant="caption" color="text.secondary">—</Typography>,
+  },
+  {
+    field: 'reference',
+    headerName: 'Reference',
+    flex: 1,
+    minWidth: 130,
+    sortable: false,
+    renderCell: ({ value, row }) => {
+      const ref = value || row.transactionId || '';
+      return (
+        <Typography
+          variant="caption"
+          sx={{
+            fontFamily: 'monospace',
+            fontSize: '0.79rem',
+            color: ref ? customTheme.textPrimary : customTheme.textSecondary,
+            letterSpacing: '0.1px',
+          }}
+        >
+          {ref || '—'}
+        </Typography>
       );
+    },
+  },
+  {
+    field: 'status',
+    headerName: 'Status',
+    width: 120,
+    minWidth: 100,
+    sortable: false,
+    renderCell: ({ value }) => value ? <PaymentStatusBadge status={value} showIcon /> : <Typography variant="caption" color="text.secondary">—</Typography>,
+  },
+  {
+    field: '_actions',
+    headerName: 'Actions',
+    width: 96,
+    minWidth: 80,
+    sortable: false,
+    align: 'center',
+    headerAlign: 'center',
+    renderCell: ({ row }) => (
+      <Stack direction="row" spacing={0.25} justifyContent="center">
+        <ReceiptDownloadButton
+          paymentId={row.id}
+          invoiceNumber={row.invoiceNumber}
+          sx={{ color: customTheme.primary }}
+        />
+        <Tooltip title="Refund this payment" arrow>
+          <span>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRefundClick(row);
+              }}
+              disabled={!row.id || Number(row.amount) <= 0}
+              aria-label="Refund payment"
+              sx={{
+                color: customTheme.danger || '#dc2626',
+                minWidth: 32,
+                minHeight: 32,
+                '&:hover': { bgcolor: alpha('#dc2626', 0.08) },
+              }}
+            >
+              <ReplayIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+    ),
+  },
+];
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
+/**
+ * PaymentHistory
+ *
+ * Self-contained payment history panel for a single customer.
+ * All data-fetching is handled internally via usePaymentFilters.
+ *
+ * Props:
+ *   customerId  {string|number|null}  The customer whose payments to display.
+ *   refreshKey  {number}              Increment from the parent to force a re-fetch
+ *                                     (e.g. after recording a new payment).
+ */
+const PaymentHistory = ({ customerId, refreshKey = 0 }) => {
+  const customTheme = useAppPalette();
+
+  const {
+    payments,
+    filters,
+    setFilters,
+    page,
+    setPage,
+    rowsPerPage,
+    loading,
+    total,
+    refetch,
+    snackbar,
+    handleSnackbarClose,
+  } = usePaymentFilters(customerId);
+
+  // Respond to refreshKey bumps from the parent without calling refetch on mount.
+  const prevRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (prevRefreshKey.current !== refreshKey) {
+      prevRefreshKey.current = refreshKey;
+      refetch();
     }
+  }, [refreshKey, refetch]);
 
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter(p => p.status === statusFilter);
-    }
+  const [refundTarget, setRefundTarget] = React.useState(null);
 
-    return filtered.sort((a, b) => {
-      let valA = a[orderBy];
-      let valB = b[orderBy];
-      if (orderBy === 'paymentDate') {
-        valA = new Date(a.paymentDate).getTime();
-        valB = new Date(b.paymentDate).getTime();
-      }
-      if (order === 'desc') return valB > valA ? 1 : -1;
-      return valA > valB ? 1 : -1;
-    });
-  }, [paymentHistory, order, orderBy, filterText, statusFilter]);
+  const columns = buildColumns(customTheme, setRefundTarget);
 
-  const viewTotal = useMemo(() => 
-    processedHistory.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-  , [processedHistory]);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PAID':
-      case 'SUCCESS': 
-        return { bg: alpha(customTheme.success, 0.12), text: customTheme.success, icon: '✓' };
-      case 'PARTIALLY_PAID': 
-        return { bg: alpha(customTheme.warning, 0.12), text: customTheme.warning, icon: '◐' };
-      default: 
-        return { bg: alpha('#6b7280', 0.1), text: '#374151', icon: '○' };
-    }
-  };
-
-  const getMethodColor = (method) => {
-    const methodColors = {
-      CASH: { bg: alpha('#059669', 0.1), text: '#059669' },
-      CARD: { bg: alpha('#7c3aed', 0.1), text: '#7c3aed' },
-      UPI: { bg: alpha(customTheme.primary, 0.1), text: customTheme.primary },
-      NET_BANKING: { bg: alpha(customTheme.primary, 0.1), text: customTheme.primary },
-      CHEQUE: { bg: alpha('#7c3aed', 0.1), text: '#7c3aed' },
-    };
-    return methodColors[method] || { bg: alpha('#64748b', 0.1), text: '#64748b' };
+  const dataGridSx = {
+    border: 'none',
+    fontFamily: 'inherit',
+    '& .MuiDataGrid-columnHeaders': {
+      bgcolor: alpha(customTheme.primary, 0.05),
+      fontWeight: 800,
+      fontSize: '0.75rem',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      borderBottom: `2px solid ${alpha(customTheme.primary, 0.18)}`,
+      color: customTheme.textPrimary,
+      minHeight: '44px !important',
+    },
+    '& .MuiDataGrid-columnHeader': {
+      minHeight: '44px !important',
+    },
+    '& .MuiDataGrid-cell': {
+      borderBottom: `1px solid ${alpha(customTheme.primary, 0.07)}`,
+      display: 'flex',
+      alignItems: 'center',
+      minHeight: '52px !important',
+    },
+    '& .MuiDataGrid-row': {
+      minHeight: '52px !important',
+      transition: 'background-color 0.15s ease',
+    },
+    '& .MuiDataGrid-row:hover': {
+      bgcolor: alpha(customTheme.primary, 0.04),
+    },
+    '& .MuiDataGrid-row.Mui-selected': {
+      bgcolor: alpha(customTheme.primary, 0.06),
+      '&:hover': { bgcolor: alpha(customTheme.primary, 0.08) },
+    },
+    '& .MuiDataGrid-footerContainer': {
+      borderTop: `1.5px solid ${alpha(customTheme.primary, 0.12)}`,
+      bgcolor: alpha(customTheme.primary, 0.02),
+      minHeight: '52px',
+    },
+    '& .MuiTablePagination-root': {
+      color: customTheme.textPrimary,
+      '& .MuiTablePagination-displayedRows': { fontSize: '0.82rem' },
+    },
+    '& .MuiDataGrid-virtualScroller': {
+      minHeight: 200,
+    },
+    overflowX: 'auto',
   };
 
   return (
-    <Paper 
-      elevation={0} 
-      sx={{ 
-        p: 0, 
-        borderRadius: 3, 
-        border: `1.5px solid ${alpha(customTheme.primary, 0.15)}`,
+    <Paper
+      elevation={0}
+      sx={{
+        borderRadius: 3,
+        border: `1.5px solid ${alpha(customTheme.primary, 0.14)}`,
         overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        transition: 'all 0.3s ease'
+        boxShadow: `0 2px 8px ${alpha(customTheme.primary, 0.06)}`,
+        transition: 'box-shadow 0.2s ease',
+        '&:hover': {
+          boxShadow: `0 4px 16px ${alpha(customTheme.primary, 0.1)}`,
+        },
       }}
     >
-      {/* ── Header Bar with Filters ──────────────────────────────── */}
-      <Box sx={{ 
-        p: 3, 
-        borderBottom: `1.5px solid ${alpha(customTheme.primary, 0.15)}`, 
-        background: `linear-gradient(135deg, ${alpha(customTheme.primary, 0.04)} 0%, ${alpha(customTheme.primaryLight, 0.04)} 100%)`
-      }}>
-        <Stack spacing={2.5}>
-          {/* Title */}
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <Box
+        sx={{
+          px: { xs: 2, md: 3 },
+          py: { xs: 1.75, md: 2 },
+          borderBottom: `1.5px solid ${alpha(customTheme.primary, 0.12)}`,
+          background: `linear-gradient(135deg, ${alpha(customTheme.primary, 0.04)} 0%, transparent 100%)`,
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+          spacing={1.5}
+        >
+          {/* Title + count */}
           <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ 
-              p: 1.2, 
-              borderRadius: 1.5, 
-              bgcolor: alpha(customTheme.primary, 0.1),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <HistoryIcon sx={{ fontSize: 22, color: customTheme.primary, fontWeight: 800 }} />
+            <Box
+              aria-hidden="true"
+              sx={{
+                p: 1,
+                borderRadius: 1.5,
+                bgcolor: alpha(customTheme.primary, 0.1),
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <HistoryIcon sx={{ fontSize: 20, color: customTheme.primary }} />
             </Box>
-            <Typography variant="h6" fontWeight={800} color={customTheme.textPrimary} sx={{ fontSize: '1.1rem' }}>
-              Payment History & Ledger
-            </Typography>
+            <Box>
+              <Typography
+                component="h2"
+                variant="h6"
+                fontWeight={800}
+                color={customTheme.textPrimary}
+                sx={{ fontSize: '0.95rem', lineHeight: 1.2 }}
+              >
+                Payment History
+              </Typography>
+              <Typography
+                variant="caption"
+                color={customTheme.textSecondary}
+                sx={{ fontSize: '0.72rem' }}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {loading
+                  ? 'Loading…'
+                  : `${total.toLocaleString('en-IN')} record${total !== 1 ? 's' : ''}${customerId ? '' : ' across all customers'}`}
+              </Typography>
+            </Box>
           </Stack>
 
-          {/* Filters Row */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'column', lg: 'row' }} 
-            spacing={2} 
-            alignItems={{ xs: 'stretch', lg: 'center' }}
-          >
-            <Autocomplete
-              options={customers}
-              getOptionLabel={o => o.name}
-              value={selectedCustomer}
-              onChange={(_, v) => onCustomerChange(v)}
-              sx={{ width: { xs: '100%', lg: 280 } }}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Filter by Customer" 
-                  size="small"
-                  sx={inputSx}
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" sx={{ color: customTheme.textSecondary, opacity: 0.6 }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              )}
-            />
-
-            <TextField
-              size="small"
-              placeholder="Search transaction..."
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              sx={{ width: { xs: '100%', lg: 280 }, ...inputSx }}
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: customTheme.textSecondary, opacity: 0.6 }} /></InputAdornment>,
+          {/* Actions */}
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PaymentExportButton
+              payments={payments}
+              filename={`payments_${customerId ? `customer_${customerId}` : 'all'}_${new Date().toISOString().slice(0, 10)}`}
+              disabled={loading || !payments.length}
+              sx={{
+                borderColor: alpha(customTheme.success, 0.4),
+                color: customTheme.success,
+                fontWeight: 700,
+                textTransform: 'none',
+                fontSize: '0.82rem',
+                minHeight: 36,
+                borderRadius: 2,
+                '&:hover': {
+                  borderColor: customTheme.success,
+                  bgcolor: alpha(customTheme.success, 0.06),
+                },
               }}
             />
-
-            <FormControl size="small" sx={{ minWidth: 160, ...inputSx }}>
-              <InputLabel>Status</InputLabel>
-              <Select 
-                value={statusFilter} 
-                label="Status" 
-                onChange={(e) => setStatusFilter(e.target.value)}
+            <Tooltip title="Refresh history" arrow>
+              <IconButton
+                size="small"
+                onClick={refetch}
+                disabled={loading}
+                aria-label="Refresh payment history"
+                sx={{
+                  color: customTheme.primary,
+                  bgcolor: alpha(customTheme.primary, 0.08),
+                  minWidth: 36,
+                  minHeight: 36,
+                  transition: 'all 0.25s ease',
+                  '&:hover': {
+                    bgcolor: alpha(customTheme.primary, 0.15),
+                    transform: 'rotate(180deg)',
+                  },
+                }}
               >
-                <MenuItem value="ALL">All Status</MenuItem>
-                <MenuItem value="SUCCESS">✓ Success</MenuItem>
-                <MenuItem value="PAID">✓ Paid</MenuItem>
-                <MenuItem value="PARTIALLY_PAID">◐ Partial</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Box sx={{ flexGrow: 1 }} />
-            
-            {/* Action Buttons */}
-            <Stack direction="row" spacing={0.75}>
-              <Tooltip title="Refresh Data" arrow>
-                <IconButton 
-                  onClick={onRefresh} 
-                  disabled={loading} 
-                  size="small"
-                  sx={{
-                    color: customTheme.primary,
-                    bgcolor: alpha(customTheme.primary, 0.08),
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      bgcolor: alpha(customTheme.primary, 0.15),
-                      transform: 'rotate(180deg)'
-                    }
-                  }}
-                >
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Export CSV" arrow>
-                <IconButton 
-                  onClick={downloadCSV} 
-                  disabled={loading || processedHistory.length === 0} 
-                  size="small"
-                  sx={{
-                    color: customTheme.success,
-                    bgcolor: alpha(customTheme.success, 0.08),
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      bgcolor: alpha(customTheme.success, 0.15),
-                    },
-                    '&:disabled': { opacity: 0.5 }
-                  }}
-                >
-                  <DownloadIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Print PDF" arrow>
-                <IconButton 
-                  onClick={printPDF} 
-                  disabled={loading || processedHistory.length === 0} 
-                  size="small"
-                  sx={{
-                    color: customTheme.secondary,
-                    bgcolor: alpha(customTheme.secondary, 0.08),
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      bgcolor: alpha(customTheme.secondary, 0.15),
-                    },
-                    '&:disabled': { opacity: 0.5 }
-                  }}
-                >
-                  <PrintIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Stack>
       </Box>
 
-      {/* ── Summary Row ──────────────────────────────────────────── */}
-      <Box sx={{ 
-        px: 3, 
-        py: 2, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        bgcolor: alpha(customTheme.primary, 0.02),
-        borderBottom: `1px solid ${alpha(customTheme.primary, 0.1)}`
-      }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ flex: 1 }}>
-          <Typography 
-            variant="caption" 
-            fontWeight={800} 
-            color={customTheme.textSecondary}
-            sx={{ textTransform: 'uppercase', letterSpacing: 0.8, fontSize: '0.75rem' }}
-          >
-            PAGE {page + 1} • {loading ? '...' : totalElements.toLocaleString('en-IN')} TOTAL RECORDS
-          </Typography>
-        </Stack>
-        <Card 
-          elevation={0}
-          sx={{
-            px: 2.5,
-            py: 1,
-            borderRadius: 2,
-            bgcolor: alpha(customTheme.success, 0.08),
-            border: `1.5px solid ${alpha(customTheme.success, 0.25)}`
-          }}
-        >
-          <Typography 
-            variant="subtitle2" 
-            fontWeight={900} 
-            color={customTheme.success}
-            sx={{ fontSize: '0.95rem' }}
-          >
-            {loading ? <Skeleton width={120} /> : `Page Total: ${formatAmount(viewTotal)}`}
-          </Typography>
-        </Card>
-      </Box>
-
-      {/* ── Table Container ──────────────────────────────────────── */}
-      <TableContainer sx={{ minHeight: 400, maxHeight: 650, bgcolor: 'background.paper' }}>
-        <Table stickyHeader size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: alpha(customTheme.primary, 0.04) }}>
-              <TableCell 
-                sx={{ 
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                <TableSortLabel
-                  active={orderBy === 'paymentDate'}
-                  direction={orderBy === 'paymentDate' ? order : 'asc'}
-                  onClick={() => handleRequestSort('paymentDate')}
-                  sx={{
-                    '& .MuiTableSortLabel-icon': {
-                      color: `${customTheme.primary} !important`,
-                    }
-                  }}
-                >
-                  Date
-                </TableSortLabel>
-              </TableCell>
-              <TableCell 
-                sx={{ 
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                Invoice / Type
-              </TableCell>
-              <TableCell 
-                align="right"
-                sx={{ 
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                <TableSortLabel
-                  active={orderBy === 'amount'}
-                  direction={orderBy === 'amount' ? order : 'asc'}
-                  onClick={() => handleRequestSort('amount')}
-                  sx={{
-                    '& .MuiTableSortLabel-icon': {
-                      color: `${customTheme.primary} !important`,
-                    }
-                  }}
-                >
-                  Amount
-                </TableSortLabel>
-              </TableCell>
-              <TableCell 
-                sx={{ 
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                Method
-              </TableCell>
-              <TableCell 
-                sx={{ 
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                Reference
-              </TableCell>
-              <TableCell
-                sx={{
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                Status
-              </TableCell>
-              <TableCell
-                align="center"
-                sx={{
-                  bgcolor: alpha(customTheme.primary, 0.06),
-                  fontWeight: 800,
-                  color: customTheme.textPrimary,
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  borderBottom: `2px solid ${alpha(customTheme.primary, 0.2)}`
-                }}
-              >
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              [...Array(rowsPerPage)].map((_, i) => <SkeletonRow key={i} />)
-            ) : processedHistory.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                  <Stack alignItems="center" spacing={1}>
-                    <HistoryIcon sx={{ fontSize: 48, color: alpha(customTheme.primary, 0.2) }} />
-                    <Typography variant="body2" color={customTheme.textSecondary} fontWeight={600}>
-                      No transactions found
-                    </Typography>
-                    <Typography variant="caption" color={customTheme.textSecondary}>
-                      Try adjusting your filters or select a different customer
-                    </Typography>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ) : (
-              processedHistory.map((p, idx) => {
-                const statusTheme = getStatusColor(p.status);
-                const methodTheme = getMethodColor(p.paymentMethod);
-                return (
-                  <TableRow 
-                    key={p.id} 
-                    hover
-                    sx={{
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: alpha(customTheme.primary, 0.04),
-                      },
-                      borderBottom: `1px solid ${alpha(customTheme.primary, 0.08)}`
-                    }}
-                  >
-                    <TableCell sx={{ color: customTheme.textPrimary, fontWeight: 600 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.9rem' }}>
-                        {new Date(p.paymentDate).toLocaleDateString('en-IN')}
-                      </Typography>
-                      <Typography variant="caption" color={customTheme.textSecondary}>
-                        {new Date(p.paymentDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: customTheme.textPrimary }}>
-                      {p.invoiceNumber ? (
-                         <Chip 
-                           label={`#${p.invoiceNumber}`}
-                           size="small" 
-                           sx={{ 
-                             fontWeight: 800, 
-                             height: 24,
-                             fontSize: '0.75rem',
-                             bgcolor: alpha(customTheme.primary, 0.1),
-                             color: customTheme.primary,
-                             border: `1px solid ${alpha(customTheme.primary, 0.2)}`
-                           }} 
-                         />
-                      ) : (
-                        <Chip 
-                          label="💳 Advance" 
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 800, 
-                            height: 24, 
-                            fontSize: '0.75rem',
-                            bgcolor: alpha(customTheme.secondary, 0.1),
-                            color: customTheme.secondary,
-                            border: `1px solid ${alpha(customTheme.secondary, 0.2)}`
-                          }} 
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 900, color: customTheme.success, fontSize: '0.95rem' }}>
-                      {formatAmount(p.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={p.paymentMethod}
-                        size="small"
-                        sx={{
-                          fontWeight: 700,
-                          height: 24,
-                          fontSize: '0.7rem',
-                          bgcolor: methodTheme.bg,
-                          color: methodTheme.text,
-                          border: `1px solid ${alpha(methodTheme.text, 0.2)}`
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          fontFamily: 'monospace',
-                          fontWeight: 600,
-                          color: customTheme.textSecondary,
-                          fontSize: '0.8rem',
-                          wordBreak: 'break-all'
-                        }}
-                      >
-                        {p.transactionId || p.reference || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={`${statusTheme.icon} ${p.status}`}
-                        size="small"
-                        sx={{
-                          fontWeight: 800,
-                          height: 26,
-                          fontSize: '0.7rem',
-                          bgcolor: statusTheme.bg,
-                          color: statusTheme.text,
-                          border: `1px solid ${alpha(statusTheme.text, 0.25)}`
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Download payment receipt PDF">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDownloadReceipt(p.id, p.invoiceNumber)}
-                          sx={{ color: customTheme.primary }}
-                        >
-                          <ReceiptLongIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Refund this payment">
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => setRefundTarget(p)}
-                            disabled={!p.id || Number(p.amount) <= 0}
-                            sx={{ color: customTheme.error || '#e74c3c' }}
-                          >
-                            <CurrencyRupeeIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* ── Pagination ──────────────────────────────────────────── */}
-      <TablePagination
-        rowsPerPageOptions={[10, 20, 50]}
-        component="div"
-        count={totalElements}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(e, newPage) => onPageChange(newPage)}
-        onRowsPerPageChange={(e) => {
-          onRowsPerPageChange(parseInt(e.target.value, 10));
-        }}
-        sx={{
-          borderTop: `1.5px solid ${alpha(customTheme.primary, 0.15)}`,
-          bgcolor: alpha(customTheme.primary, 0.02),
-          '& .MuiTablePagination-toolbar': {
-            py: 1.5,
-            px: 2
-          },
-          '& .MuiIconButton-root': {
-            color: customTheme.primary,
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              bgcolor: alpha(customTheme.primary, 0.1)
-            }
-          },
-          '& .MuiSelect-root': {
-            color: customTheme.textPrimary,
-            fontWeight: 700
-          }
-        }}
+      {/* ── Filters ─────────────────────────────────────────────── */}
+      <AdvancedPaymentFilter
+        filters={filters}
+        onFiltersChange={setFilters}
+        loading={loading}
       />
 
+      {/* ── DataGrid ─────────────────────────────────────────────── */}
+      <Box
+        sx={{ bgcolor: 'background.paper', width: '100%', overflowX: 'auto' }}
+        role="region"
+        aria-label="Payment history table"
+      >
+        <DataGrid
+          rows={payments}
+          columns={columns}
+          getRowId={(row) => row.id}
+          aria-label={loading ? 'Payment history, loading' : `Payment history, ${total} records`}
+
+          // Server-side pagination
+          paginationMode="server"
+          rowCount={total}
+          page={page}
+          pageSize={rowsPerPage}
+          onPageChange={setPage}
+          rowsPerPageOptions={[10, 20, 50]}
+
+          loading={loading}
+          disableSelectionOnClick
+          autoHeight
+          density="standard"
+
+          components={{
+            NoRowsOverlay: () => (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                spacing={1.5}
+                sx={{ height: '100%', minHeight: 240, py: 6 }}
+              >
+                <Box sx={{
+                  p: 2.5,
+                  borderRadius: '50%',
+                  bgcolor: alpha(customTheme.primary, 0.08),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <HistoryIcon sx={{ fontSize: 44, color: alpha(customTheme.primary, 0.35) }} />
+                </Box>
+                <Typography variant="body1" color={customTheme.textPrimary} fontWeight={700} sx={{ fontSize: '0.95rem' }}>
+                  No payments found
+                </Typography>
+                <Typography variant="body2" color={customTheme.textSecondary} sx={{ maxWidth: 280, textAlign: 'center', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                  {customerId
+                    ? 'Try adjusting your filters or date range to see more records'
+                    : 'No payment records match the current filters'}
+                </Typography>
+              </Stack>
+            ),
+          }}
+
+          sx={dataGridSx}
+        />
+      </Box>
+
+      {/* ── Refund Dialog ────────────────────────────────────────── */}
       <RefundDialog
         open={refundTarget !== null}
         payment={refundTarget}
         onClose={() => setRefundTarget(null)}
         onSuccess={() => {
           setRefundTarget(null);
-          // Notify parent to refresh — the parent already handles page reloads via loadData().
-          if (typeof onPageChange === 'function') onPageChange(page);
+          refetch();
         }}
       />
+
+      {/* ── Error Snackbar (wired from usePaymentFilters) ────────── */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={handleSnackbarClose}
+          role="status"
+          aria-live={snackbar.severity === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          sx={{ borderRadius: 2, fontWeight: 600 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 };

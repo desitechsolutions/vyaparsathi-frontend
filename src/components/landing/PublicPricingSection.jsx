@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Grid, Typography, Stack, Chip, Button, Divider,
-  ToggleButtonGroup, ToggleButton, Paper, List, ListItem, ListItemIcon, ListItemText
+  ToggleButtonGroup, ToggleButton, Paper, List, ListItem, ListItemIcon, ListItemText,
+  CircularProgress
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
@@ -9,84 +10,27 @@ import StarIcon from '@mui/icons-material/Star';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { computePlanPricing, TIER_I18N_KEY } from '../../utils/pricingUtils';
 
-// Static plan definitions (no SubscriptionContext dependency)
-const staticPlans = [
-  {
-    key: 'free',
-    priceMonthly: 0,
-    priceYearly: 0,
-    color: '#64748B',
-    features: [
-      'Up to 500 Products',
-      'Basic Sales & Billing',
-      'GST Invoice Generation',
-      'Customer Management',
-      'Basic Reports',
-      '— Purchase Orders',
-      '— Analytics Dashboard',
-      '— Staff & Payroll',
-      '— Cloud Backup',
-    ]
-  },
-  {
-    key: 'starter',
-    priceMonthly: 499,
-    priceYearly: 4799,
-    color: '#2563EB',
-    features: [
-      'Unlimited Products',
-      'Full Sales & Billing',
-      'GST Invoice + GSTR Data',
-      'Customer Management',
-      'Supplier Management',
-      'Delivery Management',
-      'Advanced Reports',
-      '— Analytics Dashboard',
-      '— Staff & Payroll',
-    ]
-  },
-  {
-    key: 'pro',
-    isPopular: true,
-    priceMonthly: 999,
-    priceYearly: 9590,
-    color: '#7C3AED',
-    features: [
-      'Everything in Starter',
-      'Analytics Dashboard',
-      'Purchase Order Management',
-      'Stock Receiving Workflow',
-      'Supplier Payment Tracking',
-      'Audit Logs',
-      'Cloud Data Backup',
-      'Low Stock Alerts',
-      '— Staff & Payroll',
-    ]
-  },
-  {
-    key: 'enterprise',
-    priceMonthly: null,
-    priceYearly: null,
-    color: '#D97706',
-    features: [
-      'Everything in Professional',
-      'Staff & Payroll Management',
-      'HSN Code Compliance',
-      'Tax Compliance Hub',
-      'Multi-branch Support',
-      'Priority Support (2hr SLA)',
-      'Dedicated Account Manager',
-      'Custom Integrations',
-      'Advanced Security Controls',
-    ]
-  }
-];
+// Brand color per tier — presentation only. All pricing/feature data comes from
+// the backend (`GET /api/pricing/active` via SubscriptionContext) so this page
+// never drifts from the Pricing page or the Razorpay/DB plan configuration.
+const TIER_COLOR = {
+  FREE: '#64748B',
+  STARTER: '#2563EB',
+  PRO: '#7C3AED',
+  ENTERPRISE: '#D97706',
+};
 
 const PublicPricingSection = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { plans, loading } = useSubscription();
   const [billing, setBilling] = useState('yearly');
+
+  // Backend already returns plans ordered by sortOrder (see PricingPlanRepository).
+  const sortedPlans = plans || [];
 
   return (
     <Box
@@ -169,14 +113,23 @@ const PublicPricingSection = () => {
         </Box>
 
         {/* Plan Cards */}
+        {loading && sortedPlans.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress size={32} thickness={4} sx={{ color: '#2563EB' }} />
+          </Box>
+        ) : (
         <Grid container spacing={3} alignItems="stretch">
-          {staticPlans.map((plan) => {
-            const { key, color, isPopular, priceMonthly, priceYearly } = plan;
-            const displayPrice = billing === 'monthly' ? priceMonthly : (priceYearly ? Math.round(priceYearly / 12) : null);
-            const billingTotal = billing === 'yearly' ? priceYearly : priceMonthly;
+          {sortedPlans.map((plan) => {
+            const key = TIER_I18N_KEY[plan.tier] || plan.tier?.toLowerCase();
+            const color = TIER_COLOR[plan.tier] || '#64748B';
+            const isPopular = !!plan.isPopular;
+            const {
+              pricePerMonth, billingTotal, isFree, isCustomPricing,
+              isPromoActive, promoLabel, basePricePerMonth,
+            } = computePlanPricing(plan, billing);
 
             return (
-              <Grid item xs={12} sm={6} md={3} key={key}>
+              <Grid item xs={12} sm={6} md={12 / sortedPlans.length} key={plan.tier}>
                 <Paper
                   elevation={0}
                   sx={{
@@ -225,20 +178,36 @@ const PublicPricingSection = () => {
 
                     {/* Price */}
                     <Box sx={{ mb: 3 }}>
-                      {priceMonthly === null ? (
+                      {isCustomPricing ? (
                         <Typography variant="h4" fontWeight={900} sx={{ color: '#1E293B' }}>Custom</Typography>
-                      ) : priceMonthly === 0 ? (
+                      ) : isFree ? (
                         <Typography variant="h4" fontWeight={900} sx={{ color: '#1E293B' }}>₹0</Typography>
                       ) : (
-                        <Stack direction="row" alignItems="baseline" spacing={0.5}>
-                          <Typography variant="h3" fontWeight={900} sx={{ color: '#1E293B' }}>₹{displayPrice}</Typography>
+                        <Stack direction="row" alignItems="baseline" spacing={0.5} flexWrap="wrap">
+                          {isPromoActive && (
+                            <Typography
+                              variant="h6"
+                              fontWeight={700}
+                              sx={{ color: '#94A3B8', textDecoration: 'line-through' }}
+                            >
+                              ₹{basePricePerMonth}
+                            </Typography>
+                          )}
+                          <Typography variant="h3" fontWeight={900} sx={{ color: isPromoActive ? '#DC2626' : '#1E293B' }}>₹{pricePerMonth}</Typography>
                           <Typography variant="body2" sx={{ color: '#64748B' }}>{t('landingPage.pricing.perMonth')}</Typography>
                         </Stack>
                       )}
-                      <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>
-                        {priceMonthly === 0
+                      {isPromoActive && promoLabel && (
+                        <Chip
+                          label={promoLabel}
+                          size="small"
+                          sx={{ mt: 1, bgcolor: '#FEE2E2', color: '#DC2626', fontWeight: 800, fontSize: '0.68rem', height: 22 }}
+                        />
+                      )}
+                      <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, display: 'block', mt: isPromoActive && promoLabel ? 1 : 0 }}>
+                        {isFree
                           ? t('landingPage.pricing.freeForever')
-                          : priceMonthly === null
+                          : isCustomPricing
                           ? 'Contact us for pricing'
                           : billing === 'yearly'
                           ? `${t('landingPage.pricing.billedAnnually')} ₹${billingTotal}`
@@ -251,7 +220,9 @@ const PublicPricingSection = () => {
                       fullWidth
                       variant={isPopular ? 'contained' : 'outlined'}
                       endIcon={<ArrowForwardIcon />}
-                      onClick={() => navigate('/login')}
+                      onClick={() => isCustomPricing
+                        ? (window.location.href = 'mailto:sales@desitechsolutions.com?subject=Enterprise%20Plan%20Enquiry')
+                        : navigate('/login')}
                       sx={{
                         mb: 3,
                         fontWeight: 800,
@@ -270,9 +241,9 @@ const PublicPricingSection = () => {
                         })
                       }}
                     >
-                      {key === 'free'
+                      {isFree
                         ? t('landingPage.pricing.startFree')
-                        : key === 'enterprise'
+                        : isCustomPricing
                         ? t('landingPage.pricing.contactSales')
                         : t('landingPage.pricing.loginToPurchase')}
                     </Button>
@@ -284,9 +255,9 @@ const PublicPricingSection = () => {
                       {t('landingPage.pricing.featuresIncluded')}
                     </Typography>
                     <List dense disablePadding sx={{ flexGrow: 1 }}>
-                      {plan.features.map((feat, fi) => {
-                        const isExcluded = feat.startsWith('—');
-                        const label = isExcluded ? feat.replace('— ', '') : feat;
+                      {(plan.features || []).map((feat, fi) => {
+                        const isExcluded = feat.startsWith('-') || feat.startsWith('~') || feat.startsWith('—');
+                        const label = isExcluded ? feat.replace(/^[-~—]\s*/, '') : feat;
                         return (
                           <ListItem key={fi} disablePadding sx={{ py: 0.5 }}>
                             <ListItemIcon sx={{ minWidth: 28 }}>
@@ -314,6 +285,7 @@ const PublicPricingSection = () => {
             );
           })}
         </Grid>
+        )}
 
         {/* Bottom note */}
         <Box sx={{ textAlign: 'center', mt: 6 }}>

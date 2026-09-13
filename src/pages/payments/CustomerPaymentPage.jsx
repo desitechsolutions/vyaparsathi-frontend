@@ -1,284 +1,618 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  Box, Button, Tabs, Tab, Snackbar, Alert, Container, Fade, Stack,
-  Typography, Chip, IconButton, Tooltip, Card, Divider
-} from '@mui/material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import HistoryIcon from '@mui/icons-material/History';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import PersonIcon from '@mui/icons-material/Person';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { useAppPalette } from '../../hooks/useAppPalette';
+/**
+ * CustomerPaymentPage.jsx  — v2 (complete redesign)
+ *
+ * Production-grade, mobile-first payment hub.
+ *
+ * Layout:
+ *   xs–sm  : Full-width stacked cards, bottom-style tabs in the header
+ *   md+    : Container-constrained, tabbed (New Payment | History)
+ *
+ * Sections:
+ *   1. Page header  — title, quick-stats (PaymentStatsCards), refresh
+ *   2. Tab: "New Payment" — PaymentWizard (3-step)
+ *   3. Tab: "History"     — PaymentHistory (filters + DataGrid)
+ *
+ * Features:
+ *   - Loading skeletons instead of spinners
+ *   - Toast notifications (bottom-right Snackbar)
+ *   - Keyboard shortcut: Ctrl+P / Cmd+P => switch to New Payment tab
+ *   - URL param  ?saleId=  pre-selects a specific invoice
+ *   - Optimistic success notification (shows before history re-fetches)
+ */
 
+import React, {
+  useState, useEffect, useCallback, useMemo, useRef,
+} from 'react';
+import {
+  Box, Button, Tabs, Tab, Snackbar, Alert, Container,
+  Typography, Stack, IconButton, Tooltip, Divider, alpha,
+  Skeleton, Chip, useMediaQuery, Fab,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// Icons
+import ArrowBackIcon          from '@mui/icons-material/ArrowBack';
+import RefreshIcon            from '@mui/icons-material/Refresh';
+import PaymentsIcon           from '@mui/icons-material/Payments';
+import HistoryIcon            from '@mui/icons-material/History';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CloudDoneIcon          from '@mui/icons-material/CloudDone';
+import SyncIcon               from '@mui/icons-material/Sync';
+import FlashOnIcon            from '@mui/icons-material/FlashOn';
+
+// Hooks & services
+import { useAppPalette }              from '../../hooks/useAppPalette';
+import usePaymentWebSocket            from '../../hooks/usePaymentWebSocket';
+import useOfflineQueueReplay          from '../../hooks/useOfflineQueueReplay';
 import {
   fetchSalesWithDue,
   fetchCustomers,
   recordDuePaymentsBatch,
   recordBulkPayment,
   fetchCustomerAdvanceBalance,
-  fetchPaymentHistory
+  fetchPaymentsSummary,
 } from '../../services/api';
 
-import PaymentSummaryCards from './PaymentSummaryCards';
-import PaymentForm from './PaymentForm';
-import PaymentHistory from './PaymentHistory';
+// Components
+import PaymentWizard        from '../../components/payments/PaymentWizard';
+import PaymentStatsCards    from '../../components/payments/PaymentStatsCards';
+import PaymentHistory       from './PaymentHistory';
+import QuickPaymentSheet    from '../../components/payments/QuickPaymentSheet';
 
-const paymentMethodOptions = [
-  { value: 'CASH', label: 'Cash' },
-  { value: 'CARD', label: 'Card' },
-  { value: 'UPI', label: 'UPI' },
-  { value: 'NET_BANKING', label: 'Net Banking' },
-  { value: 'CHEQUE', label: 'Cheque' },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const needsTransactionId = (method) => ['CARD', 'UPI', 'NET_BANKING', 'CHEQUE'].includes(method);
-const emptyMethod = { paymentMethod: 'CASH', amount: '', transactionId: '', reference: '', notes: '' };
+/** Today's date as YYYY-MM-DD (used to fetch daily summary). */
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
+/** Key for persisting recent-customer IDs in localStorage. */
+const RECENT_KEY = 'recent_payment_customers_v1';
+const MAX_RECENT  = 6;
+
+function loadRecentIds() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw).slice(0, MAX_RECENT) : [];
+  } catch { return []; }
+}
+
+function pushRecentId(id) {
+  try {
+    const prev = loadRecentIds().filter((x) => String(x) !== String(id));
+    localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...prev].slice(0, MAX_RECENT)));
+  } catch {}
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 const CustomerPaymentPage = () => {
-  const navigate = useNavigate();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialSaleId = searchParams.get('saleId');
-  // Live palette from ThemeContext — updates with LIGHT/DARK/AUTO switches
-  const theme = useAppPalette();
+  const initialSaleId  = searchParams.get('saleId');
 
-  const handleBack = () => {
-    navigate(-1);
-  };
+  const palette     = useAppPalette();
+  const muiTheme    = useTheme();
+  const isMobile    = useMediaQuery(muiTheme.breakpoints.down('sm'));
+
+  // ── Tab ──────────────────────────────────────────────────────────────────
+  const [tab, setTab] = useState(0);
+
+  // ── Data ─────────────────────────────────────────────────────────────────
+  const [customers,      setCustomers]      = useState([]);
+  const [allSales,       setAllSales]       = useState([]);
+  const [advanceBalance, setAdvanceBalance] = useState(0);
+  const [receivedToday,  setReceivedToday]  = useState(0);
+
+  // ── UI ───────────────────────────────────────────────────────────────────
+  const [loading,        setLoading]        = useState(true);
+  const [loadError,      setLoadError]      = useState(null);
+  const [syncing,        setSyncing]        = useState(false);
+  const [lastSync,       setLastSync]       = useState(null);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [snackbar,       setSnackbar]       = useState({ open: false, message: '', severity: 'success' });
+
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [recentCustomerIds, setRecentCustomerIds] = useState(loadRecentIds);
+
+  // Pre-selected customer from URL (used to seed wizard initial state)
+  const [initialCustomer, setInitialCustomer] = useState(null);
+
+  // Quick Payment Sheet (Phase 4A)
+  const [quickSheetOpen, setQuickSheetOpen] = useState(false);
 
   const hasInitializedFromUrl = useRef(false);
 
-  // ─── DATA STATES ─────────────────────────────────────────
-  const [tab, setTab] = useState(0);
-  const [customers, setCustomers] = useState([]);
-  const [allSales, setAllSales] = useState([]);
-  const [advanceBalance, setAdvanceBalance] = useState(0);
-  
-  // PAGINATION STATES
-  const [paymentHistory, setPaymentHistory] = useState([]);
-  const [totalElements, setTotalElements] = useState(0);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-
-  // ─── SELECTION STATES ────────────────────────────────────
+  // ── Currently selected customer (tracked for WS filtering) ───────────────
+  // The wizard manages its own internal selectedCustomer; we mirror it here
+  // via onCustomerChange so the WebSocket hook can filter to that customer.
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedSale, setSelectedSale] = useState(null);
 
-  // ─── FORM STATES ─────────────────────────────────────────
-  const [paymentMethods, setPaymentMethods] = useState([emptyMethod]);
-  const [globalNotes, setGlobalNotes] = useState('');
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 16));
-  const [formErrors, setFormErrors] = useState({});
+  // Stable ref so the WS effect closure always sees the latest value
+  // without needing to be a dependency (avoids duplicate toast on customer swap).
+  const selectedCustomerRef = useRef(selectedCustomer);
+  useEffect(() => { selectedCustomerRef.current = selectedCustomer; }, [selectedCustomer]);
 
-  // ─── UI STATES ───────────────────────────────────────────
-  const [loading, setLoading] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  // ── Real-time balance sync via WebSocket ──────────────────────────────────
+  const {
+    balanceUpdate,
+    lastUpdate:  wsLastUpdate,
+    isConnected: wsConnected,
+  } = usePaymentWebSocket({ customerId: selectedCustomer?.id });
 
-  const formatAmount = (amount) => 
-    `₹${Number(amount || 0).toLocaleString('en-IN', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    })}`;
+  // ── Pulse flag: true for 2 s after each live update ──────────────────────
+  const [isUpdating,    setIsUpdating]    = useState(false);
+  const updateTimerRef = useRef(null);
 
-  const customerSales = useMemo(() => {
-    if (!selectedCustomer) return [];
-    return allSales.filter(s => String(s.customerId) === String(selectedCustomer.id));
-  }, [selectedCustomer, allSales]);
+  // ── Derived ───────────────────────────────────────────────────────────────
 
-  const totalDue = useMemo(() => {
-    const targetSales = selectedCustomer ? customerSales : allSales;
-    return targetSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0);
-  }, [selectedCustomer, customerSales, allSales]);
+  const totalDue = useMemo(
+    () => allSales.reduce((sum, s) => sum + (s.dueAmount || 0), 0),
+    [allSales]
+  );
 
-  // ─── DATA LOADING ────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  /** Resolved customer objects for the quick-sheet's recent chips. */
+  const recentCustomers = useMemo(
+    () => recentCustomerIds
+      .map((id) => customers.find((c) => String(c.id) === String(id)))
+      .filter(Boolean),
+    [recentCustomerIds, customers]
+  );
+
+  // ── Data loading ──────────────────────────────────────────────────────────
+
+  const loadData = useCallback(async (showSyncIndicator = false) => {
+    if (showSyncIndicator) setSyncing(true);
+    else setLoading(true);
+    setLoadError(null);
+
     try {
-      const [custRes, salesRes] = await Promise.all([fetchCustomers(), fetchSalesWithDue()]);
-      const custData = custRes.data || [];
-      const salesData = salesRes.data || [];
-      
+      const today = todayStr();
+      const [custRes, salesRes, summaryRes] = await Promise.allSettled([
+        fetchCustomers(),
+        fetchSalesWithDue(),
+        fetchPaymentsSummary(today, today),
+      ]);
+
+      // ← Check if critical APIs failed
+      const custFailed = custRes.status === 'rejected';
+      const salesFailed = salesRes.status === 'rejected';
+
+      // If all or critical APIs failed, show error page
+      if (custFailed && salesFailed) {
+        const errorMsg = custRes.reason?.message || 'Backend service unavailable';
+        setLoadError({
+          title: 'Connection Error',
+          message: errorMsg.includes('network') || !errorMsg
+            ? 'Unable to connect to backend. Please check your internet or contact support.'
+            : errorMsg,
+          canRetry: true,
+        });
+        return;
+      }
+
+      const custData  = custRes.status  === 'fulfilled' ? (custRes.value.data  || []) : [];
+      const salesData = salesRes.status === 'fulfilled' ? (salesRes.value.data || []) : [];
+
       setCustomers(custData);
       setAllSales(salesData);
 
+      if (summaryRes.status === 'fulfilled') {
+        const summary = summaryRes.value?.data;
+        const received = summary?.totalReceived ?? summary?.totalAmount ?? summary?.data?.totalReceived ?? 0;
+        setReceivedToday(Number(received) || 0);
+      }
+
+      // Seed wizard with URL param on first load
       if (initialSaleId && !hasInitializedFromUrl.current) {
-        const sale = salesData.find(s => String(s.saleId) === String(initialSaleId));
+        const sale = salesData.find((s) => String(s.saleId) === String(initialSaleId));
         if (sale) {
-          const cust = custData.find(c => String(c.id) === String(sale.customerId));
-          setSelectedCustomer(cust);
-          setSelectedSale(sale.saleId);
-          setPaymentMethods([{ ...emptyMethod, amount: sale.dueAmount?.toString() || '' }]);
+          const cust = custData.find((c) => String(c.id) === String(sale.customerId));
+          if (cust) setInitialCustomer(cust);
           hasInitializedFromUrl.current = true;
         }
       }
-    } catch (e) {
-      setSnackbar({ open: true, message: 'Data sync failed', severity: 'error' });
-    } finally { setLoading(false); }
+
+      setLastSync(new Date());
+    } catch (err) {
+      setLoadError({
+        title: 'Something Went Wrong',
+        message: err.message || 'Failed to load data. Please try again.',
+        canRetry: true,
+      });
+    } finally {
+      setLoading(false);
+      setSyncing(false);
+    }
   }, [initialSaleId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // UPDATED FETCH LOGIC WITH PAGINATION
-  const fetchHistoryAndBalance = useCallback(async () => {
-    if (!selectedCustomer?.id) {
-        setPaymentHistory([]);
-        setTotalElements(0);
-        return;
-    }
-    setHistoryLoading(true);
+  // ── Advance balance (re-fetches when wizard customer changes) ─────────────
+  // We pass a callback down to the wizard via onCustomerChange prop.
+  const fetchAdvance = useCallback(async (customerId) => {
+    if (!customerId) { setAdvanceBalance(0); return; }
     try {
-      const saleIdParam = selectedSale === 'BULK' ? null : selectedSale;
-      const [histPage, bal] = await Promise.all([
-        fetchPaymentHistory(selectedCustomer.id, saleIdParam, page, rowsPerPage),
-        fetchCustomerAdvanceBalance(selectedCustomer.id)
-      ]);
-      
-      setPaymentHistory(histPage?.content || []);
-      setTotalElements(histPage?.totalElements || 0);
-      setAdvanceBalance(bal?.data?.data || 0);
-    } catch (e) {
-      console.error("Ledger fetch error", e);
-      setPaymentHistory([]);
-      setTotalElements(0);
-    } finally { setHistoryLoading(false); }
-  }, [selectedCustomer, selectedSale, page, rowsPerPage]);
+      const res = await fetchCustomerAdvanceBalance(customerId);
+      setAdvanceBalance(res?.data?.data ?? 0);
+    } catch { /* non-critical */ }
+  }, []);
 
-  useEffect(() => {
-    if (selectedCustomer) fetchHistoryAndBalance();
-  }, [fetchHistoryAndBalance]);
+  // ── Payment submission ────────────────────────────────────────────────────
 
-  // ─── EVENT HANDLERS ──────────────────────────────────────
-  const handleCustomerChange = (val) => {
-    setSelectedCustomer(val);
-    setPage(0);
-    if (!val) {
-      setSelectedSale(null);
-      setPaymentMethods([emptyMethod]);
-      setFormErrors({});
-      hasInitializedFromUrl.current = true;
-    }
-  };
-
-  const handleMethodChange = (index, field, value) => {
-    setPaymentMethods(prev => {
-      const updated = [...prev];
-      if (field === 'amount') {
-        const sanitized = String(value).replace(/[^0-9.]/g, '');
-        const parsed = parseFloat(sanitized);
-        updated[index] = { ...updated[index], [field]: isNaN(parsed) ? '' : String(Math.max(0, parsed)) };
-      } else {
-        updated[index] = { ...updated[index], [field]: value };
-      }
-      return updated;
-    });
-  };
-
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-  };
-
-  const handleRowsPerPageChange = (newSize) => {
-    setRowsPerPage(newSize);
-    setPage(0);
-  };
-
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
-    const totalEntered = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-    
-    if (totalEntered <= 0) {
-      setSnackbar({ open: true, message: 'Enter a valid amount', severity: 'warning' });
-      return;
-    }
-
+  const handleSubmit = useCallback(async (payload) => {
     setSubmitting(true);
     try {
-      if (selectedSale === 'BULK') {
+      if (payload.isBulk) {
         await recordBulkPayment({
-          customerId: selectedCustomer.id,
-          totalAmount: totalEntered,
-          paymentMethod: paymentMethods[0].paymentMethod,
-          paymentDate,
-          notes: globalNotes
+          customerId:    payload.customerId,
+          totalAmount:   payload.amount,
+          paymentMethod: payload.paymentMethod,
+          paymentDate:   payload.paymentDate,
+          notes:         payload.notes,
         });
       } else {
-        const payload = paymentMethods
-            .filter(pm => parseFloat(pm.amount) > 0)
-            .map(pm => ({
-                sourceId: selectedSale,
-                sourceType: 'SALE',
-                amount: parseFloat(pm.amount),
-                paymentMethod: pm.paymentMethod,
-                paymentDate,
-                customerId: selectedCustomer.id,
-                transactionId: pm.transactionId?.trim(),
-                notes: globalNotes
-            }));
-        await recordDuePaymentsBatch(payload);
+        await recordDuePaymentsBatch([{
+          sourceId:      payload.saleId,
+          sourceType:    'SALE',
+          amount:        payload.amount,
+          paymentMethod: payload.paymentMethod,
+          paymentDate:   payload.paymentDate,
+          customerId:    payload.customerId,
+          transactionId: payload.transactionId,
+          notes:         payload.notes,
+        }]);
       }
-      
-      setSnackbar({ open: true, message: 'Payment recorded successfully', severity: 'success' });
-      setPaymentMethods([emptyMethod]);
-      setGlobalNotes('');
-      setPage(0);
-      loadData();
-      fetchHistoryAndBalance();
-    } catch (e) {
-       let errorMessage = 'Transaction failed. Please try again.';
-  
-      if (e.response?.data?.message) {
-        errorMessage = e.response.data.message;
+
+      // Track customer as recent
+      pushRecentId(payload.customerId);
+      setRecentCustomerIds(loadRecentIds());
+
+      setSnackbar({ open: true, message: `Payment of ₹${Number(payload.amount).toLocaleString('en-IN')} recorded successfully`, severity: 'success' });
+
+      // Refresh background data
+      loadData(true);
+      fetchAdvance(payload.customerId);
+      setHistoryRefreshKey((k) => k + 1);
+
+      // Switch to history tab so user can see the new entry
+      setTimeout(() => setTab(1), 800);
+
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Transaction failed. Please try again.';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
+      throw err; // re-throw so wizard keeps showing (doesn't auto-advance)
+    } finally {
+      setSubmitting(false);
+    }
+  }, [loadData, fetchAdvance]);
+
+  // ── Quick Payment Sheet submission (Phase 4A) ─────────────────────────────
+  //
+  // Called by QuickPaymentSheet.  Always a bulk allocation for speed.
+  // The sheet handles offline queuing itself; this runs only when online.
+
+  const handleQuickSubmit = useCallback(async (payload) => {
+    await recordBulkPayment({
+      customerId:    payload.customerId,
+      totalAmount:   payload.amount,
+      paymentMethod: payload.paymentMethod,
+      paymentDate:   payload.paymentDate,
+    });
+
+    // Track recent customer & refresh
+    pushRecentId(payload.customerId);
+    setRecentCustomerIds(loadRecentIds());
+
+    setSnackbar({
+      open:     true,
+      message:  `Quick payment of ₹${Number(payload.amount).toLocaleString('en-IN')} recorded for ${payload.customerName}`,
+      severity: 'success',
+    });
+
+    loadData(true);
+    setHistoryRefreshKey((k) => k + 1);
+
+    // Navigate to history so the rep can see confirmation
+    setTimeout(() => setTab(1), 600);
+  }, [loadData]);
+
+  // ── Keyboard shortcut: Ctrl/Cmd+P → New Payment ───────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setTab(0);
       }
-      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-    } finally { setSubmitting(false); }
-  };
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // ── Offline queue replay with auth validation (SECURITY) ──────────────────
+  // When coming back online, replays queued payments but only if current user
+  // matches the user who originally queued them. Clears queue on auth mismatch.
+  useOfflineQueueReplay(async (item) => {
+    try {
+      await recordBulkPayment({
+        customerId: item.customerId,
+        totalAmount: item.amount,
+        paymentMethod: item.paymentMethod,
+        paymentDate: item.paymentDate,
+      });
+      setSnackbar({
+        open: true,
+        message: `Offline payment replayed: ₹${Number(item.amount).toLocaleString('en-IN')} for ${item.customerName}`,
+        severity: 'success',
+      });
+      loadData(true);
+      setHistoryRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('[Offline Replay] Failed:', err);
+      setSnackbar({
+        open: true,
+        message: `Failed to replay offline payment. Manual entry may be required.`,
+        severity: 'error',
+      });
+    }
+  });
+
+  // ── React to real-time payment events ─────────────────────────────────────
+  // Triggers only when a new WS event arrives (object identity changes).
+  // Uses a ref for selectedCustomer so swapping customers doesn't cause a
+  // spurious re-run that would show a duplicate toast.
+  useEffect(() => {
+    if (!balanceUpdate) return;
+
+    // Update advance balance when the event is for the selected customer
+    const newAdvance =
+      balanceUpdate.newAdvanceBalance ??
+      balanceUpdate.newBalance         ??
+      balanceUpdate.advanceBalance     ??
+      null;
+
+    const sc = selectedCustomerRef.current;
+    if (newAdvance !== null && sc &&
+        String(balanceUpdate.customerId) === String(sc.id)) {
+      setAdvanceBalance(Number(newAdvance));
+    }
+
+    // Update individual sale's remaining due if the event carries one
+    if (balanceUpdate.saleId != null && balanceUpdate.dueAmount !== undefined) {
+      setAllSales((prev) =>
+        prev.map((s) =>
+          String(s.saleId) === String(balanceUpdate.saleId)
+            ? { ...s, dueAmount: Number(balanceUpdate.dueAmount) }
+            : s
+        )
+      );
+    }
+
+    // Subtle "Balance updated" toast (info severity — not alarming)
+    setSnackbar({ open: true, message: 'Balance updated', severity: 'info' });
+
+    // Trigger pulse animation for 2 s
+    setIsUpdating(true);
+    if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+    updateTimerRef.current = setTimeout(() => setIsUpdating(false), 2000);
+  }, [balanceUpdate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup pulse timer on unmount
+  useEffect(
+    () => () => { if (updateTimerRef.current) clearTimeout(updateTimerRef.current); },
+    []
+  );
+
+  // ── Sync status label ─────────────────────────────────────────────────────
+
+  const syncLabel = useMemo(() => {
+    if (syncing) return 'Syncing…';
+    if (!lastSync) return null;
+    const diff = Math.floor((Date.now() - lastSync.getTime()) / 60000);
+    if (diff < 1) return 'Just synced';
+    if (diff < 60) return `${diff}m ago`;
+    return lastSync.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }, [syncing, lastSync]);
+
+  // ── Error Page ────────────────────────────────────────────────────────────
+
+  if (loadError) {
+    return (
+      <Box
+        sx={{
+          bgcolor: 'background.default',
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 3,
+        }}
+      >
+        <Box
+          sx={{
+            textAlign: 'center',
+            maxWidth: 500,
+          }}
+        >
+          <Box
+            sx={{
+              fontSize: 64,
+              mb: 2,
+              color: palette.error,
+            }}
+          >
+            ⚠️
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
+            {loadError.title}
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
+            {loadError.message}
+          </Typography>
+          <Stack direction="row" spacing={2} justifyContent="center" sx={{ flexWrap: 'wrap', gap: 2 }}>
+            {loadError.canRetry && (
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => {
+                  setLoadError(null);
+                  loadData();
+                }}
+                sx={{ minWidth: 160 }}
+              >
+                Try Again
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => navigate('/')}
+              sx={{ minWidth: 160 }}
+            >
+              Go Home
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 3, display: 'block' }}>
+            If the problem persists, please contact support.
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ bgcolor: theme.background, minHeight: '100vh' }}>
-      {/* ── Page Header ──────────────────────────────────────────────── */}
-      <Box sx={{
-        background: theme.headerGradient,
-        color: '#fff',
-        px: { xs: 2, md: 4 },
-        pt: { xs: 2.5, md: 3.5 },
-        pb: 0,
-        boxShadow: '0 4px 20px rgba(15, 118, 110, 0.15)',
-      }}>
-        <Container maxWidth="lg" disableGutters>
-          {/* Top row: back + refresh */}
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+    <Box
+      sx={{
+        bgcolor: 'background.default',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      // Keyboard shortcut hint for screen readers
+      aria-label="Customer Payments page"
+    >
+      {/* Visually-hidden live region: announces real-time balance updates to screen readers */}
+      <Box
+        aria-live="polite"
+        aria-atomic="true"
+        role="status"
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clip: 'rect(0 0 0 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+          p: 0,
+          m: -1,
+        }}
+      >
+        {balanceUpdate ? 'Balance updated in real time' : ''}
+      </Box>
+
+      {/* ══ PAGE HEADER ══════════════════════════════════════════════════════ */}
+      <Box
+        component="header"
+        sx={{
+          background: palette.headerGradient,
+          color: '#fff',
+          boxShadow: `0 4px 24px ${alpha(palette.primary, 0.25)}`,
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <Container maxWidth="lg" disableGutters sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
+
+          {/* Top row: back + title + refresh */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ pt: { xs: 2, md: 2.5 }, pb: 1.5 }}
+            spacing={1}
+          >
+            {/* Back */}
             <Button
               startIcon={<ArrowBackIcon />}
-              onClick={handleBack}
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
               sx={{
                 color: '#fff',
                 fontWeight: 700,
                 textTransform: 'none',
-                fontSize: '0.95rem',
-                transition: 'all 0.3s ease',
-                '&:hover': { 
-                  bgcolor: 'rgba(255,255,255,0.15)',
-                  transform: 'translateX(-4px)'
-                },
+                fontSize: '0.9rem',
+                minHeight: 44,
+                borderRadius: 2,
+                px: 1.5,
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', transform: 'translateX(-2px)' },
+                transition: 'all 0.2s ease',
               }}
             >
-              Back
+              {isMobile ? '' : 'Back'}
             </Button>
-            <Tooltip title="Refresh data">
+
+            {/* Title + icon */}
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flex: 1, justifyContent: { xs: 'flex-start', sm: 'center' }, pl: { xs: 0.5, sm: 0 } }}>
+              <Box
+                aria-hidden="true"
+                sx={{
+                  p: 0.875,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(255,255,255,0.15)',
+                  display: 'flex',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}>
+                <AccountBalanceWalletIcon sx={{ fontSize: 22, color: '#fff' }} />
+              </Box>
+              <Box>
+                <Typography
+                  component="h1"
+                  variant="h6"
+                  fontWeight={900}
+                  sx={{ color: '#fff', lineHeight: 1.1, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: '-0.3px' }}
+                >
+                  Customer Payments
+                </Typography>
+                {syncLabel && (
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={0.5}
+                    aria-live="polite"
+                    aria-atomic="true"
+                    role="status"
+                  >
+                    {syncing
+                      ? <SyncIcon aria-hidden="true" sx={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', animation: 'spin 1s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
+                      : <CloudDoneIcon aria-hidden="true" sx={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }} />
+                    }
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
+                      {syncLabel}
+                    </Typography>
+                  </Stack>
+                )}
+              </Box>
+            </Stack>
+
+            {/* Refresh */}
+            <Tooltip title="Refresh data (Ctrl+R)" arrow>
               <IconButton
                 size="small"
-                onClick={loadData}
-                sx={{ 
+                onClick={() => loadData(true)}
+                disabled={syncing || loading}
+                aria-label="Refresh payment data"
+                sx={{
                   color: '#fff',
+                  minWidth: 44,
+                  minHeight: 44,
+                  borderRadius: 2,
                   transition: 'all 0.3s ease',
-                  '&:hover': { 
-                    bgcolor: 'rgba(255,255,255,0.15)',
-                    transform: 'rotate(180deg)'
-                  } 
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', transform: 'rotate(180deg)' },
+                  '&:disabled': { color: 'rgba(255,255,255,0.4)' },
                 }}
               >
                 <RefreshIcon fontSize="small" />
@@ -286,215 +620,225 @@ const CustomerPaymentPage = () => {
             </Tooltip>
           </Stack>
 
-          {/* Title row */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            alignItems={{ xs: 'flex-start', sm: 'center' }} 
-            spacing={2} 
-            sx={{ mb: 3 }}
-          >
-            <Box sx={{ 
-              p: 1.5, 
-              borderRadius: 2, 
-              bgcolor: 'rgba(255,255,255,0.15)',
-              display: 'flex',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}>
-              <AccountBalanceWalletIcon sx={{ fontSize: 32, color: '#ffffff' }} />
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Typography 
-                variant="h4" 
-                fontWeight={800} 
-                sx={{ color: '#fff', lineHeight: 1.2, letterSpacing: '-0.5px' }}
+          {/* Stats row — skeleton while loading */}
+          <Box sx={{ pb: 2 }} role="region" aria-label="Summary statistics">
+            {loading ? (
+              <Stack direction="row" spacing={1.5} aria-label="Loading statistics" aria-busy="true">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton
+                    key={i}
+                    variant="rounded"
+                    height={72}
+                    sx={{ flex: 1, bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2 }}
+                    aria-hidden="true"
+                  />
+                ))}
+              </Stack>
+            ) : (
+              <Stack
+                direction="row"
+                spacing={{ xs: 1, sm: 1.5 }}
+                sx={{ overflowX: 'auto', pb: 0.5 }}
+                aria-live="polite"
+                aria-atomic="false"
               >
-                Payment Hub
-              </Typography>
-              {selectedCustomer ? (
-                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
-                  <PersonIcon sx={{ fontSize: 16, color: 'rgba(255,255,255,0.7)' }} />
-                  <Typography 
-                    variant="body2" 
-                    sx={{ color: 'rgba(255,255,255,0.95)', fontWeight: 600, fontSize: '0.95rem' }}
-                  >
-                    {selectedCustomer.name}
-                  </Typography>
-                  {selectedCustomer.phone && (
-                    <Chip
-                      label={selectedCustomer.phone}
-                      size="small"
-                      sx={{ 
-                        height: 22, 
-                        fontSize: '0.7rem', 
-                        bgcolor: 'rgba(255,255,255,0.2)', 
-                        color: '#fff', 
-                        fontWeight: 700,
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        '& .MuiChip-label': { px: 1 }
-                      }}
-                    />
-                  )}
-                </Stack>
-              ) : (
-                <Typography 
-                  variant="body2" 
-                  sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5, fontSize: '0.9rem' }}
-                >
-                  Select a customer to collect or review payments
-                </Typography>
-              )}
-            </Box>
-
-            {/* Outstanding chip */}
-            {selectedCustomer && (
-              <Card sx={{
-                px: 2.5, 
-                py: 1.5, 
-                bgcolor: totalDue > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(16,185,129,0.1)',
-                border: `1.5px solid ${totalDue > 0 ? 'rgba(255,255,255,0.2)' : 'rgba(16,185,129,0.3)'}`,
-                backdropFilter: 'blur(10px)',
-                textAlign: 'right',
-                minWidth: '160px',
-                boxShadow: 'none'
-              }}>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'rgba(255,255,255,0.7)', 
-                    fontWeight: 700, 
-                    textTransform: 'uppercase', 
-                    display: 'block', 
-                    lineHeight: 1.2,
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  {totalDue > 0 ? 'Outstanding' : 'Status'}
-                </Typography>
-                <Typography 
-                  variant="h6" 
-                  fontWeight={900} 
-                  sx={{ 
-                    color: totalDue > 0 ? '#ffffff' : '#6ee7b7', 
-                    lineHeight: 1.3,
-                    fontSize: '1.3rem'
-                  }}
-                >
-                  {totalDue > 0 ? formatAmount(totalDue) : '✓ Settled'}
-                </Typography>
-              </Card>
+                {/* Mini stat chips in header (compact version) */}
+                <StatChip
+                  label="Total Due"
+                  value={`₹${Number(totalDue).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                  color="#fca5a5"
+                  bg="rgba(239,68,68,0.18)"
+                />
+                <StatChip
+                  label="Today"
+                  value={`₹${Number(receivedToday).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                  color="#86efac"
+                  bg="rgba(34,197,94,0.18)"
+                />
+                <StatChip
+                  label="Advance"
+                  value={`₹${Number(advanceBalance).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                  color="#93c5fd"
+                  bg="rgba(59,130,246,0.18)"
+                />
+              </Stack>
             )}
-          </Stack>
+          </Box>
 
-          {/* Tabs */}
+          {/* Tab bar */}
           <Tabs
             value={tab}
-            onChange={(_, v) => {
-              setTab(v);
-              if (v === 1 && selectedCustomer?.id) {
-                fetchHistoryAndBalance();
-              }
-            }}
+            onChange={(_, v) => setTab(v)}
+            aria-label="Payment page sections"
             sx={{
+              minHeight: 46,
               '& .MuiTab-root': {
                 color: 'rgba(255,255,255,0.65)',
                 fontWeight: 700,
                 textTransform: 'none',
-                minHeight: 48,
-                fontSize: '0.95rem',
-                transition: 'all 0.3s ease',
-                '&:hover': { color: '#fff' },
-                '&.Mui-selected': { 
-                  color: '#fff',
-                },
+                minHeight: 46,
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                transition: 'color 0.2s ease',
+                minWidth: { xs: 100, sm: 140 },
+                '&:hover': { color: 'rgba(255,255,255,0.9)' },
+                '&.Mui-selected': { color: '#fff' },
               },
-              '& .MuiTabs-indicator': { 
-                bgcolor: 'background.paper', 
-                height: 3.5, 
+              '& .MuiTabs-indicator': {
+                bgcolor: '#fff',
+                height: 3,
                 borderRadius: '3px 3px 0 0',
               },
             }}
           >
-            <Tab icon={<PaymentsIcon fontSize="small" />} iconPosition="start" label="Collect Payment" />
-            <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="Payment History" />
+            <Tab
+              icon={<PaymentsIcon fontSize="small" />}
+              iconPosition="start"
+              label="New Payment"
+              id="tab-new-payment"
+              aria-controls="tabpanel-new-payment"
+            />
+            <Tab
+              icon={<HistoryIcon fontSize="small" />}
+              iconPosition="start"
+              label="History"
+              id="tab-history"
+              aria-controls="tabpanel-history"
+            />
           </Tabs>
         </Container>
       </Box>
 
-      {/* ── Page Body ─────────────────────────────────────────────────── */}
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 } }}>
-        <Fade in={true}>
-          <Box>
-            <PaymentSummaryCards
-              totalDue={totalDue}
-              selectedCustomer={selectedCustomer}
-              selectedSaleObj={customerSales.find(s => s.saleId === selectedSale)}
-              formatAmount={formatAmount}
-              advanceBalance={advanceBalance}
-              isBulk={selectedSale === 'BULK'}
-            />
+      {/* ══ PAGE BODY ════════════════════════════════════════════════════════ */}
+      <Box component="main" sx={{ flex: 1, py: { xs: 3, md: 4 } }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
 
-            <Box sx={{ mt: 4 }}>
-              {tab === 0 ? (
-                <PaymentForm
-                  customers={customers}
-                  customerSales={customerSales}
-                  selectedCustomer={selectedCustomer}
-                  selectedSale={selectedSale}
-                  paymentMethods={paymentMethods}
-                  paymentDate={paymentDate}
-                  formErrors={formErrors}
-                  submitting={submitting}
-                  onCustomerChange={handleCustomerChange}
-                  onSaleChange={setSelectedSale}
-                  onMethodChange={handleMethodChange}
-                  onAddMethod={() => setPaymentMethods([...paymentMethods, emptyMethod])}
-                  onRemoveMethod={(i) => setPaymentMethods(paymentMethods.filter((_, idx) => idx !== i))}
-                  onPaymentDateChange={setPaymentDate}
-                  onSubmit={handleSubmit}
-                  paymentMethodOptions={paymentMethodOptions}
-                  needsTransactionId={needsTransactionId}
-                  formatAmount={formatAmount}
-                  globalNotes={globalNotes}
-                  setGlobalNotes={setGlobalNotes}
-                />
+          {/* Stats cards (full detail below header, not just chips) */}
+          <PaymentStatsCards
+            totalDue={totalDue}
+            receivedToday={receivedToday}
+            advanceBalance={advanceBalance}
+            loading={loading}
+            lastUpdate={wsLastUpdate}
+            isLive={wsConnected}
+            isUpdating={isUpdating}
+            selectedCustomer={selectedCustomer}
+          />
+
+          {/* Tab panels */}
+          {/* Tab 0: New Payment */}
+          <Box
+            role="tabpanel"
+            id="tabpanel-new-payment"
+            aria-labelledby="tab-new-payment"
+            hidden={tab !== 0}
+          >
+            {tab === 0 && (
+              loading ? (
+                <WizardSkeleton />
               ) : (
-                <PaymentHistory
-                  loading={historyLoading}
-                  paymentHistory={paymentHistory}
-                  totalElements={totalElements}
-                  page={page}
-                  rowsPerPage={rowsPerPage}
-                  onPageChange={handlePageChange}
-                  onRowsPerPageChange={handleRowsPerPageChange}
+                <PaymentWizard
+                  key={`wizard-${initialCustomer?.id || 'new'}`}
                   customers={customers}
-                  selectedCustomer={selectedCustomer}
-                  onCustomerChange={handleCustomerChange}
-                  onRefresh={fetchHistoryAndBalance}
-                  formatAmount={formatAmount}
+                  allSales={allSales}
+                  submitting={submitting}
+                  onSubmit={handleSubmit}
+                  recentCustomerIds={recentCustomerIds}
+                  initialCustomer={initialCustomer}
+                  initialSaleId={initialSaleId}
+                  onCustomerChange={setSelectedCustomer}
                 />
-              )}
-            </Box>
+              )
+            )}
           </Box>
-        </Fade>
-      </Container>
 
-      {/* Snackbar */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={3000} 
-        onClose={() => setSnackbar(p => ({ ...p, open: false }))}
+          {/* Tab 1: Payment History */}
+          <Box
+            role="tabpanel"
+            id="tabpanel-history"
+            aria-labelledby="tab-history"
+            hidden={tab !== 1}
+          >
+            {tab === 1 && (
+              <PaymentHistory
+                customerId={null}
+                refreshKey={historyRefreshKey}
+              />
+            )}
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ══ QUICK ENTRY FAB (Phase 4A) ═══════════════════════════════════════ */}
+      {/*
+        Visible on all screen sizes but especially useful on mobile.
+        Positioned bottom-right, above the safe-area inset on iOS.
+        Hides when the QuickPaymentSheet is open to avoid visual clutter.
+      */}
+      {!quickSheetOpen && (
+        <Fab
+          variant="extended"
+          color="primary"
+          onClick={() => setQuickSheetOpen(true)}
+          aria-label="Open quick payment entry"
+          sx={{
+            position: 'fixed',
+            bottom: `max(24px, env(safe-area-inset-bottom, 24px))`,
+            right: 24,
+            zIndex: 1200,
+            borderRadius: 3,
+            fontWeight: 900,
+            fontSize: '0.88rem',
+            textTransform: 'none',
+            letterSpacing: '0.2px',
+            gap: 0.75,
+            minHeight: 50,
+            px: 2.5,
+            boxShadow: `0 6px 20px ${alpha(palette.primary, 0.45)}`,
+            background: `linear-gradient(135deg, ${palette.primaryDark} 0%, ${palette.primary} 60%, ${palette.tealLight} 100%)`,
+            color: '#fff',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: `0 10px 28px ${alpha(palette.primary, 0.55)}`,
+              background: `linear-gradient(135deg, ${palette.primaryDark} 0%, ${palette.primary} 60%, ${palette.tealLight} 100%)`,
+            },
+            '&:active': { transform: 'translateY(0)' },
+          }}
+        >
+          <FlashOnIcon sx={{ fontSize: 18 }} />
+          Quick Entry
+        </Fab>
+      )}
+
+      {/* ══ QUICK PAYMENT SHEET (Phase 4A) ══════════════════════════════════ */}
+      <QuickPaymentSheet
+        open={quickSheetOpen}
+        onClose={() => setQuickSheetOpen(false)}
+        onSubmit={handleQuickSubmit}
+        recentCustomers={recentCustomers}
+        customers={customers}
+      />
+
+      {/* ══ TOAST NOTIFICATIONS ══════════════════════════════════════════════ */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4500}
+        onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          severity={snackbar.severity} 
+        <Alert
+          severity={snackbar.severity}
           variant="filled"
+          onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+          role="status"
+          aria-live={snackbar.severity === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
           sx={{
-            borderRadius: 2,
+            borderRadius: 2.5,
             fontSize: '0.9rem',
-            fontWeight: 600,
-            '& .MuiAlert-icon': { fontSize: '1.5rem' }
+            fontWeight: 700,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            '& .MuiAlert-icon': { fontSize: '1.3rem', alignSelf: 'center' },
           }}
         >
           {snackbar.message}
@@ -503,5 +847,54 @@ const CustomerPaymentPage = () => {
     </Box>
   );
 };
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+/** Compact colored stat chip in the header strip. */
+const StatChip = ({ label, value, color, bg }) => (
+  <Box
+    role="group"
+    aria-label={`${label}: ${value}`}
+    sx={{
+      px: 1.5,
+      py: 0.875,
+      borderRadius: 2,
+      bgcolor: bg,
+      border: `1px solid ${alpha(color, 0.35)}`,
+      flexShrink: 0,
+      backdropFilter: 'blur(8px)',
+    }}
+  >
+    <Typography aria-hidden="true" variant="caption" sx={{ color: alpha(color, 0.85), fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>
+      {label}
+    </Typography>
+    <Typography aria-hidden="true" variant="subtitle2" sx={{ color, fontWeight: 900, fontSize: '0.9rem', lineHeight: 1.2 }}>
+      {value}
+    </Typography>
+  </Box>
+);
+
+/** Skeleton placeholder shown while initial data loads in the wizard panel. */
+const WizardSkeleton = () => (
+  <Box sx={{ maxWidth: 640, mx: 'auto' }}>
+    {/* Stepper skeleton */}
+    <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 4 }}>
+      {[1, 2, 3].map((i) => (
+        <Stack key={i} alignItems="center" spacing={1} sx={{ flex: 1, maxWidth: 120 }}>
+          <Skeleton variant="circular" width={40} height={40} />
+          <Skeleton variant="text" width={60} height={16} />
+        </Stack>
+      ))}
+    </Stack>
+
+    {/* Step card skeleton */}
+    <Skeleton variant="rounded" height={280} sx={{ borderRadius: 3, mb: 2 }} />
+
+    {/* Navigation buttons skeleton */}
+    <Stack direction="row" justifyContent="flex-end">
+      <Skeleton variant="rounded" width={140} height={48} sx={{ borderRadius: 2.5 }} />
+    </Stack>
+  </Box>
+);
 
 export default CustomerPaymentPage;

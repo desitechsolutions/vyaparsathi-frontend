@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -49,6 +49,9 @@ import {
 } from '@mui/icons-material';
 
 import { useResponsiveTouchTarget } from '../utils/touchTargets';
+import ErrorState from '../components/common/ErrorState';
+import useDataLoading from '../hooks/useDataLoading';
+import { useSubscription } from '../context/SubscriptionContext';
 import useItemsLogic from './items/hooks/useItemsLogic';
 import CustomToolbar from './items/components/CustomToolbar';
 import VariantDetailDisplay from './items/components/VariantDetailDisplay';
@@ -81,6 +84,8 @@ export default function ItemsPage() {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { subscription } = useSubscription();
+  const { loading: loadError, error, executeLoad } = useDataLoading();
 
   const {
     loading,
@@ -150,6 +155,16 @@ export default function ItemsPage() {
     displayItems,
   } = useItemsLogic();
 
+  const handleLoadItems = useCallback(async () => {
+    await executeLoad(async () => {
+      await loadData();
+    });
+  }, [executeLoad, loadData]);
+
+  useEffect(() => {
+    handleLoadItems();
+  }, [handleLoadItems]);
+
   const activeIndustry = industryType || shopCategory || 'GENERAL';
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const navigate = useNavigate();
@@ -217,27 +232,19 @@ export default function ItemsPage() {
   }, []);
 
   // ── Real-time inventory updates ──────────────────────────────────────────────
-  // The ws:inventory CustomEvent is dispatched by useWebSocket when the backend
-  // pushes a stock change to /topic/shop/{shopId}/inventory.
-  // Payload: { itemId, newQty, warehouseId }
-  //
-  // Strategy: reload stockData via loadData (debounced 600ms) so the DataGrid
-  // always reflects server truth — no local-only patch that can drift.
   const inventoryReloadTimer = useRef(null);
-  const [liveStockUpdate, setLiveStockUpdate] = useState(null); // banner text
+  const [liveStockUpdate, setLiveStockUpdate] = useState(null);
 
   useEffect(() => {
     const handleInventory = (e) => {
       const update = e.detail;
       if (!update) return;
 
-      // Show a brief "stock updated" notification banner
       setLiveStockUpdate(`Stock updated for item #${update.itemId} — new qty: ${update.newQty}`);
 
-      // Debounce the reload so a burst of updates results in a single fetch
       if (inventoryReloadTimer.current) clearTimeout(inventoryReloadTimer.current);
       inventoryReloadTimer.current = setTimeout(() => {
-        loadData();
+        handleLoadItems();
         setLiveStockUpdate(null);
       }, 600);
     };
@@ -247,7 +254,7 @@ export default function ItemsPage() {
       window.removeEventListener('ws:inventory', handleInventory);
       if (inventoryReloadTimer.current) clearTimeout(inventoryReloadTimer.current);
     };
-  }, [loadData]);
+  }, [handleLoadItems]);
 
   // KPI totals — sourced from the SERVER for accuracy (rowCount is the
   // total across all pages of the current search filter; apiCategories
@@ -349,7 +356,7 @@ export default function ItemsPage() {
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title={t('itemsPage.actions.viewVariants')}>
               <IconButton
-                size={{ xs: 'small', md: 'medium' }}
+                
                 onClick={() => handleViewVariants(params.row)}
                 sx={{ minWidth: 44, minHeight: 44 }}
                 aria-label={`View variants for ${params.row.name}`}
@@ -359,7 +366,7 @@ export default function ItemsPage() {
             </Tooltip>
             <Tooltip title={t('itemsPage.actions.manageItem')}>
               <IconButton
-                size={{ xs: 'small', md: 'medium' }}
+                
                 onClick={() => handleManageItem(params.row.id)}
                 sx={{ minWidth: 44, minHeight: 44 }}
                 aria-label={`Manage ${params.row.name}`}
@@ -427,6 +434,10 @@ export default function ItemsPage() {
         return null;
     }
   };
+
+  if (error) {
+    return <ErrorState error={error} onRetry={handleLoadItems} />;
+  }
 
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', pb: 4 }}>
@@ -496,6 +507,22 @@ export default function ItemsPage() {
                 Deactivate ({selectedItemIds.length})
               </Button>
             )}
+            {(() => {
+              const maxItems = subscription?.maxItems ?? null;
+              const itemsUsed = subscription?.itemsUsed ?? null;
+              if (maxItems == null || maxItems <= 0 || itemsUsed == null) return null;
+              const pct = itemsUsed / maxItems;
+              const color = pct >= 1 ? 'error' : pct >= 0.8 ? 'warning' : 'default';
+              return (
+                <Chip
+                  size="small"
+                  label={`${itemsUsed} / ${maxItems} items`}
+                  color={color}
+                  variant={color === 'default' ? 'outlined' : 'filled'}
+                  sx={{ fontWeight: 600 }}
+                />
+              );
+            })()}
             <Button
               variant="contained"
               size="small"

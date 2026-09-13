@@ -114,7 +114,6 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onNotificationOpen}
-              size={{ xs: 'small', md: 'medium' }}
               aria-label={`Notifications: ${alertCount} alert${alertCount !== 1 ? 's' : ''}`}
               aria-expanded={Boolean(notificationAnchor)}
               aria-haspopup="menu"
@@ -145,8 +144,7 @@ const HeaderActions = ({
                 {alertCount} Alert{alertCount !== 1 ? 's' : ''}
               </Typography>
               <IconButton
-                size={{ xs: 'small', md: 'medium' }}
-                onClick={onNotificationClose}
+                  onClick={onNotificationClose}
                 sx={{ minWidth: 44, minHeight: 44, '&:hover': { bgcolor: 'action.hover' } }}
                 aria-label="Close notifications"
               >
@@ -260,7 +258,6 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onQuickActionOpen}
-              size={{ xs: 'small', md: 'medium' }}
               aria-label="Quick actions menu"
               aria-expanded={Boolean(quickActionAnchor)}
               aria-haspopup="menu"
@@ -372,7 +369,6 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={onLanguageMenuOpen}
-              size={{ xs: 'small', md: 'medium' }}
               aria-label="Language selector"
               aria-expanded={Boolean(languageMenuAnchor)}
               aria-haspopup="menu"
@@ -402,7 +398,6 @@ const HeaderActions = ({
             <IconButton
               color="inherit"
               onClick={cycleColorPreference}
-              size={{ xs: 'small', md: 'medium' }}
               aria-label={`Theme: currently ${colorPreference}. Click to switch to ${themeNextLabel[colorPreference]}`}
               sx={{ minWidth: 44, minHeight: 44, transition: 'transform 200ms', '&:hover': { transform: 'scale(1.1)' } }}
             >

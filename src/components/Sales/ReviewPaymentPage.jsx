@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Select, MenuItem, TextField, Divider, Grid, IconButton,
   Chip, Stack, Alert, Container, Stepper, Step, StepLabel, LinearProgress,
-  Collapse, Card, CardContent, InputAdornment, Tooltip, alpha,
+  Collapse, Card, CardContent, InputAdornment, Tooltip, alpha, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,6 +24,10 @@ import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 import { buildSalePayload, calcMrpDiscountPct } from '../../utils/salesUtils';
+import { useOfflineSales } from '../../hooks/useOfflineSales';
+import { useShop } from '../../context/ShopContext';
+import { getSaleStatus } from '../../services/offline/offlineSyncService';
+import { v4 as uuidv4 } from 'uuid';
 
 // -----------------------------------------------------------------------------
 // Line-level math helpers — kept in strict sync with SalesSummary.jsx so the
@@ -122,6 +126,110 @@ const SummaryRow = ({ label, value, valueNode, valueColor, bold }) => (
     )}
   </Stack>
 );
+
+// -----------------------------------------------------------------------------
+// Offline sale status dialog — defined at module scope to avoid remounting on
+// every ReviewPaymentPage render (function-inside-function anti-pattern).
+// -----------------------------------------------------------------------------
+
+const OfflineSaleStatusDialog = ({ open, queuedSale, pollStatus, isSyncing, isOffline, onSyncNow, onDone }) => {
+  const status = pollStatus || queuedSale;
+  const isCompleted = status?.status === 'COMPLETED';
+  const isFailed = status?.status === 'FAILED';
+  const isConflict = status?.status === 'CONFLICT';
+  const isPending = !isCompleted && !isFailed && !isConflict;
+
+  return (
+    <Dialog open={open} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        {isCompleted ? '✓ Sale Synced Successfully' : 'Offline Sale Queued'}
+      </DialogTitle>
+      <DialogContent sx={{ pt: 2 }}>
+        <Stack spacing={2}>
+          {isPending && (
+            <>
+              <Alert severity={isOffline ? 'warning' : 'info'} icon={isSyncing ? <CircularProgress size={20} /> : undefined}>
+                {isSyncing
+                  ? 'Syncing sale to server…'
+                  : isOffline
+                    ? 'You are offline. Sale saved locally — will sync automatically when connection is restored.'
+                    : 'Sale is queued and will sync when online.'}
+              </Alert>
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Offline Sale Number
+                </Typography>
+                <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                  {status?.offlineSaleNo}
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {isCompleted && (
+            <>
+              <Alert severity="success">
+                Invoice #{status?.invoiceNumber} generated successfully!
+              </Alert>
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Invoice Number
+                </Typography>
+                <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                  {status?.invoiceNumber}
+                </Typography>
+              </Box>
+              {status?.invoiceSignedUrl && (
+                <Button variant="outlined" fullWidth onClick={() => window.open(status.invoiceSignedUrl, '_blank')}>
+                  Download Invoice PDF
+                </Button>
+              )}
+            </>
+          )}
+
+          {(isFailed || isConflict) && (
+            <Alert severity="error">
+              {isConflict
+                ? 'Conflict: this sale may already exist. Check your sales history.'
+                : `Error: ${status?.errorMessage || 'Processing failed'}`}
+            </Alert>
+          )}
+
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              Status: {status?.status ?? 'PENDING'}
+            </Typography>
+            {status?.retryCount > 0 && (
+              <Typography variant="caption" color="text.secondary" display="block">
+                Attempts: {status.retryCount}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        {!isCompleted && (
+          <>
+            <Button onClick={onSyncNow} disabled={isSyncing}>
+              {isSyncing ? 'Syncing…' : 'Retry Sync'}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => onDone(status?.offlineSaleNo || queuedSale?.offlineSaleNo, false)}
+            >
+              Done (New Sale)
+            </Button>
+          </>
+        )}
+        {isCompleted && (
+          <Button variant="contained" onClick={() => onDone(status?.offlineSaleNo, true)}>
+            Done (New Sale)
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // -----------------------------------------------------------------------------
 // Main component
@@ -250,7 +358,12 @@ const ReviewPaymentPage = ({
     );
   };
 
-  const handleConfirmAction = () => {
+  const { isOffline, queueSale, syncNow, isSyncing, deviceId: offlineDeviceId } = useOfflineSales();
+  const { shop } = useShop();
+  const [offlineSaleDialog, setOfflineSaleDialog] = useState({ open: false, queuedSale: null, clientTxnId: null });
+  const [pollStatus, setPollStatus] = useState(null);
+
+  const handleConfirmAction = async () => {
     if (totalPayment > netPayableNum) {
       setError(t('salesFlow.review.errorExceedsPayable', { amount: netPayable }));
       return;
@@ -273,8 +386,123 @@ const ReviewPaymentPage = ({
       paymentMethods,
       'COMPLETED'
     );
+
+    // OFFLINE MODE: Queue the sale instead of sending immediately
+    if (isOffline) {
+      try {
+        const clientTxnId = uuidv4();
+        const offlineRequest = {
+          clientTxnId,
+          // Use the stable device ID from the OfflineSalesContext (stored in IndexedDB meta).
+          // Previously read from localStorage.getItem('vyaparsathi_device_id') which is never set.
+          deviceId: offlineDeviceId || uuidv4(),
+          customerId: selectedCustomer?.id,
+          customerName: selectedCustomer?.name,
+          items: payload.items.map(item => {
+            const isCustom = !item.id || Boolean(item.isCustom);
+            return {
+              variantId: isCustom ? null : (item.id || null),
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+              discount: item.discount,
+              // Custom / service line item fields
+              isCustom,
+              customItemName: isCustom ? (item.itemName || item.customItemName || null) : null,
+              customDescription: isCustom ? (item.customDescription || null) : null,
+              customHsnSac: isCustom ? (item.customHsnSac || item.hsnSac || null) : null,
+              customUnit: isCustom ? (item.customUnit || item.unit || null) : null,
+              gstRate: isCustom ? (item.gstRate || null) : null,
+            };
+          }),
+          totalAmount: payload.totalAmount,
+          discount: payload.discount,
+          isGstRequired: payload.isGstRequired === 'yes' ? 'yes' : 'no',
+          placeOfSupply: payload.placeOfSupply || '',
+          supplyType: payload.supplyType || 'B2C',
+          reverseCharge: payload.reverseCharge || false,
+          billToAddress: payload.billToAddress || '',
+          shipToAddress: payload.shipToAddress || '',
+          consigneeAddress: payload.consigneeAddress || '',
+          paymentMethods: paymentMethods.map(pm => ({
+            method: pm.paymentMethod,
+            amount: pm.amount,
+          })),
+          deliveryRequired: payload.deliveryRequired || false,
+          deliveryAddress: payload.deliveryAddress || '',
+          deliveryCharge: payload.deliveryCharge || 0,
+          deliveryPaidBy: payload.deliveryPaidBy || '',
+          deliveryNotes: payload.deliveryNotes || '',
+          saleNotes: payload.saleNotes || '',
+        };
+
+        const queuedSale = await queueSale(offlineRequest);
+        setOfflineSaleDialog({
+          open: true,
+          queuedSale,
+          clientTxnId,
+        });
+      } catch (err) {
+        setError(err?.message || 'Failed to queue offline sale. Please try again.');
+      }
+      return;
+    }
+
+    // ONLINE MODE: Submit directly
     onConfirm(payload);
   };
+
+  // Auto-trigger sync as soon as the offline dialog opens — but only when we have
+  // connectivity. Calling syncNow() while genuinely offline wastes a push attempt
+  // and increments retryCount, pushing FAILED records toward the retry-exhaustion
+  // threshold (maxRetries=3) without any chance of success.
+  useEffect(() => {
+    if (offlineSaleDialog.open && !isOffline) {
+      syncNow();
+    }
+  }, [offlineSaleDialog.open, isOffline]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll for sale status while the dialog is open and sale is not yet terminal.
+  // Skip polling when offline — the backend is unreachable so every call would
+  // just accumulate errors and stop the poller after MAX_CONSECUTIVE_ERRORS hits.
+  const pollStatusValue = pollStatus?.status || offlineSaleDialog.queuedSale?.status;
+  const isTerminalStatus = ['COMPLETED', 'FAILED', 'CONFLICT'].includes(pollStatusValue);
+
+  useEffect(() => {
+    if (!offlineSaleDialog.open || !offlineSaleDialog.clientTxnId || isTerminalStatus || isOffline) return;
+
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
+
+    const timer = setInterval(async () => {
+      try {
+        const status = await getSaleStatus(offlineSaleDialog.clientTxnId);
+        consecutiveErrors = 0; // reset on success
+        setPollStatus(status);
+      } catch (err) {
+        const httpStatus = err?.response?.status;
+
+        // ★ Stop polling immediately on auth failure — no point retrying
+        // with a dead token. The user needs to re-login first.
+        if (httpStatus === 401 || httpStatus === 403) {
+          console.warn('[OfflineStatusPoll] Auth failure — stopping poll');
+          clearInterval(timer);
+          return;
+        }
+
+        consecutiveErrors += 1;
+        // Stop after too many consecutive non-auth failures (e.g. record not yet in DB)
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.warn('[OfflineStatusPoll] Too many consecutive errors — stopping poll');
+          clearInterval(timer);
+          return;
+        }
+
+        console.error('Status poll error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(timer);
+  }, [offlineSaleDialog.open, offlineSaleDialog.clientTxnId, isTerminalStatus, isOffline]);
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -780,6 +1008,21 @@ const ReviewPaymentPage = ({
           </Grid>
         </Grid>
       </Container>
+
+      <OfflineSaleStatusDialog
+        open={offlineSaleDialog.open}
+        queuedSale={offlineSaleDialog.queuedSale}
+        pollStatus={pollStatus}
+        isSyncing={isSyncing}
+        isOffline={isOffline}
+        onSyncNow={syncNow}
+        onDone={(offlineSaleNo, isSynced) => {
+          setOfflineSaleDialog({ open: false, queuedSale: null, clientTxnId: null });
+          setPollStatus(null);
+          if (onConfirm) onConfirm({ offline: true, offlineSaleNo, isSynced });
+          else if (onCancel) onCancel();
+        }}
+      />
     </Box>
   );
 };

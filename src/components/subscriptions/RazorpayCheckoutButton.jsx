@@ -17,6 +17,7 @@ import { toast } from 'react-toastify';
  * @param {string} currentTier     - Current active tier of the shop
  * @param {boolean} hasActiveAutoPay - True if shop has an active Razorpay AutoPay mandate
  * @param {boolean} hasPendingUtr   - True if a manual UTR payment is pending admin verification
+ * @param {string} autoPayStatus   - Raw mandate status (e.g. ACTIVE | PAUSED | HALTED) for the current tier
  * @param {string} buttonText      - Optional custom button label
  * @param {string} variant         - MUI button variant (default: 'contained')
  * @param {string} color           - MUI button color (default: 'primary')
@@ -29,6 +30,7 @@ export default function RazorpayCheckoutButton({
   currentTier = 'FREE',
   hasActiveAutoPay = false,
   hasPendingUtr = false,
+  autoPayStatus = null,
   buttonText,
   variant = 'contained',
   color = 'primary',
@@ -52,6 +54,9 @@ export default function RazorpayCheckoutButton({
   const isCurrentPlan = hasActiveAutoPay && currentRank === targetRank;
   const isDowngrade = hasActiveAutoPay && targetRank < currentRank;
   const isUpgrade = hasActiveAutoPay && targetRank > currentRank;
+  const status = String(autoPayStatus || '').toUpperCase();
+  const isCurrentPlanPaused = isCurrentPlan && status === 'PAUSED';
+  const isCurrentPlanHalted = isCurrentPlan && status === 'HALTED';
 
   // Determine button state, label, and tooltip
   let effectiveDisabled = disabled || processing || isCurrentPlan || isDowngrade || hasPendingUtr;
@@ -61,6 +66,12 @@ export default function RazorpayCheckoutButton({
   if (hasPendingUtr) {
     label = 'Pending UTR Verification';
     tooltipText = 'A manual UTR payment is currently pending admin verification. Cancel the pending UTR request or wait for verification before subscribing via Razorpay.';
+  } else if (isCurrentPlanHalted) {
+    label = 'Payment Failed';
+    tooltipText = 'Your AutoPay charge for this plan failed after multiple retries. Update your payment method from Billing.';
+  } else if (isCurrentPlanPaused) {
+    label = 'AutoPay Paused';
+    tooltipText = 'Your AutoPay mandate for this plan is paused. Resume it from Billing to continue.';
   } else if (isCurrentPlan) {
     label = 'Current Active Plan';
     tooltipText = 'You are currently subscribed to this plan.';
@@ -85,6 +96,7 @@ export default function RazorpayCheckoutButton({
       if (!isLoaded) {
         toast.dismiss(toastId);
         toast.error('Razorpay SDK failed to load. Please check your internet connection.');
+        setProcessing(false);
         return;
       }
 
@@ -98,6 +110,7 @@ export default function RazorpayCheckoutButton({
 
       if (!order?.razorpaySubscriptionId || !order?.keyId) {
         toast.error('Checkout could not be initialised. Please try again.');
+        setProcessing(false);
         return;
       }
 
@@ -130,7 +143,19 @@ export default function RazorpayCheckoutButton({
             console.error('[RazorpayCheckoutButton] Verification error:', err);
             toast.error(err?.response?.data?.message || 'Mandate verification error. Please contact support.');
             navigate('/billing/failure?reason=verification_exception');
+          } finally {
+            setProcessing(false);
           }
+        },
+        modal: {
+          // Fires when the user closes the checkout modal without completing
+          // payment. Without this, `processing` only cleared via the outer
+          // `finally`, which runs right after the synchronous `rzp.open()`
+          // call returns — re-enabling the button while the modal is still
+          // open and allowing a second `createSubscriptionOrder` call.
+          ondismiss: () => {
+            setProcessing(false);
+          },
         },
         theme: {
           color: '#2563EB',
@@ -144,14 +169,17 @@ export default function RazorpayCheckoutButton({
         navigate(
           `/billing/failure?code=${encodeURIComponent(response.error?.code || '')}&desc=${encodeURIComponent(response.error?.description || '')}`
         );
+        setProcessing(false);
       });
       rzp.open();
+      // `processing` intentionally stays true while the modal is open — it is
+      // cleared above by `modal.ondismiss`, the `handler` callback, or
+      // `payment.failed`, not by a blanket `finally` here.
 
     } catch (err) {
       toast.dismiss(toastId);
       console.error('[RazorpayCheckoutButton] Checkout error:', err);
       toast.error(err?.response?.data?.message || err?.message || 'Checkout initiation failed. Please try again.');
-    } finally {
       setProcessing(false);
     }
   };
@@ -160,7 +188,7 @@ export default function RazorpayCheckoutButton({
     <span>
       <Button
         variant={isCurrentPlan ? 'outlined' : variant}
-        color={isCurrentPlan ? 'success' : isDowngrade ? 'inherit' : color}
+        color={isCurrentPlanHalted ? 'error' : isCurrentPlanPaused ? 'warning' : isCurrentPlan ? 'success' : isDowngrade ? 'inherit' : color}
         onClick={handleCheckout}
         disabled={effectiveDisabled}
         startIcon={

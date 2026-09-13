@@ -24,27 +24,23 @@ export const SubscriptionProvider = ({ children }) => {
 
     /**
      * Fetches active plan configurations from the database.
-     * This ensures prices and features match what the Admin set.
+     * This is the public, unauthenticated single source of pricing truth —
+     * it must load for guests too (e.g. on the public Pricing page) since
+     * `/api/pricing/active` requires no auth.
      */
     const loadPlansFromDB = useCallback(async () => {
-        const validToken = getValidToken();
-        if (!validToken) {
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
         try {
             const plansData = await fetchActivePricingPlans();
             setDynamicPlans(plansData);
         } catch (err) {
             console.error("Failed to fetch dynamic pricing plans:", err);
-            if (err?.response?.status === 401 || err?.response?.status === 403) {
-                clearAuthStorage();
-            }
-        } finally {
-            setLoading(false);
         }
     }, []);
+
+    // Plans are public data — load them once on mount regardless of auth state.
+    useEffect(() => {
+        loadPlansFromDB();
+    }, [loadPlansFromDB]);
 
     const refreshStatus = useCallback(async (showLoading = true) => {
         const validToken = getValidToken();
@@ -59,12 +55,7 @@ export const SubscriptionProvider = ({ children }) => {
         if (showLoading) setLoading(true);
         setError(null);
         try {
-            // Run both status check and plan fetching in parallel
-            const [subData] = await Promise.all([
-                fetchSubscriptionStatus(),
-                loadPlansFromDB()
-            ]);
-
+            const subData = await fetchSubscriptionStatus();
             const currentStatus = subData?.status;
 
             // --- NOTIFICATION LOGIC ---
@@ -118,7 +109,7 @@ export const SubscriptionProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [user, loadPlansFromDB]);
+    }, [user]);
 
     // Derived State Helpers
     const isPremium = useCallback(() => {

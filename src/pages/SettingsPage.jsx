@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme, alpha } from '@mui/material/styles';
+import ErrorState from '../components/common/ErrorState';
+import useDataLoading from '../hooks/useDataLoading';
 import {
   Box, Paper, Typography, TextField, Button, Grid, Stack, Chip, Divider,
   Switch, FormControlLabel, CircularProgress, Snackbar, Alert, Container,
@@ -158,6 +160,7 @@ const SettingsPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuthContext();
   const navigate = useNavigate();
+  const { loading: loadError, error, executeLoad } = useDataLoading();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -237,16 +240,12 @@ const SettingsPage = () => {
   const getDisplayUrl = (type) => previews[type] || secureUrls[type];
 
   // ── Data load ───────────────────────────────────────────────────
-  useEffect(() => { loadShopDetails(); /* eslint-disable-next-line */ }, []);
-
-  const loadShopDetails = async () => {
+  const loadShopDetails = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetchShop();
       if (res.data) {
         const data = {
-          ...shopData,
-          ...res.data,
           name: res.data.name || '',
           phone: res.data.phone || user?.phone || '',
           email: res.data.email || user?.email || '',
@@ -262,6 +261,30 @@ const SettingsPage = () => {
           country: res.data.country || 'IN',
           brandColor: res.data.brandColor || '#2980b9',
           invoiceDueDays: res.data.invoiceDueDays ?? 30,
+          // Preserve other fields from response
+          address: res.data.address || '',
+          gstin: res.data.gstin || '',
+          industryType: res.data.industryType || '',
+          upiId: res.data.upiId || '',
+          invoicePrefix: res.data.invoicePrefix || '',
+          companyWebsite: res.data.companyWebsite || '',
+          invoiceFooter: res.data.invoiceFooter || '',
+          supportContact: res.data.supportContact || '',
+          state: res.data.state || '',
+          stateCode: res.data.stateCode || '',
+          termsAndConditions: res.data.termsAndConditions || '',
+          logoPath: res.data.logoPath || '',
+          signaturePath: res.data.signaturePath || '',
+          bankDetails: res.data.bankDetails || '',
+          legalName: res.data.legalName || '',
+          tradeName: res.data.tradeName || '',
+          pan: res.data.pan || '',
+          cin: res.data.cin || '',
+          signatoryName: res.data.signatoryName || '',
+          signatoryDesignation: res.data.signatoryDesignation || '',
+          addressLine2: res.data.addressLine2 || '',
+          city: res.data.city || '',
+          pincode: res.data.pincode || '',
         };
         setShopData(data);
         initialDataRef.current = data;
@@ -275,7 +298,17 @@ const SettingsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.phone, user?.email]);
+
+  const handleLoadSettings = useCallback(async () => {
+    await executeLoad(async () => {
+      await loadShopDetails();
+    });
+  }, [executeLoad, loadShopDetails]);
+
+  useEffect(() => {
+    handleLoadSettings();
+  }, [handleLoadSettings]);
 
   // ── Validation ──────────────────────────────────────────────────
   const validateField = (name, value) => {
@@ -427,6 +460,10 @@ const SettingsPage = () => {
   }, [completeness]);
 
   // ── Section switching (single-section-at-a-time layout) ────────
+  if (error) {
+    return <ErrorState error={error} onRetry={handleLoadSettings} />;
+  }
+
   const scrollToSection = (id) => {
     setActiveSection(id);
     // Reset scroll to the top so the section starts from the sticky bar,

@@ -64,19 +64,20 @@ const MetricsSection = () => {
   return (
     <Box
       sx={{
-        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+        background: '#060D1B',
         py: { xs: 10, md: 14 },
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* Background decoration */}
+      {/* Grid overlay */}
       <Box sx={{
         position: 'absolute', inset: 0, opacity: 0.03,
-        backgroundImage: `radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px), radial-gradient(circle at 75% 75%, #ffffff 1px, transparent 1px)`,
-        backgroundSize: '40px 40px',
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.9) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.9) 1px, transparent 1px)`,
+        backgroundSize: '48px 48px',
+        pointerEvents: 'none',
       }} />
-      <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 800, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 800, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.1) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
 
       <Container maxWidth="xl" sx={{ px: { xs: 3, lg: 6 }, position: 'relative', zIndex: 1 }}>
         {/* Title */}
@@ -85,13 +86,17 @@ const MetricsSection = () => {
           fontWeight={900}
           sx={{
             textAlign: 'center',
-            color: '#F1F5F9',
             fontSize: { xs: '1.8rem', md: '2.5rem' },
             letterSpacing: '-0.02em',
             mb: { xs: 6, md: 10 },
           }}
         >
-          {t('landingPage.metrics.sectionTitle')}
+          <Box component="span" sx={{ color: '#F1F5F9' }}>
+            {t('landingPage.metrics.sectionTitle').split(' ').slice(0, -2).join(' ')}{' '}
+          </Box>
+          <Box component="span" sx={{ background: 'linear-gradient(90deg,#60A5FA,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            {t('landingPage.metrics.sectionTitle').split(' ').slice(-2).join(' ')}
+          </Box>
         </Typography>
 
         {/* Metric Cards */}

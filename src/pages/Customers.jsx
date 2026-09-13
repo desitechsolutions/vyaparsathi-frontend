@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -64,6 +64,8 @@ import {
 } from '@mui/icons-material';
 
 import { useResponsiveTouchTarget } from '../utils/touchTargets';
+import ErrorState from '../components/common/ErrorState';
+import useDataLoading from '../hooks/useDataLoading';
 import { useCustomers } from '../hooks/useCustomers';
 import { CustomerKpiStrip } from '../components/customers/CustomerKpiStrip';
 import { CustomerBulkActionBar } from '../components/customers/CustomerBulkActionBar';
@@ -163,6 +165,7 @@ export default function Customers() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
+  const { loading: loadError, error, executeLoad } = useDataLoading();
 
   const {
     customers,
@@ -189,6 +192,16 @@ export default function Customers() {
     snackbar,
     handleSnackbarClose,
   } = useCustomers();
+
+  const handleLoadCustomers = useCallback(async () => {
+    await executeLoad(async () => {
+      await refreshData();
+    });
+  }, [executeLoad, refreshData]);
+
+  useEffect(() => {
+    handleLoadCustomers();
+  }, [handleLoadCustomers]);
 
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -365,6 +378,10 @@ export default function Customers() {
     saveView(name, advancedFilter, description);
   };
 
+  if (error) {
+    return <ErrorState error={error} onRetry={handleLoadCustomers} />;
+  }
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1600, mx: 'auto' }}>
       {/* ─── Slim page header (Zoho Books / Xero pattern) ────────────────
@@ -394,7 +411,7 @@ export default function Customers() {
           <Tooltip title="Quick filters">
             <IconButton
               onClick={() => setFilterDrawerOpen(true)}
-              size={{ xs: 'small', md: 'medium' }}
+              
               aria-label="Open filters"
               sx={{
                 border: '1px solid',
@@ -412,7 +429,7 @@ export default function Customers() {
           <Tooltip title="Advanced filter builder">
             <IconButton
               onClick={() => setFilterBuilderOpen(true)}
-              size={{ xs: 'small', md: 'medium' }}
+              
               aria-label="Advanced filters"
               sx={{
                 border: '1px solid',
@@ -427,7 +444,7 @@ export default function Customers() {
           <Tooltip title="Column visibility">
             <IconButton
               onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
-              size={{ xs: 'small', md: 'medium' }}
+              
               aria-label="Column visibility"
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
@@ -439,7 +456,7 @@ export default function Customers() {
               <IconButton
                 onClick={refreshData}
                 disabled={isLoading}
-                size={{ xs: 'small', md: 'medium' }}
+                
                 aria-label="Reload customers"
                 sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
               >
@@ -450,7 +467,7 @@ export default function Customers() {
           <Tooltip title="Import CSV">
             <IconButton
               onClick={() => setImportDialogOpen(true)}
-              size={{ xs: 'small', md: 'medium' }}
+              
               aria-label="Import CSV"
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
@@ -460,7 +477,7 @@ export default function Customers() {
           <Tooltip title="Export CSV">
             <IconButton
               onClick={handleExportCsv}
-              size={{ xs: 'small', md: 'medium' }}
+              
               aria-label="Export CSV"
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 44, minHeight: 44 }}
             >
@@ -588,7 +605,7 @@ export default function Customers() {
                 endAdornment: filters.search && (
                   <InputAdornment position="end">
                     <IconButton
-                      size={{ xs: 'small', md: 'medium' }}
+                      
                       onClick={handleClearSearch}
                       sx={{ minWidth: 44, minHeight: 44 }}
                       aria-label="Clear search"
@@ -944,7 +961,7 @@ export default function Customers() {
                           {c.phone && (
                             <Tooltip title="Chat on WhatsApp">
                               <IconButton
-                                size={{ xs: 'small', md: 'medium' }}
+                                
                                 color="success"
                                 onClick={() => window.open(`https://wa.me/91${c.phone.replace(/[^0-9]/g, '')}`, '_blank')}
                                 sx={{ minWidth: 44, minHeight: 44 }}
@@ -957,7 +974,7 @@ export default function Customers() {
 
                           <Tooltip title="View Profile 360°">
                             <IconButton
-                              size={{ xs: 'small', md: 'medium' }}
+                              
                               color="primary"
                               onClick={() => navigate(`/customers/${c.id}`)}
                               sx={{ minWidth: 44, minHeight: 44 }}
@@ -968,7 +985,7 @@ export default function Customers() {
                           </Tooltip>
 
                           <IconButton
-                            size={{ xs: 'small', md: 'medium' }}
+                            
                             onClick={(e) => handleOpenMenu(e, c)}
                             sx={{ minWidth: 44, minHeight: 44 }}
                             aria-label={`More actions for ${c.name}`}

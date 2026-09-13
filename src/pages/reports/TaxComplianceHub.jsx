@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Grid, Button, Stack, Card, CardContent, CardActionArea,
   Avatar, Alert, TextField, MenuItem, CircularProgress, Divider,
-  useTheme, useMediaQuery, LinearProgress, Table, TableHead, TableRow, TableCell, TableBody
+  useTheme, useMediaQuery, LinearProgress, Table, TableHead, TableRow, TableCell, TableBody,
+  Snackbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import {
   FolderZip, VerifiedUser, BusinessCenter, AccountBalance,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
 } from '@mui/icons-material';
 import { downloadAuditPack, getRequest } from '../../services/api';
+import { CheckCircle } from '@mui/icons-material';
 
 // "Included Reports" cards on the right-hand sidebar of this page.
 // Most describe what's inside the audit-pack ZIP and stay as static
@@ -22,6 +24,7 @@ import { downloadAuditPack, getRequest } from '../../services/api';
 const auditFiles = [
   { title: "GST Sales Register", icon: <Description color="primary" />, desc: "GSTR-1 format CSV for B2B/B2C sales." },
   { title: "HSN Summary", icon: <AccountBalance color="secondary" />, desc: "Table 12 grouping for GST compliance.", path: '/compliance/hsn' },
+  { title: "GSTR-3B Summary", icon: <ReceiptLong color="primary" />, desc: "Section 3.1 liability, ITC breakdown, and Rule 88A offset.", path: '/compliance/gstr3b' },
   { title: "Purchase/ITC", icon: <BusinessCenter color="success" />, desc: "Input Tax Credit ledger for inventory." },
   { title: "P&L Statement", icon: <VerifiedUser color="warning" />, desc: "Income/Expense summary for ITR." }
 ];
@@ -39,6 +42,9 @@ export default function TaxComplianceHub() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [gstr3bData, setGstr3bData] = useState(null);
   const [loadingGstr3b, setLoadingGstr3b] = useState(false);
+  const [snackOpen, setSnackOpen] = useState(false);
+  const [snackMsg, setSnackMsg]   = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleExport = async () => {
     setLoading(true);
@@ -72,16 +78,44 @@ export default function TaxComplianceHub() {
     }
   };
 
-  const handleDownloadGstr1Json = async () => {
+  const doDownloadGstr1Json = async () => {
     try {
       const res = await getRequest(`/api/v1/gst/gstr1?year=${year}&month=${month}`);
-      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(res.data, null, 2))}`;
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", jsonString);
-      downloadAnchor.setAttribute("download", `GSTR1_${String(month).padStart(2, '0')}_${year}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+      const payload = res.data?.data ?? res.data;
+      const b2bEmpty  = !payload?.b2b?.length;
+      const b2clEmpty = !payload?.b2cl?.length;
+      const b2csEmpty = !payload?.b2cs?.length;
+      const hsnEmpty  = !payload?.hsn?.data?.length;
+
+      if (b2bEmpty && b2clEmpty && b2csEmpty && hsnEmpty) {
+        setConfirmOpen(true);
+        return;
+      }
+      triggerGstr1Download(payload);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to download GSTR-1 JSON");
+    }
+  };
+
+  const triggerGstr1Download = (payload) => {
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(payload, null, 2))}`;
+    const a = document.createElement('a');
+    a.setAttribute('href', jsonString);
+    a.setAttribute('download', `GSTR1_${String(month).padStart(2, '0')}_${year}.json`);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setSnackMsg('GSTR-1 JSON downloaded — ready for portal upload');
+    setSnackOpen(true);
+  };
+
+  const handleDownloadGstr1Json = () => doDownloadGstr1Json();
+
+  const handleConfirmEmptyDownload = async () => {
+    setConfirmOpen(false);
+    try {
+      const res = await getRequest(`/api/v1/gst/gstr1?year=${year}&month=${month}`);
+      triggerGstr1Download(res.data?.data ?? res.data);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to download GSTR-1 JSON");
     }
@@ -276,6 +310,36 @@ export default function TaxComplianceHub() {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Download success toast */}
+      <Snackbar
+        open={snackOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        message={
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CheckCircle fontSize="small" color="success" />
+            <span>{snackMsg}</span>
+          </Stack>
+        }
+      />
+
+      {/* Confirm download when period has no reportable data */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>No Reportable Transactions</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            No B2B, B2CL, B2CS, or HSN rows were found for {['','January','February','March','April','May','June','July','August','September','October','November','December'][month]} {year}.
+            Downloading an empty GSTR-1 JSON is valid but the portal may reject a nil-return without explicit nil filing.
+            Proceed anyway?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setConfirmOpen(false)} sx={{ borderRadius: 2, fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={handleConfirmEmptyDownload} sx={{ borderRadius: 2, fontWeight: 700 }}>Download Anyway</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

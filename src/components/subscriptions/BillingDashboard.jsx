@@ -17,10 +17,12 @@ import {
 } from '@mui/icons-material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useRazorpaySubscription } from '../../hooks/useRazorpaySubscription';
 import { fetchMyPaymentHistory, cancelSubscription, downloadInvoice } from '../../services/api';
 
 const BillingDashboard = () => {
   const { subscription, getStatus, getDaysRemaining, getCurrentCycle, loading: subLoading, refreshStatus } = useSubscription();
+  const { razorpayStatus, actionLoading: razorpayActionLoading, cancelAutoPay } = useRazorpaySubscription();
   const navigate = useNavigate();
 
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -32,6 +34,17 @@ const BillingDashboard = () => {
   const status = getStatus();
   const daysRemaining = getDaysRemaining();
   const cycle = getCurrentCycle();
+
+  // This shop may be billed via a live Razorpay AutoPay mandate rather than
+  // (or in addition to) the manual UTR flow. The naive `cancelSubscription()`
+  // below only flips the local DB record — it never touches Razorpay, so a
+  // shop with an active mandate would keep getting charged even after this
+  // page reports it "cancelled". Route those cancellations through the same
+  // `cancelAutoPay` used on the /billing page instead of duplicating that logic.
+  const activeAutoPayStatus = razorpayStatus?.status;
+  const hasActiveAutoPay = Boolean(
+    activeAutoPayStatus && !['NONE', 'CANCELLED', 'COMPLETED', 'EXPIRED'].includes(activeAutoPayStatus)
+  );
 
   useEffect(() => {
     const loadPayments = async () => {
@@ -49,7 +62,14 @@ const BillingDashboard = () => {
 
   const handleCancelConfirm = async () => {
     try {
-      await cancelSubscription();
+      if (hasActiveAutoPay) {
+        // Active Razorpay mandate — cancel it there so billing actually stops,
+        // rather than only marking the local record cancelled.
+        const ok = await cancelAutoPay(true);
+        if (!ok) return; // cancelAutoPay already surfaced a toast on failure
+      } else {
+        await cancelSubscription();
+      }
       setCancelModalOpen(false);
       await refreshStatus();
     } catch (err) {
@@ -396,6 +416,7 @@ const BillingDashboard = () => {
         <DialogContent>
           <DialogContentText sx={{ color: 'text.secondary', textAlign: 'center', fontWeight: 500 }}>
             You will lose access to premium features like advanced reports and bulk exports once your current period ends in <strong>{daysRemaining} days</strong>.
+            {hasActiveAutoPay && ' Your Razorpay AutoPay mandate will also be cancelled — no further recurring charges will be made.'}
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 3, flexDirection: 'column', gap: 1 }}>
@@ -403,6 +424,7 @@ const BillingDashboard = () => {
             fullWidth
             variant="contained"
             onClick={() => setCancelModalOpen(false)}
+            disabled={razorpayActionLoading}
             sx={{ fontWeight: 800, borderRadius: '12px', py: 1.5, bgcolor: 'background.paper' }}
           >
             Keep Premium
@@ -411,6 +433,8 @@ const BillingDashboard = () => {
             fullWidth
             color="error"
             onClick={handleCancelConfirm}
+            disabled={razorpayActionLoading}
+            startIcon={razorpayActionLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
             sx={{ fontWeight: 700, textTransform: 'none' }}
           >
             Confirm Cancellation

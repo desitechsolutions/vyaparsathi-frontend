@@ -1,5 +1,6 @@
 import axios from 'axios';
 import endpoints from './endpoints';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getValidToken, clearAuthStorage } from '../utils/authStorage';
 import { captureException } from './sentry';
@@ -8,6 +9,7 @@ export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 const API = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 30000,
 });
 
 // ── AbortController registry ──────────────────────────────────────────────────
@@ -40,6 +42,12 @@ export const getRequest = (url, config) => API.get(url, config);
 export let isRefreshing = false;
 export let failedQueue = [];
 
+// ── Error notification deduplication ──────────────────────────────────────
+// Prevents multiple identical error toasts from appearing simultaneously
+let lastErrorToastTime = 0;
+let lastErrorMessage = '';
+const ERROR_TOAST_DEBOUNCE_MS = 3000; // Only show same error once per 3s
+
 export const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
     if (error) {
@@ -51,6 +59,32 @@ export const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+// --- RETRY STRATEGY WITH EXPONENTIAL BACKOFF ---
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+const shouldRetry = (error, retryCount) => {
+  // Don't retry if max retries exceeded
+  if (retryCount >= MAX_RETRIES) return false;
+
+  // Retry on network errors (no status)
+  if (!error.response) return true;
+
+  const status = error.response.status;
+  // Retry on 5xx server errors and 503 Service Unavailable
+  if (status >= 500) return true;
+
+  // Don't retry on client errors (4xx) except 408 Request Timeout
+  if (status === 408) return true;
+
+  return false;
+};
+
+const getRetryDelay = (retryCount) => {
+  // Exponential backoff: 1s, 2s, 4s
+  return INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+};
+
 // --- REQUEST INTERCEPTOR ---
 API.interceptors.request.use(
   (config) => {
@@ -60,15 +94,27 @@ API.interceptors.request.use(
     } else {
       delete config.headers.Authorization;
     }
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`, config.params ?? '');
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// --- RESPONSE INTERCEPTOR ---
+// --- RESPONSE INTERCEPTOR WITH RETRY ---
 API.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[API] ${response.status} ${response.config?.method?.toUpperCase()} ${response.config?.url}`,
+      );
+    }
+    return response;
+  },
+  async (error) => {
     // Swallow cancellations — the component that triggered the abort already
     // knows it unmounted/navigated away; propagating the error would cause
     // "Can't perform a React state update on an unmounted component" warnings.
@@ -76,7 +122,35 @@ API.interceptors.response.use(
       return Promise.reject(error); // re-throw so callers can still detect it
     }
 
+    const config = error.config;
+    const retryCount = config.__retryCount || 0;
+
+    // Attempt retry with exponential backoff for retryable errors
+    if (shouldRetry(error, retryCount)) {
+      config.__retryCount = retryCount + 1;
+      const delayMs = getRetryDelay(retryCount);
+
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.debug(`[API] Retrying ${config.method?.toUpperCase()} ${config.url} in ${delayMs}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      }
+
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+
+      // Retry the request
+      return API(config);
+    }
+
     const status = error.response?.status;
+
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[API Error] ${status ?? 'network'} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+        error.message,
+      );
+    }
 
     if (status === 401 || status === 403) {
       const isLoginRequest = error.config?.url?.includes('/api/auth/login');
@@ -89,6 +163,7 @@ API.interceptors.response.use(
     // Capture unexpected server errors (5xx) and network failures to Sentry.
     // Auth errors (401/403) and client validation errors (4xx) are expected
     // flows and are intentionally excluded.
+    // Note: No global error toast shown — components use ErrorState for professional error pages
     const isServerError = !status || status >= 500;
     if (isServerError) {
       captureException(error, {
@@ -841,6 +916,82 @@ export const draftSale = (data) => {
 export const completeDraftSale = async (id, data) => {
   return await API.put(`api/sales/${id}/complete`, data);
 };
+
+// ── OFFLINE SALES API ──────────────────────────────────────────────────────────
+/**
+ * Enqueue an offline sale to be processed when app comes online
+ * Returns: { id, clientTxnId, status, offlineSaleNo, saleId, invoiceNumber, ... }
+ */
+export const enqueueOfflineSale = (offlineSaleRequest) => {
+  return API.post('/api/sales/offline-queue', offlineSaleRequest);
+};
+
+/**
+ * Get status of a queued offline sale
+ * Polls to check if sale has been processed (COMPLETED) or if it failed
+ */
+export const getOfflineSaleStatus = (clientTxnId) => {
+  return API.get(`/api/sales/offline-queue/${clientTxnId}`);
+};
+
+/**
+ * Get pending count for UI badge
+ * Shows how many offline sales are queued or being processed
+ */
+export const getOfflinePendingCount = (shopId) => {
+  return API.get(`/api/sales/offline-queue/shop/${shopId}/pending`);
+};
+
+/**
+ * List all pending/failed/draft offline sales for a shop from the server DB.
+ * Complements the local IndexedDB view — useful when the device has been
+ * offline and then comes back online.
+ * @param {number} shopId
+ * @param {string} [statuses] - comma-separated, e.g. "DRAFT,PENDING,FAILED" (default when omitted)
+ */
+export const getOfflineQueueList = (shopId, statuses) => {
+  const params = { shopId };
+  if (statuses) params.statuses = statuses;
+  return API.get('/api/sales/offline-queue', { params });
+};
+
+/**
+ * Manually trigger processing of offline sales
+ * Called when app comes online
+ */
+export const triggerOfflineProcessing = (shopId) => {
+  return API.post(`/api/sales/offline-queue/shop/${shopId}/process`, {});
+};
+
+/**
+ * Get offline sales processing statistics
+ * Returns: { pending, failed, conflicted, total }
+ */
+export const getOfflineStats = (shopId) => {
+  return API.get(`/api/sales/offline-queue/shop/${shopId}/stats`);
+};
+
+/**
+ * Get conflicted offline sales for admin review
+ */
+export const getOfflineConflictedSales = (shopId) => {
+  return API.get(`/api/sales/offline-queue/shop/${shopId}/conflicted`);
+};
+
+/**
+ * Retry a failed/conflicted offline sale
+ */
+export const retryOfflineSale = (queueId) => {
+  return API.post(`/api/sales/offline-queue/${queueId}/retry`, {});
+};
+
+/**
+ * Override a conflicted sale (link to existing sale ID)
+ */
+export const overrideConflict = (queueId, data) => {
+  return API.post(`/api/sales/offline-queue/${queueId}/override`, data);
+};
+
 export const processSaleReturn = (saleId, returnData) =>
   API.post(`/api/sales/${saleId}/return`, returnData);
 
@@ -1059,6 +1210,9 @@ export const fetchGstSummary = (from, to) =>
   API.get(endpoints.reports.gstSummary(from, to));
 export const fetchGstBreakdown = (from, to) =>
   API.get(endpoints.reports.gstBreakdown(from, to));
+// Used by useOfflineSales to pre-cache GST states for offline place-of-supply selection.
+export const fetchGstReferenceData = () =>
+  API.get('/api/v1/gst/reference/states', { suppressErrorToast: true });
 export const fetchItemsSold = (from, to, signal) => {
   const cfg = signal ? { signal } : undefined;
   if (from && to) {
@@ -1122,22 +1276,147 @@ export const exportBackup = () => API.post(endpoints.backup.export, {}, { respon
 
 export const recordDuePayment = (data) => API.post(endpoints.recordDuePayment, data);
 export const recordDuePaymentsBatch = (data) => API.post('/api/payments/record-batch', data);
-export const fetchPaymentHistory = (customerId, saleId, page = 0, size = 20) => {
+
+/**
+ * Legacy fetch — kept for backward-compatible callers.
+ * New code should prefer fetchPaymentsFiltered which supports the full
+ * filter set used by usePaymentFilters / AdvancedPaymentFilter.
+ */
+export const fetchPaymentHistory = (customerId, saleId, page = 0, size = 20, filters = {}) => {
+  const { startDate, endDate, methods, status, search } = filters;
   return API.get('/api/payments', {
     params: {
       customerId,
       page,
       size,
-      ...(saleId ? { sourceType: 'SALE', sourceId: saleId } : {})
+      ...(saleId ? { sourceType: 'SALE', sourceId: saleId } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate   ? { endDate }   : {}),
+      ...(methods?.length ? { methods: methods.join(',') } : {}),
+      ...(status?.length  ? { status:  status.join(',')  } : {}),
+      ...(search          ? { search }                      : {}),
     },
   }).then((r) => r.data)
     .catch(err => {
-      console.error("Payment Fetch Error:", err);
+      console.error('Payment Fetch Error:', err);
       return { content: [], totalElements: 0 };
     });
 };
+
+/**
+ * Paginated, filtered payment history for a customer.
+ * Used by usePaymentFilters hook.
+ *
+ * @param {string|number} customerId
+ * @param {object}        filters    — { startDate, endDate, methods[], status[], search }
+ * @param {number}        page       — 0-based page index
+ * @param {number}        size       — items per page
+ * @param {AbortSignal}   signal     — optional AbortController signal for cancellation
+ * @returns {Promise<{ content: object[], totalElements: number, totalPages: number }>}
+ */
+export const fetchPaymentsFiltered = (customerId, filters = {}, page = 0, size = 20, signal) => {
+  const { startDate, endDate, methods, status, search } = filters;
+  return API.get('/api/payments', {
+    signal,
+    params: {
+      ...(customerId      ? { customerId }                 : {}),
+      page,
+      size,
+      ...(startDate        ? { startDate }                  : {}),
+      ...(endDate          ? { endDate }                    : {}),
+      ...(methods?.length  ? { methods: methods.join(',') } : {}),
+      ...(status?.length   ? { status:  status.join(',')  } : {}),
+      ...(search?.trim()   ? { search:  search.trim() }     : {}),
+    },
+  }).then((r) => r.data);
+};
 export const recordBulkPayment = (data) => API.post('/api/payments/bulk', data);
 export const fetchCustomerAdvanceBalance = (customerId) => API.get(`/api/payments/customer/${customerId}/advance-balance`);
+
+/**
+ * Allocate a single payment across multiple invoices (Phase 2B).
+ *
+ * POST /api/payments/allocate-bulk
+ *
+ * Body:
+ *   customerId   {number}                 Customer receiving the payment
+ *   allocations  {Array<{saleId, amount}>} Per-invoice allocation breakdown
+ *   amount       {number}                 Total payment amount (server validates sum ≤ amount)
+ *   paymentMethod {string}                e.g. 'CASH', 'UPI', etc.
+ *   transactionId {string|undefined}      UTR / reference (required for non-cash methods)
+ *   paymentDate  {string}                 ISO datetime string
+ *   notes        {string|undefined}       Optional remarks
+ *
+ * Any amount exceeding the sum of allocations is held as advance credit.
+ *
+ * Returns: { payments: PaymentDto[], advanceCredited: number }
+ */
+export const allocatePaymentBulk = (data) =>
+  API.post('/api/payments/allocate-bulk', data).then((r) => r.data);
+
+
+/**
+ * Pre-flight duplicate check before recording a new customer payment.
+ *
+ * POST /api/payments/check-duplicate
+ * Body: { customerId, amount, method, transactionId? }
+ * Backend response: { duplicate: boolean, existingPayment?: object }
+ *
+ * Guards the record-payment flow against accidental double-submissions
+ * (e.g. navigating back and re-submitting the same form).
+ * transactionId is included when available so the backend can also detect
+ * exact UTR/RRN matches across payment methods.
+ */
+export const checkDuplicatePayment = (customerId, amount, method, transactionId) =>
+  API.post('/api/payments/check-duplicate', {
+    customerId,
+    amount,
+    method,
+    ...(transactionId ? { transactionId } : {}),
+  });
+
+// --- CHEQUES ---
+// Cheque tracking sits on top of the payment system. A ChequeTracker row is
+// auto-created on the backend whenever a payment with method=CHEQUE is recorded.
+// These endpoints let admins view, list and progress cheques through their
+// ISSUED → CLEARED / BOUNCED / CANCELLED lifecycle.
+
+/**
+ * Update the status of a tracked cheque.
+ *
+ * POST /api/cheques/{id}/update-status
+ * Body: { status: 'CLEARED' | 'BOUNCED' | 'CANCELLED', reason?: string }
+ * Auth: ADMIN only
+ * Response: updated ChequeTrackerDto
+ *
+ * `reason` is required by the backend when status is BOUNCED or CANCELLED.
+ */
+export const updateChequeStatus = (id, status, reason = null) =>
+  API.post(`/api/cheques/${id}/update-status`, { status, ...(reason ? { reason } : {}) })
+    .then((r) => r.data);
+
+/**
+ * Fetch cheque details linked to a specific payment.
+ *
+ * GET /api/cheques?paymentId={paymentId}
+ * Auth: ADMIN | OWNER | CASHIER (own shop context)
+ * Response: ChequeTrackerDto[] (usually one row per payment)
+ */
+export const getChequesByPayment = (paymentId) =>
+  API.get('/api/cheques', { params: { paymentId } }).then((r) => r.data);
+
+/**
+ * List all pending (ISSUED) cheques for an admin dashboard.
+ *
+ * GET /api/cheques/pending?shopId={shopId}
+ * Auth: ADMIN | OWNER
+ * Response: ChequeTrackerDto[] ordered by maturityDate ASC, chequeDate ASC
+ *
+ * omit shopId to let the server derive it from the JWT shop context.
+ */
+export const getPendingCheques = (shopId = null) =>
+  API.get('/api/cheques/pending', shopId ? { params: { shopId } } : undefined)
+    .then((r) => r.data);
 
 // --- CREDIT / DEBIT NOTES ---
 // Both credit and debit notes follow the same "issue signed URL → download PDF" pattern
@@ -1284,34 +1563,133 @@ export const listRefundsForPayment = (paymentId) =>
 export const getRefundSignedUrl = (refundId) =>
   API.get(`/api/refunds/${refundId}/signed-url`).then((r) => r.data);
 
+// --- PAYMENT ANALYTICS (Phase 3A) ---
+
+/**
+ * Aggregate stats for the payments analytics dashboard.
+ *
+ * GET /api/payments/stats?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ *
+ * Expected response shape:
+ * {
+ *   totalCollected:   number,  // sum of all completed payments in range
+ *   pendingAmount:    number,  // sum of PENDING payment records
+ *   overdueAmount:    number,  // outstanding dues > 30 days
+ *   advanceBalance:   number,  // total unallocated advance across all customers
+ *   totalCollectedPrev: number, // same metric for the previous equal-length window
+ *   pendingAmountPrev:  number,
+ *   overdueAmountPrev:  number,
+ *   advanceBalancePrev: number,
+ *   methodBreakdown: [{ method: string, amount: number, count: number }],
+ *   topCustomers:    [{ customerId, customerName, totalPaid, count }],
+ *   agingSummary: {
+ *     bucket0_30:  number,
+ *     bucket31_60: number,
+ *     bucket61_90: number,
+ *     bucket90plus: number,
+ *   },
+ * }
+ */
+export const fetchPaymentStats = (startDate, endDate) =>
+  API.get('/api/payments/stats', {
+    params: {
+      ...(startDate ? { startDate } : {}),
+      ...(endDate   ? { endDate }   : {}),
+    },
+  }).then((r) => r.data);
+
+/**
+ * Time-series trend data for the collections line chart.
+ *
+ * GET /api/payments/trend?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&granularity=DAY|WEEK
+ *
+ * Expected response shape:
+ * [{ date: 'YYYY-MM-DD', amount: number }]
+ */
+export const fetchPaymentTrend = (startDate, endDate, granularity = 'DAY') =>
+  API.get('/api/payments/trend', {
+    params: {
+      ...(startDate   ? { startDate }   : {}),
+      ...(endDate     ? { endDate }     : {}),
+      ...(granularity ? { granularity } : {}),
+    },
+  }).then((r) => r.data);
+
+// fetchReceivablesAging is exported from the ACCOUNTING CONTROLLER section below.
+
 // --- PAYMENT RECEIPTS ---
 // Returns a signed path like "/api/receipts/signed?token=..." valid for ~30 minutes.
 // The receipt is lazily created if this is the first request for the given payment.
 export const getPaymentReceiptSignedUrl = (paymentId) =>
   API.get(`/api/payments/${paymentId}/receipt-signed-url`).then((r) => r.data);
 
-// Downloads a receipt (or any signed PDF path) as a blob and triggers a browser download.
+// Alias used by ReceiptPreviewModal / ReceiptDownloadButton — matches the naming
+// convention of the other document-type signed-URL helpers (e.g. getQuotationSignedUrl).
+// 404 means the payment has no receipt on record; surfaces a toast and re-throws
+// so callers can decide whether to disable the download button.
+export const getReceiptSignedUrl = (paymentId) =>
+  API.get(`/api/payments/${paymentId}/receipt-signed-url`)
+    .then((r) => r.data)
+    .catch((err) => {
+      if (err.response?.status === 404) {
+        toast.error('Receipt not found');
+      }
+      throw err;
+    });
+
+/**
+ * Downloads a receipt (or any signed PDF path) as a Blob and triggers a browser
+ * download via a hidden anchor click — the current tab never navigates away.
+ *
+ * Uses AbortController + 30-second timeout so a hanging network request can't
+ * leave the caller stuck indefinitely. Throws on timeout, HTTP error, or an
+ * unexpected non-PDF content type so the caller can surface a useful message.
+ */
 export const downloadReceiptPdf = async (signedPath, filename = 'receipt.pdf') => {
   const url = signedPath.includes('?')
     ? `${signedPath}&download=true`
     : `${signedPath}?download=true`;
-  const response = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { Accept: 'application/pdf' },
-  });
-  if (!response.ok) {
-    throw new Error(`Receipt download failed: HTTP ${response.status}`);
+
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 30000);
+
+  let objectUrl = null;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      credentials: 'include',
+      headers: { Accept: 'application/pdf' },
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Receipt download failed: HTTP ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    if (!blob.type.includes('pdf')) {
+      throw new Error('Unexpected file type received. Expected PDF.');
+    }
+
+    objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke after the browser has had time to start the download
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    if (err.name === 'AbortError') {
+      throw new Error('Receipt download timed out. Please try again.');
+    }
+    throw err;
   }
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
 };
 
 export const fetchProducts = () => API.get(endpoints.products);
@@ -1699,7 +2077,10 @@ export const fetchPlatformRevenueHistory = (days = 30) =>
   API.get('/api/subscriptions/platform/revenue-history', { params: { days } }).then(res => res.data);
 
 export const fetchActivePricingPlans = () =>
-  API.get('/api/pricing/active').then(res => res.data);
+  API.get('/api/pricing/active').then(res => {
+    const d = res.data;
+    return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+  });
 
 export const updatePlanConfig = (planDto) =>
   API.put('/api/pricing/admin/update', planDto).then(res => res.data);
@@ -1882,7 +2263,7 @@ export const generateEWayBill = (payload) =>
   API.post('/api/v1/ewaybill/generate', payload).then(r => r.data?.data || r.data);
 
 export const fetchEWayBillThreshold = () =>
-  API.get('/api/v1/ewaybill/threshold').then(r => r.data?.data || r.data);
+  API.get('/api/v1/ewaybill/threshold', { suppressErrorToast: true }).then(r => r.data?.data || r.data);
 
 
 // --- ACCOUNTING CONTROLLER ---
@@ -2002,6 +2383,13 @@ export const exportNEFT = (runId) =>
 
 export const exportNACH = (runId) =>
   API.get(`/api/payroll/runs/${runId}/export-nach`).then(r => r.data);
+
+// Blob-download versions for BankingIntegration.jsx (triggers browser file save)
+export const exportNEFTBlob = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-neft`, { responseType: 'blob' }).then(r => r.data);
+
+export const exportNACHBlob = (runId) =>
+  API.get(`/api/payroll/runs/${runId}/export-nach`, { responseType: 'blob' }).then(r => r.data);
 
 // Statutory Config CRUD (used by StatutoryCompliance.jsx)
 export const getStatutoryConfig = () =>
@@ -2213,3 +2601,136 @@ export const getMonthlyPayroll = (month, year) =>
 //             totalTDS, totalPF, totalESIC, totalLWF, monthlyBreakdown[] }
 export const getYTDSummary = (financialYear) =>
   API.get('/api/payroll/ytd-summary', { params: { financialYear } }).then(r => r.data);
+
+// --- BANK RECONCILIATION ---
+
+/**
+ * Submit a reconciliation result — the set of bank-to-payment matches confirmed
+ * by the finance user.
+ *
+ * POST /api/payments/reconcile
+ *   Auth: ADMIN | FINANCE
+ *   Body: {
+ *     bankTransactions: Array<{ id, date, amount, description, bankRef }>,
+ *     matches:          Array<{ bankTransactionId, paymentId }>
+ *   }
+ *   Response: { matchedCount, unmatchedBankCount, unmatchedPaymentCount, reconciliationId }
+ */
+export const submitReconciliation = (payload) =>
+  API.post('/api/payments/reconcile', payload);
+
+/**
+ * Fetch a reconciliation report for the given date range.
+ *
+ * GET /api/payments/reconciliation-report?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ *   Auth: ADMIN | FINANCE
+ *   Response: CSV text or JSON array of matched/unmatched entries
+ */
+export const fetchReconciliationReport = (startDate, endDate) =>
+  API.get('/api/payments/reconciliation-report', { params: { startDate, endDate } });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENTERPRISE EXPENSES API
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Expense CRUD ──────────────────────────────────────────────────────────────
+export const createExpenseEnterprise = (data) => API.post(endpoints.expenses, data);
+export const getExpenseEnterprise = (id) => API.get(endpoints.expenseById(id));
+export const getExpensesEnterprise = (params) => API.get(endpoints.expenses, { params });
+export const updateExpenseEnterprise = (id, data) => API.put(endpoints.expenseById(id), data);
+export const deleteExpenseEnterprise = (id) => API.delete(endpoints.expenseById(id));
+
+// ── Expense Approvals ─────────────────────────────────────────────────────────
+export const submitExpenseForApproval = (id, data) => API.post(endpoints.expenseSubmit(id), data);
+export const getPendingApprovals = (params) => API.get(endpoints.expenseApprovalsPending, { params });
+export const getPendingApprovalsCount = () => API.get(endpoints.expenseApprovalsPendingCount);
+export const approveExpense = (id, data) => API.post(endpoints.expenseApprove(id), data);
+export const rejectExpense = (id, data) => API.post(endpoints.expenseReject(id), data);
+export const escalateExpense = (id, data) => API.post(endpoints.expenseEscalate(id), data);
+export const getApprovalTimeline = (id) => API.get(`${endpoints.expenseApprovals}/${id}/history`);
+
+// ── Expense Analytics ─────────────────────────────────────────────────────────
+export const getDashboardMetrics = () => API.get(endpoints.expenseAnalyticsDashboard);
+export const getCategorySpending = (categoryId, startDate, endDate) =>
+  API.get(endpoints.expenseAnalyticsSpending, { params: { categoryId, startDate, endDate } });
+export const getEmployeeExpenses = (employeeId, params) =>
+  API.get(endpoints.expenseEmployeeExpenses(employeeId), { params });
+
+// ── Expense Categories ────────────────────────────────────────────────────────
+export const getExpenseCategories = () => API.get(endpoints.expenseCategories);
+export const getExpenseCategoryById = (id) => API.get(endpoints.expenseCategoryById(id));
+export const getExpenseSubcategories = (id) => API.get(endpoints.expenseCategorySubcategories(id));
+export const getExpenseCategoryHierarchy = (id) => API.get(endpoints.expenseCategoryHierarchy(id));
+export const createExpenseCategory = (data) => API.post(endpoints.expenseCategories, data);
+export const updateExpenseCategory = (id, data) => API.put(endpoints.expenseCategoryById(id), data);
+export const deleteExpenseCategory = (id) => API.delete(endpoints.expenseCategoryById(id));
+
+// ── Expense Reconciliation ────────────────────────────────────────────────────
+export const getReconciliationSummary = (startDate, endDate) =>
+  API.get(endpoints.expenseReconciliationSummary, { params: { startDate, endDate } });
+export const getUnmatchedExpenses = (params) =>
+  API.get(endpoints.expenseReconciliationUnmatched, { params });
+export const getReimbursedExpenses = (params) =>
+  API.get(endpoints.expenseReconciliationReimbursed, { params });
+export const markExpenseAsReimbursed = (id, data) =>
+  API.post(endpoints.expenseReconciliationMarkReimbursed(id), data);
+
+// ── GST / HSN preview ─────────────────────────────────────────────────────────
+export const fetchHsnPreview = (year, month) =>
+  API.get(`/api/v1/gst/gstr1/hsn-preview?year=${year}&month=${month}`)
+     .then(r => r.data.data);
+
+// ── Compliance credit notes ───────────────────────────────────────────────────
+export const createComplianceCreditNote = (dto) =>
+  API.post('/api/v1/compliance/credit-notes', dto).then(r => r.data);
+
+
+// ── GSTR-3B ───────────────────────────────────────────────────────────────────
+export const fetchGstr3b = (year, month) =>
+  API.get(`/api/v1/gst/gstr3b?year=${year}&month=${month}`)
+     .then(r => r.data.data ?? r.data);
+
+export const downloadGstr3bJson = (year, month) =>
+  API.get(`/api/v1/gst/gstr3b/download?year=${year}&month=${month}`)
+     .then(r => r.data.data ?? r.data);
+
+// ── Period Lock ───────────────────────────────────────────────────────────────
+export const getPeriodLocks = (year) =>
+  API.get(`/api/v1/compliance/period-locks?year=${year}`).then(r => r.data.data ?? r.data);
+
+export const lockPeriod = (payload) =>
+  API.post('/api/v1/compliance/period-locks/lock', payload).then(r => r.data.data ?? r.data);
+
+export const unlockPeriod = (payload) =>
+  API.post('/api/v1/compliance/period-locks/unlock', payload).then(r => r.data.data ?? r.data);
+
+// ── GSTR-2B Reconciliation ────────────────────────────────────────────────────
+export const uploadGstr2bJson = (file, year, month) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return API.post(`/api/v1/compliance/gstr2b/upload?year=${year}&month=${month}`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data ?? r.data);
+};
+
+export const getGstr2bReconciliation = (year, month) =>
+  API.get(`/api/v1/compliance/gstr2b/reconciliation?year=${year}&month=${month}`)
+     .then(r => r.data.data ?? r.data);
+
+export const manualMatchGstr2b = (entryId, purchaseId) =>
+  API.post(`/api/v1/compliance/gstr2b/${entryId}/manual-match?purchaseId=${purchaseId}`)
+     .then(r => r.data.data ?? r.data);
+
+export const acceptMismatchGstr2b = (entryId) =>
+  API.post(`/api/v1/compliance/gstr2b/${entryId}/accept-mismatch`)
+     .then(r => r.data.data ?? r.data);
+
+// ── GSTR-9 Annual Return ─────────────────────────────────────────────────────
+export const fetchGstr9 = (fiscalYear) =>
+  API.get(`/api/v1/gst/gstr9/summary?fiscalYear=${fiscalYear}`)
+     .then(r => r.data.data ?? r.data);
+
+// ── HSN Master Search ────────────────────────────────────────────────────────
+export const searchHsn = (q) =>
+  API.get(`/api/v1/compliance/hsn/search?q=${encodeURIComponent(q)}`)
+     .then(r => r.data.data ?? r.data);

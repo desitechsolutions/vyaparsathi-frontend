@@ -45,6 +45,15 @@ function numberToWords(num) {
 }
 
 /**
+ * Year for a synthetic invoice number, derived from when the invoice was
+ * actually created rather than a hardcoded year that would go stale.
+ */
+function invoiceYear(createdAt) {
+  const d = createdAt ? new Date(createdAt) : new Date();
+  return Number.isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
+}
+
+/**
  * Enterprise-grade B2B Tax Invoice & Receipt Table for VyaparSathi.
  *
  * @param {Array}   invoices       - Array of RazorpayPaymentLog from GET /api/subscriptions/razorpay/invoices
@@ -61,8 +70,13 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
   const [platformInfo, setPlatformInfo] = useState({
     companyName: 'DesiTech Solutions Pvt. Ltd.',
     tradeName: 'VyaparSathi Enterprise SaaS',
-    gstin: '27AAACD1234E1Z5',
-    pan: 'AAACD1234E',
+    // No fabricated GSTIN/PAN — a fake-but-plausible number on a legally
+    // issued tax invoice is a compliance risk. Left unset until the real
+    // value loads from `/api/platform/public-info`; the invoice display
+    // and PDF fall back to an explicit "NOT CONFIGURED" label, never a
+    // made-up identifier.
+    gstin: null,
+    pan: null,
     addressLine1: '101, Tech Hub Tower',
     addressLine2: 'Senapati Bapat Marg, Lower Parel',
     city: 'Mumbai',
@@ -84,16 +98,17 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
   // Combine real payment logs with a synthetic active plan receipt if logs are empty but mandate is active
   const displayInvoices = [...invoices];
   if (displayInvoices.length === 0 && razorpayStatus?.active && razorpayStatus?.planCode && razorpayStatus?.planCode !== 'FREE') {
+    const syntheticCreatedAt = razorpayStatus.validTill ? new Date(razorpayStatus.validTill).toISOString() : new Date().toISOString();
     displayInvoices.push({
       id: 'active-sub-receipt',
-      createdAt: razorpayStatus.validTill ? new Date(razorpayStatus.validTill).toISOString() : new Date().toISOString(),
+      createdAt: syntheticCreatedAt,
       razorpayPaymentId: razorpayStatus.razorpaySubscriptionId || 'SUB-ACTIVE-MANDATE',
       planCode: razorpayStatus.planCode || 'PRO',
       billingCycle: razorpayStatus.billingCycle || 'MONTHLY',
       method: 'Razorpay AutoPay (e-Mandate)',
       amount: razorpayStatus.priceAmount || (razorpayStatus.planCode === 'ENTERPRISE' ? 4999 : 999),
       status: 'SUCCESS',
-      invoiceNumber: `${platformInfo.invoicePrefix || 'SUB-INV'}-2026-${String(razorpayStatus.shopId || 101).padStart(6, '0')}`,
+      invoiceNumber: `${platformInfo.invoicePrefix || 'SUB-INV'}-${invoiceYear(syntheticCreatedAt)}-${String(razorpayStatus.shopId || 101).padStart(6, '0')}`,
       shopId: razorpayStatus.shopId || 1,
     });
   }
@@ -196,7 +211,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
 
     const method = inv.method || 'Razorpay AutoPay (UPI / Card / NetBanking)';
     const invPrefix = platformInfo.invoicePrefix || 'SUB-INV';
-    const invNo = inv.invoiceNumber || `${invPrefix}-2026-${String(inv.id || Date.now()).slice(-6).padStart(6, '0')}`;
+    const invNo = inv.invoiceNumber || `${invPrefix}-${invoiceYear(inv.createdAt)}-${String(inv.id || Date.now()).slice(-6).padStart(6, '0')}`;
     const amountInWords = numberToWords(totalAmount);
 
     const vendorAddressStr = [
@@ -277,7 +292,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
         <div class="box-title">Vendor / Platform Details (Billed From)</div>
         <strong>${platformInfo.companyName || 'DesiTech Solutions Pvt. Ltd.'}</strong><br/>
         ${vendorAddressStr}<br/>
-        <strong>GSTIN:</strong> ${platformInfo.gstin || '27AAACD1234E1Z5'} | <strong>PAN:</strong> ${platformInfo.pan || 'AAACD1234E'}<br/>
+        <strong>GSTIN:</strong> ${platformInfo.gstin || 'GSTIN NOT CONFIGURED'} | <strong>PAN:</strong> ${platformInfo.pan || 'PAN NOT CONFIGURED'}<br/>
         <strong>State Code:</strong> ${platformInfo.stateCode || '27'} (${platformInfo.state || 'Maharashtra'}) | <strong>SAC Code:</strong> ${platformInfo.hsnSacCode || '998313'}
       </div>
       <div class="address-box">
@@ -689,7 +704,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                   sx={{ fontWeight: 900, borderRadius: '6px', fontSize: '0.7rem' }}
                 />
                 <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="text.secondary">
-                  {selectedInvoice.invoiceNumber || `${platformInfo.invoicePrefix || 'SUB-INV'}-2026-${String(selectedInvoice.id || Date.now()).slice(-6).padStart(6, '0')}`}
+                  {selectedInvoice.invoiceNumber || `${platformInfo.invoicePrefix || 'SUB-INV'}-${invoiceYear(selectedInvoice.createdAt)}-${String(selectedInvoice.id || Date.now()).slice(-6).padStart(6, '0')}`}
                 </Typography>
               </Stack>
 
@@ -701,7 +716,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                       Vendor GSTIN:
                     </Typography>
                     <Typography variant="body2" fontFamily="monospace" fontWeight={800}>
-                      {platformInfo.gstin || '27AAACD1234E1Z5'}
+                      {platformInfo.gstin || 'GSTIN NOT CONFIGURED'}
                     </Typography>
                   </Grid>
 

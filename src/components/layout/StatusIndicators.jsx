@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Tooltip, CircularProgress, useTheme, keyframes } from '@mui/material';
+import { Box, Tooltip, useTheme, keyframes } from '@mui/material';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import SyncIcon from '@mui/icons-material/Sync';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { useOfflineSales } from '../../hooks/useOfflineSales';
 
 const spinAnimation = keyframes`
   0% { transform: rotate(0deg); }
@@ -16,35 +17,24 @@ const pulseAnimation = keyframes`
   100% { opacity: 1; }
 `;
 
+/**
+ * M-10 fix: isSyncing and isOffline now come from useOfflineSales (the single
+ * source of truth). The placeholder setTimeout is removed.
+ * L-5 fix: health-check polling is consolidated inside useOfflineSales; no
+ * duplicate polling here.
+ */
 const StatusIndicators = ({ isMobile = false }) => {
   const theme = useTheme();
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { isOffline, isSyncing, pendingCount } = useOfflineSales();
 
-  // Track online/offline status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // Simulate sync state (can be connected to real data sync later)
-  useEffect(() => {
-    // This would typically be triggered by data mutations
-    // For now, it's a placeholder for future integration
-    const timer = setTimeout(() => setIsSyncing(false), 2000);
-    return () => clearTimeout(timer);
-  }, [isSyncing]);
+  const isOnline = !isOffline;
+  const syncTooltip = isSyncing
+    ? 'Syncing offline sales…'
+    : pendingCount > 0
+      ? `${pendingCount} sale(s) pending sync`
+      : 'All changes synced';
 
   if (isMobile) {
-    // Minimal indicators on mobile (just the main connection status)
     return (
       <Tooltip title={isOnline ? 'Online' : 'Offline'}>
         <Box
@@ -68,11 +58,10 @@ const StatusIndicators = ({ isMobile = false }) => {
     );
   }
 
-  // Desktop: Show all three statuses
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
       {/* Connection Status */}
-      <Tooltip title={isOnline ? 'Connected' : 'Offline - Limited functionality'}>
+      <Tooltip title={isOnline ? 'Connected' : 'Offline — limited functionality'}>
         <Box
           sx={{
             display: 'flex',
@@ -94,7 +83,7 @@ const StatusIndicators = ({ isMobile = false }) => {
       </Tooltip>
 
       {/* Sync Status */}
-      <Tooltip title={isSyncing ? 'Syncing changes...' : 'Changes synced'}>
+      <Tooltip title={syncTooltip}>
         <Box
           sx={{
             display: 'flex',
@@ -102,7 +91,7 @@ const StatusIndicators = ({ isMobile = false }) => {
             justifyContent: 'center',
             width: 24,
             height: 24,
-            opacity: isSyncing ? 1 : 0.6,
+            opacity: isSyncing || pendingCount > 0 ? 1 : 0.6,
             transition: 'opacity 200ms',
           }}
         >
@@ -115,12 +104,17 @@ const StatusIndicators = ({ isMobile = false }) => {
               }}
             />
           ) : (
-            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+            <CheckCircleIcon
+              sx={{
+                fontSize: 14,
+                color: pendingCount > 0 ? 'warning.main' : 'success.main',
+              }}
+            />
           )}
         </Box>
       </Tooltip>
 
-      {/* Data Loading Status - Optional for future expansion */}
+      {/* Data readiness dot */}
       <Tooltip title="Data status: Ready">
         <Box
           sx={{

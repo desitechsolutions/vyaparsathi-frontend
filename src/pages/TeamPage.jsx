@@ -49,6 +49,7 @@ import {
 } from '../services/api';
 import PermissionGate from '../components/rbac/PermissionGate';
 import usePermissions from '../hooks/usePermissions';
+import { useSubscription } from '../context/SubscriptionContext';
 
 const STATUS_COLOR = { PENDING: 'warning', ACCEPTED: 'success', REVOKED: 'default', EXPIRED: 'error' };
 const STATUS_ICON = {
@@ -438,6 +439,7 @@ function InvitationsTab({ canInvite, onNotify }) {
   const [form, setForm] = useState({ email: '', phone: '', roleName: 'STAFF', message: '' });
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
+  const { subscription } = useSubscription();
 
   const load = useCallback(async () => {
     try {
@@ -556,7 +558,23 @@ function InvitationsTab({ canInvite, onNotify }) {
           </Paper>
         ))}
         <PermissionGate code="TEAM_INVITE">
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+            {(() => {
+              const maxStaff = subscription?.maxStaffUsers ?? null;
+              const staffUsed = subscription?.staffUsed ?? null;
+              if (maxStaff == null || maxStaff <= 0 || staffUsed == null) return null;
+              const pct = staffUsed / maxStaff;
+              const color = pct >= 1 ? 'error' : pct >= 0.8 ? 'warning' : 'default';
+              return (
+                <Chip
+                  size="small"
+                  label={`${staffUsed} / ${maxStaff} staff`}
+                  color={color}
+                  variant={color === 'default' ? 'outlined' : 'filled'}
+                  sx={{ fontWeight: 600 }}
+                />
+              );
+            })()}
             <Button
               variant="contained"
               startIcon={<PersonAddIcon />}

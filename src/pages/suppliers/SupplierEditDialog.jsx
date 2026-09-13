@@ -48,7 +48,11 @@ export default function SupplierEditDialog({ open, supplier, onClose, onSaved })
       // Auto-derive state code from GSTIN first two chars.
       if (field === 'gstin' && typeof value === 'string' && value.length >= 2) {
         const two = value.slice(0, 2);
-        if (/^\d{2}$/.test(two)) next.stateCode = two;
+        if (/^\d{2}$/.test(two)) {
+          next.stateCode = two;
+          const row = GST_STATES.find((r) => r[0] === two);
+          if (row) next.state = row[1];
+        }
       }
       return next;
     });

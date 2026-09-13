@@ -41,11 +41,21 @@ import SalespersonLeaderboard from '../pages/reports/SalespersonLeaderboard';
 import ZReport from '../pages/reports/ZReport';
 import ExpensesSummary from '../pages/reports/ExpensesSummary';
 import PaymentsSummary from '../pages/reports/PaymentsSummary';
-import Expenses from '../pages/Expenses';
+// import Expenses from '../pages/Expenses'; // Replaced with new Enterprise Expenses pages
 import Backup from '../pages/Backup';
+import {
+  ExpenseDashboard,
+  ExpensesList,
+  ExpenseForm,
+  ApprovalInbox,
+  ReconciliationPage,
+  ReportsPage,
+  ExpenseSettingsPage,
+} from '../pages/expenses';
 import Login from '../pages/Login';
 import ProductOverview from '../pages/ProductOverview';
-import CustomerPaymentPage from '../pages/payments/CustomerPaymentPage';
+import CustomerPaymentPage    from '../pages/payments/CustomerPaymentPage';
+import CustomerStatementPage  from '../pages/payments/CustomerStatementPage';
 import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
@@ -103,11 +113,15 @@ import TeamPage from '../pages/TeamPage';
 import RolesPermissionMatrixPage from '../pages/RolesPermissionMatrixPage';
 import AcceptShopInvitePage from '../pages/AcceptShopInvitePage';
 import ComplianceModuleStub from '../pages/compliance/ComingSoonPage';
+const PeriodLockManagement = React.lazy(() => import('../pages/compliance/PeriodLockManagement'));
+const Gstr2bReconciliation = React.lazy(() => import('../pages/compliance/Gstr2bReconciliation'));
+const Gstr9Summary = React.lazy(() => import('../pages/reports/Gstr9Summary'));
 import Notifications from '../pages/Notifications';
 import ShopGuard from '../components/guards/ShopGuard';
 import TierGuard from '../components/guards/TierGuard'; // Added TierGuard
 import ErrorBoundary from '../components/common/ErrorBoundary'; // route-level fallback keeps sidebar/header alive on page crash
 import HsnSummary from '../pages/reports/HsnSummary';
+const Gstr3bSummary = React.lazy(() => import('../pages/reports/Gstr3bSummary'));
 import AuditLogs from '../pages/AuditLogs';
 import SupplierPaymentPage from '../pages/SupplierPaymentPage';
 import PricingPage from '../pages/PricingPage';
@@ -152,6 +166,7 @@ const SuperAdminAuditPage = React.lazy(() => import('../pages/admin/SuperAdminAu
 
 // BUNDLE 4: Analytics & Compliance (async)
 const AnalyticsDashboard = React.lazy(() => import('../pages/AnalyticsDashboard'));
+const PaymentDashboard = React.lazy(() => import('../pages/payments/PaymentDashboard'));
 const ComplianceDashboard = React.lazy(() => import('../pages/reports/ComplianceDashboard'));
 const AccountingDashboard = React.lazy(() => import('../pages/reports/AccountingDashboard'));
 const ExpiryReport = React.lazy(() => import('../pages/reports/ExpiryReport'));
@@ -178,6 +193,7 @@ import PurchaseReturns from '../pages/purchases/PurchaseReturns';
 import PrintGRNPage from '../pages/purchases/PrintGRNPage';
 import PrintPurchaseReturnPage from '../pages/purchases/PrintPurchaseReturnPage';
 import { ShopProvider } from '../context/ShopContext';
+import { OfflineSalesProvider } from '../context/OfflineSalesContext';
 
 function AppRoutes() {
   const { user } = useAuthContext();
@@ -286,9 +302,11 @@ function AppRoutes() {
             element={
               <PrivateRoute>
                 <ShopProvider>
-                  <ShopGuard>
-                    <MainLayout />
-                  </ShopGuard>
+                  <OfflineSalesProvider>
+                    <ShopGuard>
+                      <MainLayout />
+                    </ShopGuard>
+                  </OfflineSalesProvider>
                 </ShopProvider>
               </PrivateRoute>
             }
@@ -325,9 +343,26 @@ function AppRoutes() {
             <Route path="sales" element={<Sales />} />
             <Route path="sales/drafts" element={<Sales />} />
             <Route path="sales/return" element={<SalesReturn />} />
-            <Route path="expenses" element={<Expenses />} />
+
+            {/* Enterprise Expenses Routes */}
+            <Route path="expenses" element={<ExpenseDashboard />} />
+            <Route path="expenses/dashboard" element={<ExpenseDashboard />} />
+            <Route path="expenses/list" element={<ExpensesList />} />
+            <Route path="expenses/create" element={<ExpenseForm />} />
+            <Route path="expenses/edit/:id" element={<ExpenseForm />} />
+            <Route path="expenses/approvals" element={<ApprovalInbox />} />
+            <Route path="expenses/reconciliation" element={<ReconciliationPage />} />
+            <Route path="expenses/reports" element={<ReportsPage />} />
+            <Route path="expenses/settings" element={<ExpenseSettingsPage />} />
+
             <Route path="products" element={<ProductOverview />} />
             <Route path="customer-payments" element={<CustomerPaymentPage />} />
+            {/* Canonical path used in Phase 1 links: /payments/customer */}
+            <Route path="payments/customer" element={<CustomerPaymentPage />} />
+            {/* Phase 3A: Payment analytics dashboard for finance/admin users */}
+            <Route path="payments/dashboard" element={<Suspense fallback={<LazyFallback />}><PaymentDashboard /></Suspense>} />
+            {/* Phase 3C: Customer account statement (double-entry ledger + PDF) */}
+            <Route path="payments/customer-statement" element={<CustomerStatementPage />} />
             <Route path="about-us" element={<AboutUs />} />
             <Route path="admin/users" element={<UserManagementPage />} />
             <Route path="admin/settings" element={<SettingsPage />} />
@@ -615,6 +650,13 @@ function AppRoutes() {
 
             <Route path="reports/tax-compliance" element={<TierGuard requiredTier="ENTERPRISE"><TaxComplianceHub /></TierGuard>} />
             <Route path="compliance/hsn" element={<TierGuard requiredTier="ENTERPRISE"><HsnSummary /></TierGuard>} />
+            <Route path="compliance/gstr3b" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <ErrorBoundary resetKey="gstr3b">
+                  <Suspense fallback={<LazyFallback />}><Gstr3bSummary /></Suspense>
+                </ErrorBoundary>
+              </TierGuard>
+            } />
             <Route path="audit" element={<TierGuard requiredTier="ENTERPRISE"><AuditLogs /></TierGuard>} />
 
             {/* Compliance module — routes advertised in the sidebar. Live pages
@@ -640,18 +682,13 @@ function AppRoutes() {
 
             <Route path="compliance/gstr-2b" element={
               <TierGuard requiredTier="ENTERPRISE">
-                <ComplianceModuleStub
-                  eyebrow="Compliance · Input Tax Credit"
-                  title="GSTR-2B ITC reconciliation"
-                  description="Match your GSTR-2B auto-drafted statement against recorded purchase invoices. Flag mismatches, missing invoices, and over-claimed ITC before you file."
-                  bullets={[
-                    { label: 'Upload GSTR-2B JSON', hint: 'From gst.gov.in returns dashboard', done: false },
-                    { label: 'Line-by-line match against recorded purchases', hint: 'GSTIN + invoice-no + tax-value key', done: false },
-                    { label: 'Mismatch report: missing / duplicate / value-mismatch', hint: 'Actionable list with supplier contact', done: false },
-                    { label: 'ITC-eligible summary for GSTR-3B claim', hint: 'Matched + provisional ITC breakdown', done: false },
-                  ]}
-                  fallbackPath="/reports/gst-summary"
-                />
+                <Suspense fallback={<LazyFallback />}><Gstr2bReconciliation /></Suspense>
+              </TierGuard>
+            } />
+
+            <Route path="compliance/gstr-9" element={
+              <TierGuard requiredTier="ENTERPRISE">
+                <Suspense fallback={<LazyFallback />}><Gstr9Summary /></Suspense>
               </TierGuard>
             } />
 
@@ -674,18 +711,9 @@ function AppRoutes() {
 
             <Route path="compliance/period-lock" element={
               <TierGuard requiredTier="ENTERPRISE">
-                <ComplianceModuleStub
-                  eyebrow="Compliance · Book closing"
-                  title="Period lock (financial-year & book closing)"
-                  description="Freeze a financial period so no invoice, payment or ledger entry can be back-dated into it — the gate every accountant asks for before signing off on returns."
-                  bullets={[
-                    { label: 'Lock any period up to a chosen date', hint: 'FY-end, quarter-end, monthly close', done: false },
-                    { label: 'Refuse writes to locked periods', hint: 'Enforced at every service (invoice, payment, journal)', done: false },
-                    { label: 'Reason-required unlock by OWNER only', hint: 'Audited, one-off unlock window with expiry', done: false },
-                    { label: 'Book-closing signoff trail', hint: 'Who locked what, when, with what supporting docs', done: false },
-                  ]}
-                  fallbackPath="/reports/compliance"
-                />
+                <React.Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                  <PeriodLockManagement />
+                </React.Suspense>
               </TierGuard>
             } />
 

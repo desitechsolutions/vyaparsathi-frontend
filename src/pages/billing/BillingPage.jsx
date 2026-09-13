@@ -18,12 +18,13 @@ import { toast } from 'react-toastify';
 
 import { useRazorpaySubscription } from '../../hooks/useRazorpaySubscription';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { computePlanPricing } from '../../utils/pricingUtils';
 import razorpaySubscriptionApi from '../../services/razorpaySubscriptionApi';
 import RazorpayCheckoutButton from '../../components/subscriptions/RazorpayCheckoutButton';
 import AutoPayStatusCard from '../../components/subscriptions/AutoPayStatusCard';
 import RazorpayInvoiceTable from '../../components/subscriptions/RazorpayInvoiceTable';
 
-// ── Plan definitions ─────────────────────────────────────────────────────────
+// ── Plan visual metadata (icon/color/description only — prices & features come from DB) ──
 const PLANS = [
   {
     code: 'STARTER',
@@ -31,7 +32,6 @@ const PLANS = [
     icon: <StarIcon />,
     color: '#0EA5E9',
     description: 'Perfect for small shops getting started.',
-    features: ['Up to 500 invoices/month', 'Basic GST reports', 'Email support'],
   },
   {
     code: 'PRO',
@@ -39,7 +39,6 @@ const PLANS = [
     icon: <RocketLaunchIcon />,
     color: '#2563EB',
     description: 'The complete toolkit for growing businesses.',
-    features: ['Unlimited invoices', 'Advanced analytics', 'Priority support', 'Multi-staff access'],
     popular: true,
   },
   {
@@ -48,9 +47,10 @@ const PLANS = [
     icon: <BusinessIcon />,
     color: '#7C3AED',
     description: 'Tailored for large-scale multi-branch operations.',
-    features: ['Everything in Pro', 'API access', 'Dedicated account manager', 'Custom integrations'],
   },
 ];
+
+const TIER_RANK = { FREE: 0, STARTER: 1, PRO: 2, ENTERPRISE: 3 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function TabPanel({ children, value, index }) {
@@ -66,7 +66,7 @@ export default function BillingPage() {
   const [billingCycle, setBillingCycle] = useState('MONTHLY');
   const [cancellingUtr, setCancellingUtr] = useState(false);
 
-  const { plans: dbPlans, subscriptionStatus, fetchStatus: reloadCoreStatus } = useSubscription();
+  const { plans: dbPlans, subscription: subscriptionStatus, refreshStatus: reloadCoreStatus } = useSubscription();
   const {
     razorpayStatus,
     invoices,
@@ -99,20 +99,11 @@ export default function BillingPage() {
     }
   };
 
-  // Merge static plan metadata with dynamic prices from DB
+  // Merge static visual metadata with live DB plan data
   const enrichedPlans = PLANS.map((p) => {
     const dbPlan = dbPlans?.find((d) => d.tier === p.code || d.tier?.name === p.code);
-    return {
-      ...p,
-      monthlyPrice: dbPlan?.monthlyPrice ?? '—',
-      yearlyPrice: dbPlan?.yearlyPrice ?? '—',
-    };
+    return { ...p, dbPlan: dbPlan || null };
   });
-
-  const getDisplayPrice = (plan) => {
-    const price = billingCycle === 'YEARLY' ? plan.yearlyPrice : plan.monthlyPrice;
-    return price === '—' ? '—' : `₹${price}`;
-  };
 
   // Evaluation of AutoPay & Mutual Exclusion states
   const activeAutoPayStatus = razorpayStatus?.status;
@@ -121,7 +112,8 @@ export default function BillingPage() {
 
   const hasPendingUtr = subscriptionStatus?.status === 'PENDING';
   const lastUtrNumber = subscriptionStatus?.lastUtr || 'N/A';
-  const isUtrActivePlan = subscriptionStatus?.premium && !hasActiveAutoPay;
+  const isUtrActiveSubscription = !hasActiveAutoPay && !hasPendingUtr &&
+    subscriptionStatus?.status === 'ACTIVE' && currentTier !== 'FREE';
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -184,7 +176,7 @@ export default function BillingPage() {
         </Alert>
       )}
 
-      {!hasActiveAutoPay && isUtrActivePlan && (
+      {!hasActiveAutoPay && isUtrActiveSubscription && (
         <Alert severity="info" sx={{ mb: 3, borderRadius: '14px', border: '1px solid', borderColor: 'info.light' }}>
           <AlertTitle sx={{ fontWeight: 800 }}>Active Manual Plan ({currentTier})</AlertTitle>
           You are currently on a manual subscription ({subscriptionStatus?.daysRemaining || 0} days remaining). Subscribing to Razorpay AutoPay will activate your mandate immediately.
@@ -227,7 +219,7 @@ export default function BillingPage() {
                 {cycle.charAt(0) + cycle.slice(1).toLowerCase()}
                 {cycle === 'YEARLY' && (
                   <Chip
-                    label="Save 17%"
+                    label="Save on Annual"
                     size="small"
                     color="success"
                     sx={{ ml: 1, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
@@ -245,89 +237,163 @@ export default function BillingPage() {
                 <Skeleton variant="rectangular" height={360} sx={{ borderRadius: '20px' }} />
               </Grid>
             ))
-          ) : enrichedPlans.map((plan) => (
-            <Grid item xs={12} md={4} key={plan.code}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 3,
-                  borderRadius: '20px',
-                  border: '2px solid',
-                  borderColor: plan.popular ? plan.color : 'divider',
-                  position: 'relative',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' },
-                }}
-              >
-                {plan.popular && (
-                  <Chip
-                    label="MOST POPULAR"
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: -12,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      bgcolor: plan.color,
-                      color: 'white',
-                      fontWeight: 900,
-                      fontSize: '0.6rem',
-                      letterSpacing: 0.5,
-                      borderRadius: '6px',
-                    }}
-                  />
-                )}
+          ) : enrichedPlans.map((plan) => {
+            const cycle = billingCycle.toLowerCase();
+            const { pricePerMonth, gstTotal, isCustomPricing, isPromoActive: promoActive, promoLabel, basePricePerMonth } =
+              computePlanPricing(plan.dbPlan || {}, cycle);
 
-                {/* Plan header */}
-                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-                  <Box sx={{ color: plan.color }}>{plan.icon}</Box>
-                  <Typography variant="h6" fontWeight={900}>{plan.label}</Typography>
-                </Stack>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {plan.description}
-                </Typography>
+            const dbFeatures = plan.dbPlan?.features;
+            const features = dbFeatures?.length > 0 ? dbFeatures : [];
 
-                {/* Price */}
-                <Box sx={{ mb: 2.5 }}>
-                  <Typography variant="h4" fontWeight={900} sx={{ color: plan.color }}>
-                    {getDisplayPrice(plan)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    per {billingCycle === 'YEARLY' ? 'year' : 'month'} · billed {billingCycle.toLowerCase()}
-                  </Typography>
-                </Box>
+            const discountPct = plan.dbPlan?.discountPercentage;
+            const isPopular = plan.popular || plan.dbPlan?.isPopular;
 
-                <Divider sx={{ mb: 2 }} />
+            const planTierRank = TIER_RANK[plan.code] || 0;
+            const userTierRank = TIER_RANK[currentTier] || 0;
+            const isCurrentUtrPlan = isUtrActiveSubscription && planTierRank === userTierRank;
+            const isUtrDowngrade = isUtrActiveSubscription && planTierRank < userTierRank;
 
-                {/* Features */}
-                <Stack spacing={1} sx={{ mb: 3, flex: 1 }}>
-                  {plan.features.map((f) => (
-                    <Stack direction="row" spacing={1} alignItems="flex-start" key={f}>
-                      <CheckCircleIcon sx={{ fontSize: 16, color: plan.color, mt: 0.2, flexShrink: 0 }} />
-                      <Typography variant="body2" color="text.secondary" fontWeight={500}>{f}</Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-
-                {/* CTA with Tier Guardrails & Mutual Exclusion Props */}
-                <RazorpayCheckoutButton
-                  planCode={plan.code}
-                  billingCycle={billingCycle}
-                  currentTier={currentTier}
-                  hasActiveAutoPay={hasActiveAutoPay}
-                  hasPendingUtr={hasPendingUtr}
+            return (
+              <Grid item xs={12} md={4} key={plan.code}>
+                <Paper
+                  elevation={0}
                   sx={{
-                    bgcolor: plan.popular ? plan.color : undefined,
-                    '&:hover': { bgcolor: plan.popular ? plan.color : undefined, opacity: 0.9 },
-                    width: '100%',
+                    p: 3,
+                    borderRadius: '20px',
+                    border: '2px solid',
+                    borderColor: isCurrentUtrPlan ? 'success.main' : isPopular ? plan.color : 'divider',
+                    position: 'relative',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' },
                   }}
-                />
-              </Paper>
-            </Grid>
-          ))}
+                >
+                  {isCurrentUtrPlan ? (
+                    <Chip
+                      label="CURRENT PLAN"
+                      size="small"
+                      sx={{
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        bgcolor: 'success.main', color: 'white', fontWeight: 900,
+                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px',
+                      }}
+                    />
+                  ) : isPopular ? (
+                    <Chip
+                      label="MOST POPULAR"
+                      size="small"
+                      sx={{
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        bgcolor: plan.color, color: 'white', fontWeight: 900,
+                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px',
+                      }}
+                    />
+                  ) : null}
+
+                  {/* Plan header */}
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+                    <Box sx={{ color: plan.color }}>{plan.icon}</Box>
+                    <Typography variant="h6" fontWeight={900}>
+                      {plan.dbPlan?.displayName || plan.label}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {plan.description}
+                  </Typography>
+
+                  {/* Price */}
+                  <Box sx={{ mb: 2.5 }}>
+                    {isCustomPricing ? (
+                      <Typography variant="h4" fontWeight={900} sx={{ color: plan.color }}>Custom</Typography>
+                    ) : !plan.dbPlan ? (
+                      <Typography variant="h4" fontWeight={900} sx={{ color: plan.color }}>—</Typography>
+                    ) : (
+                      <>
+                        {promoActive && (
+                          <Typography variant="body2" sx={{ color: 'text.disabled', textDecoration: 'line-through', fontWeight: 600 }}>
+                            ₹{basePricePerMonth}/mo
+                          </Typography>
+                        )}
+                        <Stack direction="row" alignItems="baseline" spacing={0.5}>
+                          <Typography variant="h4" fontWeight={900} sx={{ color: promoActive ? 'error.main' : plan.color }}>
+                            ₹{pricePerMonth}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>/mo</Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          ₹{gstTotal} incl. GST · billed {cycle}
+                        </Typography>
+                        {promoActive && promoLabel && (
+                          <Chip label={promoLabel} size="small" color="error"
+                            sx={{ display: 'block', mt: 0.5, fontWeight: 800, fontSize: '0.6rem', height: 20, width: 'fit-content' }} />
+                        )}
+                      </>
+                    )}
+                    {billingCycle === 'YEARLY' && discountPct > 0 && !promoActive && (
+                      <Chip
+                        label={`Save ${discountPct}%`}
+                        size="small" color="success"
+                        sx={{ mt: 0.5, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
+                      />
+                    )}
+                  </Box>
+
+                  <Divider sx={{ mb: 2 }} />
+
+                  {/* Features from DB */}
+                  <Stack spacing={1} sx={{ mb: 3, flex: 1 }}>
+                    {features.length > 0 ? features
+                      .filter(f => !f.startsWith('-') && !f.startsWith('~'))
+                      .map((f) => (
+                        <Stack direction="row" spacing={1} alignItems="flex-start" key={f}>
+                          <CheckCircleIcon sx={{ fontSize: 16, color: plan.color, mt: 0.2, flexShrink: 0 }} />
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>{f}</Typography>
+                        </Stack>
+                      )) : (
+                        <Typography variant="caption" color="text.disabled">Features loading…</Typography>
+                      )}
+                  </Stack>
+
+                  {/* CTA — UTR active plan states take precedence over Razorpay button */}
+                  {isCurrentUtrPlan ? (
+                    <Button fullWidth variant="outlined" color="success" disabled
+                      startIcon={<CheckCircleIcon />}
+                      sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', py: 1.25 }}
+                    >
+                      Current Active Plan
+                    </Button>
+                  ) : isUtrDowngrade ? (
+                    <Tooltip title="You're on a higher plan. Contact support to downgrade." arrow>
+                      <span>
+                        <Button fullWidth variant="outlined" disabled
+                          startIcon={<LockIcon />}
+                          sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', py: 1.25 }}
+                        >
+                          Lower Tier
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <RazorpayCheckoutButton
+                      planCode={plan.code}
+                      billingCycle={billingCycle}
+                      currentTier={currentTier}
+                      hasActiveAutoPay={hasActiveAutoPay}
+                      hasPendingUtr={hasPendingUtr}
+                      autoPayStatus={activeAutoPayStatus}
+                      sx={{
+                        bgcolor: isPopular ? plan.color : undefined,
+                        '&:hover': { bgcolor: isPopular ? plan.color : undefined, opacity: 0.9 },
+                        width: '100%',
+                      }}
+                    />
+                  )}
+                </Paper>
+              </Grid>
+            );
+          })}
         </Grid>
 
         {/* Legacy UTR link */}

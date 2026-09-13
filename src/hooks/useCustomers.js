@@ -146,10 +146,10 @@ export const useCustomers = () => {
     return () => controller.abort();
   }, [loadKpis]);
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     loadCustomers();
     loadKpis();
-  };
+  }, [loadCustomers, loadKpis]);
 
   const handleCreate = async (formData) => {
     try {

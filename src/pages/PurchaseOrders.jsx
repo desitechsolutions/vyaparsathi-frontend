@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import ErrorState from '../components/common/ErrorState';
+import useDataLoading from '../hooks/useDataLoading';
 import { useTheme, alpha } from '@mui/material/styles';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -198,6 +200,7 @@ const PurchaseOrders = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { loading: loadError, error, executeLoad } = useDataLoading();
 
   const {
     isLoading,
@@ -215,6 +218,16 @@ const PurchaseOrders = () => {
     confirmDelete,
     cancelDelete,
   } = usePurchaseOrders();
+
+  const handleLoadPurchaseOrders = useCallback(async () => {
+    await executeLoad(async () => {
+      await refreshData();
+    });
+  }, [executeLoad, refreshData]);
+
+  useEffect(() => {
+    handleLoadPurchaseOrders();
+  }, [handleLoadPurchaseOrders]);
 
   // ── Local filter state ──────────────────────────────────────────────
   const [searchText, setSearchText] = useState('');
@@ -523,6 +536,10 @@ const PurchaseOrders = () => {
     saveView(name, advancedFilter, description);
   };
 
+  if (error) {
+    return <ErrorState error={error} onRetry={handleLoadPurchaseOrders} />;
+  }
+
   // ── Grid columns ────────────────────────────────────────────────────
   // Trimmed to the 7 columns that fit standard screen widths without
   // horizontal scroll: PO # / Supplier / Order Date / Status / Payment /
@@ -613,7 +630,7 @@ const PurchaseOrders = () => {
       align: 'right', headerAlign: 'right',
       renderCell: (params) => (
         <IconButton
-          size={{ xs: 'small', md: 'medium' }}
+          
           onClick={(e) => { e.stopPropagation(); openRowMenu(e, params.row); }}
           sx={{ minWidth: 44, minHeight: 44 }}
           aria-label={`More actions for ${params.row.poNumber}`}

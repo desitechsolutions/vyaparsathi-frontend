@@ -18,11 +18,18 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { QRCodeSVG } from 'qrcode.react'; 
+import LockIcon from '@mui/icons-material/Lock';
+import { QRCodeSVG } from 'qrcode.react';
 import { useSubscription } from '../context/SubscriptionContext';
+import { useAuthContext } from '../context/AuthContext';
+import { useRazorpaySubscription } from '../hooks/useRazorpaySubscription';
+import RazorpayCheckoutButton from '../components/subscriptions/RazorpayCheckoutButton';
+import { computePlanPricing } from '../utils/pricingUtils';
 
 const PricingPage = () => {
   const { plans, loading, initiateTrial, getStatus, subscription, verifyPayment, canStartTrial, isPremium} = useSubscription();
+  const { user } = useAuthContext();
+  const { razorpayStatus } = useRazorpaySubscription();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -42,6 +49,26 @@ const PricingPage = () => {
   const fromBilling = location.state?.from === 'billing';
 
   const isTrialAvailable = canStartTrial();
+
+  // Razorpay AutoPay mandate state — same derivation BillingPage uses, so the
+  // tier guardrails (current/upgrade/downgrade/pending) agree everywhere.
+  const activeAutoPayStatus = razorpayStatus?.status;
+  const hasActiveAutoPay = !!activeAutoPayStatus && !['NONE', 'CANCELLED', 'COMPLETED', 'EXPIRED'].includes(activeAutoPayStatus);
+  const currentTier = (razorpayStatus?.planCode || subscription?.tier || 'FREE').toUpperCase();
+  const hasPendingUtr = status === 'PENDING';
+
+  // UTR-paid subscriptions have no Razorpay AutoPay mandate, so RazorpayCheckoutButton's
+  // isCurrentPlan / isDowngrade guards (which require hasActiveAutoPay=true) never fire.
+  // Detect this path separately so the pricing cards show correct locked/active states.
+  const TIER_RANK = { FREE: 0, STARTER: 1, PRO: 2, ENTERPRISE: 3 };
+  const isUtrActiveSubscription = !hasActiveAutoPay && !hasPendingUtr && status === 'ACTIVE' && currentTier !== 'FREE';
+
+  // Same status derivation AutoPayStatusCard uses on the Billing page, so a
+  // paused/halted mandate is surfaced here too instead of silently locking
+  // the checkout buttons with no explanation.
+  const isAutoPayPaused = activeAutoPayStatus === 'PAUSED';
+  const isAutoPayHalted = activeAutoPayStatus === 'HALTED';
+
   if (loading && (!plans || plans.length === 0)) return (
     <Box sx={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <CircularProgress size={40} thickness={4} sx={{ color: '#3b82f6' }} />
@@ -115,6 +142,50 @@ const PricingPage = () => {
         </Box>
       )}
 
+      {isAutoPayHalted && (
+        <Box sx={{ bgcolor: '#FEF2F2', borderBottom: '1px solid #FECACA', py: 2 }}>
+          <Container maxWidth="lg">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+              <Stack direction="row" spacing={2} alignItems="center">
+                <ErrorOutlineIcon sx={{ color: '#DC2626' }} />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#991B1B' }}>AutoPay Payment Failed</Typography>
+                  <Typography variant="caption" sx={{ color: '#7F1D1D' }}>Your last recurring charge failed after multiple retries. Update your payment method to avoid losing access.</Typography>
+                </Box>
+              </Stack>
+              <Button
+                variant="contained" size="small" sx={{ bgcolor: '#DC2626', fontWeight: 700, textTransform: 'none' }}
+                onClick={() => navigate('/billing')}
+              >
+                Fix Payment Method
+              </Button>
+            </Stack>
+          </Container>
+        </Box>
+      )}
+
+      {isAutoPayPaused && (
+        <Box sx={{ bgcolor: '#FFFBEB', borderBottom: '1px solid #FDE68A', py: 2 }}>
+          <Container maxWidth="lg">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+              <Stack direction="row" spacing={2} alignItems="center">
+                <ErrorOutlineIcon sx={{ color: '#D97706' }} />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#92400E' }}>AutoPay Paused</Typography>
+                  <Typography variant="caption" sx={{ color: '#78350F' }}>Recurring billing is paused. Resume it from Billing to keep your plan active without interruption.</Typography>
+                </Box>
+              </Stack>
+              <Button
+                variant="contained" size="small" sx={{ bgcolor: '#D97706', fontWeight: 700, textTransform: 'none' }}
+                onClick={() => navigate('/billing')}
+              >
+                Resume AutoPay
+              </Button>
+            </Stack>
+          </Container>
+        </Box>
+      )}
+
       <Box sx={{ bgcolor: 'action.hover', pt: { xs: 4, md: 6 }, pb: { xs: 15, md: 20 }, textAlign: 'center' }}>
         <Container maxWidth="md">
           
@@ -181,23 +252,16 @@ const PricingPage = () => {
           {plans.map((plan, index) => {
             const isThisPlanTier = subscription?.tier === plan.tier;
             const isPaidActive = isThisPlanTier && status === 'ACTIVE';
-            const isPendingThisPlan = status === 'PENDING' && isThisPlanTier;
-            const isHighlighted = upgradeTarget === plan.tier || plan.isPopular;
-            const isPlanExpired = isThisPlanTier && isExpired;
-            const isTrialActive = isThisPlanTier && status === 'TRIAL';
+            const planTierRank = TIER_RANK[plan.tier] || 0;
+            const userTierRank = TIER_RANK[currentTier] || 0;
+            const isUtrActivePlan = isUtrActiveSubscription && planTierRank === userTierRank;
+            const isUtrDowngrade = isUtrActiveSubscription && planTierRank < userTierRank && plan.tier !== 'FREE';
+            const isHighlighted = upgradeTarget === plan.tier || plan.isPopular || isPaidActive;
 
-            const pricePerMonth = billingCycle === 'monthly' 
-              ? (Number(plan.monthlyPrice) || 0) 
-              : Math.round((Number(plan.yearlyPrice) || 0) / 12);
-
-            const finalDisplayTotal = billingCycle === 'monthly' 
-              ? (Number(plan.monthlyPrice) || 0) 
-              : (Number(plan.yearlyPrice) || 0);
-        
-            const gstTotal = Math.round(finalDisplayTotal * 1.18);
+            const { pricePerMonth, isCustomPricing, gstTotal, isPromoActive, promoLabel, basePricePerMonth } = computePlanPricing(plan, billingCycle);
 
             return (
-              <Grid item key={plan.id} xs={12} md={plans.length > 0 ? 12/plans.length : 4} sx={{ 
+              <Grid item key={plan.tier} xs={12} md={plans.length > 0 ? 12/plans.length : 4} sx={{ 
                 borderRight: index !== plans.length - 1 ? { md: '1px solid', borderColor: 'divider' } : 'none',
                 borderBottom: { xs: '1px solid', md: 'none' },
                 borderColor: 'divider',
@@ -205,7 +269,11 @@ const PricingPage = () => {
               }}>
                 <Box sx={{ p: { xs: 4, md: 5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   
-                  {isHighlighted ? (
+                  {isPaidActive ? (
+                    <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', textTransform: 'uppercase', letterSpacing: 1 }}>
+                      <CheckCircleIcon sx={{ fontSize: 14, mr: 0.5 }} /> Your Current Plan
+                    </Typography>
+                  ) : isHighlighted ? (
                     <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', textTransform: 'uppercase', letterSpacing: 1 }}>
                       <StarIcon sx={{ fontSize: 14, mr: 0.5 }} /> Recommended
                     </Typography>
@@ -220,48 +288,131 @@ const PricingPage = () => {
                   </Typography>
 
                   <Box sx={{ mb: 4 }}>
-                    {billingCycle === 'yearly' && plan.monthlyPrice > 0 && (
-                      <Typography 
-                        variant="body1" 
-                        sx={{ 
-                          color: 'text.disabled', 
-                          textDecoration: 'line-through', 
-                          fontWeight: 600,
-                          mb: -0.5 
-                        }}
-                      >
-                        ₹{Number(plan.monthlyPrice)}
-                      </Typography>
+                    {isCustomPricing ? (
+                      <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>Custom</Typography>
+                    ) : (
+                      <>
+                        {isPromoActive ? (
+                          <Typography
+                            variant="body1"
+                            sx={{ color: 'text.disabled', textDecoration: 'line-through', fontWeight: 600, mb: -0.5 }}
+                          >
+                            ₹{basePricePerMonth}
+                          </Typography>
+                        ) : (
+                          billingCycle === 'yearly' && plan.monthlyPrice > 0 && (
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                color: 'text.disabled',
+                                textDecoration: 'line-through',
+                                fontWeight: 600,
+                                mb: -0.5
+                              }}
+                            >
+                              ₹{Number(plan.monthlyPrice)}
+                            </Typography>
+                          )
+                        )}
+                        <Stack direction="row" alignItems="baseline">
+                          <Typography variant="h3" sx={{ fontWeight: 900, color: isPromoActive ? 'error.main' : 'text.primary' }}>
+                            ₹{pricePerMonth}
+                          </Typography>
+                          <Typography variant="subtitle1" sx={{ color: 'text.secondary', ml: 1, fontWeight: 500 }}>
+                            / month
+                          </Typography>
+                        </Stack>
+                        {isPromoActive && promoLabel && (
+                          <Chip
+                            label={promoLabel}
+                            size="small"
+                            color="error"
+                            sx={{ mt: 1, fontWeight: 800, fontSize: '0.68rem', height: 22 }}
+                          />
+                        )}
+                      </>
                     )}
-                    <Stack direction="row" alignItems="baseline">
-                      <Typography variant="h3" sx={{ fontWeight: 900, color: 'text.primary' }}>
-                        ₹{pricePerMonth}
-                      </Typography>
-                      <Typography variant="subtitle1" sx={{ color: 'text.secondary', ml: 1, fontWeight: 500 }}>
-                        / month
-                      </Typography>
-                    </Stack>
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mt: 0.5 }}>
-                      {billingCycle === 'yearly' ? 'per Organization per Month' : 'per Organization'}
+                      {isCustomPricing ? 'Tailored to your business' : (billingCycle === 'yearly' ? 'per Organization per Month' : 'per Organization')}
                     </Typography>
-                    
+
                     <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, display: 'block' }}>
-                      {billingCycle === 'yearly' ? '(Billed annually) ' : ''}
-                      {plan.yearlyPrice > 0 ? `₹${gstTotal} incl. 18% GST` : 'Free Forever'}
+                      {isCustomPricing
+                        ? 'Contact our sales team for a quote'
+                        : plan.tier === 'FREE'
+                        ? 'Free Forever'
+                        : `${billingCycle === 'yearly' ? '(Billed annually) ' : ''}₹${gstTotal} incl. 18% GST`}
                     </Typography>
                   </Box>
-                  <Button 
-                    fullWidth 
-                    variant={isHighlighted ? "contained" : "outlined"}
-                    size="large"
-                    onClick={() => handleOpenPayment(plan, gstTotal)}
-                    disabled={isPaidActive || (status === 'PENDING' && !isThisPlanTier) || plan.tier === 'FREE'}
-                    sx={{ 
-                      py: 1.5, mb: 5, borderRadius: '8px', fontWeight: 800, textTransform: 'none',
-                    }}
-                  >
-                    {plan.tier === 'FREE' ? 'Default Plan' : isPaidActive ? 'Current Plan' : isTrialActive ? 'On Trial (Upgrade Now)' : isPendingThisPlan ? 'Verifying...' : (isPlanExpired ? 'Renew Plan' : 'Buy Now')}
-                  </Button>
+                  <Box sx={{ mb: 5 }}>
+                    {plan.tier === 'FREE' || isCustomPricing ? (
+                      <Button
+                        fullWidth
+                        variant={isHighlighted ? "contained" : "outlined"}
+                        size="large"
+                        onClick={() => isCustomPricing && (window.location.href = 'mailto:sales@desitechsolutions.com?subject=Enterprise%20Plan%20Enquiry')}
+                        disabled={plan.tier === 'FREE'}
+                        sx={{ py: 1.5, borderRadius: '8px', fontWeight: 800, textTransform: 'none' }}
+                      >
+                        {plan.tier === 'FREE' ? 'Default Plan' : 'Contact Sales'}
+                      </Button>
+                    ) : !user ? (
+                      <Button
+                        fullWidth
+                        variant={isHighlighted ? "contained" : "outlined"}
+                        size="large"
+                        onClick={() => navigate('/login')}
+                        sx={{ py: 1.5, borderRadius: '8px', fontWeight: 800, textTransform: 'none' }}
+                      >
+                        Login to Purchase
+                      </Button>
+                    ) : isUtrActivePlan ? (
+                      // Current plan — paid via UTR (no Razorpay mandate)
+                      <Button
+                        fullWidth variant="outlined" color="success" disabled
+                        startIcon={<CheckCircleIcon />}
+                        sx={{ py: 1.5, borderRadius: '8px', fontWeight: 800, textTransform: 'none' }}
+                      >
+                        Current Active Plan
+                      </Button>
+                    ) : isUtrDowngrade ? (
+                      // Lower tier — can't subscribe while a higher UTR plan is active
+                      <Tooltip title="You're on a higher plan. Contact support to downgrade." arrow>
+                        <span>
+                          <Button
+                            fullWidth variant="outlined" disabled
+                            startIcon={<LockIcon />}
+                            sx={{ py: 1.5, borderRadius: '8px', fontWeight: 800, textTransform: 'none' }}
+                          >
+                            Lower Tier
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      <>
+                        <RazorpayCheckoutButton
+                          planCode={plan.tier}
+                          billingCycle={billingCycle.toUpperCase()}
+                          currentTier={currentTier}
+                          hasActiveAutoPay={hasActiveAutoPay}
+                          hasPendingUtr={hasPendingUtr}
+                          autoPayStatus={activeAutoPayStatus}
+                          variant={isHighlighted ? 'contained' : 'outlined'}
+                          sx={{ py: 1.5, borderRadius: '8px', fontWeight: 800, textTransform: 'none' }}
+                        />
+                        {!hasActiveAutoPay && !hasPendingUtr && !isPaidActive && (
+                          <Button
+                            fullWidth
+                            size="small"
+                            onClick={() => handleOpenPayment(plan, gstTotal)}
+                            sx={{ mt: 1, fontWeight: 700, textTransform: 'none', fontSize: '0.78rem', color: 'text.secondary' }}
+                          >
+                            Prefer manual bank transfer? Pay via UPI/QR →
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </Box>
 
                   <Divider sx={{ mb: 4 }} />
 

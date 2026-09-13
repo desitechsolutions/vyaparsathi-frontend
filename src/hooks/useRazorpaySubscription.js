@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import razorpaySubscriptionApi from '../services/razorpaySubscriptionApi';
 import { toast } from 'react-toastify';
+import { getValidToken } from '../utils/authStorage';
 
 /**
  * Custom hook for Razorpay AutoPay subscription management.
@@ -18,6 +19,14 @@ export function useRazorpaySubscription() {
   const [error, setError] = useState(null);
 
   const fetchAll = useCallback(async (isRefresh = false) => {
+    // This hook is also mounted on the guest-facing /pricing route (PricingPage),
+    // where these authenticated endpoints would otherwise fire and 401 on load.
+    if (!getValidToken()) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (isRefresh) {
       setRefreshing(true);
     } else {

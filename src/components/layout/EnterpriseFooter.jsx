@@ -106,7 +106,7 @@ const EnterpriseFooter = () => {
     <Box
       component="footer"
       sx={{
-        background: 'linear-gradient(180deg, #0F172A 0%, #1E293B 100%)',
+        background: 'linear-gradient(180deg, #050B18 0%, #070F1E 100%)',
         color: '#E2E8F0',
         pt: { xs: 8, md: 12 },
         pb: { xs: 4, md: 6 },
@@ -379,10 +379,10 @@ const EnterpriseFooter = () => {
               <Typography variant="body2" fontWeight={700} sx={{ color: '#CBD5E1' }}>
                 Biruma Technology Solutions Pvt. Ltd.
               </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              <Typography variant="caption" sx={{ color: '#475569' }}>
                 {t('enterpriseFooter.cin')} &nbsp;•&nbsp; {t('enterpriseFooter.gstNo')}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              <Typography variant="caption" sx={{ color: '#475569' }}>
                 {t('enterpriseFooter.copyright', { year: new Date().getFullYear() })} &nbsp;•&nbsp; {t('enterpriseFooter.allRightsReserved')}
               </Typography>
             </Stack>
@@ -404,7 +404,7 @@ const EnterpriseFooter = () => {
                   key={idx}
                   href={link.href}
                   underline="none"
-                  sx={{ fontSize: '0.78rem', color: 'text.secondary', fontWeight: 600, '&:hover': { color: '#94A3B8' } }}
+                  sx={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600, '&:hover': { color: '#94A3B8' } }}
                 >
                   {link.label}
                 </MuiLink>
@@ -415,8 +415,11 @@ const EnterpriseFooter = () => {
 
         {/* Made in India Banner */}
         <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
-            🇮🇳 Made with ❤️ in India by Biruma Technology Solutions • {t('enterpriseFooter.madeInIndia')}
+          <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
+            🇮🇳 Made with ❤️ in India &nbsp;·&nbsp;{' '}
+            <Box component="span" sx={{ color: '#64748B' }}>Biruma Technology Solutions</Box>
+            {' '}&nbsp;·&nbsp;{' '}
+            <Box component="span" sx={{ color: '#F59E0B', fontWeight: 700 }}>{t('enterpriseFooter.madeInIndia')}</Box>
           </Typography>
         </Box>
       </Container>

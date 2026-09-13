@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react";
+import { replayIntegration } from "@sentry/replay";
 
 export const initSentry = () => {
   if (process.env.NODE_ENV === 'production') {
@@ -7,7 +8,7 @@ export const initSentry = () => {
       environment: process.env.NODE_ENV,
       tracesSampleRate: 0.1,
       integrations: [
-        new Sentry.Replay(),
+        replayIntegration(),
       ],
       replaySessionSampleRate: 0.1,
       replayOnErrorSampleRate: 1.0,

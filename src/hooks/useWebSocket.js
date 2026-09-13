@@ -4,6 +4,29 @@ import { Client } from '@stomp/stompjs';
 import { toast } from 'react-toastify';
 import { API_BASE_URL } from '../services/api';
 
+// ─── Connectivity probe ────────────────────────────────────────────────────────
+// navigator.onLine only reflects the OS network-interface state (WiFi connected
+// ≠ internet reachable). We probe the backend to confirm true reachability.
+const PROBE_ENDPOINT = `${API_BASE_URL}/actuator/health`;
+const PROBE_TIMEOUT_MS = 5_000;
+
+async function probeConnectivity() {
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+    const res = await fetch(PROBE_ENDPOINT, {
+      method:      'HEAD',
+      cache:       'no-store',
+      credentials: 'omit',
+      signal:      ctrl.signal,
+    });
+    clearTimeout(tid);
+    return res.ok || res.status === 401; // 401 = server replied → we're online
+  } catch {
+    return false;
+  }
+}
+
 // ─── Sound levels ─────────────────────────────────────────────────────────────
 // Three preset volumes. 'low' is the default — audible without being disruptive.
 // The value is passed to a minimal Web Audio tone generator; 0 === silent.
@@ -37,6 +60,7 @@ const useWebSocket = (shopId, options = {}) => {
   const [stompClient, setStompClient]     = useState(null);
   const [connected, setConnected]         = useState(false);
   const [isOnline, setIsOnline]           = useState(() => navigator.onLine);
+  const probeTimerRef                     = useRef(null);
 
   // ── Notification state ───────────────────────────────────────────────────────
   const [notifications, setNotifications]           = useState([]);
@@ -70,17 +94,61 @@ const useWebSocket = (shopId, options = {}) => {
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Online / offline detection
+  //
+  // navigator.onLine is unreliable — it reflects the OS network-interface state,
+  // not true internet reachability. Strategy:
+  //   1. Browser online/offline events update state immediately.
+  //   2. On 'offline' (or if onLine was already false at mount), start a 15 s
+  //      periodic probe against the backend so we auto-recover without a reload.
+  //   3. A successful STOMP connect is definitive proof we are online.
   // ─────────────────────────────────────────────────────────────────────────────
+  const stopProbe = useCallback(() => {
+    if (probeTimerRef.current) {
+      clearInterval(probeTimerRef.current);
+      probeTimerRef.current = null;
+    }
+  }, []);
+
+  const startProbe = useCallback(() => {
+    stopProbe();
+    probeTimerRef.current = setInterval(async () => {
+      const reachable = await probeConnectivity();
+      if (reachable) {
+        setIsOnline(true);
+        stopProbe(); // stop probing once we know we're back
+      }
+    }, 15_000);
+  }, [stopProbe]);
+
   useEffect(() => {
-    const handleOnline  = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    // Run an immediate probe on mount — catches the case where navigator.onLine
+    // is already wrong at page load time.
+    probeConnectivity().then((reachable) => setIsOnline(reachable || navigator.onLine));
+
+    const handleOnline = async () => {
+      // Browser says we're online; confirm with a real probe before trusting it.
+      const reachable = await probeConnectivity();
+      setIsOnline(reachable);
+      if (reachable) stopProbe(); else startProbe();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      startProbe(); // keep probing so we recover as soon as server is reachable
+    };
+
     window.addEventListener('online',  handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // If navigator.onLine is already false at mount, start probing right away.
+    if (!navigator.onLine) startProbe();
+
     return () => {
       window.removeEventListener('online',  handleOnline);
       window.removeEventListener('offline', handleOffline);
+      stopProbe();
     };
-  }, []);
+  }, [startProbe, stopProbe]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Sound notification (minimal Web Audio tone — no external assets)
@@ -273,6 +341,9 @@ const useWebSocket = (shopId, options = {}) => {
         stompClientRef.current = client;
         setStompClient(client);
         setConnected(true);
+        // A successful STOMP handshake is definitive proof of internet access.
+        setIsOnline(true);
+        stopProbe();
 
         // Flush any actions queued while the socket was down
         flushOfflineQueue();

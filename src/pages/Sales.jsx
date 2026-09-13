@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import ErrorState from '../components/common/ErrorState';
+import useDataLoading from '../hooks/useDataLoading';
+import { useOfflineSales } from '../hooks/useOfflineSales';
 import {
   Box, Snackbar, Alert, CircularProgress,
   Typography, Paper, Button, IconButton, Tooltip, Stack, Menu, MenuItem, ListItemIcon, ListItemText,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, alpha
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, alpha,
+  Drawer, List, ListItem, ListItemText as MuiListItemText, Divider, Badge
 } from '@mui/material';
 import SalesTabs from '../components/Sales/SalesTabs';
 import CustomerSection from '../components/Sales/CustomerSection';
@@ -20,6 +24,8 @@ import {
   draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes,
   parkSale as parkSaleApi, discardDraftSale
 } from '../services/api';
+import { listSalesByShop } from '../services/offline/offlineDb';
+import { listItemVariantsByShop, listCustomersByShop } from '../services/offline/offlineReferenceCache';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
@@ -119,42 +125,94 @@ const useURLParams = () => {
 };
 
 /**
- * Hook to load data
+ * Hook to load data with offline fallback
  */
-const useLoadData = () => {
+const useLoadData = (shopId, isOffline) => {
   const [variants, setVariants] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
 
-  const loadVariants = useCallback(() => {
+  const loadVariants = useCallback(async () => {
     setLoading(true);
-    fetchItemVariants({})
-      .then((res) => {
-        const data = Array.isArray(res.data) ? res.data : [];
-        setVariants(data.map((v) => ({
-          value: v.id,
-          label: `${v.itemName} (${v.color}, ${v.size}) - SKU: ${v.sku}`,
-          ...v,
-        })));
-      })
-      .catch(() => setVariants([]))
-      .finally(() => setLoading(false));
-  }, []);
+    try {
+      if (isOffline && shopId) {
+        const cached = await listItemVariantsByShop(shopId);
+        if (cached.length > 0) {
+          setVariants(cached.map((v) => ({
+            value: v.id,
+            label: `${v.itemName} (${v.color || ''}, ${v.size || ''}) - SKU: ${v.sku || ''}`,
+            ...v,
+          })));
+          return;
+        }
+      }
+      const res = await fetchItemVariants({});
+      const data = Array.isArray(res.data) ? res.data : [];
+      setVariants(data.map((v) => ({
+        value: v.id,
+        label: `${v.itemName} (${v.color}, ${v.size}) - SKU: ${v.sku}`,
+        ...v,
+      })));
+    } catch (err) {
+      if (shopId) {
+        try {
+          const cached = await listItemVariantsByShop(shopId);
+          if (cached.length > 0) {
+            setVariants(cached.map((v) => ({
+              value: v.id,
+              label: `${v.itemName} (${v.color || ''}, ${v.size || ''}) - SKU: ${v.sku || ''}`,
+              ...v,
+            })));
+            return;
+          }
+        } catch (_) {}
+      }
+      setVariants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [shopId, isOffline]);
 
-  const loadCustomers = useCallback(() => {
+  const loadCustomers = useCallback(async () => {
     setLoadingCustomers(true);
-    fetchCustomers()
-      .then((res) => {
-        setCustomers((res.data || []).map((cust) => ({
-          value: cust.id,
-          label: `${cust.name} | Phone: ${cust.phone || 'N/A'}`,
-          ...cust,
-        })));
-      })
-      .catch(() => setCustomers([]))
-      .finally(() => setLoadingCustomers(false));
-  }, []);
+    try {
+      if (isOffline && shopId) {
+        const cached = await listCustomersByShop(shopId);
+        if (cached.length > 0) {
+          setCustomers(cached.map((cust) => ({
+            value: cust.id,
+            label: `${cust.name} | Phone: ${cust.phone || 'N/A'}`,
+            ...cust,
+          })));
+          return;
+        }
+      }
+      const res = await fetchCustomers();
+      setCustomers((res.data || []).map((cust) => ({
+        value: cust.id,
+        label: `${cust.name} | Phone: ${cust.phone || 'N/A'}`,
+        ...cust,
+      })));
+    } catch (err) {
+      if (shopId) {
+        try {
+          const cached = await listCustomersByShop(shopId);
+          if (cached.length > 0) {
+            setCustomers(cached.map((cust) => ({
+              value: cust.id,
+              label: `${cust.name} | Phone: ${cust.phone || 'N/A'}`,
+              ...cust,
+            })));
+            return;
+          }
+        } catch (_) {}
+      }
+      setCustomers([]);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  }, [shopId, isOffline]);
 
   useEffect(() => {
     loadVariants();
@@ -183,6 +241,8 @@ const Sales = () => {
   const { isJewellery, industryType, shop } = useShop();
   const { getStatus, canProcessSale, canStartTrial, subscription } = useSubscription();
   const { tabValue, setTabValue, resumeId, clearParams } = useURLParams();
+  const { loading: loadError, error, executeLoad } = useDataLoading();
+  const { isOffline, pendingCount, isSyncing, syncNow, resetFailedSale, lastSyncResult } = useOfflineSales();
 
   const hasBanner = getStatus() === 'PENDING';
   const outerHeight = hasBanner ? 'calc(100vh - 164px)' : 'calc(100vh - 100px)';
@@ -209,7 +269,20 @@ const Sales = () => {
     setLoadingCustomers,
     loadVariants,
     loadCustomers,
-  } = useLoadData();
+  } = useLoadData(shop?.id, isOffline);
+
+  const handleLoadSalesData = useCallback(async () => {
+    await executeLoad(async () => {
+      await Promise.all([
+        new Promise(resolve => { loadVariants(); resolve(); }),
+        new Promise(resolve => { loadCustomers(); resolve(); })
+      ]);
+    });
+  }, [executeLoad, loadVariants, loadCustomers]);
+
+  useEffect(() => {
+    handleLoadSalesData();
+  }, [handleLoadSalesData]);
 
   // ── UI STATES ──
   const [showReviewPage, setShowReviewPage] = useState(false);
@@ -217,6 +290,52 @@ const Sales = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [upgradeModalData, setUpgradeModalData] = useState({ open: false, upgradeOptions: null, message: null, feature: null });
   const [notesExpanded, setNotesExpanded] = useState(false);
+
+  // ── OFFLINE QUEUE DRAWER ──
+  const [offlineDrawerOpen, setOfflineDrawerOpen] = useState(false);
+  const [offlineQueueSales, setOfflineQueueSales] = useState([]);
+  const [offlineQueueLoading, setOfflineQueueLoading] = useState(false);
+
+  const loadOfflineQueue = useCallback(async () => {
+    if (!shop?.id) return;
+    setOfflineQueueLoading(true);
+    try {
+      // Always load from local IndexedDB first (works offline)
+      const [drafts, failed, syncing] = await Promise.all([
+        listSalesByShop(shop.id, 'DRAFT').catch(() => []),
+        listSalesByShop(shop.id, 'FAILED').catch(() => []),
+        listSalesByShop(shop.id, 'SYNCING').catch(() => []),
+      ]);
+      const local = [...drafts, ...failed, ...syncing];
+
+      // If online, also fetch server-side queue and merge (dedup by clientTxnId)
+      let serverSales = [];
+      if (!isOffline) {
+        try {
+          const res = await import('../services/api').then(m => m.getOfflineQueueList(shop.id));
+          serverSales = res.data || [];
+        } catch (_) {
+          // Server fetch failed — fall back to local-only, non-fatal
+        }
+      }
+
+      // Merge: local takes precedence (it has the full payload); server fills in any gaps
+      const localIds = new Set(local.map(s => s.clientTxnId));
+      const serverOnly = serverSales.filter(s => !localIds.has(s.clientTxnId));
+
+      const all = [...local, ...serverOnly]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setOfflineQueueSales(all);
+    } catch (err) {
+      console.error('Failed to load offline queue:', err);
+    } finally {
+      setOfflineQueueLoading(false);
+    }
+  }, [shop?.id, isOffline]);
+
+  useEffect(() => {
+    if (offlineDrawerOpen) loadOfflineQueue();
+  }, [offlineDrawerOpen, loadOfflineQueue]);
 
   // ── MODALS ──
   const [openCustomerModal, setOpenCustomerModal] = useState(false);
@@ -241,6 +360,26 @@ const Sales = () => {
   const showSnackbar = useCallback((message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   }, []);
+
+  // Notify the seller when a previously-offline sale syncs and an invoice is issued.
+  // lastSyncResult is a new object reference on every sync, so this fires once per sync.
+  useEffect(() => {
+    if (!lastSyncResult || lastSyncResult.synced === 0) return;
+    const invoiceNos = (lastSyncResult.results || [])
+      .filter((r) => r.ok && r.response?.invoiceNumber)
+      .map((r) => r.response.invoiceNumber);
+    if (invoiceNos.length > 0) {
+      const preview = invoiceNos.slice(0, 3).join(', ') + (invoiceNos.length > 3 ? '…' : '');
+      showSnackbar(
+        invoiceNos.length === 1
+          ? `Offline sale synced! Invoice: ${preview}`
+          : `${invoiceNos.length} offline sales synced! Invoices: ${preview}`,
+        'success'
+      );
+    } else {
+      showSnackbar(`${lastSyncResult.synced} offline sale(s) synced successfully`, 'success');
+    }
+  }, [lastSyncResult, showSnackbar]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
@@ -503,6 +642,26 @@ const Sales = () => {
   );
 
   const handleNewCustomer = useCallback(async () => {
+    if (isOffline) {
+      // Offline: create a local-only customer — id is null so the backend treats it
+      // as a walk-in with name when the sale eventually syncs via offline queue.
+      const localCust = {
+        id: null,
+        value: null,
+        label: `${newCustomerData.name}${newCustomerData.phone ? ` | ${newCustomerData.phone}` : ''}`,
+        name: newCustomerData.name,
+        phone: newCustomerData.phone || '',
+        isLocalOnly: true,
+      };
+      setCustomers((prev) => [...prev, localCust]);
+      setSelectedCustomer(localCust);
+      // customerId stays null — the offline sale payload sends customerName instead.
+      setFormData((prev) => ({ ...prev, customerId: null }));
+      setOpenCustomerModal(false);
+      setNewCustomerData(initialCustomer);
+      showSnackbar('Customer saved locally — will sync when back online.', 'info');
+      return;
+    }
     try {
       const res = await createCustomer(newCustomerData);
       const newCust = { value: res.data.id, label: res.data.name, ...res.data };
@@ -514,7 +673,7 @@ const Sales = () => {
     } catch {
       showSnackbar('Failed to add customer.', 'error');
     }
-  }, [newCustomerData, showSnackbar]);
+  }, [isOffline, newCustomerData, showSnackbar]);
 
   // ── SALE SUBMISSION ──
 
@@ -605,6 +764,24 @@ const Sales = () => {
 
   const handleSubmitSale = useCallback(
     async (payload) => {
+      if (!payload) {
+        setShowReviewPage(false);
+        return;
+      }
+
+      if (payload.offline) {
+        resetForm();
+        setShowReviewPage(false);
+        clearParams();
+        showSnackbar(
+          payload.offlineSaleNo
+            ? `Offline sale (${payload.offlineSaleNo}) recorded! Will automatically sync when online.`
+            : 'Offline sale recorded! Will automatically sync when online.',
+          'success'
+        );
+        return;
+      }
+
       setLoading(true);
       try {
         const res = payload.id
@@ -620,6 +797,7 @@ const Sales = () => {
         });
 
         resetForm();
+        setShowReviewPage(false);
         setOpenInvoiceModal(true);
         clearParams();
 
@@ -709,13 +887,18 @@ const Sales = () => {
 
   const isLoading = loading || loadingCustomers;
 
+  if (error) {
+    return <ErrorState error={error} onRetry={handleLoadSalesData} />;
+  }
+
   return (
     <Box sx={{
       bgcolor: 'background.default',
       display: 'flex',
       flexDirection: 'column',
-      height: outerHeight,
-      overflow: 'hidden'
+      height: { xs: 'auto', md: outerHeight },
+      minHeight: { xs: '100vh', md: 'auto' },
+      overflow: { xs: 'auto', md: 'hidden' }
     }}>
       {!canProcessSale() && (
         <Alert
@@ -745,17 +928,52 @@ const Sales = () => {
           setTabValue(newValue);
           if (newValue === 1) setHistoryRefreshKey(k => k + 1);
         }}
-        rightSlot={showQuotaChip ? (
-          <Tooltip title={`${usedThisMonth} of ${maxThisMonth} sales used this month`} arrow>
-            <Chip
-              size="small"
-              color={quotaColor}
-              variant={quotaColor === 'default' ? 'outlined' : 'filled'}
-              label={`${usedThisMonth} / ${maxThisMonth} this month`}
-              sx={{ fontWeight: 600, letterSpacing: 0.2 }}
-            />
-          </Tooltip>
-        ) : null}
+        rightSlot={
+          <Stack direction="row" spacing={1} alignItems="center">
+            {(isOffline || pendingCount > 0 || isSyncing) && (
+              <Tooltip
+                title={
+                  isOffline
+                    ? (pendingCount > 0 ? `${pendingCount} sale${pendingCount !== 1 ? 's' : ''} queued offline — click to view` : 'You are offline')
+                    : isSyncing
+                      ? 'Syncing offline sales to server…'
+                      : `${pendingCount} offline sale${pendingCount !== 1 ? 's' : ''} pending — click to view`
+                }
+                arrow
+              >
+                <Chip
+                  size="small"
+                  color={isOffline ? 'warning' : 'info'}
+                  variant="filled"
+                  icon={isSyncing ? <CircularProgress size={16} color="inherit" /> : undefined}
+                  label={
+                    isOffline
+                      ? (pendingCount > 0 ? `⚠ Offline (${pendingCount})` : '⚠ Offline')
+                      : isSyncing
+                        ? 'Syncing…'
+                        : `↑ ${pendingCount} pending`
+                  }
+                  onClick={() => {
+                    if (pendingCount > 0) setOfflineDrawerOpen(true);
+                    else if (!isSyncing) syncNow();
+                  }}
+                  sx={{ fontWeight: 700, cursor: 'pointer' }}
+                />
+              </Tooltip>
+            )}
+            {showQuotaChip && (
+              <Tooltip title={`${usedThisMonth} of ${maxThisMonth} sales used this month`} arrow>
+                <Chip
+                  size="small"
+                  color={quotaColor}
+                  variant={quotaColor === 'default' ? 'outlined' : 'filled'}
+                  label={`${usedThisMonth} / ${maxThisMonth} this month`}
+                  sx={{ fontWeight: 600, letterSpacing: 0.2 }}
+                />
+              </Tooltip>
+            )}
+          </Stack>
+        }
       />
 
       <SalesTabs.Panel value={tabValue} index={0} noPadding>
@@ -773,8 +991,8 @@ const Sales = () => {
           <Box sx={{
             display: { xs: 'block', md: 'flex' },
             gap: 1.5,
-            height: { md: '100%' },
-            overflow: 'hidden',
+            height: { xs: 'auto', md: '100%' },
+            overflow: { xs: 'visible', md: 'hidden' },
             px: { xs: 1, md: 0 },
             pt: { xs: 1, md: 0 },
           }}>
@@ -842,7 +1060,7 @@ const Sales = () => {
                width: { xs: '100%', md: '50%' },
                display: 'flex',
                flexDirection: 'column',
-               overflow: 'hidden',
+               overflow: { xs: 'visible', md: 'hidden' },
                borderRadius: 2,
                border: '1px solid',
                borderColor: 'divider',
@@ -1017,6 +1235,173 @@ const Sales = () => {
         feature={upgradeModalData.feature}
         onSaveDraft={handleSaveDraftFromModal}
       />
+
+      {/* ── OFFLINE QUEUE DRAWER ── */}
+      <Drawer
+        anchor="bottom"
+        open={offlineDrawerOpen}
+        onClose={() => setOfflineDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: '70vh',
+            display: 'flex',
+            flexDirection: 'column',
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{
+          px: 2.5, py: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,
+        }}>
+          <Box>
+            <Typography variant="h6" fontWeight={700} fontSize="1rem">
+              ⚠ Offline Sales Queue
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {offlineQueueSales.length} sale{offlineQueueSales.length !== 1 ? 's' : ''} waiting to sync
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              color="warning"
+              disabled={isSyncing || offlineQueueSales.length === 0}
+              onClick={async () => {
+                await syncNow();
+                await loadOfflineQueue();
+              }}
+              startIcon={isSyncing ? <CircularProgress size={14} color="inherit" /> : undefined}
+              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+            >
+              {isSyncing ? 'Syncing…' : 'Sync Now'}
+            </Button>
+            <IconButton size="small" onClick={() => setOfflineDrawerOpen(false)}>
+              ✕
+            </IconButton>
+          </Stack>
+        </Box>
+
+        {/* Body */}
+        <Box sx={{ overflowY: 'auto', flex: 1 }}>
+          {offlineQueueLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : offlineQueueSales.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+              <Typography variant="body2">No pending offline sales found.</Typography>
+            </Box>
+          ) : (
+            <List disablePadding>
+              {offlineQueueSales.map((sale, idx) => {
+                const statusColor = {
+                  DRAFT: 'warning',
+                  FAILED: 'error',
+                  SYNCING: 'info',
+                }[sale.status] || 'default';
+
+                const amount = sale.totalAmount != null
+                  ? `₹${Number(sale.totalAmount).toFixed(2)}`
+                  : '—';
+
+                const createdAt = sale.createdAt
+                  ? new Date(sale.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+                  : '—';
+
+                const isExhausted = sale.status === 'FAILED' && (sale.retryCount ?? 0) >= 3;
+
+                return (
+                  <React.Fragment key={sale.clientTxnId}>
+                    <ListItem
+                      alignItems="flex-start"
+                      sx={{ py: 1.5, px: 2.5 }}
+                      secondaryAction={
+                        isExhausted && (
+                          <Tooltip title="Reset retry count so this sale can be re-synced">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.7rem', borderRadius: 1.5 }}
+                              onClick={async () => {
+                                try {
+                                  await resetFailedSale(sale.clientTxnId);
+                                  await loadOfflineQueue();
+                                } catch {
+                                  showSnackbar('Failed to reset sale', 'error');
+                                }
+                              }}
+                            >
+                              Reset &amp; Retry
+                            </Button>
+                          </Tooltip>
+                        )
+                      }
+                    >
+                      <MuiListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                            <Typography variant="body2" fontWeight={700} fontSize="0.82rem">
+                              {sale.offlineSaleNo || sale.clientTxnId?.slice(0, 8) + '…'}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              color={statusColor}
+                              label={sale.status}
+                              sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }}
+                            />
+                          </Stack>
+                        }
+                        secondary={
+                          <Stack direction="row" spacing={2} mt={0.5} flexWrap="wrap">
+                            <Typography variant="caption" color="text.secondary">
+                              {sale.customerName || 'Walk-in'}
+                            </Typography>
+                            <Typography variant="caption" fontWeight={700}>
+                              {amount}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {createdAt}
+                            </Typography>
+                            {sale.errorMessage && (
+                              <Typography variant="caption" color="error.main">
+                                ✕ {sale.errorMessage.slice(0, 60)}
+                              </Typography>
+                            )}
+                            {sale.retryCount > 0 && (
+                              <Typography variant="caption" color={isExhausted ? 'error.main' : 'text.secondary'}>
+                                Retries: {sale.retryCount}{isExhausted ? ' — exhausted' : ''}
+                              </Typography>
+                            )}
+                          </Stack>
+                        }
+                      />
+                    </ListItem>
+                    {idx < offlineQueueSales.length - 1 && <Divider component="li" />}
+                  </React.Fragment>
+                );
+              })}
+            </List>
+          )}
+        </Box>
+
+        {/* Footer hint */}
+        <Box sx={{
+          px: 2.5, py: 1.5,
+          borderTop: '1px solid', borderColor: 'divider',
+          bgcolor: 'action.hover',
+          flexShrink: 0,
+        }}>
+          <Typography variant="caption" color="text.secondary">
+            Sales sync automatically when you reconnect. You can also press "Sync Now" above.
+          </Typography>
+        </Box>
+      </Drawer>
     </Box>
   );
 };
@@ -1043,7 +1428,9 @@ const ActionBar = ({
 }) => {
   const [saveMenuAnchor, setSaveMenuAnchor] = useState(null);
   const canSave = !!selectedCustomer && formData.items.length > 0 && !loading;
-  const canProceed = canSave && !!formData.customerId && isDeliveryValid;
+  // canProceed uses selectedCustomer (not formData.customerId) so that offline-created
+  // customers (id=null) still allow the user to proceed to ReviewPaymentPage.
+  const canProceed = canSave && isDeliveryValid;
   // Hold is more permissive than Save: it needs items but no customer (POS
   // typical "hold order while I look up the customer" workflow).
   const canHold = formData.items.length > 0 && !loading;
@@ -1051,7 +1438,7 @@ const ActionBar = ({
   const openSaveMenu = (e) => setSaveMenuAnchor(e.currentTarget);
   const closeSaveMenu = () => setSaveMenuAnchor(null);
 
-  const proceedTooltip = !formData.customerId
+  const proceedTooltip = !selectedCustomer
     ? 'Please select a customer'
     : !isDeliveryValid ? 'Complete delivery details' : '';
 
@@ -1067,7 +1454,7 @@ const ActionBar = ({
        gap: 0.75,
        bgcolor: alpha('#0f766e', 0.01),
      }}>
-       {!formData.customerId && formData.items.length > 0 && (
+       {!selectedCustomer && formData.items.length > 0 && (
          <Typography
            variant="caption"
            sx={{ color: 'error.main', fontWeight: 700, mr: 'auto', ml: 0.5, fontSize: '0.7rem' }}

@@ -7,10 +7,13 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Lock as LockIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../context/AuthContext';
 
 const ChangePasswordPage = ({ embedded = false }) => {
+  const navigate = useNavigate();
   const { user } = useAuthContext();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -217,6 +220,15 @@ const ChangePasswordPage = ({ embedded = false }) => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 500, mx: 'auto' }}>
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          startIcon={<BackIcon />}
+          onClick={() => navigate(-1)}
+          sx={{ textTransform: 'none' }}
+        >
+          Back
+        </Button>
+      </Stack>
       <Card elevation={0} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>

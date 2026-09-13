@@ -95,6 +95,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     inventory: false,
     contacts: false,
     finance: false,
+    expenses: false,   // Expenses — collapsible group
     payroll: false,    // Payroll — top-level enterprise group
     ess: false,        // Employee Self-Service portal
     reports: false,
@@ -181,6 +182,20 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     ],
   };
 
+  const expensesGroup = {
+    key: 'expenses',
+    text: t('expenses', 'Expenses'),
+    icon: <PaidIcon />,
+    children: [
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/expenses/dashboard' },
+      { text: 'My Expenses', icon: <AssignmentIcon />, path: '/expenses/list' },
+      { text: 'Approvals', icon: <VerifiedUser />, path: '/expenses/approvals' },
+      { text: 'Reconciliation', icon: <CompareArrowsIcon />, path: '/expenses/reconciliation' },
+      { text: 'Reports', icon: <BarChartIcon />, path: '/expenses/reports' },
+      { text: 'Settings', icon: <Settings />, path: '/expenses/settings' },
+    ],
+  };
+
   const financeGroup = {
     key: 'finance',
     text: t('sidebar.groupFinance', 'Finance'),
@@ -188,7 +203,6 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     children: [
       { text: t('customerPayments', 'Customer Payments'), icon: <PaymentIcon />, path: '/customer-payments' },
       { text: t('supplierPayments', 'Supplier Payments'), icon: <PaymentsIcon />, path: '/supplier-payments', requiredTier: 'PRO' },
-      { text: t('expenses', 'Expenses'), icon: <PaidIcon />, path: '/expenses' },
     ],
   };
 
@@ -331,8 +345,8 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   // - Regular Staff: Employee Self-Service Portal only
   const operationsGroups = [salesGroup, purchasesGroup, inventoryGroup, contactsGroup];
 
-  // For Admin/Owner: Finance | Payroll (own section) | Reports
-  const adminBusinessGroups = [financeGroup, payrollGroup, reportsGroup];
+  // For Admin/Owner: Finance | Expenses | Payroll (own section) | Reports
+  const adminBusinessGroups = [financeGroup, expensesGroup, payrollGroup, reportsGroup];
   const adminAdministrationGroups = [teamAccessGroup, configurationGroup, complianceGroup];
 
   // For Regular Staff: Only Employee Portal (self-service)

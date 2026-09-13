@@ -25,6 +25,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import API, { setupShop, checkShopCode, fetchIndustries } from '../services/api';
+import { captureMessage, captureException } from '../services/sentry';
 import { useAuthContext } from '../context/AuthContext';
 import useShopConfig from '../hooks/useShopConfig';
 import { GST_STATES } from '../utils/gstStates';
@@ -380,9 +381,11 @@ const SetupShop = () => {
         );
       }
 
+      captureMessage('Shop setup submitted', 'info');
       setSetupComplete(true);
     } catch (err) {
       console.error('Setup shop error:', err);
+      captureException(err, { form: 'setup_shop' });
       setSubmitError(err?.response?.data?.message || 'Setup failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -780,7 +783,12 @@ const SetupShop = () => {
                 inputRef={ref}
                 label="CIN (companies only)"
                 fullWidth
-                inputProps={{ maxLength: 21 }}
+                inputProps={{
+                  maxLength: 21,
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-cin-error' : 'setup-cin-hint',
+                }}
+                FormHelperTextProps={error ? { id: 'setup-cin-error', role: 'alert' } : { id: 'setup-cin-hint' }}
                 placeholder="U74999MH2020PTC300000"
                 error={!!error}
                 helperText={error?.message || '21-character Corporate Identity Number.'}
@@ -836,6 +844,11 @@ const SetupShop = () => {
                 fullWidth
                 error={!!error}
                 helperText={error?.message}
+                inputProps={{
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'setup-pincode-error' : undefined,
+                }}
+                FormHelperTextProps={error ? { id: 'setup-pincode-error', role: 'alert' } : undefined}
               />
             )}
           />

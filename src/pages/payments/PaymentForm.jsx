@@ -1,9 +1,9 @@
 import React from 'react';
-import { 
-  Box, Paper, Grid, Autocomplete, TextField, FormControl, 
-  InputLabel, Select, MenuItem, Typography, Button, 
-  IconButton, Tooltip, Stack, CircularProgress, Divider, 
-  Alert, alpha, InputAdornment, Chip
+import {
+  Box, Paper, Grid, Autocomplete, TextField, FormControl,
+  InputLabel, Select, MenuItem, Typography, Button,
+  IconButton, Tooltip, Stack, CircularProgress, Divider,
+  Alert, alpha, InputAdornment, Chip, Collapse
 } from '@mui/material';
 import {
   AddCircleOutline as AddIcon,
@@ -18,6 +18,7 @@ import {
   PhoneAndroid as UpiIcon,
   AccountBalance as BankIcon,
   CheckCircleOutline as CheckIcon,
+  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { useAppPalette } from '../../hooks/useAppPalette';
 
@@ -28,14 +29,205 @@ const METHOD_META = {
   CARD:        { label: 'Card',        Icon: CardIcon,   color: '#7c3aed', bg: alpha('#7c3aed', 0.08) },
   UPI:         { label: 'UPI',         Icon: UpiIcon,    color: '#0f766e', bg: alpha('#0f766e', 0.08) },
   NET_BANKING: { label: 'Net Banking', Icon: BankIcon,   color: '#0f766e', bg: alpha('#0f766e', 0.08) },
-  CHEQUE:      { label: 'Cheque',      Icon: CheckIcon,  color: '#7c3aed', bg: alpha('#7c3aed', 0.08) },
+  CHEQUE:      { label: 'Cheque',      Icon: CheckIcon,  color: '#b45309', bg: alpha('#b45309', 0.08) },
 };
 
-const PaymentForm = ({ 
-  customers, customerSales, selectedCustomer, selectedSale, 
-  paymentMethods, paymentDate, formErrors, submitting, 
-  onCustomerChange, onSaleChange, onMethodChange, 
-  onAddMethod, onRemoveMethod, onPaymentDateChange, 
+// ── Cheque-specific constants ─────────────────────────────────────────────────
+
+/** Common Indian banks for the bank-name Autocomplete. */
+const COMMON_BANKS = [
+  'State Bank of India (SBI)',
+  'HDFC Bank',
+  'ICICI Bank',
+  'Axis Bank',
+  'Kotak Mahindra Bank',
+  'Punjab National Bank (PNB)',
+  'Bank of Baroda',
+  'Canara Bank',
+  'Union Bank of India',
+  'Bank of India',
+  'IndusInd Bank',
+  'Yes Bank',
+  'IDFC FIRST Bank',
+  'Federal Bank',
+  'South Indian Bank',
+  'UCO Bank',
+  'Central Bank of India',
+  'Indian Bank',
+  'Indian Overseas Bank',
+  'Syndicate Bank',
+  'Allahabad Bank',
+  'Vijaya Bank',
+  'RBL Bank',
+  'DCB Bank',
+  'Karur Vysya Bank',
+  'City Union Bank',
+  'Tamilnad Mercantile Bank',
+  'Karnataka Bank',
+  'Nainital Bank',
+  'J&K Bank',
+  'Other',
+];
+
+/** today's date in YYYY-MM-DD for date input defaults */
+const todayDate = () => new Date().toISOString().slice(0, 10);
+
+/** Returns true when the given YYYY-MM-DD string is strictly before today. */
+const isDateInPast = (dateStr) => {
+  if (!dateStr) return false;
+  return new Date(dateStr) < new Date(new Date().toDateString());
+};
+
+/** Validate a cheque number: 6–10 digit string. */
+export const validateChequeNumber = (value) => {
+  if (!value || !value.trim()) return 'Cheque number is required';
+  if (!/^\d{6,10}$/.test(value.trim())) return 'Cheque number must be 6–10 digits';
+  return null;
+};
+
+// ── ChequeFields sub-component ────────────────────────────────────────────────
+/**
+ * Inline cheque-specific fields rendered inside a payment-method row when
+ * paymentMethod === 'CHEQUE'. All fields call onMethodChange(idx, field, value)
+ * so state stays in the parent (same pattern as existing amount/transactionId).
+ *
+ * Props mirror the parent's per-row data: idx, pm (the method object), formErrors, onMethodChange.
+ */
+const ChequeFields = ({ idx, pm, formErrors, onMethodChange, inputSx }) => {
+  const chequeDate    = pm.chequeDate    || todayDate();
+  const maturityDate  = pm.maturityDate  || '';
+  const maturityPast  = isDateInPast(maturityDate);
+
+  // Maturity date must be >= cheque date (or empty).
+  const maturityBeforeCheque =
+    maturityDate && chequeDate && maturityDate < chequeDate;
+
+  return (
+    <Grid container spacing={2} sx={{ mt: 0.5 }}>
+      {/* Cheque Number */}
+      <Grid item xs={12} sm={4}>
+        <TextField
+          fullWidth
+          label="Cheque Number *"
+          value={pm.chequeNumber || ''}
+          error={!!formErrors[`chequeNumber${idx}`]}
+          helperText={
+            formErrors[`chequeNumber${idx}`] || '6–10 digits'
+          }
+          onChange={(e) => {
+            // Allow only numeric input, auto-strip non-digits
+            const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+            onMethodChange(idx, 'chequeNumber', raw);
+          }}
+          size="small"
+          required
+          inputProps={{
+            'aria-label': 'Cheque number',
+            inputMode: 'numeric',
+            pattern: '[0-9]*',
+            maxLength: 10,
+          }}
+          sx={inputSx}
+        />
+      </Grid>
+
+      {/* Bank Name */}
+      <Grid item xs={12} sm={8}>
+        <Autocomplete
+          options={COMMON_BANKS}
+          value={pm.bankName || null}
+          onChange={(_, v) => onMethodChange(idx, 'bankName', v || '')}
+          onInputChange={(_, v) => onMethodChange(idx, 'bankName', v)}
+          freeSolo
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Bank Name *"
+              size="small"
+              required
+              error={!!formErrors[`bankName${idx}`]}
+              helperText={formErrors[`bankName${idx}`] || 'Issuing bank'}
+              inputProps={{
+                ...params.inputProps,
+                'aria-label': 'Issuing bank name',
+              }}
+              sx={inputSx}
+            />
+          )}
+        />
+      </Grid>
+
+      {/* Cheque Date */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Cheque Date *"
+          type="date"
+          value={chequeDate}
+          onChange={(e) => onMethodChange(idx, 'chequeDate', e.target.value)}
+          size="small"
+          required
+          InputLabelProps={{ shrink: true }}
+          error={!!formErrors[`chequeDate${idx}`]}
+          helperText={formErrors[`chequeDate${idx}`] || 'Date printed on cheque'}
+          inputProps={{
+            'aria-label': 'Cheque date',
+            max: new Date(new Date().setFullYear(new Date().getFullYear() + 2))
+              .toISOString()
+              .slice(0, 10),
+          }}
+          sx={inputSx}
+        />
+      </Grid>
+
+      {/* Maturity / Post-dated Date (optional) */}
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Maturity Date (post-dated, optional)"
+          type="date"
+          value={maturityDate}
+          onChange={(e) => onMethodChange(idx, 'maturityDate', e.target.value)}
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          error={!!formErrors[`maturityDate${idx}`] || maturityBeforeCheque}
+          helperText={
+            formErrors[`maturityDate${idx}`] ||
+            (maturityBeforeCheque
+              ? 'Maturity date cannot be before cheque date'
+              : 'Leave blank for same-day cheques')
+          }
+          inputProps={{
+            'aria-label': 'Cheque maturity date for post-dated cheques',
+            min: chequeDate || todayDate(),
+          }}
+          sx={inputSx}
+        />
+      </Grid>
+
+      {/* Warning: maturity date is already in the past */}
+      {maturityDate && maturityPast && !maturityBeforeCheque && (
+        <Grid item xs={12}>
+          <Alert
+            severity="warning"
+            icon={<WarningAmberIcon fontSize="small" />}
+            sx={{ py: 0.5, borderRadius: 1.5, fontSize: '0.8rem' }}
+          >
+            Maturity date {maturityDate} is in the past — verify this is intentional.
+          </Alert>
+        </Grid>
+      )}
+    </Grid>
+  );
+};
+
+// ── PaymentForm ───────────────────────────────────────────────────────────────
+
+const PaymentForm = ({
+  customers, customerSales, selectedCustomer, selectedSale,
+  paymentMethods, paymentDate, formErrors, submitting,
+  onCustomerChange, onSaleChange, onMethodChange,
+  onAddMethod, onRemoveMethod, onPaymentDateChange,
   onSubmit, paymentMethodOptions, needsTransactionId, formatAmount,
   globalNotes, setGlobalNotes
 }) => {
@@ -315,41 +507,69 @@ const PaymentForm = ({
                           />
                         </Grid>
 
-                        {/* Transaction ID */}
-                        <Grid item xs={12} sm={7}>
-                          <TextField
-                            fullWidth 
-                            label={needsTransactionId(pm.paymentMethod) ? "Transaction / UTR ID *" : "Reference (optional)"}
-                            value={pm.transactionId || pm.reference || ''}
-                            error={!!formErrors[`transactionId${idx}`]}
-                            onChange={e => onMethodChange(idx, needsTransactionId(pm.paymentMethod) ? 'transactionId' : 'reference', e.target.value)}
-                            required={needsTransactionId(pm.paymentMethod)}
-                            size="small"
-                            sx={inputSx}
-                            placeholder={needsTransactionId(pm.paymentMethod) ? "e.g., UTR/RRN/Reference number" : "Optional reference"}
-                          />
-                        </Grid>
+                        {/* Transaction ID — hidden for CHEQUE (cheque number replaces it) */}
+                        {pm.paymentMethod !== 'CHEQUE' && (
+                          <Grid item xs={12} sm={7}>
+                            <TextField
+                              fullWidth
+                              label={needsTransactionId(pm.paymentMethod) ? "Transaction / UTR ID *" : "Reference (optional)"}
+                              value={pm.transactionId || pm.reference || ''}
+                              error={!!formErrors[`transactionId${idx}`]}
+                              onChange={e => onMethodChange(idx, needsTransactionId(pm.paymentMethod) ? 'transactionId' : 'reference', e.target.value)}
+                              required={needsTransactionId(pm.paymentMethod)}
+                              size="small"
+                              sx={inputSx}
+                              placeholder={needsTransactionId(pm.paymentMethod) ? "e.g., UTR/RRN/Reference number" : "Optional reference"}
+                            />
+                          </Grid>
+                        )}
 
                         {/* Remove */}
-                        <Grid item xs={12} sm={1} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={pm.paymentMethod !== 'CHEQUE' ? 1 : 'auto'} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {paymentMethods.length > 1 && (
                             <Tooltip title="Remove payment method">
-                              <IconButton 
-                                size="small" 
+                              <IconButton
+                                size="small"
                                 onClick={() => onRemoveMethod(idx)}
+                                aria-label={`Remove ${pm.paymentMethod} payment method`}
                                 sx={{
                                   color: customTheme.danger,
                                   transition: 'all 0.3s ease',
                                   '&:hover': {
                                     bgcolor: alpha(customTheme.danger, 0.1),
-                                    transform: 'rotate(90deg) scale(1.1)'
-                                  }
+                                    transform: 'rotate(90deg) scale(1.1)',
+                                  },
                                 }}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           )}
+                        </Grid>
+
+                        {/* Cheque-specific fields — inline, no modal */}
+                        <Grid item xs={12}>
+                          <Collapse in={pm.paymentMethod === 'CHEQUE'} timeout="auto" unmountOnExit>
+                            <Box sx={{ pt: 1 }}>
+                              <Divider sx={{ mb: 1.5 }}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  fontWeight={700}
+                                  sx={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.68rem' }}
+                                >
+                                  Cheque Details
+                                </Typography>
+                              </Divider>
+                              <ChequeFields
+                                idx={idx}
+                                pm={pm}
+                                formErrors={formErrors}
+                                onMethodChange={onMethodChange}
+                                inputSx={inputSx}
+                              />
+                            </Box>
+                          </Collapse>
                         </Grid>
                       </Grid>
                     </Paper>

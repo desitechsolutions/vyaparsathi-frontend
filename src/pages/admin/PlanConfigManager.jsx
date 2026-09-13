@@ -21,8 +21,23 @@ import {
   fetchPlanDetailsByTier 
 } from '../../services/api';
 
-// Tiers matching your Backend Enum
-const TIER_OPTIONS = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE', 'CUSTOM'];
+// Tiers matching the backend Tier enum (subscriptions/enums/Tier.java)
+const TIER_OPTIONS = ['FREE', 'STARTER', 'PRO', 'ENTERPRISE'];
+
+// Mirrors PricingPlanConfig.resolveEffectivePrice()'s window check, so the
+// admin panel's "Active now" chip agrees with what's actually being charged.
+const isPromoActiveNow = (plan) => {
+  const hasPromoPrice = plan?.promoPriceMonthly != null || plan?.promoPriceYearly != null;
+  if (!hasPromoPrice) return false;
+  const now = new Date();
+  if (plan.promoStartsAt && now < new Date(plan.promoStartsAt)) return false;
+  if (plan.promoEndsAt && now >= new Date(plan.promoEndsAt)) return false;
+  return true;
+};
+
+// <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm"; the backend returns
+// full ISO LocalDateTime strings ("YYYY-MM-DDTHH:mm:ss").
+const toDatetimeLocalValue = (isoString) => (isoString ? isoString.slice(0, 16) : '');
 
 const PlanConfigManager = () => {
   const [plans, setPlans] = useState([]);
@@ -115,7 +130,13 @@ const PlanConfigManager = () => {
       }
       refreshSingleTier(plan.tier);
     } catch (err) {
-      setNotify({ open: true, message: 'Save failed.', severity: 'error' });
+      const message = err?.response?.data?.message || 'Save failed.';
+      setNotify({ open: true, message, severity: 'error' });
+      // Optimistic-lock conflict — someone else changed this plan; the stale
+      // `version` we hold would just conflict again, so pull the latest row.
+      if (message.toLowerCase().includes('changed by someone else')) {
+        refreshSingleTier(plan.tier);
+      }
     } finally {
       setSaving(null);
     }
@@ -297,6 +318,72 @@ const PlanConfigManager = () => {
                             value={plan.maxStaffUsers || 0}
                             onChange={(e) => handleUpdateField(plan.tier, 'maxStaffUsers', parseInt(e.target.value))}
                             InputProps={{ startAdornment: <InputAdornment position="start"><PeopleIcon sx={{ color: '#2dd4bf', fontSize: 18 }} /></InputAdornment> }}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
+                          />
+                        </Stack>
+                      </Stack>
+                    </Box>
+
+                    <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 3, border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 900, letterSpacing: 1 }}>
+                          PROMOTIONAL OFFER
+                        </Typography>
+                        {isPromoActiveNow(plan) && (
+                          <Chip label="ACTIVE NOW" size="small" color="success" sx={{ fontWeight: 800 }} />
+                        )}
+                      </Stack>
+                      <Stack spacing={2}>
+                        <Stack direction="row" spacing={2}>
+                          <TextField
+                            label="Promo Monthly"
+                            size="small"
+                            type="number"
+                            fullWidth
+                            value={plan.promoPriceMonthly ?? ''}
+                            onChange={(e) => handleUpdateField(plan.tier, 'promoPriceMonthly', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: 'success.main' }}>₹</InputAdornment> }}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
+                          />
+                          <TextField
+                            label="Promo Yearly"
+                            size="small"
+                            type="number"
+                            fullWidth
+                            value={plan.promoPriceYearly ?? ''}
+                            onChange={(e) => handleUpdateField(plan.tier, 'promoPriceYearly', e.target.value === '' ? null : parseFloat(e.target.value))}
+                            InputProps={{ startAdornment: <InputAdornment position="start" sx={{ color: 'warning.main' }}>₹</InputAdornment> }}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
+                          />
+                        </Stack>
+                        <TextField
+                          label="Promo Label"
+                          size="small"
+                          fullWidth
+                          placeholder="e.g. Diwali Sale — 20% off"
+                          value={plan.promoLabel || ''}
+                          onChange={(e) => handleUpdateField(plan.tier, 'promoLabel', e.target.value)}
+                          sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
+                        />
+                        <Stack direction="row" spacing={2}>
+                          <TextField
+                            label="Starts At"
+                            size="small"
+                            type="datetime-local"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            value={toDatetimeLocalValue(plan.promoStartsAt)}
+                            onChange={(e) => handleUpdateField(plan.tier, 'promoStartsAt', e.target.value || null)}
+                            sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
+                          />
+                          <TextField
+                            label="Ends At"
+                            size="small"
+                            type="datetime-local"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            value={toDatetimeLocalValue(plan.promoEndsAt)}
+                            onChange={(e) => handleUpdateField(plan.tier, 'promoEndsAt', e.target.value || null)}
                             sx={{ '& label': { color: 'text.secondary' }, '& input': { color: 'text.primary' } }}
                           />
                         </Stack>

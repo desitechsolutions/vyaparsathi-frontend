@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Container, Typography, Stack, Button } from '@mui/material';
+import { Box, Container, Typography, Stack, Button, Chip } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import PhoneIcon from '@mui/icons-material/Phone';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,7 +12,7 @@ const FinalCTASection = () => {
   return (
     <Box
       sx={{
-        background: 'linear-gradient(135deg, #1E3A5F 0%, #0F172A 40%, #1A1040 100%)',
+        background: 'linear-gradient(145deg, #160430 0%, #0A1628 40%, #0E1240 70%, #080E1C 100%)',
         py: { xs: 12, md: 18 },
         position: 'relative',
         overflow: 'hidden',
@@ -56,11 +56,14 @@ const FinalCTASection = () => {
           variant="h2"
           fontWeight={900}
           sx={{
-            color: '#F1F5F9',
             fontSize: { xs: '2.2rem', md: '3.2rem', lg: '3.8rem' },
             letterSpacing: '-0.03em',
             lineHeight: 1.1,
             mb: 3,
+            background: 'linear-gradient(90deg, #F1F5F9 0%, #93C5FD 50%, #C084FC 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
           }}
         >
           {t('landingPage.finalCta.headline')}
@@ -112,9 +115,10 @@ const FinalCTASection = () => {
           <Button
             variant="outlined"
             size="large"
-            startIcon={<PhoneIcon />}
+            startIcon={<WhatsAppIcon />}
             href="https://wa.me/919508156282"
             target="_blank"
+            rel="noopener noreferrer"
             sx={{
               fontWeight: 700,
               fontSize: '1.05rem',
@@ -123,10 +127,13 @@ const FinalCTASection = () => {
               py: 2,
               borderRadius: 3,
               color: '#CBD5E1',
-              borderColor: 'rgba(255,255,255,0.2)',
+              borderColor: 'rgba(255,255,255,0.18)',
+              bgcolor: 'rgba(255,255,255,0.04)',
+              backdropFilter: 'blur(8px)',
               '&:hover': {
-                borderColor: 'rgba(255,255,255,0.4)',
-                bgcolor: 'rgba(255,255,255,0.06)',
+                borderColor: '#25D366',
+                color: '#4ADE80',
+                bgcolor: 'rgba(37,211,102,0.06)',
                 transform: 'translateY(-3px)',
               },
               transition: 'all 0.25s',
@@ -141,29 +148,39 @@ const FinalCTASection = () => {
           {t('landingPage.finalCta.note')}
         </Typography>
 
-        {/* Trust logos row */}
+        {/* Trust chips row */}
         <Box
           sx={{
             mt: 8,
-            pt: 6,
+            pt: 5,
             borderTop: '1px solid rgba(255,255,255,0.06)',
             display: 'flex',
             justifyContent: 'center',
-            gap: { xs: 3, md: 6 },
+            gap: 1.5,
             flexWrap: 'wrap',
           }}
         >
           {[
             { icon: '🔒', label: 'Bank-grade Security' },
-            { icon: '☁️', label: '99.9% Uptime SLA' },
+            { icon: '☁️', label: '99.9% Uptime' },
             { icon: '🇮🇳', label: 'Made in India' },
             { icon: '🧾', label: 'GST Compliant' },
             { icon: '⚡', label: '30 Min Setup' },
           ].map((item, i) => (
-            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography sx={{ fontSize: '1.2rem' }}>{item.icon}</Typography>
-              <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 700 }}>{item.label}</Typography>
-            </Box>
+            <Chip
+              key={i}
+              label={`${item.icon} ${item.label}`}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.04)',
+                color: '#64748B',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.07)', color: '#94A3B8' },
+                transition: 'all 0.2s',
+              }}
+            />
           ))}
         </Box>
       </Container>

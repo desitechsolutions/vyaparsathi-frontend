@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  AppBar, Toolbar, Box, Button, IconButton, Typography, Stack, Divider,
+  Toolbar, Box, Button, IconButton, Typography, Stack, Divider,
   Container, Drawer, List, ListItem, ListItemButton, ListItemText,
   Accordion, AccordionSummary, AccordionDetails, Chip, useMediaQuery, useTheme,
-  Paper, Popper, Grow, ClickAwayListener, MenuList, MenuItem
+  Paper, Popper, Grow, ClickAwayListener
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
@@ -42,7 +42,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import BrandMark from '../branding/BrandMark';
 
 // ─── Navigate to a landing-page section anchor from any route ─────────────
-// If already on '/', just smooth-scroll. Otherwise navigate to '/#<id>'.
 const useNavAnchor = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,11 +49,8 @@ const useNavAnchor = () => {
   return (sectionId) => {
     if (location.pathname === '/') {
       const el = document.getElementById(sectionId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
-      // Navigate to landing page then scroll after render
       navigate(`/#${sectionId}`);
     }
   };
@@ -152,6 +148,51 @@ const useMenuConfig = (t) => ({
   }
 });
 
+// ─── Dismissible Announcement Bar ───────────────────────────────────────────
+const AnnouncementBar = ({ onDismiss }) => (
+  <Box
+    sx={{
+      background: 'linear-gradient(90deg, #78350F 0%, #B45309 50%, #78350F 100%)',
+      py: 0.75,
+      px: 3,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      gap: 1,
+    }}
+  >
+    <Typography
+      sx={{
+        fontSize: { xs: '0.72rem', md: '0.8rem' },
+        color: '#FEF3C7',
+        fontWeight: 600,
+        textAlign: 'center',
+        lineHeight: 1.4,
+      }}
+    >
+      🎉 New:{' '}
+      <Box component="strong" sx={{ color: '#FDE68A' }}>Payroll Module</Box>
+      {' '}is now live — manage salaries, attendance & statutory compliance
+      <Box
+        component="a"
+        href="#features"
+        onClick={(e) => { e.preventDefault(); const el = document.getElementById('features'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+        sx={{ ml: 1.5, color: '#FCD34D', fontWeight: 800, textDecoration: 'underline', cursor: 'pointer', '&:hover': { color: '#FDE68A' } }}
+      >
+        Explore →
+      </Box>
+    </Typography>
+    <IconButton
+      onClick={onDismiss}
+      size="small"
+      sx={{ position: 'absolute', right: 8, color: 'rgba(254,243,199,0.7)', p: 0.5, '&:hover': { color: '#FEF3C7', bgcolor: 'rgba(255,255,255,0.1)' } }}
+    >
+      <CloseIcon sx={{ fontSize: 15 }} />
+    </IconButton>
+  </Box>
+);
+
 // ─── Mega Dropdown Component ────────────────────────────────────────────────
 const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, onMouseEnter, onMouseLeave }) => {
   const menu = config[menuKey];
@@ -177,11 +218,11 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
             sx={{
               minWidth: 520,
               borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'rgba(0,0,0,0.08)',
+              border: '1px solid rgba(0,0,0,0.08)',
               boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
               overflow: 'hidden',
-              mt: 0.5
+              mt: 0.5,
+              bgcolor: '#ffffff',
             }}
           >
             <ClickAwayListener onClickAway={onClose}>
@@ -191,15 +232,7 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
                     <Box key={ci} sx={{ flex: 1 }}>
                       <Typography
                         variant="caption"
-                        sx={{
-                          fontWeight: 800,
-                          color: 'text.disabled',
-                          textTransform: 'uppercase',
-                          letterSpacing: 1,
-                          display: 'block',
-                          mb: 1.5,
-                          px: 1
-                        }}
+                        sx={{ fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1, display: 'block', mb: 1.5, px: 1 }}
                       >
                         {col.heading}
                       </Typography>
@@ -218,9 +251,7 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
                                   } else if (item.href.startsWith('/#')) {
                                     onNavAnchor(item.href.replace('/#', ''));
                                   } else if (item.href.includes('?industry=')) {
-                                    // Navigate to landing with industry query param then scroll
                                     const url = new URL(item.href, window.location.origin);
-                                    const industry = url.searchParams.get('industry');
                                     const hash = url.hash.replace('#', '');
                                     navigate(item.href.split('#')[0]);
                                     setTimeout(() => {
@@ -235,19 +266,9 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
                                 }
                               }}
                               sx={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: 1.5,
-                                p: 1.2,
-                                borderRadius: 2,
-                                textDecoration: 'none',
-                                color: 'inherit',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                width: '100%',
-                                textAlign: 'left',
-                                transition: 'all 0.15s',
+                                display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 1.2, borderRadius: 2,
+                                textDecoration: 'none', color: 'inherit', background: 'none', border: 'none',
+                                cursor: 'pointer', width: '100%', textAlign: 'left', transition: 'all 0.15s',
                                 '&:hover': {
                                   bgcolor: 'rgba(37,99,235,0.04)',
                                   '& .icon-wrap': { bgcolor: 'primary.main', color: '#fff' },
@@ -257,42 +278,15 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
                             >
                               <Box
                                 className="icon-wrap"
-                                sx={{
-                                  width: 36,
-                                  height: 36,
-                                  borderRadius: 2,
-                                  bgcolor: 'rgba(37,99,235,0.08)',
-                                  color: 'primary.main',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  transition: 'all 0.15s'
-                                }}
+                                sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: 'rgba(37,99,235,0.08)', color: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
                               >
                                 <Icon sx={{ fontSize: 18 }} />
                               </Box>
                               <Box>
-                                <Typography
-                                  className="label"
-                                  variant="body2"
-                                  sx={{ fontWeight: 700, color: '#1E293B', transition: 'color 0.15s' }}
-                                >
+                                <Typography className="label" variant="body2" sx={{ fontWeight: 700, color: '#1E293B', transition: 'color 0.15s' }}>
                                   {item.label}
                                   {item.statusDot && (
-                                    <Box
-                                      component="span"
-                                      sx={{
-                                        display: 'inline-block',
-                                        width: 7,
-                                        height: 7,
-                                        borderRadius: '50%',
-                                        bgcolor: '#10B981',
-                                        ml: 1,
-                                        boxShadow: '0 0 6px #10B98180',
-                                        verticalAlign: 'middle'
-                                      }}
-                                    />
+                                    <Box component="span" sx={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', bgcolor: '#10B981', ml: 1, boxShadow: '0 0 6px #10B98180', verticalAlign: 'middle' }} />
                                   )}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
@@ -306,17 +300,7 @@ const MegaDropdown = ({ menuKey, config, anchorRef, open, onClose, onNavAnchor, 
                     </Box>
                   ))}
                 </Box>
-                {/* Footer CTA bar */}
-                <Box
-                  sx={{
-                    mt: 2,
-                    pt: 2,
-                    borderTop: '1px solid rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                     ✅ All features available in 14-day free trial
                   </Typography>
@@ -351,6 +335,10 @@ const EnterpriseHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null);
+  const [announcementVisible, setAnnouncementVisible] = useState(
+    () => localStorage.getItem('vs_announcement_dismissed') !== 'payroll-v1'
+  );
+
   const anchorRefs = {
     features: useRef(null),
     solutions: useRef(null),
@@ -360,27 +348,19 @@ const EnterpriseHeader = () => {
   const hoverTimeoutRef = useRef(null);
 
   useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
+    return () => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); };
   }, []);
 
   const handleMouseEnter = (key) => {
     if (isMobile) return;
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setActiveMenu(key);
   };
 
   const handleMouseLeave = () => {
     if (isMobile) return;
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    hoverTimeoutRef.current = setTimeout(() => {
-      setActiveMenu(null);
-    }, 150);
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => setActiveMenu(null), 150);
   };
 
   const menuConfig = useMenuConfig(t);
@@ -393,14 +373,11 @@ const EnterpriseHeader = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close menu on route change
   useEffect(() => { setActiveMenu(null); setDrawerOpen(false); }, [location]);
 
-  // After navigating to '/#<section>', perform scroll once landing page renders
   useEffect(() => {
     if (location.pathname === '/' && location.hash) {
       const sectionId = location.hash.replace('#', '');
-      // Small timeout to allow the page to render before scrolling
       const timer = setTimeout(() => {
         const el = document.getElementById(sectionId);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -415,9 +392,7 @@ const EnterpriseHeader = () => {
     localStorage.setItem('language', newLang);
   };
 
-  const handleMenuToggle = (key) => {
-    setActiveMenu(prev => (prev === key ? null : key));
-  };
+  const handleMenuToggle = (key) => setActiveMenu(prev => (prev === key ? null : key));
 
   const handleNavAnchor = (sectionId) => {
     setActiveMenu(null);
@@ -425,80 +400,65 @@ const EnterpriseHeader = () => {
     navAnchor(sectionId);
   };
 
+  const handleDismissAnnouncement = () => {
+    setAnnouncementVisible(false);
+    localStorage.setItem('vs_announcement_dismissed', 'payroll-v1');
+  };
+
+  // Dark header when at top (over dark hero); white glass when scrolled
+  const isDark = !scrolled;
+
+  const navTextColor = isDark ? 'rgba(241,245,249,0.85)' : '#334155';
+  const navActiveColor = isDark ? '#ffffff' : 'primary.main';
+  const navHoverBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
+
   return (
     <>
-      <AppBar
-        position="sticky"
-        elevation={0}
+      <Box
+        component="header"
         sx={{
-          background: scrolled
-            ? 'rgba(255,255,255,0.97)'
-            : 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: scrolled ? '1px solid rgba(0,0,0,0.08)' : '1px solid transparent',
-          boxShadow: scrolled ? '0 4px 24px rgba(0,0,0,0.06)' : 'none',
-          color: '#0F172A',
-          transition: 'all 0.3s ease',
+          position: 'sticky',
+          top: 0,
           zIndex: 1200,
+          background: isDark ? 'rgba(6,13,27,0.92)' : 'rgba(255,255,255,0.97)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: scrolled
+            ? '1px solid rgba(0,0,0,0.08)'
+            : '1px solid rgba(255,255,255,0.08)',
+          boxShadow: scrolled ? '0 4px 24px rgba(0,0,0,0.06)' : 'none',
+          color: isDark ? '#F1F5F9' : '#0F172A',
+          transition: 'background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease',
         }}
       >
+        {/* Announcement Bar */}
+        {announcementVisible && <AnnouncementBar onDismiss={handleDismissAnnouncement} />}
+
         <Container maxWidth="xl" sx={{ px: { xs: 2, lg: 4 } }}>
-          <Toolbar
-            disableGutters
-            sx={{ height: { xs: 64, lg: 72 }, justifyContent: 'space-between', gap: 2 }}
-          >
-            {/* ── Brand ── (single source of truth in components/branding/BrandMark)
-                Marketing header uses logo-mark only; wordmark is intentionally
-                omitted because a "Biruma Technology Solutions" branding block
-                sits alongside it. */}
+          <Toolbar disableGutters sx={{ height: { xs: 64, lg: 72 }, justifyContent: 'space-between', gap: 2 }}>
+
+            {/* Brand */}
             <BrandMark
               size="md"
-              showWordmark={false}
+              showWordmark={true}
+              variant={isDark ? 'dark' : 'default'}
               sx={{ flexShrink: 0 }}
             />
 
-            {/* ── Company Branding (Desktop Only) ── */}
-            <Box
-              sx={{
-                display: { xs: 'none', lg: 'flex' },
-                alignItems: 'center',
-                gap: 2,
-                ml: 0.5,
-                flexShrink: 0,
-              }}
-            >
-              <Divider orientation="vertical" flexItem sx={{ height: 32, my: 'auto', borderColor: 'rgba(0,0,0,0.12)' }} />
+            {/* Company Branding (Desktop) */}
+            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 2, ml: 0.5, flexShrink: 0 }}>
+              <Divider orientation="vertical" flexItem sx={{ height: 32, my: 'auto', borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }} />
               <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    color: '#94A3B8',
-                    fontWeight: 600,
-                    fontSize: '0.68rem',
-                    letterSpacing: '0.3px',
-                    lineHeight: 1.2,
-                  }}
-                >
+                <Typography variant="caption" sx={{ display: 'block', color: isDark ? '#94A3B8' : '#94A3B8', fontWeight: 600, fontSize: '0.68rem', letterSpacing: '0.3px', lineHeight: 1.2 }}>
                   Empowering India's Digital Future
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    color: '#64748B',
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    lineHeight: 1.3,
-                    mt: 0.2,
-                  }}
-                >
+                <Typography variant="caption" sx={{ display: 'block', color: isDark ? '#CBD5E1' : '#64748B', fontWeight: 700, fontSize: '0.7rem', lineHeight: 1.3, mt: 0.2 }}>
                   Biruma Technology Solutions Pvt. Ltd.
                 </Typography>
               </Box>
             </Box>
 
-            {/* ── Desktop Navigation ── */}
+            {/* Desktop Navigation */}
             {!isMobile && (
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flex: 1, justifyContent: 'center' }}>
                 {navItems.map((key) => (
@@ -510,24 +470,14 @@ const EnterpriseHeader = () => {
                   >
                     <Button
                       endIcon={
-                        <KeyboardArrowDownIcon
-                          sx={{
-                            fontSize: '1rem !important',
-                            transition: 'transform 0.2s',
-                            transform: activeMenu === key ? 'rotate(180deg)' : 'none',
-                          }}
-                        />
+                        <KeyboardArrowDownIcon sx={{ fontSize: '1rem !important', transition: 'transform 0.2s', transform: activeMenu === key ? 'rotate(180deg)' : 'none' }} />
                       }
                       onClick={() => handleMenuToggle(key)}
                       sx={{
-                        fontWeight: 600,
-                        fontSize: '0.88rem',
-                        textTransform: 'none',
-                        color: activeMenu === key ? 'primary.main' : '#334155',
-                        px: 1.5,
-                        py: 1,
-                        borderRadius: 2,
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.04)', color: 'primary.main' },
+                        fontWeight: 600, fontSize: '0.88rem', textTransform: 'none',
+                        color: activeMenu === key ? navActiveColor : navTextColor,
+                        px: 1.5, py: 1, borderRadius: 2,
+                        '&:hover': { bgcolor: navHoverBg, color: navActiveColor },
                         transition: 'all 0.2s',
                       }}
                     >
@@ -538,14 +488,9 @@ const EnterpriseHeader = () => {
                 <Button
                   onClick={() => handleNavAnchor('pricing')}
                   sx={{
-                    fontWeight: 600,
-                    fontSize: '0.88rem',
-                    textTransform: 'none',
-                    color: 'text.primary',
-                    px: 1.5,
-                    py: 1,
-                    borderRadius: 2,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.04)', color: 'primary.main' },
+                    fontWeight: 600, fontSize: '0.88rem', textTransform: 'none',
+                    color: navTextColor, px: 1.5, py: 1, borderRadius: 2,
+                    '&:hover': { bgcolor: navHoverBg, color: navActiveColor },
                   }}
                 >
                   {t('enterpriseHeader.pricing')}
@@ -553,38 +498,23 @@ const EnterpriseHeader = () => {
               </Stack>
             )}
 
-            {/* ── Right Actions ── */}
+            {/* Right Actions */}
             <Stack direction="row" spacing={{ xs: 0.5, lg: 1 }} alignItems="center" sx={{ flexShrink: 0 }}>
               {/* Language Toggle */}
               <Button
                 onClick={toggleLanguage}
                 size="small"
-                sx={{
-                  minWidth: 40,
-                  fontWeight: 700,
-                  fontSize: '0.78rem',
-                  color: '#64748B',
-                  textTransform: 'none',
-                  px: 1,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.04)', color: 'primary.main' }
-                }}
+                sx={{ minWidth: 40, fontWeight: 700, fontSize: '0.78rem', color: isDark ? 'rgba(255,255,255,0.6)' : '#64748B', textTransform: 'none', px: 1, '&:hover': { bgcolor: navHoverBg, color: navActiveColor } }}
               >
                 {i18n.language === 'en' ? 'हिन्दी' : 'EN'}
               </Button>
 
               {!isMobile && (
                 <>
-                  <Divider orientation="vertical" flexItem sx={{ height: 24, my: 'auto', mx: 0.5 }} />
+                  <Divider orientation="vertical" flexItem sx={{ height: 24, my: 'auto', mx: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)' }} />
                   <Button
                     onClick={() => navigate('/login')}
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: '0.88rem',
-                      textTransform: 'none',
-                      color: 'text.primary',
-                      px: 2,
-                      '&:hover': { color: 'primary.main', bgcolor: 'rgba(0,0,0,0.04)' }
-                    }}
+                    sx={{ fontWeight: 700, fontSize: '0.88rem', textTransform: 'none', color: isDark ? 'rgba(255,255,255,0.85)' : 'text.primary', px: 2, '&:hover': { color: navActiveColor, bgcolor: navHoverBg } }}
                   >
                     {t('enterpriseHeader.login')}
                   </Button>
@@ -596,31 +526,19 @@ const EnterpriseHeader = () => {
                 onClick={() => navigate('/login')}
                 endIcon={<ArrowForwardIcon sx={{ fontSize: '1rem !important' }} />}
                 sx={{
-                  fontWeight: 800,
-                  fontSize: { xs: '0.78rem', lg: '0.88rem' },
-                  textTransform: 'none',
-                  px: { xs: 1.5, lg: 2.5 },
-                  py: 1,
-                  borderRadius: 2.5,
+                  fontWeight: 800, fontSize: { xs: '0.78rem', lg: '0.88rem' }, textTransform: 'none',
+                  px: { xs: 1.5, lg: 2.5 }, py: 1, borderRadius: 2.5,
                   background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-                  boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%)',
-                    boxShadow: '0 6px 20px rgba(37,99,235,0.45)',
-                    transform: 'translateY(-1px)',
-                  },
-                  transition: 'all 0.2s'
+                  boxShadow: isDark ? '0 4px 20px rgba(37,99,235,0.5)' : '0 4px 14px rgba(37,99,235,0.35)',
+                  '&:hover': { background: 'linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%)', boxShadow: '0 6px 24px rgba(37,99,235,0.55)', transform: 'translateY(-1px)' },
+                  transition: 'all 0.2s',
                 }}
               >
                 {t('enterpriseHeader.startFree')}
               </Button>
 
-              {/* Mobile Hamburger */}
               {isMobile && (
-                <IconButton
-                  onClick={() => setDrawerOpen(true)}
-                  sx={{ color: 'text.primary', ml: 0.5 }}
-                >
+                <IconButton onClick={() => setDrawerOpen(true)} sx={{ color: isDark ? '#F1F5F9' : 'text.primary', ml: 0.5 }}>
                   <MenuIcon />
                 </IconButton>
               )}
@@ -628,7 +546,7 @@ const EnterpriseHeader = () => {
           </Toolbar>
         </Container>
 
-        {/* ── Desktop Dropdowns ── */}
+        {/* Desktop Dropdowns */}
         {!isMobile && navItems.map((key) => (
           <MegaDropdown
             key={key}
@@ -642,50 +560,30 @@ const EnterpriseHeader = () => {
             onMouseLeave={handleMouseLeave}
           />
         ))}
-      </AppBar>
+      </Box>
 
-      {/* ── Mobile Drawer ── */}
+      {/* Mobile Drawer */}
       <Drawer
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{
-          sx: {
-            width: '85vw',
-            maxWidth: 380,
-            borderLeft: 'none',
-            borderRadius: '16px 0 0 16px',
-          }
-        }}
+        PaperProps={{ sx: { width: '85vw', maxWidth: 380, borderLeft: 'none', borderRadius: '16px 0 0 16px' } }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Drawer Header */}
           <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-            <Typography variant="subtitle1" fontWeight={900} sx={{
-              background: 'linear-gradient(90deg, #F59E0B, #EF4444)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ background: 'linear-gradient(90deg, #F59E0B, #EF4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               VyaparSathi
             </Typography>
-            <IconButton onClick={() => setDrawerOpen(false)} size="small">
-              <CloseIcon />
-            </IconButton>
+            <IconButton onClick={() => setDrawerOpen(false)} size="small"><CloseIcon /></IconButton>
           </Box>
 
-          {/* Drawer Nav */}
           <Box sx={{ flexGrow: 1, overflowY: 'auto', py: 1 }}>
             {navItems.map((key) => {
               const menu = menuConfig[key];
               return (
                 <Accordion key={key} elevation={0} disableGutters sx={{ '&:before': { display: 'none' }, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                  <AccordionSummary
-                    expandIcon={<ExpandMoreIcon sx={{ fontSize: 18 }} />}
-                    sx={{ px: 2.5, py: 1.5, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: 0 } }}
-                  >
-                    <Typography variant="body2" fontWeight={700} color="#1E293B">
-                      {menu?.title}
-                    </Typography>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: 18 }} />} sx={{ px: 2.5, py: 1.5, minHeight: 'unset', '& .MuiAccordionSummary-content': { my: 0 } }}>
+                    <Typography variant="body2" fontWeight={700} color="#1E293B">{menu?.title}</Typography>
                   </AccordionSummary>
                   <AccordionDetails sx={{ p: 0, pb: 1 }}>
                     {menu?.columns.map((col, ci) => (
@@ -724,10 +622,7 @@ const EnterpriseHeader = () => {
                                 sx={{ py: 0.8, px: 1, borderRadius: 1.5 }}
                               >
                                 <Icon sx={{ fontSize: 18, color: 'primary.main', mr: 1.5 }} />
-                                <ListItemText
-                                  primary={item.label}
-                                  primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: 'text.primary' }}
-                                />
+                                <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: 'text.primary' }} />
                               </ListItemButton>
                             </ListItem>
                           );
@@ -738,52 +633,22 @@ const EnterpriseHeader = () => {
                 </Accordion>
               );
             })}
-            {/* Pricing direct link */}
             <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => handleNavAnchor('pricing')}
-                sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <ListItemText
-                  primary={t('enterpriseHeader.pricing')}
-                  primaryTypographyProps={{ variant: 'body2', fontWeight: 700, color: '#1E293B' }}
-                />
+              <ListItemButton onClick={() => handleNavAnchor('pricing')} sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                <ListItemText primary={t('enterpriseHeader.pricing')} primaryTypographyProps={{ variant: 'body2', fontWeight: 700, color: '#1E293B' }} />
               </ListItemButton>
             </ListItem>
           </Box>
 
-          {/* Drawer Footer */}
           <Box sx={{ p: 2.5, borderTop: '1px solid rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => { navigate('/login'); setDrawerOpen(false); }}
-              sx={{ fontWeight: 700, textTransform: 'none', borderRadius: 2, py: 1.2 }}
-            >
+            <Button fullWidth variant="outlined" onClick={() => { navigate('/login'); setDrawerOpen(false); }} sx={{ fontWeight: 700, textTransform: 'none', borderRadius: 2, py: 1.2 }}>
               {t('enterpriseHeader.login')}
             </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => { navigate('/login'); setDrawerOpen(false); }}
-              endIcon={<ArrowForwardIcon />}
-              sx={{
-                fontWeight: 800,
-                textTransform: 'none',
-                borderRadius: 2,
-                py: 1.2,
-                background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-                boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
-              }}
-            >
+            <Button fullWidth variant="contained" onClick={() => { navigate('/login'); setDrawerOpen(false); }} endIcon={<ArrowForwardIcon />} sx={{ fontWeight: 800, textTransform: 'none', borderRadius: 2, py: 1.2, background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
               {t('enterpriseHeader.startFree')}
             </Button>
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Button
-                onClick={toggleLanguage}
-                size="small"
-                sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#64748B', textTransform: 'none' }}
-              >
+              <Button onClick={toggleLanguage} size="small" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#64748B', textTransform: 'none' }}>
                 {i18n.language === 'en' ? '🇮🇳 हिन्दी में बदलें' : '🇬🇧 Switch to English'}
               </Button>
             </Box>

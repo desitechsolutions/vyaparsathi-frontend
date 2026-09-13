@@ -54,7 +54,13 @@ const BrandMark = ({
       <img
         src={logoSrc}
         alt={logoAlt}
-        style={{ height: tier.logoHeight, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+        style={{
+          height: tier.logoHeight,
+          width: 'auto',
+          objectFit: 'contain',
+          flexShrink: 0,
+          ...(isDark && { filter: 'brightness(0) invert(1)' }),
+        }}
       />
       {showWordmark && (
         <Box>
