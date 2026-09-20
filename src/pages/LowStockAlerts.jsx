@@ -36,6 +36,7 @@ import {
 
 import {
   fetchLowStockAlerts, bulkPatchItemVariants, getSuppliers,
+  snoozeAlert, listActiveSnoozes, listSavedViews, saveSavedView, deleteSavedView,
 } from '../services/api';
 import { useAlerts } from '../context/AlertContext';
 import CustomToolbar from './items/components/CustomToolbar';
@@ -46,64 +47,12 @@ const formatInr = (val) =>
     minimumFractionDigits: 0,
   });
 
-// ── Snooze persistence ─────────────────────────────────────────────
-// Snoozes live in localStorage keyed by variant id, storing a wall-clock
-// millisecond expiry. Kept client-side for MVP — Zoho / NetSuite persist
-// this server-side per user, which is a follow-up when we have a user
-// preferences table. Auto-expiry is 24 h; a stock movement server-side
-// would also naturally clear the "low" state and thus the snooze.
-const SNOOZE_STORAGE_KEY = 'lsa.snooze.v1';
-const SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Snooze duration — 24 h wall-clock; server stores per-user snoozedUntil timestamp.
+const SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000;
 
-const loadSnoozeMap = () => {
-  try {
-    const raw = localStorage.getItem(SNOOZE_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    const now = Date.now();
-    // Prune expired entries eagerly so the map stays small.
-    const cleaned = {};
-    for (const [id, expiresAt] of Object.entries(parsed)) {
-      if (typeof expiresAt === 'number' && expiresAt > now) cleaned[id] = expiresAt;
-    }
-    return cleaned;
-  } catch {
-    return {};
-  }
-};
-
-const persistSnoozeMap = (map) => {
-  try {
-    localStorage.setItem(SNOOZE_STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // localStorage full or disabled — ignore, snooze is best-effort.
-  }
-};
-
-// ── Saved views ─────────────────────────────────────────────────────
-// Named filter presets. Each entry is { name, searchText, supplierFilter,
-// levelFilter }. localStorage-only for MVP; a per-user server preference
-// is the follow-up (would let a shop share "Critical + no supplier" with
-// their assistant across devices).
-const VIEWS_STORAGE_KEY = 'lsa.views.v1';
-
-const loadSavedViews = () => {
-  try {
-    const raw = localStorage.getItem(VIEWS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const persistSavedViews = (views) => {
-  try {
-    localStorage.setItem(VIEWS_STORAGE_KEY, JSON.stringify(views));
-  } catch {
-    // ignore
-  }
+// Safe JSON parse used when reading payloadJson fields from saved-view server responses.
+const safeParseJson = (str) => {
+  try { return JSON.parse(str) || {}; } catch { return {}; }
 };
 
 // KPI cell — same convention inlined on ItemsPage / Stock. Kept local per
@@ -290,11 +239,11 @@ const LowStockAlerts = () => {
   const [selection, setSelection] = useState([]);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  const [snoozeMap, setSnoozeMap] = useState(() => loadSnoozeMap());
+  const [snoozeMap, setSnoozeMap] = useState({});
   const [showSnoozed, setShowSnoozed] = useState(false);
 
   // Saved views state
-  const [savedViews, setSavedViews] = useState(() => loadSavedViews());
+  const [savedViews, setSavedViews] = useState([]);
   const [viewsAnchor, setViewsAnchor] = useState(null);
   const [newViewName, setNewViewName] = useState('');
 
@@ -322,6 +271,37 @@ const LowStockAlerts = () => {
         .catch(() => setSuppliers([]));
     }
   }, [bulkEditOpen, suppliers.length]);
+
+  // Load active snoozes from server on mount — persisted per-user so the
+  // same snooze state is visible across devices and browser sessions.
+  useEffect(() => {
+    listActiveSnoozes('LOW_STOCK')
+      .then((data) => {
+        const map = {};
+        const now = Date.now();
+        for (const s of (Array.isArray(data) ? data : [])) {
+          const expiresAt = new Date(s.snoozedUntil).getTime();
+          if (expiresAt > now) map[s.alertKey] = expiresAt;
+        }
+        setSnoozeMap(map);
+      })
+      .catch(() => {}); // snooze is best-effort; failure = empty map
+  }, []);
+
+  // Load saved views from server on mount.
+  useEffect(() => {
+    listSavedViews('low_stock')
+      .then((data) => {
+        setSavedViews(
+          (Array.isArray(data) ? data : []).map((v) => ({
+            id: v.id,
+            name: v.name,
+            ...safeParseJson(v.payloadJson),
+          }))
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   // Filter state
   const [searchText, setSearchText] = useState('');
@@ -523,18 +503,45 @@ const LowStockAlerts = () => {
     navigate(`/purchase-orders/?variantId=${variantId}&qty=${qty}`);
   };
 
-  const snoozeVariant = (variantId) => {
-    const next = { ...snoozeMap, [String(variantId)]: Date.now() + SNOOZE_DURATION_MS };
-    setSnoozeMap(next);
-    persistSnoozeMap(next);
+  const snoozeVariant = async (variantId) => {
+    const snoozedUntil = new Date(Date.now() + SNOOZE_DURATION_MS);
+    // Update local state immediately for instant UI feedback.
+    setSnoozeMap((prev) => ({ ...prev, [String(variantId)]: snoozedUntil.getTime() }));
     setSuccessMsg('Alert snoozed for 24 hours.');
+    try {
+      await snoozeAlert({
+        alertType: 'LOW_STOCK',
+        alertKey: String(variantId),
+        // Backend expects LocalDateTime — strip Z and ms so Java can parse it.
+        snoozedUntil: snoozedUntil.toISOString().slice(0, 19),
+      });
+    } catch {
+      // Revert on server failure so a reload doesn't show a phantom snooze.
+      setSnoozeMap((prev) => {
+        const next = { ...prev };
+        delete next[String(variantId)];
+        return next;
+      });
+    }
   };
 
-  const unsnoozeVariant = (variantId) => {
-    const next = { ...snoozeMap };
-    delete next[String(variantId)];
-    setSnoozeMap(next);
-    persistSnoozeMap(next);
+  const unsnoozeVariant = async (variantId) => {
+    // Remove from local state immediately.
+    setSnoozeMap((prev) => {
+      const next = { ...prev };
+      delete next[String(variantId)];
+      return next;
+    });
+    try {
+      // Overwrite with a past snoozedUntil so the server also considers it expired.
+      await snoozeAlert({
+        alertType: 'LOW_STOCK',
+        alertKey: String(variantId),
+        snoozedUntil: new Date(Date.now() - 60_000).toISOString().slice(0, 19),
+      });
+    } catch {
+      // Best-effort; local state is already correct.
+    }
   };
 
   const snoozedCount = useMemo(
@@ -610,24 +617,41 @@ const LowStockAlerts = () => {
     setSuccessMsg(`Loaded view "${view.name}".`);
   };
 
-  const saveCurrentView = () => {
+  const saveCurrentView = async () => {
     const name = newViewName.trim();
     if (!name) return;
-    // Replace by name so re-saving updates the preset instead of creating dupes.
-    const next = [
-      ...savedViews.filter((v) => v.name !== name),
-      { name, searchText, supplierFilter, levelFilter },
-    ];
-    setSavedViews(next);
-    persistSavedViews(next);
-    setNewViewName('');
-    setSuccessMsg(`Saved view "${name}".`);
+    const payloadJson = JSON.stringify({ searchText, supplierFilter, levelFilter });
+    const existing = savedViews.find((v) => v.name === name);
+    try {
+      const saved = await saveSavedView({
+        ...(existing?.id ? { id: existing.id } : {}),
+        surface: 'low_stock',
+        name,
+        payloadJson,
+      });
+      setSavedViews((prev) => [
+        ...prev.filter((v) => v.name !== name),
+        { id: saved.id, name: saved.name, ...safeParseJson(saved.payloadJson) },
+      ]);
+      setNewViewName('');
+      setSuccessMsg(`Saved view "${name}".`);
+    } catch {
+      setError('Failed to save view. Please try again.');
+    }
   };
 
-  const deleteView = (name) => {
-    const next = savedViews.filter((v) => v.name !== name);
-    setSavedViews(next);
-    persistSavedViews(next);
+  const deleteView = async (name) => {
+    const target = savedViews.find((v) => v.name === name);
+    // Optimistic update — remove from UI immediately.
+    setSavedViews((prev) => prev.filter((v) => v.name !== name));
+    if (target?.id) {
+      try {
+        await deleteSavedView(target.id);
+      } catch {
+        // Restore the view if server delete failed.
+        setSavedViews((prev) => [...prev, target]);
+      }
+    }
   };
 
   // Bulk edit — sends only the fields the user actually filled in so

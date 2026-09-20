@@ -19,6 +19,7 @@ export default function PlatformSettingsPage() {
   const [formData, setFormData] = useState({
     companyName: '',
     tradeName: '',
+    cin: '',
     gstin: '',
     pan: '',
     addressLine1: '',
@@ -46,6 +47,7 @@ export default function PlatformSettingsPage() {
         setFormData({
           companyName: data.companyName || '',
           tradeName: data.tradeName || '',
+          cin: data.cin || '',
           gstin: data.gstin || '',
           pan: data.pan || '',
           addressLine1: data.addressLine1 || '',
@@ -159,7 +161,7 @@ export default function PlatformSettingsPage() {
                   name="companyName"
                   value={formData.companyName}
                   onChange={handleChange}
-                  placeholder="e.g. DesiTech Solutions Pvt. Ltd."
+                  placeholder="e.g. Biruma Technology Solutions Pvt. Ltd."
                 />
               </Grid>
 
@@ -174,25 +176,36 @@ export default function PlatformSettingsPage() {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Corporate Identity Number (CIN)"
+                  name="cin"
+                  value={formData.cin}
+                  onChange={handleChange}
+                  placeholder="e.g. U62010HR2025PTC139151"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   label="Vendor GSTIN"
                   name="gstin"
                   value={formData.gstin}
                   onChange={handleChange}
-                  placeholder="e.g. 27AAACD1234E1Z5"
+                  placeholder="e.g. 06AAOCB1973G1ZJ"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   label="Vendor PAN"
                   name="pan"
                   value={formData.pan}
                   onChange={handleChange}
-                  placeholder="e.g. AAACD1234E"
+                  placeholder="e.g. AAOCB1973G"
                 />
               </Grid>
 
@@ -203,7 +216,7 @@ export default function PlatformSettingsPage() {
                   name="addressLine1"
                   value={formData.addressLine1}
                   onChange={handleChange}
-                  placeholder="e.g. 101, Tech Hub Tower"
+                  placeholder="e.g. Arjun Nagar"
                 />
               </Grid>
 
@@ -214,7 +227,7 @@ export default function PlatformSettingsPage() {
                   name="addressLine2"
                   value={formData.addressLine2}
                   onChange={handleChange}
-                  placeholder="e.g. Senapati Bapat Marg, Lower Parel"
+                  placeholder=""
                 />
               </Grid>
 
@@ -225,7 +238,7 @@ export default function PlatformSettingsPage() {
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  placeholder="e.g. Mumbai"
+                  placeholder="e.g. Gurgaon"
                 />
               </Grid>
 
@@ -236,7 +249,7 @@ export default function PlatformSettingsPage() {
                   name="state"
                   value={formData.state}
                   onChange={handleChange}
-                  placeholder="e.g. Maharashtra"
+                  placeholder="e.g. Haryana"
                 />
               </Grid>
 
@@ -247,8 +260,8 @@ export default function PlatformSettingsPage() {
                   name="stateCode"
                   value={formData.stateCode}
                   onChange={handleChange}
-                  placeholder="e.g. 27"
-                  helperText="GST State Code (e.g. 27 for MH)"
+                  placeholder="e.g. 06"
+                  helperText="GST State Code (e.g. 06 for HR)"
                 />
               </Grid>
 
@@ -259,7 +272,7 @@ export default function PlatformSettingsPage() {
                   name="pincode"
                   value={formData.pincode}
                   onChange={handleChange}
-                  placeholder="e.g. 400013"
+                  placeholder="e.g. 122001"
                 />
               </Grid>
 
@@ -307,7 +320,7 @@ export default function PlatformSettingsPage() {
                   name="supportEmail"
                   value={formData.supportEmail}
                   onChange={handleChange}
-                  placeholder="support@vyaparsathi.app"
+                  placeholder="contact@desitechsolutions.com"
                 />
               </Grid>
 

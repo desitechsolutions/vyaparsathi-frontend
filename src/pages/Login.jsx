@@ -69,6 +69,8 @@ const Login = () => {
   const passwordRef = useRef(null);
 
   const sessionExpired = searchParams.get('expired') === '1' || searchParams.get('expired') === 'true';
+  const oauth2ErrorParam = searchParams.get('oauth2Error');
+  const [dismissedSessionExpired, setDismissedSessionExpired] = useState(false);
 
   // ─── Three form instances, one per sub-form ───────────────────────────────
 
@@ -122,6 +124,22 @@ const Login = () => {
     setRetryAfterSeconds(null);
   }, [view]);
 
+  // ─── Live countdown for rate-limit / lockout cooldown ─────────────────────
+  useEffect(() => {
+    if (!retryAfterSeconds) return;
+    const timer = setInterval(() => {
+      setRetryAfterSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setServerError('');
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [retryAfterSeconds !== null]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Browser autofill sync for login form ─────────────────────────────────
   useEffect(() => {
     const handleAnimationStart = (e) => {
@@ -130,7 +148,6 @@ const Login = () => {
           const val = usernameRef.current.value;
           if (val !== loginForm.getValues('username')) {
             loginForm.setValue('username', val, { shouldValidate: false });
-            localStorage.setItem('lastUsername', val);
           }
         }
         if (passwordRef.current) {
@@ -150,16 +167,28 @@ const Login = () => {
 
   // ─── API error handler ────────────────────────────────────────────────────
   const handleApiError = (err, fallback) => {
-    if (err.response?.status === 429) {
+    const status = err.response?.status;
+    const data = err.response?.data;
+
+    if (status === 429) {
       const retryAfter =
-        err.response?.data?.retryAfterSeconds ||
+        data?.retryAfterSeconds ||
         Number(err.response?.headers?.['retry-after']) ||
         60;
       setRetryAfterSeconds(retryAfter);
-      setServerError(err.response?.data?.message || `Too many attempts. Try again in ${retryAfter}s.`);
+      setServerError(data?.message || `Too many attempts. Try again in ${retryAfter}s.`);
       return;
     }
-    setServerError(err.response?.data?.message || err.message || fallback);
+
+    // 423 = timed account lockout (UserInactiveException with a retry window).
+    // Also accept 403 + retryAfterSeconds as a fallback for older BE builds.
+    if ((status === 423 || (status === 403 && data?.retryAfterSeconds))) {
+      setRetryAfterSeconds(data.retryAfterSeconds);
+      setServerError(data.message || 'Account temporarily locked. Try again later.');
+      return;
+    }
+
+    setServerError(data?.message || err.message || fallback);
   };
 
   // ─── Submit handlers ──────────────────────────────────────────────────────
@@ -235,13 +264,28 @@ const Login = () => {
     }
   };
 
-  const ssoDisabledTooltip = 'Single sign-on is coming soon. Sign in with your email for now.';
+  // OAuth2 redirect — sends the browser to the backend initiation URL.
+  // Spring Security handles the full authorization-code dance and then
+  // redirects back to /auth/oauth2/callback with our JWT.
+  const handleOAuth2Login = (provider) => {
+    const base = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+    window.location.href = `${base}/oauth2/authorization/${provider}`;
+  };
 
   const renderStatusBanners = () => (
     <>
-      {sessionExpired && view === 'login' && !serverError && (
-        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+      {sessionExpired && !dismissedSessionExpired && view === 'login' && !serverError && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2, borderRadius: 2 }}
+          onClose={() => setDismissedSessionExpired(true)}
+        >
           Your session expired. Please sign in again to continue.
+        </Alert>
+      )}
+      {oauth2ErrorParam && view === 'login' && (
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+          {decodeURIComponent(oauth2ErrorParam)}
         </Alert>
       )}
       {serverError && (
@@ -271,50 +315,44 @@ const Login = () => {
       </Stack>
 
       <Stack spacing={1.25}>
-        <Tooltip title={ssoDisabledTooltip} arrow>
-          <span>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<GoogleLogo />}
-              disabled
-              aria-label="Continue with Google (coming soon)"
-              sx={{
-                justifyContent: 'center',
-                borderColor: 'divider',
-                color: 'text.primary',
-                py: 1.1,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Continue with Google
-            </Button>
-          </span>
-        </Tooltip>
-        <Tooltip title={ssoDisabledTooltip} arrow>
-          <span>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<MicrosoftLogo />}
-              disabled
-              aria-label="Continue with Microsoft (coming soon)"
-              sx={{
-                justifyContent: 'center',
-                borderColor: 'divider',
-                color: 'text.primary',
-                py: 1.1,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Continue with Microsoft
-            </Button>
-          </span>
-        </Tooltip>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<GoogleLogo />}
+          onClick={() => handleOAuth2Login('google')}
+          aria-label="Continue with Google"
+          sx={{
+            justifyContent: 'center',
+            borderColor: 'divider',
+            color: 'text.primary',
+            py: 1.1,
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 600,
+            '&:hover': { borderColor: 'text.primary', bgcolor: 'action.hover' },
+          }}
+        >
+          Continue with Google
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<MicrosoftLogo />}
+          onClick={() => handleOAuth2Login('microsoft')}
+          aria-label="Continue with Microsoft"
+          sx={{
+            justifyContent: 'center',
+            borderColor: 'divider',
+            color: 'text.primary',
+            py: 1.1,
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 600,
+            '&:hover': { borderColor: 'text.primary', bgcolor: 'action.hover' },
+          }}
+        >
+          Continue with Microsoft
+        </Button>
       </Stack>
 
       <Divider sx={{ my: 1 }}>
@@ -440,7 +478,7 @@ const Login = () => {
             color="primary"
             type="submit"
             fullWidth
-            disabled={loginForm.formState.isSubmitting}
+            disabled={loginForm.formState.isSubmitting || !!retryAfterSeconds}
             sx={{
               py: 1.3,
               fontWeight: 700,
@@ -451,7 +489,9 @@ const Login = () => {
           >
             {loginForm.formState.isSubmitting
               ? <CircularProgress size={22} color="inherit" />
-              : t('login.signIn', 'Sign in')}
+              : retryAfterSeconds
+                ? `Locked — retry in ${retryAfterSeconds}s`
+                : t('login.signIn', 'Sign in')}
           </Button>
         </Stack>
       </Box>
@@ -862,12 +902,14 @@ const Login = () => {
             color="primary"
             type="submit"
             fullWidth
-            disabled={forgotForm.formState.isSubmitting}
+            disabled={forgotForm.formState.isSubmitting || !!retryAfterSeconds}
             sx={{ py: 1.3, fontWeight: 700, borderRadius: 2, textTransform: 'none', fontSize: '1rem' }}
           >
             {forgotForm.formState.isSubmitting
               ? <CircularProgress size={22} color="inherit" />
-              : t('login.sendResetLink', 'Send reset link')}
+              : retryAfterSeconds
+                ? `Retry in ${retryAfterSeconds}s`
+                : t('login.sendResetLink', 'Send reset link')}
           </Button>
         </Stack>
       </Box>

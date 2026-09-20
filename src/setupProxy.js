@@ -2,7 +2,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
   app.use(
-    ['/api', '/auth'], // Add any other base paths your backend uses
+    ['/api'], // Only proxy backend API calls — /auth/* routes are React Router paths
     createProxyMiddleware({
       target: 'http://localhost:8080',
       changeOrigin: true,

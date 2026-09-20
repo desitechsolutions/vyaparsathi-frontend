@@ -31,6 +31,11 @@ import {
   countPending,
   getOrCreateDeviceId,
   resetToRetryable,
+  getShopFingerprint,
+  setShopFingerprint,
+  clearAllSalesForShop,
+  clearRefCacheStores,
+  clearSyncedOlderThan,
 } from '../services/offline/offlineDb';
 import {
   flushAll,
@@ -50,6 +55,7 @@ import {
   fetchCustomers,
   fetchGstReferenceData,
 } from '../services/api';
+import { getValidToken } from '../utils/authStorage';
 
 // ─────────────────────────────────────────────────────────────────
 // Context
@@ -75,6 +81,25 @@ export function OfflineSalesProvider({ children }) {
 
   const isSyncingRef = useRef(false);
   const syncNowRef = useRef(null);
+  // Track shopId across renders so the logout cleanup knows which shop to clear.
+  const lastShopIdRef = useRef(null);
+
+  // ── Logout cleanup ──────────────────────────────────────────────
+  // On explicit logout, wipe the reference cache (item_variants, customers,
+  // gst_reference) and any already-synced sales. DRAFT/FAILED are kept —
+  // silently destroying unsynced sales data is never acceptable.
+  const prevAuthUserRef = useRef(authUser);
+  useEffect(() => {
+    const wasLoggedIn = !!prevAuthUserRef.current;
+    const isLoggedOut = !authUser;
+    if (wasLoggedIn && isLoggedOut && lastShopIdRef.current) {
+      const shopIdToClean = lastShopIdRef.current;
+      clearRefCacheStores().catch(() => {});
+      clearSyncedOlderThan(shopIdToClean, 0).catch(() => {});
+    }
+    prevAuthUserRef.current = authUser;
+    if (shop?.id) lastShopIdRef.current = shop.id;
+  }, [authUser, shop?.id]);
 
   // ── Device ID ───────────────────────────────────────────────────
   useEffect(() => {
@@ -82,6 +107,35 @@ export function OfflineSalesProvider({ children }) {
       console.error('[OfflineCtx] Failed to get device ID:', err);
     });
   }, []);
+
+  // ── Shop fingerprint validation ─────────────────────────────────
+  // Auto-increment shopIds restart from 1 after a backend DB reset.
+  // A fresh signup can get the same shopId as a previous user whose
+  // IDB records were never cleared, causing phantom "pending" counts.
+  // We detect this by storing { shopId, shopCode } and comparing on
+  // every session start. shopCode is a unique slug set by the user
+  // during onboarding — a new shop will almost never reuse it.
+  useEffect(() => {
+    if (!shop?.id || !shop?.code) return;
+    (async () => {
+      try {
+        const stored = await getShopFingerprint();
+        if (stored && stored.shopId === shop.id && stored.shopCode !== shop.code) {
+          // Same numeric ID, different slug → DB was reset and a new shop
+          // claimed this ID. Stale records can never sync to the new backend.
+          console.warn(
+            '[OfflineCtx] shopId collision detected (stored code "%s" ≠ current "%s"). Purging stale IDB records for shopId=%s.',
+            stored.shopCode, shop.code, shop.id
+          );
+          await clearAllSalesForShop(shop.id);
+          await clearRefCacheStores();
+        }
+        await setShopFingerprint(shop.id, shop.code);
+      } catch (err) {
+        console.error('[OfflineCtx] Fingerprint validation error:', err);
+      }
+    })();
+  }, [shop?.id, shop?.code]);
 
   // ── Pending count ───────────────────────────────────────────────
   const updatePendingCount = useCallback(async () => {
@@ -111,9 +165,7 @@ export function OfflineSalesProvider({ children }) {
         return;
       }
       try {
-        const token =
-          localStorage.getItem('vyaparsathi_token') ||
-          localStorage.getItem('token');
+        const token = getValidToken();
         const headers = { 'Cache-Control': 'no-cache' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 

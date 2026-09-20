@@ -355,7 +355,6 @@ const SetupShop = () => {
       const res = await setupShop(formData);
       const resData = res?.data;
       const accessToken = resData?.accessToken || resData?.token || resData?.shop?.accessToken || resData?.shop?.token;
-      const refreshToken = resData?.refreshToken || resData?.shop?.refreshToken;
       const newShopId = resData?.id || resData?.shop?.id;
 
       if (accessToken) {
@@ -363,9 +362,8 @@ const SetupShop = () => {
         localStorage.setItem('token', accessToken);
         API.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       }
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
+      // Refresh token is set server-side as an HttpOnly cookie (Set-Cookie header).
+      // Do NOT write it to localStorage — that would expose it to JavaScript and XSS.
 
       if (silentRefresh) {
         try { await silentRefresh(); } catch (e) { console.warn('silentRefresh post-onboarding:', e); }

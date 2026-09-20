@@ -153,9 +153,19 @@ API.interceptors.response.use(
     }
 
     if (status === 401 || status === 403) {
-      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      const url = error.config?.url ?? '';
+      const isLoginRequest = url.includes('/api/auth/login');
+      // The refresh endpoint returning 401 means "no session" — completely
+      // normal for unauthenticated users. AuthContext handles it in its own
+      // catch block; the global redirect here would boot users off public
+      // pages (reset-password, verify-email) before those pages can render.
+      const isRefreshRequest = url.includes('/api/auth/refresh');
+      // Public auth pages work without a session — never force them to /login.
+      const publicAuthPaths = ['/auth/reset-password', '/auth/verify-email', '/accept-shop-invite', '/accept-invite'];
+      const isOnPublicPage = publicAuthPaths.some(p => window.location.pathname.startsWith(p));
+
       clearAuthStorage();
-      if (!isLoginRequest && window.location.pathname !== '/login') {
+      if (!isLoginRequest && !isRefreshRequest && !isOnPublicPage && window.location.pathname !== '/login') {
         window.location.href = '/login?expired=true';
       }
     }
@@ -195,7 +205,7 @@ export const forgotPassword = (data) =>
   API.post('/api/auth/forget-password', data, { skipAuthRefresh: true });
 
 export const validateResetToken = (token) =>
-  API.post('/api/auth/validate-reset-token', { token });
+  API.post('/api/auth/validate-reset-token', { token }, { skipAuthRefresh: true });
 
 export const resetPassword = (data) =>
   API.post('/api/auth/reset-password', data, { skipAuthRefresh: true });
@@ -1078,6 +1088,12 @@ export const fetchAllSales = (from, to, signal) => {
   }
   return API.get(endpoints.sales, cfg);
 };
+
+export const fetchSalesTimeSeries = (from, to, signal) => {
+  const cfg = signal ? { signal } : undefined;
+  return API.get(endpoints.salesTimeSeries(from, to), cfg);
+};
+
 export const getSaleById = (id) => API.get(endpoints.getSaleById(id));
 
 // --- DELIVERY ---
@@ -1921,6 +1937,8 @@ export const closeBatchRecall = (id, note) =>
   API.post(endpoints.stockRecallClose(id), { note }).then(r => r.data);
 
 // Transfer approvals
+export const requestApprovalStockTransfer = (id, note) =>
+  API.post(endpoints.stockTransferRequestApproval(id), { note }).then(r => r.data);
 export const approveStockTransfer = (id, note) =>
   API.post(endpoints.stockTransferApprove(id), { note }).then(r => r.data);
 export const dispatchStockTransfer = (id) =>

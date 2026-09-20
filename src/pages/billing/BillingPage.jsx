@@ -204,37 +204,50 @@ export default function BillingPage() {
            TAB 0 — Plans
           ════════════════════════════════════════════════════════════════ */}
       <TabPanel value={tab} index={0}>
-        {/* Billing cycle toggle */}
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-          <Typography variant="body2" fontWeight={700} color="text.secondary">Billing Cycle:</Typography>
-          <Stack direction="row" spacing={1}>
-            {['MONTHLY', 'YEARLY'].map((cycle) => (
-              <Button
-                key={cycle}
-                variant={billingCycle === cycle ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setBillingCycle(cycle)}
-                sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none', px: 2 }}
-              >
-                {cycle.charAt(0) + cycle.slice(1).toLowerCase()}
-                {cycle === 'YEARLY' && (
-                  <Chip
-                    label="Save on Annual"
-                    size="small"
-                    color="success"
-                    sx={{ ml: 1, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
-                  />
-                )}
-              </Button>
-            ))}
+        {/* Billing cycle toggle & ITC Note */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="body2" fontWeight={800} color="text.secondary">Billing Frequency:</Typography>
+            <Stack direction="row" spacing={1}>
+              {['MONTHLY', 'YEARLY'].map((cycle) => (
+                <Button
+                  key={cycle}
+                  variant={billingCycle === cycle ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setBillingCycle(cycle)}
+                  sx={{ borderRadius: '8px', fontWeight: 800, textTransform: 'none', px: 2 }}
+                >
+                  {cycle.charAt(0) + cycle.slice(1).toLowerCase()}
+                  {cycle === 'YEARLY' && (
+                    <Chip
+                      label="Save up to 20%"
+                      size="small"
+                      color="success"
+                      sx={{ ml: 1, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
+                    />
+                  )}
+                </Button>
+              ))}
+            </Stack>
           </Stack>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+            All plans include 18% GST with admissible <strong>Input Tax Credit (ITC)</strong> for registered businesses.
+          </Typography>
         </Stack>
 
         <Grid container spacing={3}>
           {loading ? (
             [...Array(3)].map((_, i) => (
               <Grid item xs={12} md={4} key={i}>
-                <Skeleton variant="rectangular" height={360} sx={{ borderRadius: '20px' }} />
+                <Skeleton variant="rectangular" height={380} sx={{ borderRadius: '20px' }} />
               </Grid>
             ))
           ) : enrichedPlans.map((plan) => {
@@ -253,6 +266,11 @@ export default function BillingPage() {
             const isCurrentUtrPlan = isUtrActiveSubscription && planTierRank === userTierRank;
             const isUtrDowngrade = isUtrActiveSubscription && planTierRank < userTierRank;
 
+            // Taxable Base vs GST
+            const numericTotal = Number(gstTotal || (Number(pricePerMonth || 0) * (billingCycle === 'YEARLY' ? 12 : 1) * 1.18).toFixed(2));
+            const numericBase = Number((numericTotal / 1.18).toFixed(2));
+            const numericGst = Number((numericTotal - numericBase).toFixed(2));
+
             return (
               <Grid item xs={12} md={4} key={plan.code}>
                 <Paper
@@ -267,44 +285,45 @@ export default function BillingPage() {
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' },
+                    bgcolor: 'background.paper',
+                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 28px rgba(0,0,0,0.07)' },
                   }}
                 >
                   {isCurrentUtrPlan ? (
                     <Chip
-                      label="CURRENT PLAN"
+                      label="CURRENT ACTIVE PLAN"
                       size="small"
                       sx={{
                         position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
                         bgcolor: 'success.main', color: 'white', fontWeight: 900,
-                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px',
+                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px', px: 0.5,
                       }}
                     />
                   ) : isPopular ? (
                     <Chip
-                      label="MOST POPULAR"
+                      label="MOST POPULAR · ENTERPRISE PICK"
                       size="small"
                       sx={{
                         position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
                         bgcolor: plan.color, color: 'white', fontWeight: 900,
-                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px',
+                        fontSize: '0.6rem', letterSpacing: 0.5, borderRadius: '6px', px: 0.5,
                       }}
                     />
                   ) : null}
 
                   {/* Plan header */}
                   <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-                    <Box sx={{ color: plan.color }}>{plan.icon}</Box>
+                    <Box sx={{ color: plan.color, display: 'flex' }}>{plan.icon}</Box>
                     <Typography variant="h6" fontWeight={900}>
                       {plan.dbPlan?.displayName || plan.label}
                     </Typography>
                   </Stack>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 38 }}>
                     {plan.description}
                   </Typography>
 
                   {/* Price */}
-                  <Box sx={{ mb: 2.5 }}>
+                  <Box sx={{ mb: 2.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                     {isCustomPricing ? (
                       <Typography variant="h4" fontWeight={900} sx={{ color: plan.color }}>Custom</Typography>
                     ) : !plan.dbPlan ? (
@@ -312,30 +331,35 @@ export default function BillingPage() {
                     ) : (
                       <>
                         {promoActive && (
-                          <Typography variant="body2" sx={{ color: 'text.disabled', textDecoration: 'line-through', fontWeight: 600 }}>
-                            ₹{basePricePerMonth}/mo
+                          <Typography variant="caption" sx={{ color: 'text.disabled', textDecoration: 'line-through', fontWeight: 700 }}>
+                            ₹{basePricePerMonth}/mo regular
                           </Typography>
                         )}
                         <Stack direction="row" alignItems="baseline" spacing={0.5}>
                           <Typography variant="h4" fontWeight={900} sx={{ color: promoActive ? 'error.main' : plan.color }}>
                             ₹{pricePerMonth}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" fontWeight={500}>/mo</Typography>
+                          <Typography variant="body2" color="text.secondary" fontWeight={700}>/month</Typography>
                         </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          ₹{gstTotal} incl. GST · billed {cycle}
+
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          Taxable: <strong>₹{numericBase.toFixed(2)}</strong> + 18% GST: <strong>₹{numericGst.toFixed(2)}</strong>
                         </Typography>
+                        <Typography variant="caption" fontWeight={800} color="primary" sx={{ display: 'block' }}>
+                          Total: ₹{numericTotal.toFixed(2)} billed {cycle}
+                        </Typography>
+
                         {promoActive && promoLabel && (
                           <Chip label={promoLabel} size="small" color="error"
-                            sx={{ display: 'block', mt: 0.5, fontWeight: 800, fontSize: '0.6rem', height: 20, width: 'fit-content' }} />
+                            sx={{ display: 'block', mt: 0.75, fontWeight: 800, fontSize: '0.6rem', height: 20, width: 'fit-content' }} />
                         )}
                       </>
                     )}
                     {billingCycle === 'YEARLY' && discountPct > 0 && !promoActive && (
                       <Chip
-                        label={`Save ${discountPct}%`}
+                        label={`Annual Savings ${discountPct}% applied`}
                         size="small" color="success"
-                        sx={{ mt: 0.5, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
+                        sx={{ mt: 0.75, height: 18, fontSize: '0.55rem', fontWeight: 900, borderRadius: '4px' }}
                       />
                     )}
                   </Box>
@@ -348,7 +372,7 @@ export default function BillingPage() {
                       .filter(f => !f.startsWith('-') && !f.startsWith('~'))
                       .map((f) => (
                         <Stack direction="row" spacing={1} alignItems="flex-start" key={f}>
-                          <CheckCircleIcon sx={{ fontSize: 16, color: plan.color, mt: 0.2, flexShrink: 0 }} />
+                          <CheckCircleIcon sx={{ fontSize: 15, color: plan.color, mt: 0.25, flexShrink: 0 }} />
                           <Typography variant="body2" color="text.secondary" fontWeight={500}>{f}</Typography>
                         </Stack>
                       )) : (
@@ -356,22 +380,22 @@ export default function BillingPage() {
                       )}
                   </Stack>
 
-                  {/* CTA — UTR active plan states take precedence over Razorpay button */}
+                  {/* CTA Button */}
                   {isCurrentUtrPlan ? (
                     <Button fullWidth variant="outlined" color="success" disabled
                       startIcon={<CheckCircleIcon />}
-                      sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', py: 1.25 }}
+                      sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none', py: 1.25 }}
                     >
                       Current Active Plan
                     </Button>
                   ) : isUtrDowngrade ? (
-                    <Tooltip title="You're on a higher plan. Contact support to downgrade." arrow>
+                    <Tooltip title="You are currently on a higher subscription plan. Downgrading requires cancelling your active term first." arrow>
                       <span>
                         <Button fullWidth variant="outlined" disabled
                           startIcon={<LockIcon />}
-                          sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', py: 1.25 }}
+                          sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none', py: 1.25 }}
                         >
-                          Lower Tier
+                          Higher Plan Active
                         </Button>
                       </span>
                     </Tooltip>
@@ -387,6 +411,9 @@ export default function BillingPage() {
                         bgcolor: isPopular ? plan.color : undefined,
                         '&:hover': { bgcolor: isPopular ? plan.color : undefined, opacity: 0.9 },
                         width: '100%',
+                        borderRadius: '10px',
+                        py: 1.25,
+                        fontWeight: 800,
                       }}
                     />
                   )}
@@ -396,10 +423,17 @@ export default function BillingPage() {
           })}
         </Grid>
 
-        {/* Legacy UTR link */}
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            Prefer manual bank transfer?{' '}
+        {/* Enterprise Assistance & UTR Footer */}
+        <Paper elevation={0} sx={{ mt: 4, p: 2.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={800}>
+                Need multi-branch consolidation or enterprise custom deployment?
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Our solutions engineering team can configure custom API rate limits, multi-warehouse clusters, and dedicated support agreements.
+              </Typography>
+            </Box>
             <Button
               size="small"
               onClick={() => {
@@ -410,12 +444,12 @@ export default function BillingPage() {
                 }
               }}
               disabled={hasActiveAutoPay}
-              sx={{ textTransform: 'none', fontWeight: 700, p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+              sx={{ textTransform: 'none', fontWeight: 800, whiteSpace: 'nowrap' }}
             >
-              Use UTR payment flow →
+              Manual UTR Bank Transfer →
             </Button>
-          </Typography>
-        </Box>
+          </Stack>
+        </Paper>
       </TabPanel>
 
       {/* ════════════════════════════════════════════════════════════════
@@ -433,29 +467,55 @@ export default function BillingPage() {
             />
           </Grid>
           <Grid item xs={12} md={5}>
-            <Paper
-              elevation={0}
-              sx={{ p: 3, borderRadius: '20px', border: '1px solid', borderColor: 'divider' }}
-            >
-              <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 2 }}>
-                How AutoPay Works
-              </Typography>
-              <Stack spacing={1.5}>
-                {[
-                  { step: '1', text: 'Select a plan and click "Subscribe via AutoPay".' },
-                  { step: '2', text: 'Authenticate your bank mandate through Razorpay\'s secure checkout.' },
-                  { step: '3', text: 'Your subscription renews automatically each billing cycle — no manual action needed.' },
-                  { step: '4', text: 'Pause, resume, or cancel anytime from this dashboard.' },
-                ].map((item) => (
-                  <Stack direction="row" spacing={1.5} key={item.step}>
-                    <Avatar sx={{ width: 24, height: 24, bgcolor: '#EFF6FF', color: '#2563EB', fontSize: '0.7rem', fontWeight: 900, flexShrink: 0 }}>
-                      {item.step}
-                    </Avatar>
-                    <Typography variant="body2" color="text.secondary">{item.text}</Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Paper>
+            <Stack spacing={2.5}>
+              {/* How AutoPay Works */}
+              <Paper
+                elevation={0}
+                sx={{ p: 3, borderRadius: '20px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
+              >
+                <Typography variant="subtitle2" fontWeight={900} sx={{ mb: 2 }}>
+                  How e-Mandate AutoPay Works
+                </Typography>
+                <Stack spacing={2}>
+                  {[
+                    { step: '1', title: 'Mandate Authorization', text: 'Authenticate your bank mandate via UPI AutoPay, NetBanking, or Debit/Credit card through Razorpay.' },
+                    { step: '2', title: 'Pre-Debit Notification', text: 'In full accordance with RBI regulations, you receive an automated SMS/email alert 24 hours prior to each charge.' },
+                    { step: '3', title: 'Automated Cycle Renewal', text: 'Your plan renews effortlessly without manual invoice processing or service disruption.' },
+                    { step: '4', title: 'Complete User Control', text: 'Pause recurring debits during slow business periods, or cancel anytime with zero cancellation penalties.' },
+                  ].map((item) => (
+                    <Stack direction="row" spacing={1.5} key={item.step} alignItems="flex-start">
+                      <Avatar sx={{ width: 26, height: 26, bgcolor: '#EFF6FF', color: '#2563EB', fontSize: '0.75rem', fontWeight: 900, flexShrink: 0 }}>
+                        {item.step}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={800} color="text.primary">
+                          {item.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.text}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+
+              {/* Priority Billing Support Box */}
+              <Paper
+                elevation={0}
+                sx={{ p: 2.5, borderRadius: '16px', border: '1px solid #bfdbfe', bgcolor: '#eff6ff' }}
+              >
+                <Typography variant="subtitle2" fontWeight={800} color="#1e40af" sx={{ mb: 0.5 }}>
+                  Enterprise Billing Support Desk
+                </Typography>
+                <Typography variant="caption" color="#1e3a8a" sx={{ display: 'block', mb: 1.5, lineHeight: 1.45 }}>
+                  Need to update your corporate GSTIN on historical receipts, amend legal billing entities, or query bank mandate clearances?
+                </Typography>
+                <Typography variant="body2" fontWeight={800} color="#1e40af" sx={{ fontFamily: 'monospace' }}>
+                  contact@desitechsolutions.com • info@desitechsolutions.com
+                </Typography>
+              </Paper>
+            </Stack>
           </Grid>
         </Grid>
       </TabPanel>

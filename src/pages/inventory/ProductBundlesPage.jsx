@@ -130,7 +130,7 @@ const ProductBundlesPage = () => {
         </Snackbar>
 
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-          <IconButton size="small" onClick={() => navigate('/items')}><BackIcon /></IconButton>
+          <IconButton size="small" onClick={() => navigate('/stock')}><BackIcon /></IconButton>
           <Typography variant="h5" fontWeight={800}>Product bundles / kits</Typography>
           <Box sx={{ flexGrow: 1 }} />
           <IconButton onClick={refresh} disabled={loading}><RefreshIcon /></IconButton>

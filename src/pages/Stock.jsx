@@ -34,7 +34,7 @@ import {
   fetchStock, addStock, fetchItemVariants,
   adjustStock, fetchStockMovements, exportStockReport,
   fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
-  updateItemVariant,
+  updateItemVariant, fetchExpiryAlerts,
 } from '../services/api';
 import StockTransferModal from '../components/stock/StockTransferModal';
 import CustomToolbar from './items/components/CustomToolbar';
@@ -217,6 +217,7 @@ const Stock = () => {
 
   const [stock, setStock] = useState([]);
   const [batchStock, setBatchStock] = useState([]);
+  const [serverExpiryCount, setServerExpiryCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -259,8 +260,9 @@ const Stock = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [stockRes, variantsRes, batchRes] = await Promise.all([
+      const [stockRes, variantsRes, batchRes, expiryRes] = await Promise.all([
         fetchStock(), fetchItemVariants(), fetchBatchWiseStock(),
+        fetchExpiryAlerts(90).catch(() => ({ data: [] })),
       ]);
       if (Array.isArray(stockRes.data)) {
         setStock(stockRes.data.map((item) => ({ ...item, id: item.itemVariantId })));
@@ -272,6 +274,8 @@ const Stock = () => {
           id: `${b.itemVariantId}-${b.batchNumber || 'nobatch'}-${i}`,
         })));
       }
+      const expiryList = Array.isArray(expiryRes?.data) ? expiryRes.data : [];
+      setServerExpiryCount(expiryList.length);
     } catch (err) {
       setError(t('stock.errorFetch'));
     } finally {
@@ -935,8 +939,8 @@ const Stock = () => {
             value={loading ? '—' : stats.lowStock}
             color={stats.lowStock > 0 ? theme.palette.error.main : theme.palette.text.secondary} divider />
           <KpiCell icon={<ExpiryIcon fontSize="small" />} label="NEAR EXPIRY (≤ 90D)"
-            value={loading ? '—' : stats.nearExpiry}
-            color={stats.nearExpiry > 0 ? theme.palette.warning.main : theme.palette.text.secondary} divider />
+            value={loading ? '—' : serverExpiryCount}
+            color={serverExpiryCount > 0 ? theme.palette.warning.main : theme.palette.text.secondary} divider />
           <KpiCell icon={<AttachMoney fontSize="small" />} label="INVESTMENT VALUE"
             value={loading ? '—' : `₹${formatCurrency(stats.totalValue)}`}
             color={theme.palette.success.main} divider />

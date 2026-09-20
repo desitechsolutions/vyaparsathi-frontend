@@ -8,6 +8,7 @@ const AUTH_STORAGE_KEYS = [
   'shopId',
   'subscriptionStatus',
   'razorpayStatus',
+  'lastUsername',
 ];
 
 /**

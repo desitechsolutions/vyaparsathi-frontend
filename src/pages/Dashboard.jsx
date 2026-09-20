@@ -32,6 +32,8 @@ import {
   LinearProgress,
   Skeleton,
   alpha,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -51,6 +53,8 @@ import {
   RadioButtonUnchecked as UncheckedIcon,
   Settings as SettingsIcon,
   FiberManualRecord as LiveDotIcon,
+  FileDownload as FileDownloadIcon,
+  ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material";
 import {
   LineChart,
@@ -69,15 +73,21 @@ import {
   fetchItemsSold,
   fetchCustomers,
   fetchAllSales,
+  fetchSalesTimeSeries,
+  fetchCustomerKpis,
+  downloadAuditPack,
 } from "../services/api";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
+import quarterOfYear from "dayjs/plugin/quarterOfYear";
 import { useAlerts } from "../context/AlertContext";
 import { useTranslation } from "react-i18next";
 import { useResponsiveTouchTarget } from "../utils/touchTargets";
+import { useAuthContext } from "../context/AuthContext";
 
 dayjs.extend(isBetween);
+dayjs.extend(quarterOfYear);
 
 const formatCurrency = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
@@ -122,6 +132,10 @@ const StatCard = ({ title, value, icon, color = "#2563eb", onClick, trend }) => 
   return (
     <Paper
       elevation={0}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? title : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
       sx={{
         p: 2,
         borderRadius: 2,
@@ -200,6 +214,8 @@ const Dashboard = () => {
   const { alerts: lowStockAlerts, alertCount: stockAlertCount, criticalCount } = useAlerts();
   const { t } = useTranslation();
   const abortController = useAbortableAPI();
+  const { user } = useAuthContext();
+  const isOwnerOrAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const [shop, setShop] = useState(null);
   const [dashboardData, setDashboardData] = useState({
@@ -226,6 +242,9 @@ const Dashboard = () => {
   const [todayModalOpen, setTodayModalOpen] = useState(false);
   const [salesGrowth, setSalesGrowth] = useState(0);
   const [profitGrowth, setProfitGrowth] = useState(0);
+  const [exportAnchor, setExportAnchor] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const debounceRef = useRef(null);
 
   // ── Real-time sales via WebSocket ────────────────────────────────────────────
   // The `ws:sales` CustomEvent is dispatched by useWebSocket whenever the
@@ -244,6 +263,7 @@ const Dashboard = () => {
 
       setDashboardData((prev) => {
         const amount = Number(sale.amount || 0);
+        const due = Number(sale.dueAmount || 0);
         const todayStr = dayjs().format("YYYY-MM-DD");
         const newSaleRow = {
           invoiceNo:   sale.invoiceNo || `#${sale.saleId || '—'}`,
@@ -260,6 +280,12 @@ const Dashboard = () => {
             sales:         (prev.todayStats.sales || 0) + amount,
             numberOfSales: (prev.todayStats.numberOfSales || 0) + 1,
           },
+          // Keep summaryStats.totalSales and outstandingReceivable in sync with live sales
+          summaryStats: {
+            ...prev.summaryStats,
+            totalSales:           (Number(prev.summaryStats.totalSales) || 0) + amount,
+            outstandingReceivable:(Number(prev.summaryStats.outstandingReceivable) || 0) + due,
+          },
           // Prepend to today's sales so the newest invoice appears first
           todaySales: [newSaleRow, ...prev.todaySales],
           // Update the time-series last data point for today
@@ -267,7 +293,7 @@ const Dashboard = () => {
             const series = [...(prev.salesTimeSeries || [])];
             const lastIdx = series.findIndex((p) => p.date === todayStr);
             if (lastIdx >= 0) {
-              series[lastIdx] = { ...series[lastIdx], totalSales: series[lastIdx].totalSales + amount };
+              series[lastIdx] = { ...series[lastIdx], totalSales: (Number(series[lastIdx].totalSales) || 0) + amount };
             } else {
               series.push({ date: todayStr, totalSales: amount, count: 1 });
             }
@@ -343,91 +369,100 @@ const setupChecklist = useMemo(() => {
   const fetchDashboardData = useCallback(
     async (fromDate, toDate, signal) => {
       setIsLoading(true);
+      setError("");
       try {
         const todayStr = dayjs().format("YYYY-MM-DD");
         const results = await Promise.allSettled([
-          fetchShop(signal),
-          fetchCustomers(signal),
-          fetchSalesSummary(fromDate, toDate, signal),
-          fetchCategorySales(fromDate, toDate, signal),
-          fetchItemsSold(fromDate, toDate, signal),
-          fetchAllSales(fromDate, toDate, signal),
-          fetchDailyReport(todayStr, signal),
+          fetchShop(signal),                                                          // 0
+          fetchCustomerKpis(signal),                                                  // 1 — fast count
+          isOwnerOrAdmin ? fetchSalesSummary(fromDate, toDate, signal) : Promise.resolve({ data: {} }), // 2
+          isOwnerOrAdmin ? fetchCategorySales(fromDate, toDate, signal) : Promise.resolve({ data: [] }), // 3
+          isOwnerOrAdmin ? fetchItemsSold(fromDate, toDate, signal) : Promise.resolve({ data: [] }),     // 4
+          fetchSalesTimeSeries(fromDate, toDate, signal),                             // 5 — chart data
+          fetchAllSales(todayStr, todayStr, signal),                                  // 6 — today's invoices
+          fetchDailyReport(todayStr, signal),                                         // 7
+          fetchCustomers(signal),                                                     // 8 — for top outstanding widget
         ]);
 
-        const getRes = (res, fallback = []) =>
-          res.status === "fulfilled" ? res.value.data || res.value || fallback : fallback;
+        const getRes = (res, fallback) =>
+          res.status === "fulfilled" ? (res.value?.data ?? res.value ?? fallback) : fallback;
 
-        const shopRes = getRes(results[0], null);
-        const customersRes = getRes(results[1], []);
-        const summaryRes = getRes(results[2], {});
-        const categoryRes = getRes(results[3], []);
-        const itemsRes = getRes(results[4], []);
-        const rangeSalesRaw = getRes(results[5], []);
-        const dailyRes = getRes(results[6], {});
-
-        // Derive today's sales from the range result — avoids a duplicate API call.
-        // If the selected range doesn't include today (e.g. a past-week report),
-        // todaySales will simply be empty, which is the correct behaviour.
-        const todaySalesFiltered = rangeSalesRaw.filter(
-          (sale) => dayjs(sale.date).format("YYYY-MM-DD") === todayStr
-        );
-
-        const byDate = {};
-        rangeSalesRaw.forEach((sale) => {
-          const d = dayjs(sale.date).format("YYYY-MM-DD");
-          if (dayjs(d).isBetween(fromDate, toDate, "day", "[]")) {
-            if (!byDate[d]) byDate[d] = { date: d, totalSales: 0, count: 0 };
-            byDate[d].totalSales += Number(sale.totalAmount || 0);
-            byDate[d].count += 1;
-          }
-        });
+        const shopRes       = getRes(results[0], null);
+        const kpisRes       = getRes(results[1], {});
+        const summaryRes    = getRes(results[2], {});
+        const categoryRes   = getRes(results[3], []);
+        const itemsRes      = getRes(results[4], []);
+        const timeSeriesRaw = getRes(results[5], []);
+        const todaySalesRaw = getRes(results[6], []);
+        const dailyRes      = getRes(results[7], {});
+        const customersRes  = getRes(results[8], []);
 
         if (!shop) setShop(shopRes);
 
         setDashboardData({
-          totalCustomers: customersRes.length,
+          // Use the fast KPI count; fall back to the customers list length if kpis failed
+          totalCustomers: kpisRes.totalCustomers ?? (Array.isArray(customersRes) ? customersRes.length : 0),
           summaryStats: summaryRes,
-          categorySales: categoryRes.map((r) => ({ name: r.categoryName, value: Number(r.totalSales) })),
-          itemSales: itemsRes.map((r) => ({
-            name: r.itemName,
-            value: Number(r.totalSales),
-            totalSold: r.totalSold,
-          })),
-          salesTimeSeries: Object.values(byDate).sort(
-            (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()
-          ),
+          categorySales: Array.isArray(categoryRes)
+            ? categoryRes.map((r) => ({ name: r.categoryName, value: Number(r.totalSales) }))
+            : [],
+          itemSales: Array.isArray(itemsRes)
+            ? itemsRes.map((r) => ({
+                name: r.itemName,
+                value: Number(r.totalSales),
+                totalSold: r.totalSold,
+              }))
+            : [],
+          salesTimeSeries: Array.isArray(timeSeriesRaw)
+            ? timeSeriesRaw.map((pt) => ({ date: pt.date, totalSales: Number(pt.totalSales || 0), count: pt.count || 0 }))
+            : [],
           todayStats: {
-            sales: dailyRes.totalSales || 0,
+            sales:         dailyRes.totalSales    || 0,
             numberOfSales: dailyRes.numberOfSales || 0,
-            netRevenue: dailyRes.netRevenue || 0,
+            netRevenue:    dailyRes.netRevenue     || 0,
           },
-          todaySales: todaySalesFiltered,
-          topCustomers: customersRes
-            .filter((c) => c.creditBalance > 0)
-            .sort((a, b) => b.creditBalance - a.creditBalance)
-            .slice(0, 5),
+          todaySales: Array.isArray(todaySalesRaw) ? todaySalesRaw : [],
+          topCustomers: Array.isArray(customersRes)
+            ? customersRes
+                .filter((c) => c.creditBalance > 0)
+                .sort((a, b) => b.creditBalance - a.creditBalance)
+                .slice(0, 5)
+            : [],
         });
 
-        // Set dynamic growth percentages from backend
         setSalesGrowth(Number(summaryRes.salesGrowthPercent || 0));
         setProfitGrowth(Number(summaryRes.profitGrowthPercent || 0));
-
         setLastUpdated(new Date());
       } catch (e) {
-        if (axios.isCancel(e)) return; // component unmounted — discard silently
+        if (axios.isCancel(e)) return;
         console.error("Dashboard fetch error:", e);
         setError(t('dashboardPage.errorLoad'));
       } finally {
         setIsLoading(false);
       }
     },
-    [t]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, isOwnerOrAdmin]
   );
 
+  // Debounce date-range changes by 500 ms so typing in the date fields
+  // doesn't fire a request on every keystroke.
   useEffect(() => {
-    fetchDashboardData(range.from, range.to, abortController?.signal);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchDashboardData(range.from, range.to, abortController?.signal);
+    }, 500);
+    return () => clearTimeout(debounceRef.current);
   }, [range, fetchDashboardData, abortController]);
+
+  // Auto-refresh every 5 minutes when WebSocket is disconnected
+  useEffect(() => {
+    if (wsConnected) return;
+    const id = setInterval(() => {
+      fetchDashboardData(range.from, range.to);
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [wsConnected, range, fetchDashboardData]);
 
 
   const avgTicketSize = useMemo(() => {
@@ -440,6 +475,40 @@ const setupChecklist = useMemo(() => {
     const message = `${t('dashboardPage.hello')} ${customer.name}, ${t('dashboardPage.reminderFrom')} ${shop?.name || t('dashboardPage.ourShop')} ${t('dashboardPage.pendingBalance')} ₹${customer.creditBalance}. ${t('dashboardPage.pleaseClear')}`;
     const url = `https://wa.me/91${customer.phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
+  };
+
+  const handleExportSalesCsv = () => {
+    setExportAnchor(null);
+    const rows = [
+      ['Date', 'Total Sales'],
+      ...dashboardData.salesTimeSeries.map((pt) => [pt.date, pt.totalSales]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sales_${range.from}_to_${range.to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAuditPack = async () => {
+    setExportAnchor(null);
+    setExportLoading(true);
+    try {
+      const res = await downloadAuditPack(range.from, range.to);
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Audit_Pack_${range.from}_to_${range.to}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Audit pack export failed', err);
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const theme = useTheme();
@@ -648,6 +717,12 @@ const setupChecklist = useMemo(() => {
             <Button onClick={() => setRange({ from: dayjs().subtract(29, "day").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
               {t('dashboardPage.30Days')}
             </Button>
+            <Button onClick={() => setRange({ from: dayjs().startOf("month").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
+              This Month
+            </Button>
+            <Button onClick={() => setRange({ from: dayjs().startOf("quarter").format("YYYY-MM-DD"), to: dayjs().format("YYYY-MM-DD") })}>
+              This Quarter
+            </Button>
           </ButtonGroup>
           <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block" } }} />
           <TextField
@@ -671,6 +746,25 @@ const setupChecklist = useMemo(() => {
         </Stack>
 
         <Stack direction="row" spacing={1} alignItems="center">
+          {isOwnerOrAdmin && (
+            <>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={exportLoading ? <CircularProgress size={14} /> : <FileDownloadIcon />}
+                endIcon={<ExpandMoreIcon />}
+                onClick={(e) => setExportAnchor(e.currentTarget)}
+                disabled={exportLoading}
+                sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600, minHeight: 44, py: { xs: 1, md: 1.5 } }}
+              >
+                Export
+              </Button>
+              <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}>
+                <MenuItem onClick={handleExportSalesCsv}>Sales CSV</MenuItem>
+                <MenuItem onClick={handleExportAuditPack}>Audit Pack (ZIP)</MenuItem>
+              </Menu>
+            </>
+          )}
           <Button
             variant="outlined"
             size="small"
@@ -749,23 +843,27 @@ const setupChecklist = useMemo(() => {
                 onClick={() => setItemModalOpen(true)}
               />
             </Grid>
-            <Grid item xs={6} sm={4} md={2.4}>
-              <StatCard
-                title={t('dashboardPage.outstandingDues')}
-                value={formatCurrency(dashboardData.summaryStats.outstandingReceivable)}
-                icon={<AccountBalanceWalletIcon />}
-                color="#dc2626"
-              />
-            </Grid>
-            <Grid item xs={6} sm={4} md={2.4}>
-              <StatCard
-                title={t('dashboardPage.netProfit')}
-                value={formatCurrency(dashboardData.summaryStats.netProfit)}
-                icon={<TrendingUpIcon />}
-                color="#16a34a"
-                trend={profitGrowth}
-              />
-            </Grid>
+            {isOwnerOrAdmin && (
+              <Grid item xs={6} sm={4} md={2.4}>
+                <StatCard
+                  title={t('dashboardPage.outstandingDues')}
+                  value={formatCurrency(dashboardData.summaryStats.outstandingReceivable)}
+                  icon={<AccountBalanceWalletIcon />}
+                  color="#dc2626"
+                />
+              </Grid>
+            )}
+            {isOwnerOrAdmin && (
+              <Grid item xs={6} sm={4} md={2.4}>
+                <StatCard
+                  title={t('dashboardPage.netProfit')}
+                  value={formatCurrency(dashboardData.summaryStats.netProfit)}
+                  icon={<TrendingUpIcon />}
+                  color="#16a34a"
+                  trend={profitGrowth}
+                />
+              </Grid>
+            )}
           </Grid>
 
           {/* Recent Invoices + Stock Alerts — enterprise-grade activity strip.
@@ -796,9 +894,21 @@ const setupChecklist = useMemo(() => {
                   borderBottom: "1px solid",
                   borderBottomColor: "divider",
                 }}>
-                  <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "text.primary" }}>
-                    Recent Invoices
-                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "text.primary" }}>
+                      Today's Transactions
+                    </Typography>
+                    {wsConnected && (
+                      <Chip
+                        icon={<LiveDotIcon sx={{ fontSize: '9px !important', animation: 'vs-pulse 1.6s ease-in-out infinite', '@keyframes vs-pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.4 } } }} />}
+                        label="live"
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                        sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700, px: 0.5, '& .MuiChip-icon': { ml: 0.5 } }}
+                      />
+                    )}
+                  </Stack>
                   <Button
                     size="small"
                     onClick={() => navigate("/sales?tab=history")}
@@ -1036,11 +1146,11 @@ const setupChecklist = useMemo(() => {
           </Grid>
 
           <Grid container spacing={2.5}>
-            <Grid item xs={12} lg={8}>
+            <Grid item xs={12} lg={8} sx={{ minWidth: 0 }}>
               <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }} elevation={0}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                   <Typography variant="h6" fontWeight={700} color="text.primary">
-                    {t('dashboardPage.revenueTrend')}
+                    Gross Sales Trend
                   </Typography>
                   {salesGrowth !== 0 && (
                     <MuiTooltip title={t('dashboardPage.growthVsPrevious')}>
@@ -1053,8 +1163,8 @@ const setupChecklist = useMemo(() => {
                     </MuiTooltip>
                   )}
                 </Stack>
-                <Box sx={{ height: 360 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                <Box sx={{ height: 360, minWidth: 0 }}>
+                  <ResponsiveContainer width="100%" height={320} minWidth={0}>
                     <LineChart data={dashboardData.salesTimeSeries}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
                       <XAxis

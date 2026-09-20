@@ -175,6 +175,7 @@ const PurchaseRegister = React.lazy(() => import('../pages/reports/PurchaseRegis
 // ===== EAGERLY-LOADED (Main app) =====
 import ResetPassword from '../pages/ResetPassword';
 import VerifyEmail from '../pages/VerifyEmail';
+import OAuthCallbackPage from '../pages/OAuthCallbackPage';
 import ComingSoonPage from '../pages/public/ComingSoonPage';
 import AdminLayout from '../components/layout/AdminLayout';
 import { useAuthContext } from '../context/AuthContext';
@@ -249,6 +250,7 @@ function AppRoutes() {
               signed in. Allows a link click from the verification email to work
               even when a stale session exists. */}
           <Route path="/auth/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/oauth2/callback" element={<OAuthCallbackPage />} />
           <Route path="/accept-invite" element={<AcceptAdminInvitePage />} />
           {/* Shop-level staff invitations (Phase 5). Public: the token in the URL is the auth signal. */}
           <Route path="/accept-shop-invite" element={<AcceptShopInvitePage />} />

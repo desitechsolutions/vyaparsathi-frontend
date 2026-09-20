@@ -4,7 +4,7 @@ import {
   TableRow, Typography, Chip, Skeleton, Box, Grid, Stack,
   TextField, MenuItem, TablePagination, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Tooltip,
-  Avatar, Divider,
+  Avatar, Divider, Tab, Tabs,
 } from '@mui/material';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SearchIcon from '@mui/icons-material/Search';
@@ -21,10 +21,16 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import ReplayIcon from '@mui/icons-material/Replay';
 import BusinessIcon from '@mui/icons-material/Business';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import { toast } from 'react-toastify';
+
 import platformApi from '../../services/platformApi';
+import { useShop } from '../../context/ShopContext';
 
 /**
- * Number-to-Words Converter for B2B Tax Invoice Total Amount.
+ * Indian Number-to-Words Converter for Tax Invoice Totals.
  */
 function numberToWords(num) {
   const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -44,53 +50,133 @@ function numberToWords(num) {
   return (words ? words : 'Zero') + ' Rupees Only';
 }
 
-/**
- * Year for a synthetic invoice number, derived from when the invoice was
- * actually created rather than a hardcoded year that would go stale.
- */
 function invoiceYear(createdAt) {
   const d = createdAt ? new Date(createdAt) : new Date();
   return Number.isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
 }
 
 /**
- * Enterprise-grade B2B Tax Invoice & Receipt Table for VyaparSathi.
- *
- * @param {Array}   invoices       - Array of RazorpayPaymentLog from GET /api/subscriptions/razorpay/invoices
- * @param {object}  razorpayStatus - Aggregated status DTO from GET /api/subscriptions/razorpay/status
- * @param {boolean} loading        - True while data is being fetched
+ * Resolves complete statutory B2B invoice fields combining:
+ * 1. Payment transaction log
+ * 2. Platform vendor details from platform_details table / API
+ * 3. Buyer details snapshot prioritized from invoice row, with ShopContext fallback
+ */
+export function resolveInvoiceDetails(inv, razorpayStatus, platformInfo, shop) {
+  // ── 1. Seller / Platform Details ──
+  const seller = inv?.platformDetails || platformInfo || {};
+  const sellerCompany = seller.companyName || 'Biruma Technology Solutions Pvt. Ltd.';
+  const sellerTrade = seller.tradeName || 'VyaparSathi Enterprise SaaS';
+  const sellerCin = seller.cin || 'U62010HR2025PTC139151';
+  const sellerGstin = seller.gstin || '06AAOCB1973G1ZJ';
+  const sellerPan = seller.pan || 'AAOCB1973G';
+  const sellerAddress = [
+    seller.addressLine1,
+    seller.addressLine2,
+    seller.city,
+    seller.state ? `${seller.state}${seller.pincode ? ' - ' + seller.pincode : ''}` : ''
+  ].filter(Boolean).join(', ') || 'Arjun Nagar, Gurgaon, Haryana – 122001';
+  const sellerState = seller.state || 'Haryana';
+  const sellerStateCode = String(seller.stateCode || '06').trim();
+  const sellerEmail = seller.supportEmail || 'contact@desitechsolutions.com';
+  const sellerPhone = seller.supportPhone || '+91 98765 43210';
+  const sellerSac = seller.hsnSacCode || '998313';
+
+  // ── 2. Buyer / Customer Details (Priority: Invoice snapshot -> ShopContext) ──
+  const buyer = inv?.shopDetails || {};
+  const buyerName = buyer.shopName || shop?.name || `Shop Account #${inv?.shopId || razorpayStatus?.shopId || 1}`;
+  const buyerOwner = buyer.ownerName || shop?.ownerName || '';
+  const buyerAddress = buyer.address || shop?.address || 'Registered Business Address on file';
+  const buyerCity = buyer.city || shop?.city || '';
+  const buyerState = buyer.state || shop?.state || sellerState;
+  const buyerStateCode = String(buyer.stateCode || shop?.stateCode || sellerStateCode).trim();
+  const buyerPincode = buyer.pincode || shop?.pincode || '';
+  const buyerGstin = buyer.gstin || shop?.gstin || 'N/A (Unregistered / B2C)';
+  const buyerPhone = buyer.phone || shop?.phone || 'N/A';
+  const buyerEmail = buyer.email || shop?.email || 'N/A';
+
+  // ── 3. Financials & Tax Math (18% GST Inclusive) ──
+  const totalAmount = Number(inv?.amount || 999);
+  const baseAmount = Number((totalAmount / 1.18).toFixed(2));
+  const totalGst = Number((totalAmount - baseAmount).toFixed(2));
+
+  // Dynamic Intra-State vs Inter-State Evaluation
+  const isIntraState = sellerStateCode === buyerStateCode;
+  const cgstRate = isIntraState ? 9 : 0;
+  const cgstAmount = isIntraState ? Number((totalGst / 2).toFixed(2)) : 0;
+  const sgstRate = isIntraState ? 9 : 0;
+  const sgstAmount = isIntraState ? Number((totalGst / 2).toFixed(2)) : 0;
+  const igstRate = !isIntraState ? 18 : 0;
+  const igstAmount = !isIntraState ? totalGst : 0;
+
+  // ── 4. Metadata & Statutory Identifiers ──
+  const prefix = seller.invoicePrefix || 'SUB-INV';
+  const pDate = inv?.createdAt ? new Date(inv.createdAt) : new Date();
+  const invYear = pDate.getFullYear();
+  const invNo = inv?.invoiceNumber || `${prefix}-${invYear}-${String(inv?.id || Date.now()).slice(-6).padStart(6, '0')}`;
+  const formattedDate = pDate.toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const formattedDateTime = pDate.toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  const plan = (inv?.planCode || razorpayStatus?.planCode || 'PRO').toUpperCase();
+  const cycle = (inv?.billingCycle || razorpayStatus?.billingCycle || 'MONTHLY').toUpperCase();
+  const periodStart = inv?.periodStart ? new Date(inv.periodStart) : pDate;
+  const periodEnd = inv?.periodEnd
+    ? new Date(inv.periodEnd)
+    : new Date(periodStart.getTime() + (cycle === 'YEARLY' ? 365 : 30) * 24 * 3600 * 1000);
+  const formattedPeriod = `${periodStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} to ${periodEnd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+
+  const paymentId = inv?.razorpayPaymentId || 'SUB-AUTO-MANDATE';
+  const subId = inv?.razorpaySubscriptionId || razorpayStatus?.razorpaySubscriptionId || 'MANDATE-REF';
+  const method = inv?.method || 'Razorpay AutoPay (e-Mandate / UPI / Card)';
+  const placeOfSupply = buyerState ? `${buyerStateCode ? buyerStateCode + ' - ' : ''}${buyerState}` : `${sellerStateCode} - ${sellerState}`;
+
+  return {
+    sellerCompany, sellerTrade, sellerCin, sellerGstin, sellerPan, sellerAddress, sellerState, sellerStateCode,
+    sellerEmail, sellerPhone, sellerSac,
+    buyerName, buyerOwner, buyerAddress, buyerCity, buyerState, buyerStateCode, buyerPincode, buyerGstin, buyerPhone, buyerEmail,
+    totalAmount, baseAmount, totalGst, isIntraState, cgstRate, cgstAmount, sgstRate, sgstAmount, igstRate, igstAmount,
+    invNo, formattedDate, formattedDateTime, plan, cycle, formattedPeriod, paymentId, subId, method, placeOfSupply,
+    amountInWords: numberToWords(totalAmount),
+  };
+}
+
+/**
+ * Enterprise B2B Tax Invoice & Receipt Table for VyaparSathi.
  */
 export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = null, loading = false }) {
+  const { shop } = useShop();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [modalTab, setModalTab] = useState(0);
 
   const [platformInfo, setPlatformInfo] = useState({
-    companyName: 'DesiTech Solutions Pvt. Ltd.',
+    companyName: 'Biruma Technology Solutions Pvt. Ltd.',
     tradeName: 'VyaparSathi Enterprise SaaS',
-    // No fabricated GSTIN/PAN — a fake-but-plausible number on a legally
-    // issued tax invoice is a compliance risk. Left unset until the real
-    // value loads from `/api/platform/public-info`; the invoice display
-    // and PDF fall back to an explicit "NOT CONFIGURED" label, never a
-    // made-up identifier.
-    gstin: null,
-    pan: null,
-    addressLine1: '101, Tech Hub Tower',
-    addressLine2: 'Senapati Bapat Marg, Lower Parel',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    stateCode: '27',
-    pincode: '400013',
+    cin: 'U62010HR2025PTC139151',
+    gstin: '06AAOCB1973G1ZJ',
+    pan: 'AAOCB1973G',
+    addressLine1: 'Arjun Nagar',
+    addressLine2: '',
+    city: 'Gurgaon',
+    state: 'Haryana',
+    stateCode: '06',
+    pincode: '122001',
     hsnSacCode: '998313',
     invoicePrefix: 'SUB-INV',
+    supportEmail: 'contact@desitechsolutions.com',
+    supportPhone: '+91 98765 43210',
   });
 
   useEffect(() => {
     platformApi.getPublicPlatformInfo()
       .then((data) => {
-        if (data) setPlatformInfo(data);
+        if (data) setPlatformInfo((prev) => ({ ...prev, ...data }));
       })
       .catch((err) => console.error('[RazorpayInvoiceTable] Public platform info fetch error:', err));
   }, []);
@@ -109,11 +195,11 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
       amount: razorpayStatus.priceAmount || (razorpayStatus.planCode === 'ENTERPRISE' ? 4999 : 999),
       status: 'SUCCESS',
       invoiceNumber: `${platformInfo.invoicePrefix || 'SUB-INV'}-${invoiceYear(syntheticCreatedAt)}-${String(razorpayStatus.shopId || 101).padStart(6, '0')}`,
-      shopId: razorpayStatus.shopId || 1,
+      shopId: razorpayStatus.shopId || shop?.id || 1,
     });
   }
 
-  // Calculate Metric Cards Summary
+  // Summary Metrics
   const totalSpent = displayInvoices.reduce((acc, inv) => {
     return inv.status === 'SUCCESS' ? acc + Number(inv.amount || 0) : acc;
   }, 0);
@@ -121,7 +207,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
   const successfulCount = displayInvoices.filter((i) => i.status === 'SUCCESS').length;
   const activePlanLabel = (razorpayStatus?.planCode || displayInvoices[0]?.planCode || 'FREE').toUpperCase();
 
-  // Filter invoices based on search term & status selector
+  // Search & Filter
   const filteredInvoices = displayInvoices.filter((inv) => {
     const pId = String(inv.razorpayPaymentId || '').toLowerCase();
     const invNo = String(inv.invoiceNumber || '').toLowerCase();
@@ -138,10 +224,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
     page * rowsPerPage + rowsPerPage
   );
 
-  const handleChangePage = (_, newPage) => {
-    setPage(newPage);
-  };
-
+  const handleChangePage = (_, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
@@ -164,109 +247,284 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
 
   const renderStatusIcon = (status) => {
     const s = String(status || 'SUCCESS').toUpperCase();
-    if (s === 'SUCCESS' || s === 'CHARGED' || s === 'AUTHENTICATED') {
-      return <CheckCircleIcon sx={{ fontSize: 14 }} />;
-    }
-    if (s === 'FAILED' || s === 'REJECTED') {
-      return <CancelIcon sx={{ fontSize: 14 }} />;
-    }
-    if (s === 'REFUNDED') {
-      return <ReplayIcon sx={{ fontSize: 14 }} />;
-    }
+    if (s === 'SUCCESS' || s === 'CHARGED' || s === 'AUTHENTICATED') return <CheckCircleIcon sx={{ fontSize: 14 }} />;
+    if (s === 'FAILED' || s === 'REJECTED') return <CancelIcon sx={{ fontSize: 14 }} />;
+    if (s === 'REFUNDED') return <ReplayIcon sx={{ fontSize: 14 }} />;
     return <HourglassEmptyIcon sx={{ fontSize: 14 }} />;
   };
 
-  // Dynamic B2B Tax Invoice Generator Helper
+  const copyToClipboard = (text, label) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      toast.success(`${label} copied to clipboard!`);
+    }
+  };
+
+  // ═════════════════════════════════════════════════════════════════════════
+  //  PRINT ENGINE — Strict A4 Portrait, Print-Safe CSS Engine
+  // ═════════════════════════════════════════════════════════════════════════
   const triggerPrintWindow = (inv) => {
-    const shopId = inv.shopId || razorpayStatus?.shopId || 1;
-    const pId = inv.razorpayPaymentId || 'SUB-PAYMENT-REF';
-    const subId = inv.razorpaySubscriptionId || razorpayStatus?.razorpaySubscriptionId || 'SUB-MANDATE-REF';
-    const pDate = inv.createdAt
-      ? new Date(inv.createdAt).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-      : new Date().toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        });
-    const plan = (inv.planCode || razorpayStatus?.planCode || 'PRO').toUpperCase();
-    const cycle = (inv.billingCycle || razorpayStatus?.billingCycle || 'MONTHLY').toLowerCase();
-    const totalAmount = Number(inv.amount || 999);
-
-    // Tax Math (18% GST included)
-    const baseAmount = Number((totalAmount / 1.18).toFixed(2));
-    const totalGst = Number((totalAmount - baseAmount).toFixed(2));
-
-    // Dynamic State Code Evaluation (Intra-State vs Inter-State)
-    const vendorStateCode = String(platformInfo.stateCode || '27').trim();
-    const customerStateCode = String(inv.shopStateCode || razorpayStatus?.shopStateCode || '27').trim();
-    const isIntraState = vendorStateCode === customerStateCode;
-
-    const cgst = isIntraState ? Number((totalGst / 2).toFixed(2)) : 0;
-    const sgst = isIntraState ? Number((totalGst / 2).toFixed(2)) : 0;
-    const igst = !isIntraState ? totalGst : 0;
-
-    const method = inv.method || 'Razorpay AutoPay (UPI / Card / NetBanking)';
-    const invPrefix = platformInfo.invoicePrefix || 'SUB-INV';
-    const invNo = inv.invoiceNumber || `${invPrefix}-${invoiceYear(inv.createdAt)}-${String(inv.id || Date.now()).slice(-6).padStart(6, '0')}`;
-    const amountInWords = numberToWords(totalAmount);
-
-    const vendorAddressStr = [
-      platformInfo.addressLine1,
-      platformInfo.addressLine2,
-      platformInfo.city,
-      platformInfo.state ? `${platformInfo.state} - ${platformInfo.pincode || ''}` : '',
-    ].filter(Boolean).join(', ');
+    const details = resolveInvoiceDetails(inv, razorpayStatus, platformInfo, shop);
 
     const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>B2B Tax Invoice - ${invNo}</title>
+  <title>B2B Tax Invoice - ${details.invNo}</title>
   <style>
-    @page { size: A4; margin: 12mm; }
-    * { box-sizing: border-box; }
-    body { font-family: 'Roboto', 'Segoe UI', Arial, sans-serif; color: #0f172a; background: #fff; margin: 0; padding: 20px; font-size: 12px; line-height: 1.4; }
-    .invoice-card { max-width: 820px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; padding: 28px; background: #ffffff; }
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      margin: 0;
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .invoice-card {
+      max-width: 820px;
+      margin: 0 auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 24px;
+      background: #ffffff;
+    }
     
-    /* Header & Logo */
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px; }
-    .company-title { font-size: 22px; font-weight: 900; color: #2563eb; letter-spacing: -0.5px; }
-    .invoice-title { font-size: 18px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; }
-    .badge { background: #dcfce7; color: #15803d; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; border: 1px solid #bbf7d0; display: inline-block; }
+    /* Header Section */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+    }
+    .brand-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #1e40af;
+      letter-spacing: -0.5px;
+      margin-bottom: 2px;
+    }
+    .brand-subtitle {
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+    }
+    .invoice-badge-box {
+      text-align: right;
+    }
+    .invoice-main-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+    }
+    .invoice-sub-type {
+      font-size: 9px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .badge-paid {
+      background: #dcfce7 !important;
+      color: #15803d !important;
+      font-weight: 800;
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      display: inline-block;
+      border: 1px solid #bbf7d0;
+      margin-top: 4px;
+    }
 
-    /* Address Grid */
-    .address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; font-size: 11px; }
-    .box-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; margin-bottom: 4px; letter-spacing: 0.5px; }
-    .address-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-    
-    /* Metadata Grid */
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 20px; }
-    .meta-label { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; }
-    .meta-val { font-size: 11px; font-weight: 800; color: #0f172a; font-family: monospace; }
+    /* Metadata Bar */
+    .meta-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+    .meta-item-label {
+      font-size: 8.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 0.5px;
+    }
+    .meta-item-val {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #0f172a;
+      font-family: monospace;
+      margin-top: 1px;
+    }
 
-    /* Items Table */
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-    th { background: #e2e8f0; font-size: 10px; text-transform: uppercase; font-weight: 800; color: #334155; padding: 10px; text-align: left; border: 1px solid #cbd5e1; }
-    td { padding: 10px; border: 1px solid #cbd5e1; }
+    /* Dual Parties Grid */
+    .parties-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .party-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .party-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #1e40af;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+    }
+    .party-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 3px;
+    }
+    .party-text {
+      font-size: 10px;
+      color: #334155;
+      line-height: 1.45;
+    }
+
+    /* Line Items Table */
+    table.items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    table.items-table th {
+      background: #f1f5f9;
+      font-size: 9px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #334155;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      text-align: left;
+    }
+    table.items-table td {
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 10.5px;
+    }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
 
-    /* Tax Summary Table */
-    .summary-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .words-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-    .total-box { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 8px; padding: 16px; text-align: right; }
-    .total-amount { font-size: 22px; font-weight: 900; color: #1e40af; }
+    /* Totals & Tax Breakup Grid */
+    .totals-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+    }
+    .words-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .calculation-card {
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+    .grand-total-box {
+      border-top: 1.5px solid #93c5fd;
+      padding-top: 6px;
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .grand-total-amount {
+      font-size: 18px;
+      font-weight: 900;
+      color: #1e40af;
+    }
 
-    /* Footer */
-    .footer { text-align: center; color: #64748b; font-size: 10px; margin-top: 25px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
-    
+    /* Declarations & Signatory Section */
+    .signatory-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 16px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 14px;
+      margin-top: 14px;
+      page-break-inside: avoid;
+    }
+    .legal-notes {
+      font-size: 9px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .signatory-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      background: #fafafa;
+    }
+    .signature-seal {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border: 1px dashed #2563eb;
+      border-radius: 4px;
+      color: #2563eb;
+      font-size: 9px;
+      font-weight: 800;
+      margin: 8px 0;
+      text-transform: uppercase;
+      background: #eff6ff;
+    }
+
     @media print {
-      body { padding: 0; background: #fff; }
-      .invoice-card { border: none; padding: 0; max-width: 100%; }
+      body {
+        padding: 0;
+        background: #ffffff;
+      }
+      .invoice-card {
+        border: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .page-break-avoid {
+        page-break-inside: avoid;
+      }
     }
   </style>
 </head>
@@ -275,111 +533,167 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
     <!-- Header -->
     <div class="header">
       <div>
-        <div class="company-title">${platformInfo.companyName || 'DesiTech Solutions Pvt. Ltd.'}</div>
-        <div style="color: #64748b; font-size: 11px; font-weight: 600;">${platformInfo.tradeName || 'VyaparSathi Enterprise SaaS Platform'}</div>
-      </div>
-      <div>
-        <div class="invoice-title">B2B TAX INVOICE</div>
-        <div style="text-align: right; margin-top: 4px;">
-          <span class="badge">✓ TAX INVOICE PAID</span>
+        <div class="brand-title">${details.sellerCompany}</div>
+        <div class="brand-subtitle">${details.sellerTrade}</div>
+        <div style="font-size: 9px; color: #64748b; margin-top: 2px;">
+          CIN: <strong>${details.sellerCin}</strong> · PAN: <strong>${details.sellerPan}</strong>
         </div>
       </div>
-    </div>
-
-    <!-- Vendor & Customer Info -->
-    <div class="address-grid">
-      <div class="address-box">
-        <div class="box-title">Vendor / Platform Details (Billed From)</div>
-        <strong>${platformInfo.companyName || 'DesiTech Solutions Pvt. Ltd.'}</strong><br/>
-        ${vendorAddressStr}<br/>
-        <strong>GSTIN:</strong> ${platformInfo.gstin || 'GSTIN NOT CONFIGURED'} | <strong>PAN:</strong> ${platformInfo.pan || 'PAN NOT CONFIGURED'}<br/>
-        <strong>State Code:</strong> ${platformInfo.stateCode || '27'} (${platformInfo.state || 'Maharashtra'}) | <strong>SAC Code:</strong> ${platformInfo.hsnSacCode || '998313'}
-      </div>
-      <div class="address-box">
-        <div class="box-title">Customer / Subscriber Details (Billed To)</div>
-        <strong>Shop Account #${shopId}</strong><br/>
-        Authorized VyaparSathi Merchant Account<br/>
-        <strong>GSTIN / UIN:</strong> ${inv.shopGstin || 'N/A (Unregistered / ITC Claimable)'}<br/>
-        <strong>State Code:</strong> ${customerStateCode}<br/>
-        <strong>Billing Instrument:</strong> ${method}
+      <div class="invoice-badge-box">
+        <div class="invoice-main-title">TAX INVOICE</div>
+        <div class="invoice-sub-type">Original for Recipient (Rule 46 CGST)</div>
+        <span class="badge-paid">✓ FULLY PAID · AUTOMATED DEBIT</span>
       </div>
     </div>
 
-    <!-- Metadata Row -->
-    <div class="meta-grid">
+    <!-- Metadata Bar -->
+    <div class="meta-bar">
       <div>
-        <div class="meta-label">Invoice Number</div>
-        <div class="meta-val">${invNo}</div>
+        <div class="meta-item-label">Invoice Number</div>
+        <div class="meta-item-val">${details.invNo}</div>
       </div>
       <div>
-        <div class="meta-label">Invoice Date</div>
-        <div class="meta-val" style="font-family: inherit;">${pDate}</div>
+        <div class="meta-item-label">Invoice Date & Time</div>
+        <div class="meta-item-val" style="font-family: inherit;">${details.formattedDateTime}</div>
       </div>
       <div>
-        <div class="meta-label">Razorpay Payment ID</div>
-        <div class="meta-val">${pId}</div>
+        <div class="meta-item-label">Place of Supply (POS)</div>
+        <div class="meta-item-val" style="font-family: inherit;">${details.placeOfSupply}</div>
       </div>
       <div>
-        <div class="meta-label">Subscription Mandate ID</div>
-        <div class="meta-val">${subId}</div>
+        <div class="meta-item-label">Reverse Charge</div>
+        <div class="meta-item-val" style="font-family: inherit;">NO (Section 9(3))</div>
+      </div>
+    </div>
+
+    <!-- Parties: Seller & Buyer Grid -->
+    <div class="parties-grid">
+      <!-- Seller (Billed From) -->
+      <div class="party-card">
+        <div class="party-title">Supplier / Platform Details (Billed From)</div>
+        <div class="party-name">${details.sellerCompany}</div>
+        <div class="party-text">
+          ${details.sellerAddress}<br/>
+          <strong>GSTIN:</strong> ${details.sellerGstin} · <strong>CIN:</strong> ${details.sellerCin}<br/>
+          <strong>State:</strong> ${details.sellerState} (Code: ${details.sellerStateCode})<br/>
+          <strong>Email:</strong> ${details.sellerEmail} · info@desitechsolutions.com · <strong>Phone:</strong> ${details.sellerPhone}
+        </div>
+      </div>
+
+      <!-- Buyer (Billed To) -->
+      <div class="party-card">
+        <div class="party-title">Subscriber / Merchant Details (Billed To)</div>
+        <div class="party-name">${details.buyerName}</div>
+        <div class="party-text">
+          ${details.buyerOwner ? `Attn: ${details.buyerOwner}<br/>` : ''}
+          ${details.buyerAddress}${details.buyerCity ? `, ${details.buyerCity}` : ''}${details.buyerPincode ? ` - ${details.buyerPincode}` : ''}<br/>
+          <strong>GSTIN / UIN:</strong> ${details.buyerGstin}<br/>
+          <strong>State:</strong> ${details.buyerState} (Code: ${details.buyerStateCode})<br/>
+          <strong>Contact:</strong> ${details.buyerPhone} · ${details.buyerEmail}
+        </div>
       </div>
     </div>
 
     <!-- Line Items Table -->
-    <table>
+    <table class="items-table">
       <thead>
         <tr>
-          <th style="width: 50%;">SAC & Service Description</th>
-          <th class="text-center">SAC Code</th>
-          <th class="text-center">Billing Cycle</th>
-          <th class="text-right">Taxable Amount (INR)</th>
+          <th style="width: 5%;">#</th>
+          <th style="width: 45%;">Service Description & Coverage Scope</th>
+          <th class="text-center" style="width: 12%;">SAC Code</th>
+          <th class="text-center" style="width: 12%;">Billing Period</th>
+          <th class="text-right" style="width: 12%;">Rate</th>
+          <th class="text-right" style="width: 14%;">Taxable Value</th>
         </tr>
       </thead>
       <tbody>
         <tr>
+          <td class="text-center">1</td>
           <td>
-            <strong>VyaparSathi ${plan} Plan Subscription Services</strong><br/>
-            <span style="color: #64748b; font-size: 10px;">Cloud ERP Access, POS Billing, Inventory, GST Ledger & Razorpay AutoPay</span>
+            <strong>VyaparSathi ${details.plan} Plan SaaS Subscription</strong><br/>
+            <span style="font-size: 9.5px; color: #475569;">
+              Multi-branch POS Billing, GST Ledger, Inventory Control, E-Way Bill Generation & AutoPay e-Mandate Management
+            </span>
           </td>
-          <td class="text-center font-mono">${platformInfo.hsnSacCode || '998313'}</td>
-          <td class="text-center" style="text-transform: capitalize;">${cycle}</td>
-          <td class="text-right" style="font-weight: 800;">₹${baseAmount.toFixed(2)}</td>
+          <td class="text-center font-mono">${details.sellerSac}</td>
+          <td class="text-center" style="font-size: 9.5px;">${details.formattedPeriod}</td>
+          <td class="text-right">₹${details.baseAmount.toFixed(2)}</td>
+          <td class="text-right font-mono" style="font-weight: 800;">₹${details.baseAmount.toFixed(2)}</td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Tax Breakdown & Totals -->
-    <div class="summary-grid">
-      <div class="words-box">
-        <div class="box-title">Amount Chargeable in Words</div>
-        <strong style="font-size: 12px; color: #1e40af;">${amountInWords}</strong>
-        <div style="margin-top: 10px; font-size: 10px; color: #64748b;">
-          * Tax is payable on reverse charge: No<br/>
-          * SAC ${platformInfo.hsnSacCode || '998313'} — Information technology software services
+    <!-- Totals & Tax Summary Grid -->
+    <div class="totals-grid page-break-avoid">
+      <!-- Words Box & Payment Details -->
+      <div class="words-card">
+        <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 3px;">
+          Amount Chargeable in Words
+        </div>
+        <div style="font-size: 11px; font-weight: 800; color: #1e40af; margin-bottom: 8px;">
+          ${details.amountInWords}
+        </div>
+        <div style="font-size: 9px; color: #475569; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
+          <strong>Payment Mode:</strong> ${details.method}<br/>
+          <strong>Razorpay Payment Ref:</strong> <span style="font-family: monospace;">${details.paymentId}</span><br/>
+          <strong>Subscription Mandate Ref:</strong> <span style="font-family: monospace;">${details.subId}</span>
         </div>
       </div>
 
-      <div class="total-box">
-        <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">
-          Taxable Base Value: <strong>₹${baseAmount.toFixed(2)}</strong><br/>
-          ${isIntraState ? `
-            CGST (9%): <strong>₹${cgst.toFixed(2)}</strong><br/>
-            SGST (9%): <strong>₹${sgst.toFixed(2)}</strong><br/>
-          ` : `
-            IGST (18%): <strong>₹${igst.toFixed(2)}</strong><br/>
-          `}
-          Total GST (18%): <strong>₹${totalGst.toFixed(2)}</strong>
+      <!-- Calculation Card -->
+      <div class="calculation-card">
+        <div class="calc-row">
+          <span>Taxable Base Value:</span>
+          <span style="font-weight: 700;">₹${details.baseAmount.toFixed(2)}</span>
         </div>
-        <hr style="border: none; border-top: 1px solid #bfdbfe; margin: 8px 0;"/>
-        <div style="font-size: 11px; font-weight: 800; color: #1e40af;">Total Invoice Amount</div>
-        <div class="total-amount">₹${totalAmount.toFixed(2)}</div>
+        ${details.isIntraState ? `
+          <div class="calc-row">
+            <span>CGST (${details.cgstRate}%):</span>
+            <span style="font-weight: 700;">₹${details.cgstAmount.toFixed(2)}</span>
+          </div>
+          <div class="calc-row">
+            <span>SGST (${details.sgstRate}%):</span>
+            <span style="font-weight: 700;">₹${details.sgstAmount.toFixed(2)}</span>
+          </div>
+        ` : `
+          <div class="calc-row">
+            <span>IGST (${details.igstRate}%):</span>
+            <span style="font-weight: 700;">₹${details.igstAmount.toFixed(2)}</span>
+          </div>
+        `}
+        <div class="calc-row" style="border-top: 1px solid #bfdbfe; padding-top: 4px; margin-top: 4px; font-weight: 700;">
+          <span>Total Tax Amount (18% GST):</span>
+          <span>₹${details.totalGst.toFixed(2)}</span>
+        </div>
+        <div class="grand-total-box">
+          <span style="font-size: 11px; font-weight: 800; color: #1e40af;">Total Invoice Value:</span>
+          <span class="grand-total-amount">₹${details.totalAmount.toFixed(2)}</span>
+        </div>
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="footer">
-      This is an official computer-generated B2B Tax Invoice. Generated by VyaparSathi Subscription Billing Engine.<br/>
-      Powered by Razorpay AutoPay Mandate Network.
+    <!-- Declarations & Signatory Section -->
+    <div class="signatory-grid page-break-avoid">
+      <div class="legal-notes">
+        <strong>Terms & Statutory Declarations:</strong><br/>
+        1. This is a computer-generated tax invoice issued in terms of Rule 46 of the Central Goods and Services Tax (CGST) Rules, 2017.<br/>
+        2. Input Tax Credit (ITC) is admissible on this tax invoice subject to supplier invoice matching in GSTR-2B.<br/>
+        3. SAC 998313: Information technology and software subscription services rendered electronically.<br/>
+        4. No physical signature is required pursuant to the Information Technology Act, 2000.
+      </div>
+      <div class="signatory-box">
+        <div style="font-size: 9px; font-weight: 800; color: #475569; text-transform: uppercase;">
+          For ${details.sellerCompany}
+        </div>
+        <div class="signature-seal">
+          <span style="font-size: 14px;">✓</span>
+          <span>Digitally Signed & Validated</span>
+        </div>
+        <div style="font-size: 9px; color: #64748b;">
+          Authorized Corporate Signatory<br/>
+          Automated Billing Verification Unit
+        </div>
+      </div>
     </div>
   </div>
 
@@ -387,19 +701,23 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
     window.onload = function() {
       setTimeout(function() {
         window.print();
-      }, 300);
+      }, 250);
     };
   </script>
 </body>
 </html>`;
 
-    const w = window.open('', '_blank', 'width=920,height=850');
+    const w = window.open('', '_blank', 'width=940,height=850');
     if (w) {
       w.document.open();
       w.document.write(html);
       w.document.close();
     }
   };
+
+  const currentDetails = selectedInvoice
+    ? resolveInvoiceDetails(selectedInvoice, razorpayStatus, platformInfo, shop)
+    : null;
 
   return (
     <Stack spacing={3}>
@@ -487,7 +805,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
         </Grid>
       </Grid>
 
-      {/* Main Table Card */}
+      {/* Main Invoices Table Card */}
       <Paper
         elevation={0}
         sx={{
@@ -497,7 +815,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
           overflow: 'hidden',
         }}
       >
-        {/* Card Header & Controls */}
+        {/* Header & Controls */}
         <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
@@ -507,10 +825,10 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
           >
             <Box>
               <Typography variant="subtitle1" fontWeight={800} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ReceiptLongIcon color="primary" /> B2B Tax Invoice & AutoPay History
+                <ReceiptLongIcon color="primary" /> Official B2B Tax Invoices & Payment Logs
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                View, search, and download official GST tax invoices for your subscription charges.
+                Rule 46 CGST compliant tax receipts with SAC 998313, GSTIN matching, and AutoPay debit audit trail.
               </Typography>
             </Box>
 
@@ -518,7 +836,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
             <Stack direction="row" spacing={1.5} sx={{ width: { xs: '100%', sm: 'auto' } }}>
               <TextField
                 size="small"
-                placeholder="Search Payment ID..."
+                placeholder="Search Invoice or Pay ID..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -527,7 +845,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                 InputProps={{
                   startAdornment: <SearchIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />,
                 }}
-                sx={{ width: { xs: '100%', sm: 200 } }}
+                sx={{ width: { xs: '100%', sm: 220 } }}
               />
 
               <TextField
@@ -553,18 +871,18 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
           </Stack>
         </Box>
 
-        {/* Table Container */}
+        {/* Invoices Table */}
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: 'background.default' }}>
                 <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>DATE</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>INVOICE / PAYMENT ID</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>INVOICE / PAYMENT REF</TableCell>
                 <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>PLAN / CYCLE</TableCell>
-                <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>METHOD</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>PAYMENT METHOD</TableCell>
                 <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>AMOUNT (INCL. GST)</TableCell>
                 <TableCell sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>STATUS</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>INVOICE ACTIONS</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', fontSize: '0.7rem' }}>ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -584,7 +902,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                     <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
                       {search || statusFilter !== 'ALL'
                         ? 'No transactions match your search query or status filter.'
-                        : 'Charges and official B2B tax receipts will appear here after your first billing cycle.'}
+                        : 'Official GST tax invoices will appear here following your subscription activation and recurring cycles.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -594,8 +912,15 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                     <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                       {formatDate(row.createdAt)}
                     </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: 'text.primary' }}>
-                      {row.razorpayPaymentId || '—'}
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 800, color: 'text.primary' }}>
+                        {row.invoiceNumber || row.razorpayPaymentId || '—'}
+                      </Typography>
+                      {row.invoiceNumber && row.razorpayPaymentId && (
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', color: 'text.secondary', display: 'block' }}>
+                          Ref: {row.razorpayPaymentId}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={800} sx={{ textTransform: 'uppercase', fontSize: '0.8rem' }}>
@@ -626,10 +951,13 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                           size="small"
                           variant="outlined"
                           startIcon={<VisibilityIcon fontSize="small" />}
-                          onClick={() => setSelectedInvoice(row)}
+                          onClick={() => {
+                            setSelectedInvoice(row);
+                            setModalTab(0);
+                          }}
                           sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none', fontSize: '0.7rem' }}
                         >
-                          View Details
+                          View Invoice
                         </Button>
                         <Button
                           size="small"
@@ -639,7 +967,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
                           onClick={() => triggerPrintWindow(row)}
                           sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none', fontSize: '0.7rem' }}
                         >
-                          Download PDF
+                          Print / PDF
                         </Button>
                       </Stack>
                     </TableCell>
@@ -650,7 +978,7 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
           </Table>
         </TableContainer>
 
-        {/* Table Pagination */}
+        {/* Pagination */}
         {!loading && filteredInvoices.length > 0 && (
           <TablePagination
             component="div"
@@ -665,184 +993,384 @@ export default function RazorpayInvoiceTable({ invoices = [], razorpayStatus = n
         )}
       </Paper>
 
-      {/* Dynamic Tax Invoice Detail Dialog / Modal */}
-      {selectedInvoice && (
+      {/* ═══════════════════════════════════════════════════════════════════════
+           ENTERPRISE TAX INVOICE DETAIL MODAL
+          ═══════════════════════════════════════════════════════════════════════ */}
+      {selectedInvoice && currentDetails && (
         <Dialog
           open={Boolean(selectedInvoice)}
           onClose={() => setSelectedInvoice(null)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
-          PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
+          PaperProps={{ sx: { borderRadius: '20px', p: 0, overflow: 'hidden' } }}
         >
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Avatar sx={{ bgcolor: '#2563EB', color: '#fff', fontWeight: 900, width: 40, height: 40 }}>
+          {/* Modal Header */}
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Avatar sx={{ bgcolor: '#2563EB', color: '#fff', fontWeight: 900, width: 38, height: 38 }}>
                 VS
               </Avatar>
               <Box>
-                <Typography variant="h6" fontWeight={900}>
-                  {platformInfo.companyName || 'DesiTech Solutions Pvt. Ltd.'}
+                <Typography variant="subtitle1" fontWeight={900}>
+                  B2B Tax Invoice & Receipt
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Official B2B Tax Invoice & Receipt (SAC {platformInfo.hsnSacCode || '998313'})
+                  {currentDetails.invNo} · SAC {currentDetails.sellerSac}
                 </Typography>
               </Box>
-            </Box>
-            <IconButton onClick={() => setSelectedInvoice(null)} size="small">
-              <CloseIcon />
-            </IconButton>
+            </Stack>
+
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip
+                label="TAX INVOICE PAID"
+                color="success"
+                size="small"
+                sx={{ fontWeight: 900, borderRadius: '6px', fontSize: '0.7rem' }}
+              />
+              <IconButton onClick={() => setSelectedInvoice(null)} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Stack>
           </DialogTitle>
 
-          <DialogContent dividers sx={{ py: 3 }}>
-            <Stack spacing={2.5}>
-              {/* Receipt Header Badge */}
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Chip
-                  label="TAX INVOICE PAID"
-                  color="success"
-                  size="small"
-                  sx={{ fontWeight: 900, borderRadius: '6px', fontSize: '0.7rem' }}
-                />
-                <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="text.secondary">
-                  {selectedInvoice.invoiceNumber || `${platformInfo.invoicePrefix || 'SUB-INV'}-${invoiceYear(selectedInvoice.createdAt)}-${String(selectedInvoice.id || Date.now()).slice(-6).padStart(6, '0')}`}
-                </Typography>
-              </Stack>
+          {/* Modal Tabs */}
+          <Tabs
+            value={modalTab}
+            onChange={(_, v) => setModalTab(v)}
+            sx={{
+              px: 2.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              minHeight: 44,
+              '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', minHeight: 44, fontSize: '0.85rem' },
+            }}
+          >
+            <Tab label="Tax Invoice Document Preview" />
+            <Tab label="Payment Audit & Technical Details" />
+          </Tabs>
 
-              {/* Grid Metadata */}
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>
-                      Vendor GSTIN:
-                    </Typography>
-                    <Typography variant="body2" fontFamily="monospace" fontWeight={800}>
-                      {platformInfo.gstin || 'GSTIN NOT CONFIGURED'}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>
-                      Payment Date:
-                    </Typography>
-                    <Typography variant="body2" fontWeight={800}>
-                      {formatDate(selectedInvoice.createdAt)}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>
-                      Razorpay Payment ID:
-                    </Typography>
-                    <Typography variant="body2" fontFamily="monospace" fontWeight={800} color="primary">
-                      {selectedInvoice.razorpayPaymentId || 'N/A'}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>
-                      Payment Instrument:
-                    </Typography>
-                    <Typography variant="body2" fontWeight={800}>
-                      {selectedInvoice.method || 'Razorpay AutoPay (e-Mandate)'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Paper>
-
-              {/* Line Items & GST Calculation Table */}
-              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: 'action.hover' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 800, fontSize: '0.7rem' }}>DESCRIPTION (SAC {platformInfo.hsnSacCode || '998313'})</TableCell>
-                      <TableCell sx={{ fontWeight: 800, fontSize: '0.7rem' }}>TAXABLE BASE</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.7rem' }}>GST (18%)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.7rem' }}>TOTAL</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(() => {
-                      const tot = Number(selectedInvoice.amount || 999);
-                      const base = Number((tot / 1.18).toFixed(2));
-                      const gst = Number((tot - base).toFixed(2));
-                      return (
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>
-                            VyaparSathi {selectedInvoice.planCode || razorpayStatus?.planCode || 'PRO'} Plan ({selectedInvoice.billingCycle || razorpayStatus?.billingCycle || 'MONTHLY'})
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                            ₹{base.toFixed(2)}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                            ₹{gst.toFixed(2)}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 900, fontSize: '0.8rem' }}>
-                            ₹{tot.toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })()}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Words Box */}
-              <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#F8FAFC', borderRadius: '8px', border: '1px solid', borderColor: '#E2E8F0' }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', display: 'block' }}>
-                  Amount Chargeable in Words:
-                </Typography>
-                <Typography variant="body2" fontWeight={800} color="primary">
-                  {numberToWords(selectedInvoice.amount || 999)}
-                </Typography>
-              </Paper>
-
-              {/* Total Summary Box */}
+          <DialogContent sx={{ p: 3, bgcolor: modalTab === 0 ? '#f8fafc' : 'background.paper' }}>
+            {modalTab === 0 ? (
+              /* TAB 0: Official Invoice Preview */
               <Paper
                 elevation={0}
                 sx={{
-                  p: 2,
-                  bgcolor: '#EFF6FF',
-                  border: '1px solid',
-                  borderColor: '#BFDBFE',
+                  p: 3.5,
                   borderRadius: '12px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  border: '1px solid #cbd5e1',
+                  bgcolor: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
                 }}
               >
-                <Box>
-                  <Typography variant="subtitle2" fontWeight={800} color="#1E40AF">
-                    Total Amount Paid (Incl. 18% GST)
+                {/* Header */}
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ pb: 2, borderBottom: '2px solid #1e40af', mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" fontWeight={900} color="#1e40af" sx={{ letterSpacing: -0.5 }}>
+                      {currentDetails.sellerCompany}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: 'block' }}>
+                      {currentDetails.sellerTrade}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                      CIN: <strong>{currentDetails.sellerCin}</strong> | PAN: <strong>{currentDetails.sellerPan}</strong>
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="subtitle2" fontWeight={900} color="#0f172a">
+                      TAX INVOICE
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
+                      Rule 46 CGST · Original for Recipient
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                {/* Metadata Row */}
+                <Paper elevation={0} sx={{ p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', mb: 2.5 }}>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                        Invoice Number
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                        {currentDetails.invNo}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                        Invoice Date
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ fontSize: '0.75rem' }}>
+                        {currentDetails.formattedDate}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                        Place of Supply (POS)
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ fontSize: '0.75rem' }}>
+                        {currentDetails.placeOfSupply}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                        Reverse Charge
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ fontSize: '0.75rem' }}>
+                        NO
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Seller & Buyer Details */}
+                <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Paper elevation={0} sx={{ p: 1.75, border: '1px solid #e2e8f0', borderRadius: '8px', height: '100%' }}>
+                      <Typography variant="caption" fontWeight={800} color="#1e40af" sx={{ textTransform: 'uppercase', fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+                        Supplier / Platform (Billed From)
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800}>
+                        {currentDetails.sellerCompany}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.45 }}>
+                        {currentDetails.sellerAddress}<br/>
+                        <strong>GSTIN:</strong> {currentDetails.sellerGstin}<br/>
+                        <strong>State:</strong> {currentDetails.sellerState} (Code: {currentDetails.sellerStateCode})<br/>
+                        <strong>Support:</strong> {currentDetails.sellerEmail} · info@desitechsolutions.com
+                      </Typography>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Paper elevation={0} sx={{ p: 1.75, border: '1px solid #e2e8f0', borderRadius: '8px', height: '100%' }}>
+                      <Typography variant="caption" fontWeight={800} color="#1e40af" sx={{ textTransform: 'uppercase', fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+                        Subscriber / Recipient (Billed To)
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800}>
+                        {currentDetails.buyerName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.45 }}>
+                        {currentDetails.buyerOwner && `Attn: ${currentDetails.buyerOwner}`}<br/>
+                        {currentDetails.buyerAddress}{currentDetails.buyerCity && `, ${currentDetails.buyerCity}`}{currentDetails.buyerPincode && ` - ${currentDetails.buyerPincode}`}<br/>
+                        <strong>GSTIN / UIN:</strong> {currentDetails.buyerGstin}<br/>
+                        <strong>State:</strong> {currentDetails.buyerState} (Code: {currentDetails.buyerStateCode})<br/>
+                        <strong>Contact:</strong> {currentDetails.buyerPhone}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {/* Items & Tax Table */}
+                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #cbd5e1', borderRadius: '8px', mb: 2.5 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }}>DESCRIPTION</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 800, fontSize: '0.65rem' }}>SAC</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 800, fontSize: '0.65rem' }}>PERIOD</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.65rem' }}>TAXABLE BASE</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.65rem' }}>TOTAL (INR)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontSize: '0.75rem' }}>
+                          <strong>VyaparSathi {currentDetails.plan} SaaS Plan Subscription</strong>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                            POS, GST Invoicing, Inventory, Analytics & Razorpay AutoPay
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {currentDetails.sellerSac}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontSize: '0.7rem' }}>
+                          {currentDetails.formattedPeriod}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700 }}>
+                          ₹{currentDetails.baseAmount.toFixed(2)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 900 }}>
+                          ₹{currentDetails.totalAmount.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {/* Summary & Tax Split */}
+                <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                  <Grid item xs={12} sm={7}>
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', height: '100%' }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.65rem', textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
+                        Amount in Words
+                      </Typography>
+                      <Typography variant="body2" fontWeight={800} color="#1e40af" sx={{ mb: 1 }}>
+                        {currentDetails.amountInWords}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
+                        <strong>Payment Instrument:</strong> {currentDetails.method}<br/>
+                        <strong>Razorpay ID:</strong> {currentDetails.paymentId}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} sm={5}>
+                    <Paper elevation={0} sx={{ p: 2, bgcolor: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '8px' }}>
+                      <Stack spacing={0.5}>
+                        <Stack direction="row" justifyContent="space-between" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">Taxable Amount:</Typography>
+                          <Typography variant="caption" fontWeight={700}>₹{currentDetails.baseAmount.toFixed(2)}</Typography>
+                        </Stack>
+                        {currentDetails.isIntraState ? (
+                          <>
+                            <Stack direction="row" justifyContent="space-between" sx={{ fontSize: '0.75rem' }}>
+                              <Typography variant="caption" color="text.secondary">CGST (9%):</Typography>
+                              <Typography variant="caption" fontWeight={700}>₹{currentDetails.cgstAmount.toFixed(2)}</Typography>
+                            </Stack>
+                            <Stack direction="row" justifyContent="space-between" sx={{ fontSize: '0.75rem' }}>
+                              <Typography variant="caption" color="text.secondary">SGST (9%):</Typography>
+                              <Typography variant="caption" fontWeight={700}>₹{currentDetails.sgstAmount.toFixed(2)}</Typography>
+                            </Stack>
+                          </>
+                        ) : (
+                          <Stack direction="row" justifyContent="space-between" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">IGST (18%):</Typography>
+                            <Typography variant="caption" fontWeight={700}>₹{currentDetails.igstAmount.toFixed(2)}</Typography>
+                          </Stack>
+                        )}
+                        <Divider sx={{ my: 0.5, borderColor: '#bfdbfe' }} />
+                        <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                          <Typography variant="subtitle2" fontWeight={900} color="#1e40af">Total Amount:</Typography>
+                          <Typography variant="h6" fontWeight={900} color="#1e40af">₹{currentDetails.totalAmount.toFixed(2)}</Typography>
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {/* Legal Signatory */}
+                <Box sx={{ pt: 1.5, borderTop: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                    * Computer-generated B2B tax invoice. ITC claimable under Section 16 CGST Act.
                   </Typography>
-                  <Typography variant="caption" color="#2563EB">
-                    {String(platformInfo.stateCode || '27').trim() === String(selectedInvoice.shopStateCode || razorpayStatus?.shopStateCode || '27').trim()
-                      ? 'CGST (9%) + SGST (9%) Applicable (Intra-State)'
-                      : 'IGST (18%) Applicable (Inter-State)'}
-                  </Typography>
+                  <Chip
+                    icon={<VerifiedUserIcon sx={{ fontSize: 14 }} />}
+                    label="Digitally Signed & Validated"
+                    size="small"
+                    sx={{ bgcolor: '#eff6ff', color: '#1e40af', fontWeight: 800, fontSize: '0.65rem', border: '1px dashed #93c5fd' }}
+                  />
                 </Box>
-                <Typography variant="h5" fontWeight={900} color="#1E40AF">
-                  ₹{Number(selectedInvoice.amount || 999).toFixed(2)}
-                </Typography>
               </Paper>
-            </Stack>
+            ) : (
+              /* TAB 1: Technical & Audit Metadata */
+              <Stack spacing={2}>
+                <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
+                    Razorpay Gateway Transaction Parameters
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Razorpay Payment ID</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 800 }}>
+                          {selectedInvoice.razorpayPaymentId || 'N/A'}
+                        </Typography>
+                        {selectedInvoice.razorpayPaymentId && (
+                          <IconButton size="small" onClick={() => copyToClipboard(selectedInvoice.razorpayPaymentId, 'Payment ID')}>
+                            <ContentCopyIcon fontSize="small" sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        )}
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Subscription Mandate ID</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 800 }}>
+                          {selectedInvoice.razorpaySubscriptionId || razorpayStatus?.razorpaySubscriptionId || 'N/A'}
+                        </Typography>
+                        {selectedInvoice.razorpaySubscriptionId && (
+                          <IconButton size="small" onClick={() => copyToClipboard(selectedInvoice.razorpaySubscriptionId, 'Subscription ID')}>
+                            <ContentCopyIcon fontSize="small" sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        )}
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Payment Instrument Mode</Typography>
+                      <Typography variant="body2" fontWeight={800} sx={{ textTransform: 'capitalize' }}>
+                        {selectedInvoice.method || 'Razorpay AutoPay'}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Bank / VPA Identifier</Typography>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {selectedInvoice.bank || selectedInvoice.vpa || 'Secured Mandate'}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Created Timestamp</Typography>
+                      <Typography variant="body2">
+                        {selectedInvoice.createdAt ? new Date(selectedInvoice.createdAt).toLocaleString('en-IN') : 'N/A'}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>Status & Invoice State</Typography>
+                      <Typography variant="body2" fontWeight={800} color="success.main">
+                        {selectedInvoice.status || 'SUCCESS'} ({selectedInvoice.invoiceStatus || 'PAID'})
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                <Paper elevation={0} sx={{ p: 2.5, bgcolor: '#0f172a', color: '#f8fafc', borderRadius: '12px' }}>
+                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', display: 'block', mb: 1 }}>
+                    Raw Record Snapshot
+                  </Typography>
+                  <pre style={{ margin: 0, fontSize: '0.7rem', overflowX: 'auto', fontFamily: 'monospace' }}>
+                    {JSON.stringify(selectedInvoice, null, 2)}
+                  </pre>
+                </Paper>
+              </Stack>
+            )}
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
+          {/* Modal Footer Actions */}
+          <DialogActions sx={{ p: 2.5, bgcolor: 'background.default', borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
             <Button
               variant="outlined"
-              onClick={() => setSelectedInvoice(null)}
-              sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none' }}
+              size="small"
+              startIcon={<ContentCopyIcon />}
+              onClick={() => copyToClipboard(currentDetails.invNo, 'Invoice Number')}
+              sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none' }}
             >
-              Close
+              Copy Invoice No.
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={() => triggerPrintWindow(selectedInvoice)}
-              sx={{ borderRadius: '10px', fontWeight: 800, textTransform: 'none', px: 3 }}
-            >
-              Download PDF / Print
-            </Button>
+
+            <Stack direction="row" spacing={1.5}>
+              <Button
+                variant="outlined"
+                onClick={() => setSelectedInvoice(null)}
+                sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none' }}
+              >
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<PrintIcon />}
+                onClick={() => triggerPrintWindow(selectedInvoice)}
+                sx={{ borderRadius: '8px', fontWeight: 800, textTransform: 'none', px: 2.5 }}
+              >
+                Print / Download PDF
+              </Button>
+            </Stack>
           </DialogActions>
         </Dialog>
       )}

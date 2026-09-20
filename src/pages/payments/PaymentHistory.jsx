@@ -351,25 +351,27 @@ const PaymentHistory = ({ customerId, refreshKey = 0 }) => {
               }}
             />
             <Tooltip title="Refresh history" arrow>
-              <IconButton
-                size="small"
-                onClick={refetch}
-                disabled={loading}
-                aria-label="Refresh payment history"
-                sx={{
-                  color: customTheme.primary,
-                  bgcolor: alpha(customTheme.primary, 0.08),
-                  minWidth: 36,
-                  minHeight: 36,
-                  transition: 'all 0.25s ease',
-                  '&:hover': {
-                    bgcolor: alpha(customTheme.primary, 0.15),
-                    transform: 'rotate(180deg)',
-                  },
-                }}
-              >
-                <RefreshIcon fontSize="small" />
-              </IconButton>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={refetch}
+                  disabled={loading}
+                  aria-label="Refresh payment history"
+                  sx={{
+                    color: customTheme.primary,
+                    bgcolor: alpha(customTheme.primary, 0.08),
+                    minWidth: 36,
+                    minHeight: 36,
+                    transition: 'all 0.25s ease',
+                    '&:hover': {
+                      bgcolor: alpha(customTheme.primary, 0.15),
+                      transform: 'rotate(180deg)',
+                    },
+                  }}
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
           </Stack>
         </Stack>

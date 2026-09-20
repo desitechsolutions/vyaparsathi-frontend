@@ -3,6 +3,7 @@ import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { toast } from 'react-toastify';
 import { API_BASE_URL } from '../services/api';
+import { getValidToken } from '../utils/authStorage';
 
 // ─── Connectivity probe ────────────────────────────────────────────────────────
 // navigator.onLine only reflects the OS network-interface state (WiFi connected
@@ -315,7 +316,7 @@ const useWebSocket = (shopId, options = {}) => {
   // STOMP client lifecycle
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getValidToken();
     if (!token) return;
 
     let isMounted = true;

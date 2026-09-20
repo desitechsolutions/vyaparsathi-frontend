@@ -288,4 +288,71 @@ export async function clearSyncedOlderThan(shopId, days = 7) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SHOP FINGERPRINT — guards against shopId collisions after a
+// backend DB reset. Auto-increment IDs restart from 1 when the
+// backend DB is wiped, so a new signup can get the same shopId
+// as a previous user whose IDB records were never cleared.
+// We store { shopId, shopCode } and compare on every init.
+// shopCode is a user-chosen slug that is unique per shop and
+// very unlikely to be reused after a DB reset.
+// ═══════════════════════════════════════════════════════════════
+
+const FINGERPRINT_KEY = 'shopFingerprint';
+
+export async function getShopFingerprint() {
+  return getMeta(FINGERPRINT_KEY);
+}
+
+export async function setShopFingerprint(shopId, shopCode) {
+  return setMeta(FINGERPRINT_KEY, { shopId, shopCode });
+}
+
+/**
+ * Delete ALL records for a given shopId regardless of status.
+ * Used only when a shopId collision is detected (fingerprint mismatch)
+ * — those records reference a non-existent backend shop and can never
+ * be synced, so they must be purged.
+ */
+export async function clearAllSalesForShop(shopId) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    let deleted = 0;
+    const transaction = db.transaction(STORE_SALES, 'readwrite');
+    const store = transaction.objectStore(STORE_SALES);
+    transaction.oncomplete = () => resolve(deleted);
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('Transaction aborted'));
+
+    const req = store.index('by_shopId').openCursor(IDBKeyRange.only(shopId));
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        cursor.delete();
+        deleted++;
+        cursor.continue();
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Wipe the three reference-cache stores (item_variants, customers, gst_reference).
+ * Safe to call on logout or on a fingerprint mismatch — these are re-fetched on
+ * the next login so clearing them never destroys unrecoverable data.
+ */
+export async function clearRefCacheStores() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const storeNames = ['item_variants', 'customers', 'gst_reference'];
+    const transaction = db.transaction(storeNames, 'readwrite');
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('Transaction aborted'));
+
+    storeNames.forEach((name) => transaction.objectStore(name).clear());
+  });
+}
+
 export { closeOfflineDb as closeDb };

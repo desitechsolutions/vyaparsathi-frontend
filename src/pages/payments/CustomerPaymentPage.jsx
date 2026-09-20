@@ -600,23 +600,25 @@ const CustomerPaymentPage = () => {
 
             {/* Refresh */}
             <Tooltip title="Refresh data (Ctrl+R)" arrow>
-              <IconButton
-                size="small"
-                onClick={() => loadData(true)}
-                disabled={syncing || loading}
-                aria-label="Refresh payment data"
-                sx={{
-                  color: '#fff',
-                  minWidth: 44,
-                  minHeight: 44,
-                  borderRadius: 2,
-                  transition: 'all 0.3s ease',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', transform: 'rotate(180deg)' },
-                  '&:disabled': { color: 'rgba(255,255,255,0.4)' },
-                }}
-              >
-                <RefreshIcon fontSize="small" />
-              </IconButton>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => loadData(true)}
+                  disabled={syncing || loading}
+                  aria-label="Refresh payment data"
+                  sx={{
+                    color: '#fff',
+                    minWidth: 44,
+                    minHeight: 44,
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', transform: 'rotate(180deg)' },
+                    '&:disabled': { color: 'rgba(255,255,255,0.4)' },
+                  }}
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
           </Stack>
 

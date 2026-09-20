@@ -1,15 +1,26 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { fetchLowStockAlerts } from '../services/api';
+import { useAuthContext } from './AuthContext';
+import { getValidToken } from '../utils/authStorage';
 
 const AlertContext = createContext();
 
 export const useAlerts = () => useContext(AlertContext);
 
 export const AlertProvider = ({ children }) => {
+  const { user } = useAuthContext();
   const [alerts, setAlerts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const getAlerts = useCallback(async () => {
+    const token = getValidToken();
+    if (!user || !user.shopId || !token) {
+      setAlerts([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const response = await fetchLowStockAlerts();
       setAlerts(Array.isArray(response.data) ? response.data : []);
@@ -19,15 +30,22 @@ export const AlertProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // No dependencies – setAlerts and setIsLoading are stable
+  }, [user]);
 
   useEffect(() => {
-    getAlerts(); // Fetch on initial load
+    const token = getValidToken();
+    if (!user || !user.shopId || !token) {
+      setAlerts([]);
+      setIsLoading(false);
+      return;
+    }
 
-    const intervalId = setInterval(getAlerts, 300000); // Re-fetch every 5 minutes
+    getAlerts(); // Fetch on login or shop change
 
-    return () => clearInterval(intervalId); // Cleanup on unmount
-  }, [getAlerts]);
+    const intervalId = setInterval(getAlerts, 300000); // Re-fetch every 5 minutes only while logged in
+
+    return () => clearInterval(intervalId); // Cleanup on logout or unmount
+  }, [user, getAlerts]);
 
   // FIX: Wrap the function in useCallback to stabilize its reference
   const manuallySetAlerts = useCallback((newAlerts) => {

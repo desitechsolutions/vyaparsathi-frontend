@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { fetchShop, fetchIndustryConfig, fetchCustomAttributes } from '../services/api';
+import { useAuthContext } from './AuthContext';
+import { getValidToken } from '../utils/authStorage';
 
 const ShopContext = createContext(null);
 
@@ -8,6 +10,7 @@ const EMPTY_INDUSTRY_CONFIG = { item: [], variant: [], labels: {} };
 const emptyContext = {
   shop: null,
   shopLoading: true,
+  isShopLoading: true,
   industryType: null,
   industryConfig: EMPTY_INDUSTRY_CONFIG,
   industryConfigLoading: false,
@@ -55,6 +58,7 @@ const emptyContext = {
 };
 
 export const ShopProvider = ({ children }) => {
+  const { user } = useAuthContext();
   const [shop, setShop] = useState(null);
   const [shopLoading, setShopLoading] = useState(true);
   const [industryConfig, setIndustryConfig] = useState(EMPTY_INDUSTRY_CONFIG);
@@ -63,6 +67,13 @@ export const ShopProvider = ({ children }) => {
   const [customAttributesLoading, setCustomAttributesLoading] = useState(false);
 
   const refreshShop = useCallback(async () => {
+    const token = getValidToken();
+    if (!user || !token) {
+      setShop(null);
+      setShopLoading(false);
+      return;
+    }
+
     setShopLoading(true);
     try {
       const res = await fetchShop();
@@ -72,11 +83,17 @@ export const ShopProvider = ({ children }) => {
     } finally {
       setShopLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
+    const token = getValidToken();
+    if (!user || !token) {
+      setShop(null);
+      setShopLoading(false);
+      return;
+    }
     refreshShop();
-  }, [refreshShop]);
+  }, [user, refreshShop]);
 
   const industryType = shop?.industryType || null;
 
@@ -125,6 +142,7 @@ export const ShopProvider = ({ children }) => {
   const value = {
     shop,
     shopLoading,
+    isShopLoading: shopLoading,
     refreshShop,
     industryType,
     industryConfig,
