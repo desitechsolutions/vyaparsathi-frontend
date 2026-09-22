@@ -21,6 +21,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import EInvoiceActionBar from '../enterprise/EInvoiceActionBar';
+import { getValidToken } from '../../utils/authStorage';
 
 // WhatsApp brand green — this is a brand color, not a theme accent.
 // Keeping it as a hardcoded constant since it should render identically
@@ -72,11 +73,15 @@ const InvoiceModal = ({
           : `${path}?download=true`
         : path;
 
+      const token = getValidToken();
       const response = await fetch(requestUrl, {
         method: 'GET',
         signal: controller.signal,
         credentials: 'include',
-        headers: { 'Accept': 'application/pdf' },
+        headers: {
+          'Accept': 'application/pdf',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
       });
 
       clearTimeout(timeoutId);

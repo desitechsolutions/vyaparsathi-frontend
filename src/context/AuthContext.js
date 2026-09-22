@@ -36,6 +36,14 @@ export const AuthProvider = ({ children }) => {
   const isRefreshing = useRef(false);
   const isLoggingOut = useRef(false);
   const logoutToastShown = useRef(false);
+  // Monotonically increasing counter that increments on every login and
+  // logout. The 60-second auto-refresh interval captures this value at
+  // creation time and bails out if it detects a different value, which
+  // means a new session has started (or ended) since the interval was
+  // set up. This prevents a stale tab's old-user interval from firing
+  // silentRefresh with an invalidated refresh cookie after a new user
+  // logs in, which was causing the new user to be booted out.
+  const sessionVersionRef = useRef(0);
   // Latest activity signal — the idle modal's "Stay signed in" button
   // posts through here to reset the local timer without a full remount.
   const activitySignalRef = useRef(null);
@@ -44,6 +52,10 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async (message, isExpired = false, opts = {}) => {
     if (isLoggingOut.current) return;
     isLoggingOut.current = true;
+    // Increment the session version immediately. Any 60s intervals that
+    // are currently queued in the event loop will see a stale version and
+    // bail without calling silentRefresh.
+    sessionVersionRef.current += 1;
 
     // Set the explicit-logout guard BEFORE calling the API.
     // This ensures that even if apiLogout() fails (network error, backend
@@ -112,12 +124,22 @@ export const AuthProvider = ({ children }) => {
     if (isRefreshing.current || isLoggingOut.current) return null;
     isRefreshing.current = true;
 
+    // Snapshot the token value present BEFORE the refresh request is sent.
+    // After the request completes we compare against what's in localStorage
+    // now. If a concurrent login wrote a DIFFERENT (newer) token while the
+    // refresh was in-flight, we must not overwrite or clear it.
+    const tokenBeforeRefresh = localStorage.getItem('token') || localStorage.getItem('accessToken');
+
     try {
       const res = await API.post('/api/auth/refresh', {});
       const { accessToken } = res.data;
 
       if (!accessToken) {
-        clearAuthStorage();
+        // Only clear if no newer token appeared during the round-trip.
+        const currentToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        if (!currentToken || currentToken === tokenBeforeRefresh) {
+          clearAuthStorage();
+        }
         return null;
       }
 
@@ -129,7 +151,23 @@ export const AuthProvider = ({ children }) => {
 
       return accessToken;
     } catch (err) {
-      clearAuthStorage();
+      // CRITICAL: Do NOT call clearAuthStorage() unconditionally.
+      //
+      // If this refresh request was in-flight when another tab logged in,
+      // the request carried an old cookie and returned 401 — but the new
+      // user's token is already sitting in localStorage. Wiping storage
+      // here would delete the new session's token, causing the new user
+      // to be silently booted on their very next API call.
+      //
+      // Only clear storage if the token in localStorage is still the same
+      // stale one that existed when we sent the refresh request (i.e. no
+      // concurrent login wrote a fresh token while we were waiting).
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      const isNewSessionEstablished = currentToken && currentToken !== tokenBeforeRefresh;
+
+      if (!isNewSessionEstablished) {
+        clearAuthStorage();
+      }
       return null;
     } finally {
       isRefreshing.current = false;
@@ -181,51 +219,65 @@ export const AuthProvider = ({ children }) => {
   }, [silentRefresh]);
 
   // ---------------- MULTI-TAB SYNC ----------------
-  // Listen for auth events posted by sibling tabs. On logout, mirror
-  // the sign-out here so the whole browser stays in one auth state.
-  // On login, silent-refresh so this tab picks up the same token.
+  // When another tab logs in or logs out, the cleanest and most
+  // bulletproof response is a full page reload. Any attempt to
+  // surgically patch React state leaves stale closures: the old
+  // user's 60-second interval, the open STOMP socket (which is
+  // identified by the old JWT's shopId), and any in-flight Axios
+  // requests can all continue to run with dead credentials.
+  //
+  // A reload unconditionally tears all of that down and lets
+  // init() boot from whatever token/cookie the browser now holds —
+  // which is exactly what the signing-in/out tab just wrote.
   useEffect(() => {
     if (!authChannel) return undefined;
     const handler = (event) => {
       const msg = event?.data;
       if (!msg || typeof msg !== 'object') return;
-      if (msg.type === AUTH_EVENT_LOGOUT) {
-        // fromBroadcast=true keeps logout() from re-broadcasting.
-        logout(msg.isExpired ? 'Signed out from another tab.' : null, !!msg.isExpired, { fromBroadcast: true });
-      } else if (msg.type === AUTH_EVENT_LOGIN) {
-        // Another tab just signed in — pull the token they wrote to
-        // localStorage. Storage events also fire, but that's a
-        // different sync path; either arrives first, both are idempotent.
-        const token = getValidToken();
-        if (token && !user) {
-          try {
-            const decoded = jwtDecode(token);
-            API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setUser(decoded);
-          } catch {}
-        }
+
+      if (msg.type === AUTH_EVENT_LOGIN || msg.type === AUTH_EVENT_LOGOUT) {
+        // Give the broadcasting tab a moment to finish writing its
+        // token to localStorage before we read it on reload.
+        setTimeout(() => window.location.reload(), 100);
       }
     };
     authChannel.addEventListener('message', handler);
     return () => authChannel.removeEventListener('message', handler);
-  }, [logout, user]);
+  }, []);
 
   // ---------------- TOKEN AUTO REFRESH ----------------
   useEffect(() => {
     if (!user || isLoggingOut.current) return;
 
+    // Snapshot the session version when the interval is created. If login
+    // or logout fires before the next tick (incrementing the version), the
+    // interval will detect the mismatch and skip silentRefresh so it can't
+    // accidentally call the backend with an invalidated refresh cookie.
+    const capturedVersion = sessionVersionRef.current;
+
     const interval = setInterval(async () => {
+      // Bail if the session changed since this interval was created.
+      if (capturedVersion !== sessionVersionRef.current) return;
+      if (isLoggingOut.current) return;
+
       const token = getValidToken();
-      if (!token || isLoggingOut.current) return;
+      if (!token) {
+        // Token expired between ticks. Guard again before calling refresh.
+        if (capturedVersion !== sessionVersionRef.current) return;
+        await silentRefresh();
+        return;
+      }
 
       try {
         const decoded = jwtDecode(token);
         const timeLeft = decoded.exp * 1000 - Date.now();
 
         if (timeLeft < 2 * 60 * 1000) {
+          if (capturedVersion !== sessionVersionRef.current) return;
           await silentRefresh();
         }
       } catch {
+        if (capturedVersion !== sessionVersionRef.current) return;
         await silentRefresh();
       }
     }, 60000);
@@ -273,6 +325,11 @@ export const AuthProvider = ({ children }) => {
   // ---------------- LOGIN ----------------
   const login = (token) => {
     try {
+      // Invalidate any stale 60-second intervals that belong to a
+      // previous session. This fires before setUser(), so by the time
+      // the old interval's callback runs it will see a version mismatch
+      // and skip silentRefresh.
+      sessionVersionRef.current += 1;
       localStorage.setItem('token', token);
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 

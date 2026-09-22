@@ -164,8 +164,26 @@ API.interceptors.response.use(
       const publicAuthPaths = ['/auth/reset-password', '/auth/verify-email', '/accept-shop-invite', '/accept-invite'];
       const isOnPublicPage = publicAuthPaths.some(p => window.location.pathname.startsWith(p));
 
-      clearAuthStorage();
-      if (!isLoginRequest && !isRefreshRequest && !isOnPublicPage && window.location.pathname !== '/login') {
+      // Guard: if this was a stale /refresh call that returned 401, check
+      // whether a NEW session's token is already sitting in localStorage.
+      // This happens when a different user logged in moments before this
+      // interval's silentRefresh response arrived. If a fresh token exists,
+      // the new session is healthy — do nothing and let it stand.
+      if (isRefreshRequest) {
+        const freshToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        if (freshToken) {
+          // A new user's token is already in place — this 401 is from a
+          // stale cookie belonging to the previous session. Ignore it.
+          return Promise.reject(error);
+        }
+        // No fresh token either — the session is genuinely dead.
+        // clearAuthStorage is a no-op here (nothing to clear), and
+        // AuthContext.silentRefresh() will call setUser(null) from its catch.
+        return Promise.reject(error);
+      }
+
+      if (!isLoginRequest && !isOnPublicPage && window.location.pathname !== '/login') {
+        clearAuthStorage();
         window.location.href = '/login?expired=true';
       }
     }
@@ -627,10 +645,18 @@ export const fetchBatchWiseStock = (variantId = null) =>
   API.get('/api/stock/batch-wise', variantId ? { params: { variantId } } : {});
 export const downloadStockImportTemplate = () =>
   API.get('/api/stock/import/template', { responseType: 'blob' });
-export const importStockFromExcel = (file) => {
+export const validateStockImport = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return API.post('/api/stock/import/validate', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const importStockFromExcel = (file, skipDuplicates = false) => {
   const formData = new FormData();
   formData.append('file', file);
   return API.post('/api/stock/import', formData, {
+    params: { skipDuplicates },
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
@@ -676,6 +702,9 @@ export const archiveCustomer = (id) => API.post(`/api/customers/${id}/archive`).
 export const fetchCustomerLedger = (id, params = {}) => {
   return API.get(`/api/customers/${id}/ledger`, { params });
 };
+/** Returns unified statement of account (invoices, payments, credit notes, running balance) */
+export const fetchCustomerStatement = (id, params = {}) =>
+  API.get(`/api/customers/${id}/statement`, { params }).then((r) => r.data);
 /** Returns CustomerStatsDto — total sales, AOV, outstanding, credit notes, payments, advance, quotes, SOs. */
 export const getCustomerStats = (id) =>
   API.get(`/api/customers/${id}/stats`).then((r) => r.data);
@@ -1081,6 +1110,7 @@ export const fetchSalesHistory = (opts = {}) => {
 };
 export const fetchCustomerDues = (customerId) => API.get(`${endpoints.sales}/${customerId}/dues`);
 export const fetchSaleDueById = (id) => API.get(endpoints.saleDueById(id));
+export const fetchSaleSignedUrl = (saleId) => API.get(`/api/sales/${saleId}/signed-url`).then((r) => r.data);
 export const fetchAllSales = (from, to, signal) => {
   const cfg = signal ? { signal } : undefined;
   if (from && to) {

@@ -7,6 +7,8 @@ import {
   CircularProgress, Box, Typography, Container, Alert, Autocomplete,
   InputAdornment, Paper, Chip, Stack, Snackbar, Grid, LinearProgress,
   Divider, Tooltip, IconButton, MenuItem, Tab, Tabs, Avatar, Skeleton,
+  Radio, RadioGroup, FormControlLabel, FormControl,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -34,7 +36,7 @@ import {
   fetchStock, addStock, fetchItemVariants,
   adjustStock, fetchStockMovements, exportStockReport,
   fetchBatchWiseStock, downloadStockImportTemplate, importStockFromExcel,
-  updateItemVariant, fetchExpiryAlerts,
+  validateStockImport, updateItemVariant, fetchExpiryAlerts,
 } from '../services/api';
 import StockTransferModal from '../components/stock/StockTransferModal';
 import CustomToolbar from './items/components/CustomToolbar';
@@ -230,6 +232,9 @@ const Stock = () => {
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
+  const [importValidation, setImportValidation] = useState(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [skipDuplicates, setSkipDuplicates] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
@@ -530,24 +535,45 @@ const Stock = () => {
     }
   };
 
+  const handleFileSelect = async (file) => {
+    setImportFile(file);
+    setImportResult(null);
+    setImportValidation(null);
+    if (!file) return;
+
+    setIsValidating(true);
+    try {
+      const res = await validateStockImport(file);
+      setImportValidation(res.data);
+      if (res.data?.hasDuplicates) {
+        setSkipDuplicates(false); // default to allow / update existing
+      }
+    } catch (err) {
+      console.error('[Stock] Validation failed:', err);
+      setError(err.response?.data?.message || 'File validation failed');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   const handleImportSubmit = async () => {
     if (!importFile) { setError(t('stock.import.selectFileError')); return; }
     setIsImporting(true);
     setImportResult(null);
     try {
-      const res = await importStockFromExcel(importFile);
+      const res = await importStockFromExcel(importFile, skipDuplicates);
       setImportResult(res.data);
       if (res.data.errorCount === 0) {
-        setSuccessMsg(t('stock.import.successCount', { count: res.data.successCount }));
-        setImportDialogOpen(false);
+        setSuccessMsg(
+          `Stock import successful! ${res.data.successCount} items imported` +
+          (res.data.skippedCount > 0 ? `, ${res.data.skippedCount} duplicates skipped` : '')
+        );
         loadData();
       }
     } catch (err) {
       setError(err.response?.data?.message || t('stock.import.importFailed'));
     } finally {
       setIsImporting(false);
-      setImportFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -1084,65 +1110,289 @@ const Stock = () => {
         </Paper>
       </Container>
 
-      {/* ── Bulk Import Dialog ─────────────────────────── */}
-      <Dialog open={importDialogOpen}
-        onClose={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}
-        fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <FileUploadIcon color="secondary" fontSize="small" />
-            {t('stock.import.dialogTitle')}
+      {/* ── Bulk Import Dialog with Interactive Validation Screen ─────────────────────────── */}
+      <Dialog
+        open={importDialogOpen}
+        onClose={() => {
+          if (!isImporting) {
+            setImportDialogOpen(false);
+            setImportResult(null);
+            setImportValidation(null);
+            setImportFile(null);
+          }
+        }}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+      >
+        <DialogTitle sx={{ p: 2.5, fontWeight: 800, fontSize: '1.2rem', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>
+              <FileUploadIcon fontSize="small" />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
+                Bulk Stock &amp; Product Import
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Upload Excel spreadsheet to batch-create items, variants, and stock entries
+              </Typography>
+            </Box>
           </Stack>
         </DialogTitle>
-        <Divider />
-        <DialogContent sx={{ px: 3, py: 2.5 }}>
-          <Stack spacing={2.5} sx={{ mt: 0.5 }}>
-            <Alert severity="info" sx={{ borderRadius: 1.5 }}>
-              {t('stock.import.infoText')}
-            </Alert>
-            <Button variant="outlined" size="small" startIcon={<DownloadTemplateIcon />}
-              onClick={handleDownloadTemplate}
-              sx={{ borderRadius: 1.5, fontWeight: 600, textTransform: 'none', alignSelf: 'flex-start' }}>
-              {t('stock.import.downloadTemplate')}
-            </Button>
+
+        <DialogContent sx={{ px: 3, py: 2.5, bgcolor: '#fbfcfd' }}>
+          <Stack spacing={2.5}>
+            {/* Header info & Template download */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+              <Typography variant="body2" color="text.secondary">
+                Use our official template with columns for Item Name, SKU, Unit, Quantity, and Selling Price.
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadTemplateIcon />}
+                onClick={handleDownloadTemplate}
+                sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none' }}
+              >
+                Download Excel Template
+              </Button>
+            </Stack>
+
+            {/* File Upload Dropzone */}
             <Box
               sx={{
-                border: '2px dashed', borderColor: importFile ? 'success.main' : 'divider',
-                borderRadius: 2, p: 3, textAlign: 'center', cursor: 'pointer',
-                bgcolor: importFile ? alpha(theme.palette.success.main, 0.06) : 'background.default',
+                border: '2px dashed',
+                borderColor: importFile ? 'primary.main' : 'divider',
+                borderRadius: 2,
+                p: 2.5,
+                textAlign: 'center',
+                cursor: isImporting ? 'default' : 'pointer',
+                bgcolor: importFile ? alpha(theme.palette.primary.main, 0.04) : 'background.paper',
                 transition: 'all 0.2s',
-                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.02) },
               }}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => { if (!isImporting) fileInputRef.current?.click(); }}
             >
-              <input ref={fileInputRef} type="file" accept=".xlsx" style={{ display: 'none' }}
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
-              <UploadIcon sx={{
-                fontSize: 36,
-                color: importFile ? 'success.main' : 'text.secondary',
-                mb: 0.5,
-              }} />
-              <Typography variant="body2" fontWeight={700}
-                color={importFile ? 'success.main' : 'text.secondary'}>
-                {importFile ? importFile.name : t('stock.import.clickToSelect')}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  handleFileSelect(file);
+                }}
+              />
+              <UploadIcon sx={{ fontSize: 36, color: importFile ? 'primary.main' : 'text.secondary', mb: 0.5 }} />
+              <Typography variant="body2" fontWeight={700} color={importFile ? 'primary.main' : 'text.primary'}>
+                {importFile ? importFile.name : 'Click to select or drop your .xlsx workbook here'}
               </Typography>
               {importFile && (
                 <Typography variant="caption" color="text.secondary">
-                  {(importFile.size / 1024).toFixed(1)} KB
+                  {(importFile.size / 1024).toFixed(1)} KB · Click to change file
                 </Typography>
               )}
             </Box>
+
+            {/* Validation Loading state */}
+            {isValidating && (
+              <Paper variant="outlined" sx={{ p: 2.5, textAlign: 'center', borderRadius: 2, bgcolor: 'background.paper' }}>
+                <CircularProgress size={28} sx={{ mb: 1.5 }} />
+                <Typography variant="body2" fontWeight={700}>
+                  Validating spreadsheet structure and verifying SKUs...
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Checking required fields, quantity formats, and detecting duplicate SKUs against your inventory.
+                </Typography>
+              </Paper>
+            )}
+
+            {/* Validation Results & Preview Screen */}
+            {importValidation && !isValidating && (
+              <Stack spacing={2}>
+                {/* Metric Badges */}
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6} sm={3}>
+                    <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>TOTAL ROWS</Typography>
+                      <Typography variant="h6" fontWeight={900}>{importValidation.totalRows}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2, borderColor: 'success.light' }}>
+                      <Typography variant="caption" color="success.main" fontWeight={700}>VALID ROWS</Typography>
+                      <Typography variant="h6" fontWeight={900} color="success.main">{importValidation.validRows}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2, borderColor: importValidation.duplicateCount > 0 ? 'warning.light' : 'divider' }}>
+                      <Typography variant="caption" color={importValidation.duplicateCount > 0 ? 'warning.main' : 'text.secondary'} fontWeight={700}>
+                        DUPLICATE SKUS
+                      </Typography>
+                      <Typography variant="h6" fontWeight={900} color={importValidation.duplicateCount > 0 ? 'warning.main' : 'text.primary'}>
+                        {importValidation.duplicateCount}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2, borderColor: importValidation.errorCount > 0 ? 'error.light' : 'divider' }}>
+                      <Typography variant="caption" color={importValidation.errorCount > 0 ? 'error.main' : 'text.secondary'} fontWeight={700}>
+                        ERRORS
+                      </Typography>
+                      <Typography variant="h6" fontWeight={900} color={importValidation.errorCount > 0 ? 'error.main' : 'text.primary'}>
+                        {importValidation.errorCount}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {/* Duplicate Policy Configuration (Show when duplicates exist) */}
+                {importValidation.hasDuplicates && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'warning.main',
+                      bgcolor: alpha(theme.palette.warning.main, 0.05),
+                    }}
+                  >
+                    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ mb: 1 }}>
+                      <WarningIcon color="warning" sx={{ mt: 0.2 }} />
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={800} color="warning.dark">
+                          Duplicate SKUs Detected ({importValidation.duplicateCount} items)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Some SKUs in this workbook already exist in your shop's inventory. Choose how you want to handle them:
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <RadioGroup
+                      value={skipDuplicates ? 'skip' : 'allow'}
+                      onChange={(e) => setSkipDuplicates(e.target.value === 'skip')}
+                      sx={{ pl: 4, mt: 0.5 }}
+                    >
+                      <FormControlLabel
+                        value="allow"
+                        control={<Radio size="small" color="primary" />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={700}>
+                              Allow &amp; Update Existing (Recommended)
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Updates selling price / MRP on existing variants and creates a new stock receipt batch.
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ mb: 1 }}
+                      />
+                      <FormControlLabel
+                        value="skip"
+                        control={<Radio size="small" color="warning" />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={700}>
+                              Skip Duplicate SKUs
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Bypasses existing SKUs without changes. Only brand-new products in the file will be imported.
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </RadioGroup>
+                  </Paper>
+                )}
+
+                {/* Row-by-Row Preview Table */}
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
+                    Validation Preview ({importValidation.rows?.length || 0} rows)
+                  </Typography>
+                  <TableContainer
+                    component={Paper}
+                    variant="outlined"
+                    sx={{ maxHeight: 220, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}
+                  >
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 800, width: 50 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }}>Item Name</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }}>SKU</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }} align="right">Qty</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }} align="right">Price</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }} align="center">Status</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {importValidation.rows?.map((r) => (
+                          <TableRow key={r.rowNumber} hover>
+                            <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                              {r.rowNumber}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={700} noWrap sx={{ maxWidth: 180 }}>
+                                {r.itemName || '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                              {r.sku || 'Auto'}
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                              {r.quantity != null ? `${r.quantity} ${r.unit || ''}` : '—'}
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>
+                              {r.sellingPrice != null ? `₹${r.sellingPrice}` : '—'}
+                            </TableCell>
+                            <TableCell align="center">
+                              {r.status === 'ERROR' ? (
+                                <Tooltip title={r.errorMessage || 'Invalid row data'}>
+                                  <Chip label="Error" size="small" color="error" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                                </Tooltip>
+                              ) : r.duplicate ? (
+                                <Tooltip title={r.duplicateReason || 'Duplicate SKU'}>
+                                  <Chip
+                                    label={skipDuplicates ? 'Will Skip' : 'Duplicate (Will Update)'}
+                                    size="small"
+                                    color="warning"
+                                    variant={skipDuplicates ? 'outlined' : 'filled'}
+                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
+                                  />
+                                </Tooltip>
+                              ) : (
+                                <Chip label="New Item" size="small" color="success" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              </Stack>
+            )}
+
+            {/* Import Execution Result Alert */}
             {importResult && (
               <Box>
-                <Alert severity={importResult.errorCount === 0 ? 'success' : 'warning'}
-                  sx={{ borderRadius: 1.5, mb: 1 }}>
-                  {t('stock.import.successCount', { count: importResult.successCount })}
-                  {importResult.errorCount > 0
-                    ? `, ${t('stock.import.errorCount', { count: importResult.errorCount })}`
-                    : ''}
+                <Alert
+                  severity={importResult.errorCount === 0 ? 'success' : 'warning'}
+                  sx={{ borderRadius: 2, mb: 1 }}
+                >
+                  <Typography variant="body2" fontWeight={700}>
+                    Import Processed: {importResult.successCount} items imported
+                    {importResult.skippedCount > 0 && `, ${importResult.skippedCount} duplicates skipped`}
+                    {importResult.errorCount > 0 && `, ${importResult.errorCount} errors`}
+                  </Typography>
                 </Alert>
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, maxHeight: 150, overflowY: 'auto' }}>
                     {importResult.errors.map((e, i) => (
                       <Typography key={i} variant="caption" color="error" display="block">
                         • {e}
@@ -1154,21 +1404,32 @@ const Stock = () => {
             )}
           </Stack>
         </DialogContent>
-        <DialogActions sx={{
-          p: 2, bgcolor: alpha(theme.palette.text.primary, 0.02),
-          borderTop: '1px solid', borderColor: 'divider', gap: 1,
-        }}>
+
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', gap: 1 }}>
           <Button
-            onClick={() => { setImportDialogOpen(false); setImportResult(null); setImportFile(null); }}
-            sx={{ fontWeight: 600, textTransform: 'none', color: 'text.secondary' }}>
-            {importResult?.errorCount === 0 ? t('common.close') : t('common.cancel')}
+            onClick={() => {
+              setImportDialogOpen(false);
+              setImportResult(null);
+              setImportValidation(null);
+              setImportFile(null);
+            }}
+            sx={{ fontWeight: 700, textTransform: 'none', color: 'text.secondary' }}
+          >
+            {importResult?.errorCount === 0 ? 'Close' : 'Cancel'}
           </Button>
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="contained" onClick={handleImportSubmit}
-            disabled={!importFile || isImporting}
-            startIcon={isImporting ? <CircularProgress size={16} /> : <FileUploadIcon />}
-            sx={{ borderRadius: 1.5, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}>
-            {isImporting ? t('stock.import.importing') : t('stock.import.importStock')}
+          <Button
+            variant="contained"
+            onClick={handleImportSubmit}
+            disabled={!importFile || isValidating || isImporting || (importValidation && importValidation.validRows === 0)}
+            startIcon={isImporting ? <CircularProgress size={16} color="inherit" /> : <FileUploadIcon />}
+            sx={{ borderRadius: 1.75, fontWeight: 800, textTransform: 'none', px: 3, boxShadow: 'none' }}
+          >
+            {isImporting
+              ? 'Importing Inventory...'
+              : importValidation
+              ? `Confirm & Import (${importValidation.validRows - (skipDuplicates ? importValidation.duplicateCount : 0)} items)`
+              : 'Import Stock'}
           </Button>
         </DialogActions>
       </Dialog>

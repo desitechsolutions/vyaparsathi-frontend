@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Grid, Card, CardContent, Button, RadioGroup, FormControlLabel, Radio,
   TextField, Typography, Box, Checkbox, FormControl, InputLabel,
-  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Chip, Stack, alpha
+  Select as MuiSelect, MenuItem, Divider, Tooltip, Alert, Collapse, Chip, Stack, alpha, InputAdornment
 } from '@mui/material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -93,8 +93,9 @@ const CustomerSection = ({
   }, [setFormData]);
 
   const isNewCustomerValid = () => {
-    return newCustomerData.name.trim() !== '' && 
-           newCustomerData.phone.trim().length >= 10;
+    const raw = (newCustomerData?.phone || '').replace(/\D/g, '');
+    const cleanPhone = (raw.length === 12 && raw.startsWith('91')) ? raw.slice(2) : (raw.length === 11 && raw.startsWith('0') ? raw.slice(1) : raw);
+    return Boolean((newCustomerData?.name || '').trim() && (cleanPhone.length === 0 || cleanPhone.length === 10));
   };
 
   // Memoized delivery modal content to prevent re-renders
@@ -598,7 +599,25 @@ const CustomerSection = ({
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.fullName')} required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? t('salesFlow.customer.nameRequired') : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
-              <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.phoneNumber')} required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label={t('salesFlow.customer.phoneNumber')}
+                  fullWidth
+                  value={newCustomerData.phone || ''}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/\D/g, '');
+                    if (val.length === 12 && val.startsWith('91')) val = val.slice(2);
+                    if (val.length === 11 && val.startsWith('0')) val = val.slice(1);
+                    setNewCustomerData({ ...newCustomerData, phone: val.slice(0, 10) });
+                  }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">+91</InputAdornment>,
+                  }}
+                  placeholder="9876543210"
+                  helperText={newCustomerData.phone && newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''}
+                  error={Boolean(newCustomerData.phone && newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10)}
+                />
+              </Grid>
               <Grid item xs={12}><TextField label={t('salesFlow.customer.addressLine1Label')} fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
               <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.cityLabel')} fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
               <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.gstNumberLabel')} fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>
@@ -967,7 +986,25 @@ const CustomerSection = ({
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.fullName')} required fullWidth error={newCustomerData.name === ''} helperText={newCustomerData.name === '' ? t('salesFlow.customer.nameRequired') : ''} value={newCustomerData.name} onChange={(e) => setNewCustomerData({ ...newCustomerData, name: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.phoneNumber')} required fullWidth error={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10} helperText={newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''} value={newCustomerData.phone} onChange={(e) => setNewCustomerData({ ...newCustomerData, phone: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label={t('salesFlow.customer.phoneNumber')}
+                fullWidth
+                value={newCustomerData.phone || ''}
+                onChange={(e) => {
+                  let val = e.target.value.replace(/\D/g, '');
+                  if (val.length === 12 && val.startsWith('91')) val = val.slice(2);
+                  if (val.length === 11 && val.startsWith('0')) val = val.slice(1);
+                  setNewCustomerData({ ...newCustomerData, phone: val.slice(0, 10) });
+                }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">+91</InputAdornment>,
+                }}
+                placeholder="9876543210"
+                helperText={newCustomerData.phone && newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10 ? t('salesFlow.customer.enterValidPhone') : ''}
+                error={Boolean(newCustomerData.phone && newCustomerData.phone.length > 0 && newCustomerData.phone.length < 10)}
+              />
+            </Grid>
             <Grid item xs={12}><TextField label={t('salesFlow.customer.addressLine1Label')} fullWidth value={newCustomerData.addressLine1} onChange={(e) => setNewCustomerData({ ...newCustomerData, addressLine1: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.cityLabel')} fullWidth value={newCustomerData.city} onChange={(e) => setNewCustomerData({ ...newCustomerData, city: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label={t('salesFlow.customer.gstNumberLabel')} fullWidth value={newCustomerData.gstNumber} onChange={(e) => setNewCustomerData({ ...newCustomerData, gstNumber: e.target.value })} /></Grid>

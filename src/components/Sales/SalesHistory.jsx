@@ -63,6 +63,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import HistoryIcon from '@mui/icons-material/History';
 
 import EInvoiceStatusBadge from '../EInvoice/EInvoiceStatusBadge';
+import { getValidToken } from '../../utils/authStorage';
 
 import API, {
   fetchSalesHistory,
@@ -258,8 +259,9 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const initialUrlSearch = new URLSearchParams(location.search).get('search') || '';
+  const [search, setSearch] = useState(initialUrlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialUrlSearch);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   // Status filter — empty string = "all non-cancelled" (server default). Explicit
@@ -524,8 +526,11 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   }, [page, rowsPerPage, debouncedSearch, statusFilter, startDate, endDate, showSnackbar]);
 
   useEffect(() => {
-    const urlSearch = params.get('search') || '';
-    setSearch(urlSearch);
+    const urlSearch = new URLSearchParams(location.search).get('search') || '';
+    if (urlSearch !== search) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
@@ -607,10 +612,14 @@ const SalesHistory = ({ onResume, refreshTrigger }) => {
   const downloadInvoiceBlob = async (signedPath, filename) => {
     try {
       const downloadUrl = withDownloadParam(signedPath);
+      const token = getValidToken();
       const response = await fetch(downloadUrl, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Accept': 'application/pdf' },
+        headers: {
+          'Accept': 'application/pdf',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
       });
 
       if (!response.ok) {

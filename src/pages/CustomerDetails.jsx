@@ -86,8 +86,11 @@ import {
   fetchCustomerSalesOrders,
   fetchCustomerAudit,
   downloadCustomerStatementPdf,
+  fetchSaleSignedUrl,
 } from '../services/api';
 
+import { useShop } from '../context/ShopContext';
+import InvoiceModal from '../components/Sales/InvoiceModal';
 import { CustomerEditDialog } from '../components/customers/CustomerEditDialog';
 import { CustomerEmailDialog } from '../components/customers/CustomerEmailDialog';
 import AgingBucketsBar, { CreditStatusPanel } from '../components/customers/AgingBucketsBar';
@@ -99,6 +102,7 @@ import CustomerAttachmentsPanel from '../components/customers/CustomerAttachment
 import CustomerCustomFieldsPanel from '../components/customers/CustomerCustomFieldsPanel';
 import CustomerSegmentsPicker from '../components/customers/CustomerSegmentsPicker';
 import CustomerMergeDialog from '../components/customers/CustomerMergeDialog';
+import CustomerStatement from '../components/customers/CustomerStatement';
 import { inr, stringToColor } from '../utils/customerFormat';
 
 /**
@@ -201,6 +205,32 @@ export default function CustomerDetails() {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const openMenu = (e) => setMenuAnchor(e.currentTarget);
   const closeMenu = () => setMenuAnchor(null);
+
+  const { shop } = useShop();
+  const [viewingInvoice, setViewingInvoice] = useState(null);
+  const [viewingInvoiceLoadingId, setViewingInvoiceLoadingId] = useState(null);
+
+  const handleViewInvoice = async (inv) => {
+    const saleId = inv.saleId || inv.id;
+    if (!saleId) return;
+    setViewingInvoiceLoadingId(saleId);
+    try {
+      const signedUrl = await fetchSaleSignedUrl(saleId);
+      setViewingInvoice({
+        saleId,
+        invoiceNo: inv.invoiceNo || `INV-${saleId}`,
+        signedInvoiceUrl: signedUrl,
+        customerPhone: customer?.phone,
+        totalAmount: inv.totalAmount,
+      });
+    } catch (err) {
+      console.warn('Failed to load signed invoice url, navigating to sales history:', err);
+      const q = inv.invoiceNo || saleId;
+      navigate(`/sales?tab=history&search=${encodeURIComponent(q)}`);
+    } finally {
+      setViewingInvoiceLoadingId(null);
+    }
+  };
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -422,8 +452,15 @@ export default function CustomerDetails() {
   }
 
   const isBusiness = customer.customerType === 'BUSINESS';
-  const balance = customer.creditBalance ?? 0;
-  const isOwed = balance < 0;
+  const netBalance = Number(customer.creditBalance ?? stats?.outstandingReceivable ?? 0);
+  const isReceivable = netBalance > 0;
+  const isAdvance = netBalance < 0;
+  const statusLabel = isReceivable ? 'Outstanding Due' : isAdvance ? 'Advance Credit' : 'Settled';
+
+  // Live KPI fallback ensuring historical sales are never shown as zero if records exist
+  const totalSalesCount = stats?.totalSales ?? stats?.invoiceCount ?? (invoices?.length || 0);
+  const totalSalesVal = Number(stats?.totalSalesValue ?? (invoices?.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0) || 0));
+  const avgOrderVal = Number(stats?.averageOrderValue ?? stats?.avgOrderValue ?? (totalSalesCount > 0 ? (totalSalesVal / totalSalesCount) : 0));
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1600, mx: 'auto' }}>
@@ -762,29 +799,29 @@ export default function CustomerDetails() {
             <Grid item xs={6} sm={3}>
               <KpiTile
                 label="Net balance"
-                value={isOwed ? `-${inr(Math.abs(balance))}` : inr(balance)}
-                subtitle={isOwed ? 'Customer owes' : balance > 0 ? 'Advance credit' : 'Zero balance'}
-                warn={isOwed}
+                value={inr(Math.abs(netBalance))}
+                subtitle={statusLabel}
+                warn={isReceivable}
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <KpiTile
                 label="Total sales"
-                value={inr(stats?.totalSalesValue)}
-                subtitle={`${stats?.totalSales || 0} invoices`}
+                value={inr(totalSalesVal)}
+                subtitle={`${totalSalesCount} ${totalSalesCount === 1 ? 'invoice' : 'invoices'}`}
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <KpiTile
                 label="Avg order"
-                value={inr(stats?.averageOrderValue)}
+                value={inr(avgOrderVal)}
                 subtitle="Per invoice"
               />
             </Grid>
             <Grid item xs={6} sm={3}>
               <KpiTile
                 label="Advance balance"
-                value={inr(stats?.advanceBalance)}
+                value={inr(stats?.advanceBalance ?? (isAdvance ? Math.abs(netBalance) : 0))}
                 subtitle="Unallocated credit"
               />
             </Grid>
@@ -915,15 +952,9 @@ export default function CustomerDetails() {
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    // Deep-link into the Sales History tab and pre-fill the search box
-                                    // with this invoice number — SalesHistory reads `search` from the URL
-                                    // (SalesHistory.jsx:527) and filters the list down to the target row.
-                                    // Previously navigated to bare `/sales` with no context, which was a
-                                    // dead action.
-                                    onClick={() => {
-                                      const q = inv.invoiceNo || inv.saleId || inv.id;
-                                      navigate(`/sales?tab=history&search=${encodeURIComponent(q)}`);
-                                    }}
+                                    disabled={viewingInvoiceLoadingId === (inv.saleId || inv.id)}
+                                    startIcon={viewingInvoiceLoadingId === (inv.saleId || inv.id) ? <CircularProgress size={12} /> : null}
+                                    onClick={() => handleViewInvoice(inv)}
                                     sx={{ fontSize: '0.75rem', py: 0.25 }}
                                   >
                                     View
@@ -1025,95 +1056,7 @@ export default function CustomerDetails() {
 
               {/* ─── TAB 2: STATEMENT (LEDGER) ───────────────────────────────── */}
               {tabIndex === 2 && (
-                <Box>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 2.5 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Running Statement of Account
-                    </Typography>
-
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <TextField
-                        size="small"
-                        type="date"
-                        label="From"
-                        value={ledgerDateFrom}
-                        onChange={(e) => setLedgerDateFrom(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 140 }}
-                      />
-                      <TextField
-                        size="small"
-                        type="date"
-                        label="To"
-                        value={ledgerDateTo}
-                        onChange={(e) => setLedgerDateTo(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 140 }}
-                      />
-                      <Button variant="outlined" size="small" onClick={loadLedger}>
-                        Filter
-                      </Button>
-                      <Button variant="contained" size="small" startIcon={<PictureAsPdfIcon />} onClick={handleDownloadStatementPdf}>
-                        Download PDF
-                      </Button>
-                    </Stack>
-                  </Stack>
-
-                  {ledgerLoading ? (
-                    <Box sx={{ py: 6, textAlign: 'center' }}>
-                      <CircularProgress size={32} />
-                    </Box>
-                  ) : ledgerEntries.length === 0 ? (
-                    <Box sx={{ py: 6, textAlign: 'center' }}>
-                      <WalletIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No ledger entries found in the selected date range.
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>Particulars / Description</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700 }}>Debit (-)</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700 }}>Credit (+)</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {ledgerEntries.map((entry) => {
-                            const isDebit = entry.type === 'DEBIT';
-                            return (
-                              <TableRow key={entry.id} hover>
-                                <TableCell>
-                                  {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-IN') : '—'}
-                                </TableCell>
-                                <TableCell>{entry.description || 'Ledger transaction'}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    size="small"
-                                    label={entry.type}
-                                    color={isDebit ? 'warning' : 'success'}
-                                    variant="outlined"
-                                    sx={{ fontWeight: 700, fontSize: '0.68rem' }}
-                                  />
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600, color: isDebit ? 'error.main' : 'text.disabled' }}>
-                                  {isDebit ? inr(entry.amount) : '—'}
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600, color: !isDebit ? 'success.main' : 'text.disabled' }}>
-                                  {!isDebit ? inr(entry.amount) : '—'}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  )}
-                </Box>
+                <CustomerStatement customerId={id} onDownloadPdf={handleDownloadStatementPdf} />
               )}
 
               {/* ─── TAB 3: CREDIT NOTES ─────────────────────────────────────── */}
@@ -1404,6 +1347,20 @@ export default function CustomerDetails() {
           loadProfile();
         }}
       />
+
+      {/* Invoice Viewer Modal */}
+      {viewingInvoice && (
+        <InvoiceModal
+          open={Boolean(viewingInvoice)}
+          onClose={() => setViewingInvoice(null)}
+          saleId={viewingInvoice.saleId}
+          invoiceNo={viewingInvoice.invoiceNo}
+          signedInvoiceUrl={viewingInvoice.signedInvoiceUrl}
+          customerPhone={viewingInvoice.customerPhone}
+          totalAmount={viewingInvoice.totalAmount}
+          shopName={shop?.name}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar

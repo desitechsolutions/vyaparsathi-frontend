@@ -144,8 +144,17 @@ export const CustomerEditDialog = ({
 
   const onSubmit = async (data) => {
     setSaveError('');
+    let cleanPhone = (data.phone || '').trim().replace(/\D/g, '');
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
     const payload = {
       ...data,
+      phone: cleanPhone || null,
+      email: data.email?.trim() || null,
       stateCode: data.stateCode?.trim() || null,
       gstNumber: data.gstNumber?.trim().toUpperCase() || null,
       panNumber: data.panNumber?.trim().toUpperCase() || null,

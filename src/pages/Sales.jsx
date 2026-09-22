@@ -20,7 +20,7 @@ import ReviewPaymentPage from '../components/Sales/ReviewPaymentPage';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import { buildSalePayload } from '../utils/salesUtils';
 import {
-  fetchCustomers, createSale, fetchItemVariants, createCustomer,
+  fetchCustomers, fetchCustomer, createSale, fetchItemVariants, createCustomer,
   draftSale, getSaleById, completeDraftSale, fetchItemSubstitutes,
   parkSale as parkSaleApi, discardDraftSale
 } from '../services/api';
@@ -642,15 +642,48 @@ const Sales = () => {
   );
 
   const handleNewCustomer = useCallback(async () => {
+    const rawName = (newCustomerData.name || '').trim();
+    if (!rawName) {
+      showSnackbar('Customer name is required.', 'error');
+      return;
+    }
+
+    let cleanPhone = (newCustomerData.phone || '').trim().replace(/\D/g, '');
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
+    if (cleanPhone && cleanPhone.length !== 10) {
+      showSnackbar('Phone number must be exactly 10 digits.', 'error');
+      return;
+    }
+
+    const payload = {
+      ...newCustomerData,
+      name: rawName,
+      phone: cleanPhone || null,
+      email: newCustomerData.email?.trim() || null,
+      gstNumber: newCustomerData.gstNumber?.trim().toUpperCase() || null,
+      panNumber: newCustomerData.panNumber?.trim().toUpperCase() || null,
+      addressLine1: newCustomerData.addressLine1?.trim() || null,
+      addressLine2: newCustomerData.addressLine2?.trim() || null,
+      city: newCustomerData.city?.trim() || null,
+      state: newCustomerData.state?.trim() || null,
+      postalCode: newCustomerData.postalCode?.trim() || null,
+      notes: newCustomerData.notes?.trim() || null,
+    };
+
     if (isOffline) {
       // Offline: create a local-only customer — id is null so the backend treats it
       // as a walk-in with name when the sale eventually syncs via offline queue.
       const localCust = {
         id: null,
         value: null,
-        label: `${newCustomerData.name}${newCustomerData.phone ? ` | ${newCustomerData.phone}` : ''}`,
-        name: newCustomerData.name,
-        phone: newCustomerData.phone || '',
+        label: `${payload.name}${payload.phone ? ` | ${payload.phone}` : ''}`,
+        name: payload.name,
+        phone: payload.phone || '',
         isLocalOnly: true,
       };
       setCustomers((prev) => [...prev, localCust]);
@@ -663,15 +696,42 @@ const Sales = () => {
       return;
     }
     try {
-      const res = await createCustomer(newCustomerData);
-      const newCust = { value: res.data.id, label: res.data.name, ...res.data };
+      const res = await createCustomer(payload);
+      const createdData = res.data || res;
+      const newCust = { value: createdData.id, label: createdData.name, ...createdData };
       setCustomers((prev) => [...prev, newCust]);
       setSelectedCustomer(newCust);
-      setFormData((prev) => ({ ...prev, customerId: res.data.id }));
+      setFormData((prev) => ({ ...prev, customerId: createdData.id }));
       setOpenCustomerModal(false);
+      setNewCustomerData(initialCustomer);
       showSnackbar('Customer added!', 'success');
-    } catch {
-      showSnackbar('Failed to add customer.', 'error');
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to add customer.';
+
+      // Check if duplicate customer error contains existing customer id
+      const idMatch = msg.match(/id=(\d+)/);
+      if (idMatch && idMatch[1]) {
+        const existingId = Number(idMatch[1]);
+        try {
+          const fetched = await fetchCustomer(existingId);
+          const existingData = fetched.data || fetched;
+          const existingCust = { value: existingData.id, label: existingData.name, ...existingData };
+          setCustomers((prev) => {
+            const exists = prev.some((c) => c.value === existingId || c.id === existingId);
+            return exists ? prev : [...prev, existingCust];
+          });
+          setSelectedCustomer(existingCust);
+          setFormData((prev) => ({ ...prev, customerId: existingId }));
+          setOpenCustomerModal(false);
+          setNewCustomerData(initialCustomer);
+          showSnackbar(`Customer '${existingData.name}' already exists — selected!`, 'info');
+          return;
+        } catch (_) {
+          // If fetching existing fails, show the error message
+        }
+      }
+
+      showSnackbar(msg, 'error');
     }
   }, [isOffline, newCustomerData, showSnackbar]);
 

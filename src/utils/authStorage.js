@@ -45,9 +45,12 @@ export function getValidToken() {
       return null;
     }
 
-    // exp is in seconds; compare against current time in ms
+    // exp is in seconds; compare against current time in ms.
+    // Do NOT call clearAuthStorage() here — simply return null so the
+    // caller (interceptor or silentRefresh) can decide to refresh or
+    // redirect. Clearing storage here would wipe a newly logged-in
+    // user's token when a stale interval fires.
     if (decoded.exp * 1000 <= Date.now()) {
-      clearAuthStorage();
       return null;
     }
 

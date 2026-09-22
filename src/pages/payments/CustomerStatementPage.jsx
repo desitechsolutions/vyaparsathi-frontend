@@ -40,6 +40,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import {
   fetchCustomers,
   fetchCustomerLedger,
+  fetchCustomerStatement,
   downloadCustomerStatementPdf,
 } from '../../services/api';
 import { useAppPalette }      from '../../hooks/useAppPalette';
@@ -144,14 +145,56 @@ const CustomerStatementPage = () => {
     setLoading(true);
     try {
       const params = {};
-      if (startDate) params.startDate = `${startDate}T00:00:00`;
-      if (endDate)   params.endDate   = `${endDate}T23:59:59`;
-      const resp = await fetchCustomerLedger(selectedCustomer.id, params);
-      setEntries(resp.data || []);
+      if (startDate) params.from = startDate;
+      if (endDate)   params.to   = endDate;
+
+      // Primary: unified statement endpoint matching PDF builder
+      const resp = await fetchCustomerStatement(selectedCustomer.id, params);
+      const lines = (resp.lines || []).map((l) => ({
+        ...l,
+        date: l.date,
+        transactionType: l.type,
+        referenceNo: l.reference,
+        description: l.description,
+        debitAmount: Number(l.debit || 0),
+        creditAmount: Number(l.credit || 0),
+        runningBalance: Number(l.runningBalance ?? 0),
+      }));
+      setEntries(lines);
       setFetched(true);
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to load ledger entries.';
-      setSnackbar({ open: true, msg, severity: 'error' });
+      console.warn('Statement endpoint error, attempting ledger fallback:', err);
+      try {
+        const params = {};
+        if (startDate) params.startDate = `${startDate}T00:00:00`;
+        if (endDate)   params.endDate   = `${endDate}T23:59:59`;
+        const resp = await fetchCustomerLedger(selectedCustomer.id, params);
+        const raw = resp.data || [];
+        let running = 0;
+        const normalized = raw.map((e) => {
+          const desc = e.description || '';
+          const isSale = e.type === 'INVOICE' || e.type === 'SALE' || e.type === 'DEBIT_NOTE'
+            || (e.type === 'CREDIT' && (desc.startsWith('Sale #') || desc.toLowerCase().includes('invoice')));
+          const amt = Number(e.amount || 0);
+          const debit = isSale ? amt : 0;
+          const credit = !isSale ? amt : 0;
+          running = running + debit - credit;
+          return {
+            date: e.createdAt ? e.createdAt.split('T')[0] : null,
+            transactionType: isSale ? 'INVOICE' : 'PAYMENT',
+            referenceNo: desc.replace(/^Sale #|^Payment for /i, '').trim(),
+            description: desc || 'Ledger entry',
+            debitAmount: debit,
+            creditAmount: credit,
+            runningBalance: running,
+          };
+        });
+        setEntries(normalized);
+        setFetched(true);
+      } catch (fallbackErr) {
+        const msg = fallbackErr?.response?.data?.message || 'Failed to load ledger entries.';
+        setSnackbar({ open: true, msg, severity: 'error' });
+      }
     } finally {
       setLoading(false);
     }
@@ -385,10 +428,10 @@ const CustomerStatementPage = () => {
 
               {/* Summary cards */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
-                <SummaryCard icon={<AccountBalanceWalletIcon color="inherit" />} label="Opening Balance" value={fmt(balances.openingBalance)} accent="#6366f1" />
-                <SummaryCard icon={<TrendingUpIcon color="inherit" />}           label="Total Debit"     value={fmt(balances.totalDebit)}    accent="#ef4444" />
-                <SummaryCard icon={<TrendingDownIcon color="inherit" />}         label="Total Credit"    value={fmt(balances.totalCredit)}   accent="#22c55e" />
-                <SummaryCard icon={<ReceiptLongIcon color="inherit" />}          label="Closing Balance" value={fmt(balances.closingBalance)} accent="#0ea5e9" highlight />
+                <SummaryCard icon={<AccountBalanceWalletIcon color="inherit" />} label="Opening Balance" value={`${fmt(Math.abs(balances.openingBalance))} ${balances.openingBalance > 0 ? 'Dr' : balances.openingBalance < 0 ? 'Cr' : ''}`} accent="#6366f1" />
+                <SummaryCard icon={<TrendingUpIcon color="inherit" />}           label="Total Debit (Dr)" value={fmt(balances.totalDebit)}    accent="#ef4444" />
+                <SummaryCard icon={<TrendingDownIcon color="inherit" />}         label="Total Credit (Cr)" value={fmt(balances.totalCredit)}   accent="#22c55e" />
+                <SummaryCard icon={<ReceiptLongIcon color="inherit" />}          label="Closing Balance" value={`${fmt(Math.abs(balances.closingBalance))} ${balances.closingBalance > 0 ? 'Dr (Due)' : balances.closingBalance < 0 ? 'Cr (Adv)' : 'Settled'}`} accent="#0ea5e9" highlight />
               </Grid>
 
               {/* Ledger table */}
@@ -403,9 +446,9 @@ const CustomerStatementPage = () => {
                       <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Date</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, color: 'error.main', whiteSpace: 'nowrap' }}>Debit (₹)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main', whiteSpace: 'nowrap' }}>Credit (₹)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Balance (₹)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: 'error.main', whiteSpace: 'nowrap' }}>Debit (Dr)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main', whiteSpace: 'nowrap' }}>Credit (Cr)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Running Balance</TableCell>
                     </TableRow>
                   </TableHead>
 
@@ -458,7 +501,7 @@ const CustomerStatementPage = () => {
                             {(entry.creditAmount > 0) ? fmt(entry.creditAmount) : '—'}
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
-                            {fmt(entry.runningBalance)}
+                            {fmt(Math.abs(entry.runningBalance))} {entry.runningBalance > 0 ? 'Dr' : entry.runningBalance < 0 ? 'Cr' : ''}
                           </TableCell>
                         </TableRow>
                       ))
@@ -472,7 +515,7 @@ const CustomerStatementPage = () => {
                       <TableCell align="right" />
                       <TableCell align="right" />
                       <TableCell align="right" sx={{ fontWeight: 900, color: 'primary.main', fontSize: '0.9rem' }}>
-                        {fmt(balances.closingBalance)}
+                        {fmt(Math.abs(balances.closingBalance))} {balances.closingBalance > 0 ? 'Dr' : balances.closingBalance < 0 ? 'Cr' : ''}
                       </TableCell>
                     </TableRow>
                   </TableBody>

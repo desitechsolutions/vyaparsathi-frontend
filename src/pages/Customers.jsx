@@ -779,9 +779,11 @@ export default function Customers() {
               ) : (
                 displayedCustomers.map((c) => {
                   const isSelected = selectedIds.includes(c.id);
-                  const isBusiness = c.customerType === 'BUSINESS';
-                  const bal = c.creditBalance ?? 0;
-                  const isOwed = bal < 0;
+                  const isBusiness = c.customerType === 'BUSINESS' || Boolean(c.gstNumber);
+                  const bal = Number(c.creditBalance ?? 0);
+                  const isReceivable = bal > 0;
+                  const isAdvance = bal < 0;
+                  const statusLabel = isReceivable ? 'Customer Owes' : isAdvance ? 'Advance Credit' : 'Settled';
 
                   return (
                     <TableRow
@@ -932,12 +934,12 @@ export default function Customers() {
                           <Typography
                             variant="body2"
                             fontWeight={800}
-                            color={isOwed ? 'error.main' : bal > 0 ? 'success.main' : 'text.primary'}
+                            color={isReceivable ? 'error.main' : isAdvance ? 'success.main' : 'text.primary'}
                           >
-                            {isOwed ? `-${inr(Math.abs(bal))}` : inr(bal)}
+                            {inr(Math.abs(bal))}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {isOwed ? 'Customer Owes' : bal > 0 ? 'Advance Credit' : 'Settled'}
+                            {statusLabel}
                           </Typography>
                         </TableCell>
                       )}
