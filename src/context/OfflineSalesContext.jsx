@@ -83,6 +83,16 @@ export function OfflineSalesProvider({ children }) {
   const syncNowRef = useRef(null);
   // Track shopId across renders so the logout cleanup knows which shop to clear.
   const lastShopIdRef = useRef(null);
+  // OFF-1 fix: authExpiredRef keeps the latest authExpired value readable from within
+  // stale closures (e.g. the handleOnline callback inside the connectivity useEffect
+  // which has an empty dependency array and therefore captures authExpired=false forever).
+  const authExpiredRef = useRef(false);
+
+  // OFF-1 fix: keep authExpiredRef in sync with authExpired state so the
+  // stale-closure handleOnline callback always reads the current value.
+  useEffect(() => {
+    authExpiredRef.current = authExpired;
+  }, [authExpired]);
 
   // ── Logout cleanup ──────────────────────────────────────────────
   // On explicit logout, wipe the reference cache (item_variants, customers,
@@ -192,7 +202,9 @@ export function OfflineSalesProvider({ children }) {
 
     const handleOnline = () => {
       checkConnectivity().then(() => {
-        if (!authExpired) syncNowRef.current?.();
+        // OFF-1 fix: read authExpiredRef.current (always current) rather than
+        // the stale `authExpired` captured at mount time by this empty-dep effect.
+        if (!authExpiredRef.current) syncNowRef.current?.();
       });
     };
     const handleOffline = () => {

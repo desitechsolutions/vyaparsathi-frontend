@@ -112,10 +112,14 @@ export const AuthProvider = ({ children }) => {
       navigate(redirectUrl, { replace: true });
     }
 
-    // Release lock
-    setTimeout(() => {
-      isLoggingOut.current = false;
-    }, 2000);
+    // Release the guard immediately after all synchronous logout work is done
+    // and navigation has been requested. The 2-second setTimeout it replaced
+    // was arbitrary and created a window where a fast User B login could be
+    // incorrectly blocked by a stale isLoggingOut=true from User A's logout.
+    // Navigation is non-blocking in React Router — releasing the flag here is
+    // safe because every stateful side-effect (clearAuthStorage, setUser(null),
+    // BroadcastChannel) has already been executed above.
+    isLoggingOut.current = false;
 
   }, [navigate, location.pathname]);
 

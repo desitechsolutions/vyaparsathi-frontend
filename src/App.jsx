@@ -13,7 +13,6 @@ import { ThemeContextProvider, useThemeContext } from './context/ThemeContext';
 
 import ErrorBoundary from './components/common/ErrorBoundary';
 
-import { clearAuthStorage } from './utils/authStorage';
 import { initSentry } from './services/sentry';
 
 // Initialise Sentry as early as possible so every subsequent error is captured.
@@ -33,19 +32,19 @@ function ThemedApp() {
     document.documentElement.setAttribute('data-theme', effectiveMode);
   }, [effectiveMode]);
 
-  // Multi-tab logout / cross-tab storage sync listener
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'token' && !e.newValue) {
-        clearAuthStorage();
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login?expired=true';
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  // NOTE: The storage event listener that previously called clearAuthStorage()
+  // and hard-redirected to /login on token removal has been intentionally
+  // removed. It was causing User B to be immediately logged out after User A's
+  // logout in a multi-tab scenario:
+  //   1. User A logout in Tab 1 fires localStorage.removeItem('token').
+  //   2. The storage event fires in Tab 2 with e.key='token', e.newValue=null.
+  //   3. Tab 2 called clearAuthStorage() and redirected — wiping User B's
+  //      just-written token and interrupting their login.
+  //
+  // Multi-tab auth sync is handled correctly by AuthContext's BroadcastChannel
+  // ('vs-auth'), which triggers a full page reload in sibling tabs. That reload
+  // re-runs init() from the current localStorage/cookie state, which is always
+  // correct. No storage listener is needed or safe here.
 
   // Global safety nets for async errors that ErrorBoundary can't catch:
   // - `unhandledrejection` — an awaited/promised call that threw after any

@@ -39,25 +39,11 @@ export const cancelAllRequests = () => {
 
 export const getRequest = (url, config) => API.get(url, config);
 
-export let isRefreshing = false;
-export let failedQueue = [];
-
 // ── Error notification deduplication ──────────────────────────────────────
 // Prevents multiple identical error toasts from appearing simultaneously
 let lastErrorToastTime = 0;
 let lastErrorMessage = '';
 const ERROR_TOAST_DEBOUNCE_MS = 3000; // Only show same error once per 3s
-
-export const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
-};
 
 // --- RETRY STRATEGY WITH EXPONENTIAL BACKOFF ---
 const MAX_RETRIES = 3;
@@ -94,6 +80,18 @@ API.interceptors.request.use(
     } else {
       delete config.headers.Authorization;
     }
+
+    // CSRF double-submit cookie: for the /api/auth/refresh endpoint the backend
+    // requires an X-XSRF-TOKEN header matching the XSRF-TOKEN cookie value.
+    // This prevents a cross-site attacker from forcing a token rotation via the
+    // refresh cookie (the attacker cannot read the XSRF-TOKEN cookie due to SOP).
+    const csrfCookie = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('XSRF-TOKEN='));
+    if (csrfCookie) {
+      config.headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfCookie.split('=')[1]);
+    }
+
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`, config.params ?? '');
@@ -179,6 +177,15 @@ API.interceptors.response.use(
         // No fresh token either — the session is genuinely dead.
         // clearAuthStorage is a no-op here (nothing to clear), and
         // AuthContext.silentRefresh() will call setUser(null) from its catch.
+        return Promise.reject(error);
+      }
+
+      // skipGlobalRedirect: true — opt-out flag for background/polling
+      // requests (subscription polls, low-stock checks, etc.) that should NOT
+      // trigger a global logout when they return 401. Without this opt-out, a
+      // background request racing with a logout or login would kick the new
+      // user back to /login the moment their session was established.
+      if (error.config?.skipGlobalRedirect) {
         return Promise.reject(error);
       }
 
@@ -612,7 +619,7 @@ export const fetchItemVariantById = async (id) => {
 export const addStock = (data) => API.post(endpoints.stock, data);
 export const fetchStock = (signal) => API.get(endpoints.fetchStock, signal ? { signal } : undefined);
 export const fetchLowStockAlerts = () =>
-  API.get('/api/stock/low-stock-alerts', { meta: { background: true } });
+  API.get('/api/stock/low-stock-alerts', { meta: { background: true }, skipGlobalRedirect: true });
 export const lookupByBarcode = (code) =>
   API.get(`/api/item-variants/barcode/${encodeURIComponent(code)}`).then((r) => r.data);
 
@@ -634,9 +641,9 @@ export const cancelStockTransfer = (id) =>
   API.post(endpoints.cancelStockTransfer(id)).then((r) => r.data);
 
 export const fetchPendingStockTransferCount = () =>
-  API.get(endpoints.pendingStockTransferCount, { meta: { background: true } }).then((r) => r.data);
+  API.get(endpoints.pendingStockTransferCount, { meta: { background: true }, skipGlobalRedirect: true }).then((r) => r.data);
 export const fetchExpiryAlerts = (daysBeforeExpiry = 90) =>
-  API.get('/api/stock/expiry-alerts', { params: { daysBeforeExpiry }, meta: { background: true } });
+  API.get('/api/stock/expiry-alerts', { params: { daysBeforeExpiry }, meta: { background: true }, skipGlobalRedirect: true });
 export const adjustStock = (data) => API.post('/api/stock/adjust', data);
 export const fetchStockMovements = (variantId) => API.get(`/api/stock/movements/${variantId}`);
 export const exportStockReport = (startDate, endDate, format) =>
@@ -2097,8 +2104,11 @@ export const startTrial = () =>
   API.post('/api/subscriptions/trial/start').then(res => res.data);
 export const submitPaymentUtr = (paymentData) =>
   API.post('/api/subscriptions/verify-payment', paymentData).then(res => res.data);
+// skipGlobalRedirect: background polling call — a 401 here must NOT trigger
+// the global clearAuthStorage()+redirect, which would destroy a concurrent
+// login. SubscriptionContext handles auth errors in its own catch block.
 export const fetchSubscriptionStatus = () =>
-  API.get('/api/subscriptions/status').then(res => res.data);
+  API.get('/api/subscriptions/status', { skipGlobalRedirect: true }).then(res => res.data);
 export const fetchMyPaymentHistory = () =>
   API.get('/api/subscriptions/my-payments').then(res => res.data);
 export const cancelSubscription = () =>

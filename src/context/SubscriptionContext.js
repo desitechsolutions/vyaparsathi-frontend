@@ -8,7 +8,7 @@ import {
 import { useAuthContext } from './AuthContext';
 import { toast } from 'react-toastify';
 
-import { getValidToken, clearAuthStorage } from '../utils/authStorage';
+import { getValidToken } from '../utils/authStorage';
 
 const SubscriptionContext = createContext();
 
@@ -101,7 +101,13 @@ export const SubscriptionProvider = ({ children }) => {
         } catch (err) {
             console.error("Subscription sync failed:", err);
             if (err?.response?.status === 401 || err?.response?.status === 403) {
-                clearAuthStorage();
+                // Do NOT call clearAuthStorage() here. This catch fires on
+                // background polls (e.g. the 30-second PENDING check). If a
+                // logout/login race means the poll was in-flight while a new
+                // user was logging in, wiping storage here would delete the
+                // new user's access token and force them out immediately.
+                // The global Axios interceptor in api.js handles session-dead
+                // 401s on authenticated routes. Here we simply stop polling.
                 setSubscription(null);
             } else {
                 setError("Could not update subscription status.");
@@ -140,17 +146,24 @@ export const SubscriptionProvider = ({ children }) => {
     }, [refreshStatus]);
 
     // Polling Effect for Pending Payments
+    // Guard: only poll when there is an authenticated user. If the user logs
+    // out while in PENDING status the interval must NOT fire — a poll with no
+    // token triggers a 401 which (before this fix) called clearAuthStorage()
+    // and destroyed the next user's freshly written token.
     useEffect(() => {
         let interval;
-        if (subscription?.status === 'PENDING') {
+        if (subscription?.status === 'PENDING' && user) {
             interval = setInterval(() => {
-                refreshStatus(false); 
-            }, 30000); 
+                // Double-check user inside the tick — logout may have fired
+                // between the interval creation and this callback execution.
+                if (!user) return;
+                refreshStatus(false);
+            }, 30000);
         }
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [subscription?.status, refreshStatus]);
+    }, [subscription?.status, refreshStatus, user]);
 
     // Memoized plans now come from the DB state
     const plans = useMemo(() => dynamicPlans, [dynamicPlans]);

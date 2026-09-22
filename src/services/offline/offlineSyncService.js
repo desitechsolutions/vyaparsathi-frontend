@@ -188,20 +188,41 @@ export async function flushAll(shopId, { maxRetries = 3 } = {}) {
     console.log(`[OfflineSalesSync] Flushing ${retriable.length} sale(s)...`);
 
     const results = [];
+    let authErrorOccurred = false;
+
+    // OFF-4 fix: catch AUTH_FAILURE inside the loop so we:
+    //   1. Stop processing further records immediately (no point hammering the backend).
+    //   2. Still run clearSyncedOlderThan cleanup (previously skipped on the throw path).
+    //   3. Re-throw the tagged error AFTER cleanup so syncNow() can set authExpired.
     for (const record of retriable) {
-      // pushOne() throws AUTH_FAILURE on 401/403 — stop the entire flush immediately
-      // so we don’t hammer the backend with more doomed requests.
-      const result = await pushOne(record);
-      results.push(result);
+      try {
+        const result = await pushOne(record);
+        results.push(result);
+      } catch (err) {
+        if (err.isAuthError) {
+          authErrorOccurred = true;
+          break; // stop processing; cleanup runs below
+        }
+        throw err; // unexpected — re-throw to outer catch
+      }
     }
 
     const synced = results.filter((r) => r.ok).length;
     const failedCount = results.filter((r) => !r.ok).length;
 
-    console.log(`[OfflineSalesSync] Flush complete: synced=${synced} failed=${failedCount}`);
+    if (!authErrorOccurred) {
+      console.log(`[OfflineSalesSync] Flush complete: synced=${synced} failed=${failedCount}`);
+    }
 
-    // Clean up old synced records
+    // Always run cleanup — even on auth errors, old SYNCED records should be pruned.
     await clearSyncedOlderThan(shopId, 7);
+
+    if (authErrorOccurred) {
+      // Re-throw so syncNow() in OfflineSalesContext can set authExpired=true.
+      const authErr = new Error('AUTH_FAILURE');
+      authErr.isAuthError = true;
+      throw authErr;
+    }
 
     return {
       attempted: results.length,

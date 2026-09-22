@@ -316,21 +316,29 @@ const useWebSocket = (shopId, options = {}) => {
   // STOMP client lifecycle
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const token = getValidToken();
-    if (!token) return;
+    if (!getValidToken()) return;
 
     let isMounted = true;
 
-    const socket = new SockJS(`${API_BASE_URL}/ws`, null, {
-      withCredentials: true,
-      transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-    });
-
     const client = new Client({
-      webSocketFactory: () => socket,
-      connectHeaders: {
-        Authorization:  `Bearer ${token}`,
-        authorization:  `Bearer ${token}`,
+      // webSocketFactory is called fresh on every connect attempt
+      // (initial connect + every reconnect). Building the SockJS socket
+      // here instead of outside the Client ensures each reconnect attempt
+      // opens a new TCP connection rather than reusing a closed one.
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`, null, {
+        withCredentials: true,
+        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+      }),
+      // connectHeaders is evaluated fresh on every connect/reconnect so that
+      // the latest access token (after a silent refresh) is always used.
+      // A snapshot captured at construction time would become stale after the
+      // 60-second token rotation, causing reconnects to fail with 401.
+      connectHeaders: () => {
+        const freshToken = getValidToken() || '';
+        return {
+          Authorization: `Bearer ${freshToken}`,
+          authorization: `Bearer ${freshToken}`,
+        };
       },
       reconnectDelay: 5000,
       debug: () => {},
