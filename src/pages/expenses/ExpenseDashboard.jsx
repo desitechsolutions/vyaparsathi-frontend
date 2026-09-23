@@ -113,10 +113,14 @@ const ExpenseDashboard = () => {
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
+          {/* EXP-13 fix: the API returns totalExpenses (a count), not a total amount.
+              "Average Amount" cannot be computed from count/count. Replaced with
+              "Total Expenses Count" until the backend provides totalAmount and
+              expenseCount as separate fields in DashboardMetrics. */}
           <MetricCard
             icon={TrendingUpIcon}
-            label="Average Amount"
-            value={Math.round((metrics?.totalExpenses || 0) / (metrics?.expenseCount || 1))}
+            label="Total Expenses"
+            value={metrics?.totalExpenses || 0}
             color="#FFBB28"
           />
         </Grid>
@@ -191,11 +195,23 @@ const ExpenseDashboard = () => {
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
                 Budget Status
               </Typography>
+              {/* EXP-16 fix: use real category spending data from the API instead of
+                  hardcoded placeholder values that never change per shop. */}
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <BudgetProgressBar label="Travel" spent={5000} budget={10000} />
-                <BudgetProgressBar label="Meals" spent={3500} budget={5000} />
-                <BudgetProgressBar label="Office Supplies" spent={2000} budget={3000} />
-                <BudgetProgressBar label="Equipment" spent={8500} budget={8000} />
+                {categorySpending && categorySpending.length > 0
+                  ? categorySpending.map((cat, idx) => (
+                      <BudgetProgressBar
+                        key={cat.categoryId ?? idx}
+                        label={cat.categoryName || `Category ${cat.categoryId}`}
+                        spent={cat.amount || 0}
+                        budget={cat.budgetThreshold || cat.amount * 1.5 || 1000}
+                      />
+                    ))
+                  : (
+                      <Typography color="textSecondary">
+                        No category spending data for this period
+                      </Typography>
+                    )}
               </Box>
             </CardContent>
           </Card>

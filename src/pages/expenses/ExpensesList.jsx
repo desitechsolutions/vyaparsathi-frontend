@@ -23,6 +23,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate } from 'react-router-dom';
 import { useExpenses } from '../../hooks/useExpenses';
 import { useExpenseFilters } from '../../hooks/useExpenseFilters';
+import { getExpenseCategoriesEnterprise } from '../../services/api';
 import ExpenseFilters from '../../components/expenses/ExpenseFilters';
 import ApprovalTimeline from '../../components/expenses/ApprovalTimeline';
 
@@ -32,12 +33,14 @@ const ExpensesList = () => {
   const { filters, updateFilter, clearFilters, setPage } = useExpenseFilters();
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [categories] = useState([
-    { id: 1, name: 'Travel' },
-    { id: 2, name: 'Meals' },
-    { id: 3, name: 'Office Supplies' },
-    { id: 4, name: 'Equipment' },
-  ]);
+  // EXP-9 fix: fetch real categories from the API instead of a static 4-item list
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    getExpenseCategoriesEnterprise()
+      .then((res) => setCategories(res.data || res || []))
+      .catch(() => {}); // non-fatal — category column shows N/A on failure
+  }, []);
 
   useEffect(() => {
     fetchExpenses(filters);
@@ -86,7 +89,11 @@ const ExpensesList = () => {
       field: 'amount',
       headerName: 'Amount',
       width: 120,
-      renderCell: (params) => `₹${params.value.toLocaleString('en-IN')}`,
+      // EXP-10 fix: guard against null amount (crashes .toLocaleString on null)
+      renderCell: (params) =>
+        params.value != null
+          ? `₹${Number(params.value).toLocaleString('en-IN')}`
+          : '—',
     },
     {
       field: 'categoryId',

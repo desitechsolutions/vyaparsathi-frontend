@@ -20,6 +20,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { useExpenses } from '../../hooks/useExpenses';
+import { getExpenseById, getExpenseCategoriesEnterprise } from '../../services/api';
 import ReceiptUploader from '../../components/expenses/ReceiptUploader';
 
 const ExpenseForm = () => {
@@ -38,25 +39,42 @@ const ExpenseForm = () => {
     },
   });
 
-  const [categories] = useState([
-    { id: 1, name: 'Travel' },
-    { id: 2, name: 'Meals' },
-    { id: 3, name: 'Office Supplies' },
-    { id: 4, name: 'Equipment' },
-  ]);
-
-  const [paymentMethods] = useState(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE']);
+  // EXP-9 fix: load real categories from the API instead of a hardcoded list.
+  const [categories, setCategories] = useState([]);
+  const [paymentMethods] = useState(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'UPI']);
   const [receiptFile, setReceiptFile] = useState(null);
   const [submitError, setSubmitError] = useState(null);
 
   const watchAmount = watch('amount');
 
+  // EXP-9 fix: fetch categories from backend on mount
   useEffect(() => {
-    if (id) {
-      // Fetch existing expense and populate form
-      // This would be implemented when API is ready
-    }
-  }, [id]);
+    getExpenseCategoriesEnterprise()
+      .then((res) => setCategories(res.data || res || []))
+      .catch((err) => console.error('[ExpenseForm] Failed to load categories:', err));
+  }, []);
+
+  // EXP-8 fix: load the existing expense when editing so the form is pre-populated.
+  // Previously this block had a TODO placeholder and always rendered blank fields,
+  // meaning any update submission would overwrite fields with empty values.
+  useEffect(() => {
+    if (!id) return;
+    getExpenseById(id)
+      .then((res) => {
+        const exp = res.data || res;
+        reset({
+          description: exp.description || exp.notes || '',
+          amount: exp.amount != null ? String(exp.amount) : '',
+          categoryId: exp.expenseCategoryId != null ? String(exp.expenseCategoryId) : '',
+          paymentMethod: exp.paymentMethod || 'CASH',
+          expenseDate: exp.expenseDate
+            ? String(exp.expenseDate).split('T')[0]
+            : new Date().toISOString().split('T')[0],
+          notes: exp.notes || '',
+        });
+      })
+      .catch((err) => console.error('[ExpenseForm] Failed to load expense:', err));
+  }, [id, reset]);
 
   const handleReceiptUpload = async (file) => {
     setReceiptFile(file);

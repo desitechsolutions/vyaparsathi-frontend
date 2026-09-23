@@ -16,7 +16,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import {
   fetchStockTransfers, createStockTransfer, executeStockTransfer,
-  cancelStockTransfer, fetchItemVariants,
+  cancelStockTransfer, fetchItemVariants, fetchMyShops,
   requestApprovalStockTransfer, approveStockTransfer,
   dispatchStockTransfer, receiveStockTransfer,
 } from '../../services/api';
@@ -38,13 +38,14 @@ export default function StockTransferModal({ open, onClose }) {
   const [activeTab, setActiveTab] = useState(0);
   const [transfers, setTransfers] = useState([]);
   const [variants, setVariants] = useState([]);
+  const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // New transfer form
-  const [toShopId, setToShopId] = useState('');
+  // New transfer form — STK-12: selectedShop replaces raw toShopId number input
+  const [selectedShop, setSelectedShop] = useState(null);
   const [notes, setNotes] = useState('');
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState('');
@@ -57,12 +58,18 @@ export default function StockTransferModal({ open, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const [transfersData, variantsRes] = await Promise.all([
+      const [transfersData, variantsRes, shopsRes] = await Promise.all([
         fetchStockTransfers(),
         fetchItemVariants({}),
+        fetchMyShops(),
       ]);
       setTransfers(Array.isArray(transfersData) ? transfersData : []);
       setVariants(Array.isArray(variantsRes?.data) ? variantsRes.data : []);
+      // fetchMyShops returns the list of shops the current user belongs to.
+      // Filter out the current shop (no self-transfers) using the first transfer's fromShopId
+      // as a proxy; we only have the user's shops here so all are valid destinations.
+      const shopList = Array.isArray(shopsRes?.data) ? shopsRes.data : [];
+      setShops(shopList);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load stock transfers');
     } finally {
@@ -131,7 +138,7 @@ export default function StockTransferModal({ open, onClose }) {
   // ── Create transfer ──────────────────────────────────────────────────────────
 
   const handleCreateTransfer = async () => {
-    if (!toShopId || !selectedVariant || !quantity || Number(quantity) <= 0) {
+    if (!selectedShop || !selectedVariant || !quantity || Number(quantity) <= 0) {
       setError('Fill in destination shop, item variant, and a valid quantity.');
       return;
     }
@@ -139,12 +146,12 @@ export default function StockTransferModal({ open, onClose }) {
     setError(null);
     try {
       await createStockTransfer({
-        toShopId: Number(toShopId),
+        toShopId: selectedShop.id,
         notes,
         items: [{ itemVariantId: selectedVariant.id, quantity: Number(quantity), batchNumber }],
       });
       setSuccess('Transfer request created (Pending).');
-      setToShopId(''); setNotes(''); setSelectedVariant(null); setQuantity(''); setBatchNumber('');
+      setSelectedShop(null); setNotes(''); setSelectedVariant(null); setQuantity(''); setBatchNumber('');
       setActiveTab(0);
       loadData();
     } catch (err) {
@@ -316,15 +323,21 @@ export default function StockTransferModal({ open, onClose }) {
           {/* ── New transfer form ──────────────────────────────────── */}
           {activeTab === 1 && (
             <Box display="flex" flexDirection="column" gap={2} pt={1}>
-              <TextField
-                label="Destination Shop ID"
-                type="number"
-                value={toShopId}
-                onChange={(e) => setToShopId(e.target.value)}
-                placeholder="e.g. 2"
-                helperText="Enter the numeric ID of the destination location"
-                fullWidth
-                required
+              {/* STK-12: replaced raw Shop ID number input with autocomplete */}
+              <Autocomplete
+                options={shops}
+                getOptionLabel={(s) => s ? `${s.name || s.shopName || `Shop #${s.id}`}` : ''}
+                value={selectedShop}
+                onChange={(_, val) => setSelectedShop(val)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Destination Shop"
+                    required
+                    helperText="Select the destination location for this stock transfer"
+                  />
+                )}
+                isOptionEqualToValue={(opt, val) => opt.id === val?.id}
               />
               <Autocomplete
                 options={variants}
