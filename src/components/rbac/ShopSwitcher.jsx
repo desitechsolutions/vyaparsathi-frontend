@@ -5,6 +5,9 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   ListItemIcon,
   ListItemText,
@@ -16,9 +19,11 @@ import {
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AddBusinessIcon from '@mui/icons-material/AddBusiness';
 import { fetchMyShops, switchShop } from '../../services/api';
 import { useAuthContext } from '../../context/AuthContext';
 import { clearPermissionsCache } from '../../hooks/usePermissions';
+import CreateShopForm from '../shop/CreateShopForm';
 
 /**
  * Header shop switcher. Shows the active shop's name + role; clicking
@@ -27,6 +32,9 @@ import { clearPermissionsCache } from '../../hooks/usePermissions';
  * token, clears the permission cache, and reloads the app so context
  * (ShopContext, permission set, industry field spec, etc.) rebuilds
  * against the new shopId claim.
+ *
+ * MULTI-STORE-3 fix: always renders for OWNER users (not just ≥2 shops)
+ * so there is an entry point to "Add new store".
  */
 export default function ShopSwitcher() {
   const { user, login } = useAuthContext();
@@ -34,12 +42,23 @@ export default function ShopSwitcher() {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(false);
   const [switching, setSwitching] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const currentShopId = user?.shopId ?? null;
+  const isOwner = user?.role === 'OWNER';
+
+  const loadShops = () => {
+    if (!user) return;
+    setLoading(true);
+    fetchMyShops()
+      .then((res) => setShops(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setShops([]))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    if (!user) return;
     let cancelled = false;
+    if (!user) return;
     setLoading(true);
     fetchMyShops()
       .then((res) => { if (!cancelled) setShops(Array.isArray(res.data) ? res.data : []); })
@@ -48,9 +67,8 @@ export default function ShopSwitcher() {
     return () => { cancelled = true; };
   }, [user, currentShopId]);
 
-  // Only render the switcher when the user has more than one shop.
-  // Single-shop users don't need a picker; the space is more valuable elsewhere.
-  if (!user || shops.length < 2) return null;
+  // Render for multi-shop users OR for OWNER (who can create a new store).
+  if (!user || (shops.length < 2 && !isOwner)) return null;
 
   const active = shops.find((s) => s.shopId === currentShopId) || shops[0];
 
@@ -73,11 +91,22 @@ export default function ShopSwitcher() {
         window.location.assign('/');
       }
     } catch (err) {
-      // Keep the menu open so the user sees something happened; a toast
-      // is out of scope here but the switch retries cheaply.
       console.error('Shop switch failed:', err);
     } finally {
       setSwitching(null);
+    }
+  };
+
+  const handleShopCreated = (newToken) => {
+    setCreateOpen(false);
+    closeMenu();
+    if (newToken) {
+      clearPermissionsCache();
+      login(newToken);
+      window.location.assign('/');
+    } else {
+      // Reload shops list without a full navigation if no auto-login token.
+      loadShops();
     }
   };
 
@@ -118,10 +147,12 @@ export default function ShopSwitcher() {
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         PaperProps={{ sx: { minWidth: 300, borderRadius: 2, mt: 0.5 } }}
       >
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="overline" color="text.secondary" fontWeight={700}>Your shops</Typography>
-        </Box>
-        <Divider />
+        {shops.length > 0 && (
+          <Box sx={{ px: 2, py: 1 }}>
+            <Typography variant="overline" color="text.secondary" fontWeight={700}>Your shops</Typography>
+          </Box>
+        )}
+        {shops.length > 0 && <Divider />}
         {loading && (
           <MenuItem disabled sx={{ justifyContent: 'center', py: 2 }}>
             <CircularProgress size={20} />
@@ -163,7 +194,50 @@ export default function ShopSwitcher() {
             </MenuItem>
           );
         })}
+
+        {/* MULTI-STORE-3 fix: Add new store entry point for OWNER */}
+        {isOwner && [
+          shops.length > 0 && <Divider key="divider" />,
+          <MenuItem
+            key="add-store"
+            onClick={() => { closeMenu(); setCreateOpen(true); }}
+            sx={{ py: 1.25 }}
+          >
+            <ListItemIcon>
+              <Avatar variant="rounded" sx={{ width: 32, height: 32, bgcolor: 'success.light', color: 'success.main' }}>
+                <AddBusinessIcon fontSize="small" />
+              </Avatar>
+            </ListItemIcon>
+            <ListItemText
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 700 }}
+              primary="Add new store"
+              secondary="Create a new shop under your account"
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </MenuItem>,
+        ]}
       </Menu>
+
+      {/* Create new store dialog */}
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          Create a new store
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          <CreateShopForm
+            mode="additional"
+            onSuccess={handleShopCreated}
+            onCancel={() => setCreateOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

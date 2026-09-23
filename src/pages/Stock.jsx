@@ -257,7 +257,8 @@ const Stock = () => {
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [brandFilter, setBrandFilter] = useState(null);
-  const [expiryFilter, setExpiryFilter] = useState('ALL'); // ALL | EXPIRED | CRITICAL | NEAR | OK | NONE
+  // UI-7: expiryFilter was declared but never read in filteredRows — removed.
+  // Expiry filtering is handled through stockFilter ('EXPIRED' | 'NEAR').
   const [stockFilter, setStockFilter] = useState('ALL');  // ALL | OK | LOW | OUT | EXPIRED | NEAR
 
   const searchInputRef = useRef(null);
@@ -335,15 +336,13 @@ const Stock = () => {
   }, [stock]);
 
   const hasFilters = Boolean(
-    searchText || categoryFilter || brandFilter ||
-    expiryFilter !== 'ALL' || stockFilter !== 'ALL'
+    searchText || categoryFilter || brandFilter || stockFilter !== 'ALL'
   );
 
   const clearAllFilters = () => {
     setSearchText('');
     setCategoryFilter(null);
     setBrandFilter(null);
-    setExpiryFilter('ALL');
     setStockFilter('ALL');
   };
 
@@ -356,7 +355,6 @@ const Stock = () => {
       }
       if (categoryFilter && row.categoryName !== categoryFilter) return false;
       if (brandFilter && row.brandName !== brandFilter) return false;
-      if (expiryFilter !== 'ALL' && expiryStateOf(row.expiryDate) !== expiryFilter) return false;
       if (stockFilter !== 'ALL') {
         const s = stockStateOf(row);
         if (stockFilter === 'EXPIRED' || stockFilter === 'NEAR') {
@@ -369,7 +367,7 @@ const Stock = () => {
       }
       return true;
     });
-  }, [stock, searchText, categoryFilter, brandFilter, expiryFilter, stockFilter]);
+  }, [stock, searchText, categoryFilter, brandFilter, stockFilter]);
 
   const stats = useMemo(() => {
     const totalItems = stock.length;
@@ -433,14 +431,12 @@ const Stock = () => {
         expiryDate: formData.expiryDate || null,
       };
       await addStock(payload);
+      // UI-4: only send the price field — spreading the stale variant object
+      // would overwrite all other fields with values from the last page load.
       if (formData.newRetailPrice && Number(formData.newRetailPrice) > 0) {
-        const variant = itemVariants.find(v => v.id === formData.itemVariantId);
-        if (variant) {
-          await updateItemVariant(formData.itemVariantId, {
-            ...variant,
-            pricePerUnit: Number(formData.newRetailPrice),
-          });
-        }
+        await updateItemVariant(formData.itemVariantId, {
+          pricePerUnit: Number(formData.newRetailPrice),
+        });
       }
       setSuccessMsg(t('stock.successAdd'));
       setOpen(false); setFormData(initialFormState); loadData();
@@ -1119,29 +1115,26 @@ const Stock = () => {
             setImportResult(null);
             setImportValidation(null);
             setImportFile(null);
+            // UI-2/UI-9: clear DOM input so re-selecting the same file fires onChange
+            if (fileInputRef.current) fileInputRef.current.value = '';
           }
         }}
         fullWidth
         maxWidth="md"
-        PaperProps={{ sx: { borderRadius: 2.5 } }}
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ p: 2.5, fontWeight: 800, fontSize: '1.2rem', borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>
-              <FileUploadIcon fontSize="small" />
-            </Avatar>
-            <Box>
-              <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
-                Bulk Stock &amp; Product Import
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Upload Excel spreadsheet to batch-create items, variants, and stock entries
-              </Typography>
-            </Box>
+        {/* UI-5/UI-6/UI-8: match the uniform dialog title style used by
+            Export, Add Stock, and Adjust Stock dialogs on this page —
+            plain Typography + icon, no Avatar, no hardcoded bgcolor */}
+        <DialogTitle sx={{ p: 2.5, fontWeight: 700, fontSize: '1.15rem' }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FileUploadIcon color="secondary" fontSize="small" />
+            {t('stock.actions.bulkImport') || 'Bulk Stock Import'}
           </Stack>
         </DialogTitle>
+        <Divider />
 
-        <DialogContent sx={{ px: 3, py: 2.5, bgcolor: '#fbfcfd' }}>
+        <DialogContent sx={{ px: 3, py: 2.5 }}>
           <Stack spacing={2.5}>
             {/* Header info & Template download */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
@@ -1412,6 +1405,8 @@ const Stock = () => {
               setImportResult(null);
               setImportValidation(null);
               setImportFile(null);
+              // UI-2/UI-9: also clear DOM input from the action button path
+              if (fileInputRef.current) fileInputRef.current.value = '';
             }}
             sx={{ fontWeight: 700, textTransform: 'none', color: 'text.secondary' }}
           >

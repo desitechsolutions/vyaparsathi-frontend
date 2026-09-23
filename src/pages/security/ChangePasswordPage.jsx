@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../context/AuthContext';
+import { changePassword as apiChangePassword } from '../../services/api';
 
 const ChangePasswordPage = ({ embedded = false }) => {
   const navigate = useNavigate();
@@ -51,16 +52,8 @@ const ChangePasswordPage = ({ embedded = false }) => {
 
     setLoading(true);
     try {
-      // TODO: Call API to change password
-      // const response = await API.post('/api/auth/change-password', {
-      //   currentPassword,
-      //   newPassword,
-      // });
-
-      // For now, simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      setSuccess('Password changed successfully!');
+      await apiChangePassword(currentPassword, newPassword);
+      setSuccess('Password changed successfully! You have been signed out of all other sessions.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

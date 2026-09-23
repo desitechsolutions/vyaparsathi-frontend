@@ -218,6 +218,16 @@ API.interceptors.response.use(
 export const login = (payload) =>
   API.post(endpoints.auth.login, payload, { skipAuthRefresh: true });
 
+/** Fetch the current user's full profile (includes authProvider, email, phone, etc.). */
+export const fetchMyProfile = () => API.get(endpoints.auth.me);
+
+/** Update the current user's editable profile fields (firstName, lastName, phone). */
+export const updateMyProfile = (data) => API.patch(endpoints.auth.me, data);
+
+/** Change the logged-in user's password (LOCAL accounts only). */
+export const changePassword = (currentPassword, newPassword) =>
+  API.post(endpoints.auth.changePassword, { currentPassword, newPassword });
+
 export const register = async (data) => {
   return API.post(endpoints.auth.register, data);
 };
@@ -349,6 +359,9 @@ export const refreshToken = () =>
 // --- SHOP & CORE ---
 
 export const setupShop = (data) => API.post(endpoints.shopOnboard, data);
+
+/** Create a second (or subsequent) shop for an already-onboarded OWNER. */
+export const createAdditionalShop = (data) => API.post(endpoints.shopAdditional, data);
 
 export const checkShopCode = async (code) => {
   const response = await API.get(`api/shop/check-code?code=${code}`);
