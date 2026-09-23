@@ -2707,6 +2707,8 @@ export const fetchReconciliationReport = (startDate, endDate) =>
 // ── Expense CRUD ──────────────────────────────────────────────────────────────
 export const createExpenseEnterprise = (data) => API.post(endpoints.expenses, data);
 export const getExpenseEnterprise = (id) => API.get(endpoints.expenseById(id));
+/** Alias used by ExpenseForm — resolves EXP-8 missing export. */
+export const getExpenseById = (id) => API.get(endpoints.expenseById(id));
 export const getExpensesEnterprise = (params) => API.get(endpoints.expenses, { params });
 export const updateExpenseEnterprise = (id, data) => API.put(endpoints.expenseById(id), data);
 export const deleteExpenseEnterprise = (id) => API.delete(endpoints.expenseById(id));
@@ -2722,13 +2724,26 @@ export const getApprovalTimeline = (id) => API.get(`${endpoints.expenseApprovals
 
 // ── Expense Analytics ─────────────────────────────────────────────────────────
 export const getDashboardMetrics = () => API.get(endpoints.expenseAnalyticsDashboard);
-export const getCategorySpending = (categoryId, startDate, endDate) =>
-  API.get(endpoints.expenseAnalyticsSpending, { params: { categoryId, startDate, endDate } });
+export const getCategorySpending = (categoryId, startDate, endDate) => {
+  // Spring's @RequestParam LocalDate requires "yyyy-MM-dd"; JS Date objects
+  // would serialise as full ISO timestamps and cause a 500.
+  const fmt = (d) => {
+    if (!d) return undefined;
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    return (d instanceof Date ? d : new Date(d)).toISOString().split('T')[0];
+  };
+  return API.get(endpoints.expenseAnalyticsSpending, {
+    params: { categoryId, startDate: fmt(startDate), endDate: fmt(endDate) },
+  });
+};
+
 export const getEmployeeExpenses = (employeeId, params) =>
   API.get(endpoints.expenseEmployeeExpenses(employeeId), { params });
 
 // ── Expense Categories ────────────────────────────────────────────────────────
 export const getExpenseCategories = () => API.get(endpoints.expenseCategories);
+/** Alias used by ExpenseForm / ExpensesList — resolves EXP-9 missing export. */
+export const getExpenseCategoriesEnterprise = () => API.get(endpoints.expenseCategories);
 export const getExpenseCategoryById = (id) => API.get(endpoints.expenseCategoryById(id));
 export const getExpenseSubcategories = (id) => API.get(endpoints.expenseCategorySubcategories(id));
 export const getExpenseCategoryHierarchy = (id) => API.get(endpoints.expenseCategoryHierarchy(id));
@@ -2737,14 +2752,26 @@ export const updateExpenseCategory = (id, data) => API.put(endpoints.expenseCate
 export const deleteExpenseCategory = (id) => API.delete(endpoints.expenseCategoryById(id));
 
 // ── Expense Reconciliation ────────────────────────────────────────────────────
+// Spring's @RequestParam LocalDate binding requires "yyyy-MM-dd".
+// ReconciliationPage passes JS Date objects; Axios serialises those as full
+// ISO timestamps ("2026-09-01T00:00:00.000Z") which Spring rejects with 500.
+const toLocalDateParam = (d) => {
+  if (!d) return undefined;
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const dt = d instanceof Date ? d : new Date(d);
+  return dt.toISOString().split('T')[0];
+};
 export const getReconciliationSummary = (startDate, endDate) =>
-  API.get(endpoints.expenseReconciliationSummary, { params: { startDate, endDate } });
+  API.get(endpoints.expenseReconciliationSummary, {
+    params: { startDate: toLocalDateParam(startDate), endDate: toLocalDateParam(endDate) },
+  });
 export const getUnmatchedExpenses = (params) =>
   API.get(endpoints.expenseReconciliationUnmatched, { params });
 export const getReimbursedExpenses = (params) =>
   API.get(endpoints.expenseReconciliationReimbursed, { params });
 export const markExpenseAsReimbursed = (id, data) =>
   API.post(endpoints.expenseReconciliationMarkReimbursed(id), data);
+
 
 // ── GST / HSN preview ─────────────────────────────────────────────────────────
 export const fetchHsnPreview = (year, month) =>

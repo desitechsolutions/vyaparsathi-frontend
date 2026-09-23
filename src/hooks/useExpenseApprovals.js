@@ -20,7 +20,11 @@ export const useExpenseApprovals = () => {
     setError(null);
     try {
       const response = await getPendingApprovals(params);
-      setApprovals(response.content || response);
+      const payload = response?.data ?? response;
+      // Handle both paginated shape { content: [...] } and plain array.
+      setApprovals(Array.isArray(payload) ? payload : (payload?.content ?? []));
+
+
     } catch (err) {
       setError(err.message || 'Failed to fetch pending approvals');
     } finally {
