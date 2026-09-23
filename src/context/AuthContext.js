@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate, useLocation } from 'react-router-dom';
-import API, { logout as apiLogout } from '../services/api';
+import API, { logout as apiLogout, cancelAllRequests } from '../services/api';
 import { startSmartIdleTimer } from '../utils/auth';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -70,6 +70,12 @@ export const AuthProvider = ({ children }) => {
     try {
       await apiLogout().catch(() => {});
     } catch {}
+
+    // Cancel every in-flight Axios request that was started under the
+    // outgoing session. Without this, User A's pending requests survive
+    // the logout/login boundary and can return 401 after User B's token
+    // is written, causing the 401 interceptor to wipe User B's session.
+    cancelAllRequests();
 
     clearAuthStorage();
     localStorage.removeItem('quick_payment_offline_queue_v1');
@@ -357,7 +363,11 @@ export const AuthProvider = ({ children }) => {
       const savedRedirect = redirectParam || sessionStorage.getItem('redirectAfterLogin');
       sessionStorage.removeItem('redirectAfterLogin');
 
-      if (savedRedirect && savedRedirect !== '/login' && savedRedirect !== '/') {
+      // SUPER_ADMIN users always land on the admin dashboard — they have no
+      // shop context and the regular app would show a blank / setup-shop page.
+      if (decoded.role === 'SUPER_ADMIN') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (savedRedirect && savedRedirect !== '/login' && savedRedirect !== '/') {
         navigate(savedRedirect, { replace: true });
       } else {
         navigate('/', { replace: true });

@@ -208,20 +208,10 @@ const Login = () => {
       login(response.data.accessToken || response.data.token);
       captureMessage('User login', 'info');
       localStorage.setItem('lastUsername', username);
-
-      const redirectParam = searchParams.get('redirect');
-      const stashedRedirect = sessionStorage.getItem('redirectAfterLogin');
-      sessionStorage.removeItem('redirectAfterLogin');
-      const target = redirectParam || stashedRedirect;
-      const isSafeTarget = target && target !== '/login' && target !== '/' && target !== '/setup-shop';
-
-      if (response.data.role === 'SUPER_ADMIN') {
-        navigate('/admin/dashboard', { replace: true });
-      } else if (isSafeTarget) {
-        navigate(target, { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
+      // Navigation is handled entirely inside login() in AuthContext — it reads
+      // the redirect param and sessionStorage, then calls navigate(). A second
+      // navigate() call here was redundant and caused a race where login()'s
+      // navigate to the correct redirect target was immediately overwritten.
     } catch (err) {
       captureException(err, { form: 'login', username });
       handleApiError(err, t('login.errorUnexpected', 'Something went wrong. Please try again.'));
@@ -927,15 +917,9 @@ const Login = () => {
     setServerError('');
     try {
       const res = await verifyMfaChallenge(mfa.challengeToken, mfa.code.trim());
+      // Navigation (including SUPER_ADMIN → /admin/dashboard) is handled
+      // entirely inside AuthContext.login() — no second navigate() needed here.
       login(res.data.accessToken);
-      const redirectParam = searchParams.get('redirect');
-      const stashedRedirect = sessionStorage.getItem('redirectAfterLogin');
-      sessionStorage.removeItem('redirectAfterLogin');
-      const target = redirectParam || stashedRedirect;
-      const isSafeTarget = target && target !== '/login' && target !== '/' && target !== '/setup-shop';
-      if (res.data.role === 'SUPER_ADMIN') navigate('/admin/dashboard', { replace: true });
-      else if (isSafeTarget) navigate(target, { replace: true });
-      else navigate('/', { replace: true });
     } catch (err) {
       handleApiError(err, t('login.mfaCodeInvalid', 'The code you entered is incorrect. Try again.'));
     }

@@ -153,7 +153,7 @@ API.interceptors.response.use(
     if (status === 401 || status === 403) {
       const url = error.config?.url ?? '';
       const isLoginRequest = url.includes('/api/auth/login');
-      // The refresh endpoint returning 401 means "no session" — completely
+      // The refresh endpoint returning 401/403 means "no session" — completely
       // normal for unauthenticated users. AuthContext handles it in its own
       // catch block; the global redirect here would boot users off public
       // pages (reset-password, verify-email) before those pages can render.
@@ -162,21 +162,52 @@ API.interceptors.response.use(
       const publicAuthPaths = ['/auth/reset-password', '/auth/verify-email', '/accept-shop-invite', '/accept-invite'];
       const isOnPublicPage = publicAuthPaths.some(p => window.location.pathname.startsWith(p));
 
-      // Guard: if this was a stale /refresh call that returned 401, check
-      // whether a NEW session's token is already sitting in localStorage.
-      // This happens when a different user logged in moments before this
-      // interval's silentRefresh response arrived. If a fresh token exists,
-      // the new session is healthy — do nothing and let it stand.
+      // ── Stale-session guard ──────────────────────────────────────────────
+      // Extract the Bearer token that was actually sent with this failing
+      // request. If it no longer matches what's in localStorage it means a
+      // NEW user already logged in while this request was in-flight (User A
+      // request → User A logs out → User B logs in → User A's request comes
+      // back 401/403). Redirecting in that case would destroy User B's session.
+      //
+      // This is the primary fix for the "User A logout → User B immediately
+      // logged out" bug and works for both password and Google login.
+      const sentAuthHeader = error.config?.headers?.Authorization ?? '';
+      const sentToken = sentAuthHeader.startsWith('Bearer ') ? sentAuthHeader.slice(7) : null;
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
+
+      // For refresh requests: treat any case where a current token is present
+      // as a newer session — the refresh used an HttpOnly cookie with no Bearer
+      // header, and a concurrent login already wrote a fresh access token.
       if (isRefreshRequest) {
-        const freshToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
-        if (freshToken) {
+        if (currentToken) {
           // A new user's token is already in place — this 401 is from a
           // stale cookie belonging to the previous session. Ignore it.
           return Promise.reject(error);
         }
         // No fresh token either — the session is genuinely dead.
-        // clearAuthStorage is a no-op here (nothing to clear), and
         // AuthContext.silentRefresh() will call setUser(null) from its catch.
+        return Promise.reject(error);
+      }
+
+      // A newer session exists when:
+      //   (a) a mismatched token was sent — the classic stale-request case, OR
+      //   (b) ANY current token is present and no token was sent at all — this
+      //       covers requests that raced through the request interceptor while
+      //       getValidToken() briefly returned null (token just expired) but a
+      //       new login wrote a fresh token before the response arrived.
+      const isNewerSessionActive =
+        currentToken &&
+        (!sentToken || currentToken !== sentToken);
+
+      // If a newer session is active, do not redirect — User B is healthy.
+      if (isNewerSessionActive) {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug(
+            '[API] Ignoring stale 401/403 — a newer session is active.',
+            { url, sentToken: sentToken?.slice(-8), currentToken: currentToken?.slice(-8) },
+          );
+        }
         return Promise.reject(error);
       }
 
@@ -403,7 +434,14 @@ export const bulkPatchItemVariants = (payload) =>
 
 export const fetchShop = async (signal) => {
   try {
-    const res = await API.get(endpoints.shop, signal ? { signal } : undefined);
+    const res = await API.get(endpoints.shop, {
+      ...(signal ? { signal } : {}),
+      // Never trigger the global 401 redirect for the shop-load request.
+      // ShopContext fires this immediately after login; a transient 401
+      // (stale race, token propagation delay) should not boot the user
+      // back to /login. ShopContext handles auth errors in its own catch.
+      skipGlobalRedirect: true,
+    });
     if (res.status === 204 || res.status === 404) {
       return { data: null, status: res.status };
     }

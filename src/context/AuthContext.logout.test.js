@@ -29,6 +29,7 @@ jest.mock('../services/api', () => {
     __esModule: true,
     default: API,
     logout: jest.fn().mockResolvedValue({}),
+    cancelAllRequests: jest.fn(),
   };
 });
 
@@ -54,8 +55,9 @@ jest.mock('../hooks/usePermissions', () => ({
 
 import { AuthProvider, useAuthContext } from './AuthContext';
 import API from '../services/api';
-import { logout as apiLogout } from '../services/api';
+import { logout as apiLogout, cancelAllRequests } from '../services/api';
 import { getValidToken } from '../utils/authStorage';
+import { jwtDecode } from 'jwt-decode';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,17 @@ describe('AuthContext — explicit-logout guard', () => {
     localStorage.clear();
     jest.clearAllMocks();
     getValidToken.mockReturnValue(null);
+    cancelAllRequests.mockClear();
+    // Re-set jwtDecode implementation after clearAllMocks in case the
+    // factory's closure was cleared. Without this, decoded.role would be
+    // undefined and the SUPER_ADMIN branch would be skipped, but navigate()
+    // would still fail because decoded.exp would be undefined too.
+    jwtDecode.mockReturnValue({
+      sub: 'testuser',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      role: 'OWNER',
+      shopId: 1,
+    });
   });
 
   afterEach(() => {
@@ -222,4 +235,23 @@ describe('AuthContext — explicit-logout guard', () => {
     // this tab just mirrors the auth state without recording its own flag.
     expect(localStorage.getItem('explicit_logout')).toBeNull();
   });
+
+  // ── 7. cancelAllRequests() is called on logout ───────────────────────────
+
+  test('logout() calls cancelAllRequests() to abort in-flight requests', async () => {
+    getValidToken.mockReturnValue('valid.jwt.token');
+
+    const getCtx = renderWithCapture();
+
+    await waitFor(() =>
+      expect(screen.queryByText('loading')).not.toBeInTheDocument()
+    );
+
+    await act(async () => {
+      await getCtx().logout('Signing out');
+    });
+
+    expect(cancelAllRequests).toHaveBeenCalledTimes(1);
+  });
+
 });

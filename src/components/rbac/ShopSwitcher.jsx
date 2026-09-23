@@ -5,9 +5,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
   ListItemIcon,
   ListItemText,
@@ -19,11 +16,9 @@ import {
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import AddBusinessIcon from '@mui/icons-material/AddBusiness';
 import { fetchMyShops, switchShop } from '../../services/api';
 import { useAuthContext } from '../../context/AuthContext';
 import { clearPermissionsCache } from '../../hooks/usePermissions';
-import CreateShopForm from '../shop/CreateShopForm';
 
 /**
  * Header shop switcher. Shows the active shop's name + role; clicking
@@ -42,19 +37,8 @@ export default function ShopSwitcher() {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(false);
   const [switching, setSwitching] = useState(null);
-  const [createOpen, setCreateOpen] = useState(false);
 
   const currentShopId = user?.shopId ?? null;
-  const isOwner = user?.role === 'OWNER';
-
-  const loadShops = () => {
-    if (!user) return;
-    setLoading(true);
-    fetchMyShops()
-      .then((res) => setShops(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setShops([]))
-      .finally(() => setLoading(false));
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -67,8 +51,8 @@ export default function ShopSwitcher() {
     return () => { cancelled = true; };
   }, [user, currentShopId]);
 
-  // Render for multi-shop users OR for OWNER (who can create a new store).
-  if (!user || (shops.length < 2 && !isOwner)) return null;
+  // Only render when the user has more than one shop to switch between.
+  if (!user || shops.length < 2) return null;
 
   const active = shops.find((s) => s.shopId === currentShopId) || shops[0];
 
@@ -83,10 +67,6 @@ export default function ShopSwitcher() {
       const token = res.data?.accessToken;
       if (token) {
         clearPermissionsCache();
-        // AuthContext.login writes the new token to localStorage, updates
-        // Axios auth headers, and re-parses the user (which will now carry
-        // the new shopId claim). A hard reload flushes any cached
-        // ShopContext / industryConfig for the previous shop.
         login(token);
         window.location.assign('/');
       }
@@ -94,19 +74,6 @@ export default function ShopSwitcher() {
       console.error('Shop switch failed:', err);
     } finally {
       setSwitching(null);
-    }
-  };
-
-  const handleShopCreated = (newToken) => {
-    setCreateOpen(false);
-    closeMenu();
-    if (newToken) {
-      clearPermissionsCache();
-      login(newToken);
-      window.location.assign('/');
-    } else {
-      // Reload shops list without a full navigation if no auto-login token.
-      loadShops();
     }
   };
 
@@ -195,49 +162,7 @@ export default function ShopSwitcher() {
           );
         })}
 
-        {/* MULTI-STORE-3 fix: Add new store entry point for OWNER */}
-        {isOwner && [
-          shops.length > 0 && <Divider key="divider" />,
-          <MenuItem
-            key="add-store"
-            onClick={() => { closeMenu(); setCreateOpen(true); }}
-            sx={{ py: 1.25 }}
-          >
-            <ListItemIcon>
-              <Avatar variant="rounded" sx={{ width: 32, height: 32, bgcolor: 'success.light', color: 'success.main' }}>
-                <AddBusinessIcon fontSize="small" />
-              </Avatar>
-            </ListItemIcon>
-            <ListItemText
-              primaryTypographyProps={{ variant: 'body2', fontWeight: 700 }}
-              primary="Add new store"
-              secondary="Create a new shop under your account"
-              secondaryTypographyProps={{ variant: 'caption' }}
-            />
-          </MenuItem>,
-        ]}
       </Menu>
-
-      {/* Create new store dialog */}
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2.5 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
-          Create a new store
-        </DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          <CreateShopForm
-            mode="additional"
-            onSuccess={handleShopCreated}
-            onCancel={() => setCreateOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

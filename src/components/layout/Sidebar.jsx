@@ -62,6 +62,7 @@ import BackupIcon from '@mui/icons-material/Backup';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import AddBusinessIcon from '@mui/icons-material/AddBusiness';
 
 import SubscriptionStatusCard from '../SubscriptionStatusCard';
 import { useResponsiveTouchTarget } from '../../utils/touchTargets';
@@ -278,6 +279,12 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     icon: <Settings />,
     children: [
       { text: t('sidebar.shopProfile', 'Shop profile & settings'), icon: <Settings />, path: '/admin/settings' },
+      // Add new store — OWNER only; not shown to ADMIN or staff.
+      ...(userRole === 'OWNER' ? [{
+        text: t('sidebar.addStore', 'Add new store'),
+        icon: <AddBusinessIcon />,
+        path: '/admin/stores/add',
+      }] : []),
       // Shop-level 2FA policy — enforcement + own-account status. Personal
       // MFA enrollment lives in the header user menu (per-user, not shop-config).
       { text: t('sidebar.twoFactor', 'Two-factor authentication'), icon: <ShieldOutlinedIcon />, path: '/admin/security/two-factor' },

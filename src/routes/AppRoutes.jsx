@@ -59,6 +59,7 @@ import CustomerStatementPage  from '../pages/payments/CustomerStatementPage';
 import CustomerDetails from '../pages/CustomerDetails';
 import AboutUs from '../pages/AboutUs';
 import SetupShop from '../pages/SetupShop';
+import AddStorePage from '../pages/AddStorePage';
 import PurchaseOrders from '../pages/PurchaseOrders';
 import PurchaseOrderEditor from '../pages/purchases/PurchaseOrderEditor';
 import PurchaseOrderDetail from '../pages/purchases/PurchaseOrderDetail';
@@ -382,6 +383,10 @@ function AppRoutes() {
                 Personal MFA (enrollment/backup-codes) still lives at
                 /account/security/mfa in the header user menu. */}
             <Route path="admin/security/two-factor" element={<TwoFactorAuthenticationPage />} />
+            {/* Add new store — OWNER only. Lives under Configuration in the sidebar. */}
+            {user?.role === 'OWNER' && (
+              <Route path="admin/stores/add" element={<AddStorePage />} />
+            )}
 
             {/* User Profile Menu Pages — Available to all authenticated users */}
             <Route path="user/lock-screen" element={<LockScreenPage />} />
