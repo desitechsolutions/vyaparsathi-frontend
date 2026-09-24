@@ -452,7 +452,11 @@ export default function CustomerDetails() {
   }
 
   const isBusiness = customer.customerType === 'BUSINESS';
-  const netBalance = Number(customer.creditBalance ?? stats?.outstandingReceivable ?? 0);
+  // Prefer stats.outstandingReceivable (computed as Σ(totalAmount - paid) over open invoices)
+  // over customer.creditBalance, which is a ledger running-balance maintained with an inverted
+  // DEBIT/CREDIT convention and can misrepresent the true receivable amount.
+  // Fall back to creditBalance only when stats have not loaded yet.
+  const netBalance = Number(stats?.outstandingReceivable ?? customer.creditBalance ?? 0);
   const isReceivable = netBalance > 0;
   const isAdvance = netBalance < 0;
   const statusLabel = isReceivable ? 'Outstanding Due' : isAdvance ? 'Advance Credit' : 'Settled';

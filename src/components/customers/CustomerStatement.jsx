@@ -117,8 +117,12 @@ export default function CustomerStatement({ customerId, onDownloadPdf }) {
   const openingBal = Number(statementData?.openingBalance || 0);
   const closingBal = Number(statementData?.closingBalance || 0);
   const totalDebits = statementData?.totalInvoiced ?? lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
-  const totalCredits = (statementData?.totalPaid ?? 0) + (statementData?.totalCredits ?? 0)
-    || lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+  // Use explicit undefined check — the sum of totalPaid + totalCredits can legitimately be 0
+  // (no payments received yet), and the previous `||` would fall through to the reduce fallback,
+  // double-counting credits from statement lines when the server already returned 0.
+  const totalCredits = (statementData?.totalPaid !== undefined || statementData?.totalCredits !== undefined)
+    ? (statementData?.totalPaid ?? 0) + (statementData?.totalCredits ?? 0)
+    : lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
 
   // Helper for badge labels and colors
   const getBadgeConfig = (type = '', desc = '') => {
