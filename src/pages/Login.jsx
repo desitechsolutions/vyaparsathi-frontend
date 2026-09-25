@@ -258,7 +258,9 @@ const Login = () => {
   // Spring Security handles the full authorization-code dance and then
   // redirects back to /auth/oauth2/callback with our JWT.
   const handleOAuth2Login = (provider) => {
-    const base = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+    // Use REACT_APP_API_BASE_URL if set (prod), otherwise use relative URL
+    // which the CRA dev server proxy forwards to localhost:8080.
+    const base = process.env.REACT_APP_API_BASE_URL || '';
     window.location.href = `${base}/oauth2/authorization/${provider}`;
   };
 

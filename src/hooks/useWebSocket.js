@@ -8,7 +8,11 @@ import { getValidToken } from '../utils/authStorage';
 // ─── Connectivity probe ────────────────────────────────────────────────────────
 // navigator.onLine only reflects the OS network-interface state (WiFi connected
 // ≠ internet reachable). We probe the backend to confirm true reachability.
-const PROBE_ENDPOINT = `${API_BASE_URL}/actuator/health`;
+// REACT_APP_WS_BASE_URL is set to the dev server origin (localhost:3000) which
+// proxies /actuator to the backend, keeping the probe same-origin.
+// In production, both are empty and window.location.origin is used.
+const WS_BASE_URL = process.env.REACT_APP_WS_BASE_URL || '';
+const PROBE_ENDPOINT = `${WS_BASE_URL}/actuator/health`;
 const PROBE_TIMEOUT_MS = 5_000;
 
 async function probeConnectivity() {
@@ -325,7 +329,7 @@ const useWebSocket = (shopId, options = {}) => {
       // (initial connect + every reconnect). Building the SockJS socket
       // here instead of outside the Client ensures each reconnect attempt
       // opens a new TCP connection rather than reusing a closed one.
-      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`, null, {
+      webSocketFactory: () => new SockJS(`${WS_BASE_URL}/ws`, null, {
         withCredentials: true,
         transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
       }),
